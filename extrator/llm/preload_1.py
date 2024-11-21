@@ -322,10 +322,7 @@ class BiomeMap:
         seen_ids = set()
         have_idx0 = False
         for subrange in self.rangeList:
-            if subrange.biomeId == 0:
-                have_idx0 = True
             if subrange.biomeId in seen_ids:
-                idx = 0
                 have_idx0 = True
             else:
                 idx = subrange.biomeId
@@ -478,7 +475,7 @@ def createSubBiomeMap(minT, maxT, minH, maxH, intersectionBy=[]):
     # print(subMap)
     subMap.subdivision(resIndies)
 
-    subRange, have_idx0 = subMap.getSubRange_noRep()
+    subRange, repeated_idx = subMap.getSubRange_noRep()
     subMap.printBiomeRange()
 
     ret = [{
@@ -491,6 +488,6 @@ def createSubBiomeMap(minT, maxT, minH, maxH, intersectionBy=[]):
             "max": subMap.maxTemperature,
         },
         "subRanges": subRange,
-    }, have_idx0]
+    }, repeated_idx]
 
     return ret
