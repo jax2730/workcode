@@ -11,6 +11,12 @@ from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain.docstore.document import Document
 
 
+
+
+
+
+
+
 template_tool_call="""
 **代理任务:**
 
@@ -166,32 +172,28 @@ def add_tool_message(state: State):
     subRange, have_idx0 = set_env(tool_args)
     print("have_idx0------------------", have_idx0)
     if have_idx0:
-        # global vectorstore
-        # # 查询 FAISS 索引
-        # docs = vectorstore.similarity_search(tool_args, k=10)  # 查询最相关的 5 条记录
+        global vectorstore
+        docs = vectorstore.similarity_search(tool_args, k=5)  # 查询最相关的 5 条记录
         
-        # # 示例：格式化返回结果
-        # formatted_docs = [{"content": doc.page_content, "metadata": doc.metadata} for doc in docs]
-        # print("---------------formatted_docs-----------", formatted_docs)          # 构造提醒信息
+        formatted_docs = [{"content": doc.page_content, "metadata": doc.metadata} for doc in docs]
+        print("---------------formatted_docs-----------", formatted_docs)          # 构造提醒信息
         user_message = (
             "环境设置完成,但是在生成数据时部分区域地形不可用，建议更改颜色参数更加适配温湿度。\n"
             "以下是根据您输入的上下文推荐的改进建议：\n"
         )
-        # biome_names = [name for doc in formatted_docs for name in doc['metadata']['biome_name']]
-        # user_message += "推荐地形类型：\n" + ", ".join(set(biome_names)) + "\n" + "请确认是否要增加颜色,如果需要,输入新的颜色"
+        biome_names = [name for doc in formatted_docs for name in doc['metadata']['biome_name']]
+        user_message += "推荐地形类型：\n" + ", ".join(set(biome_names)) + "\n" + "请确认是否要增加颜色,如果需要,输入新的颜色"
         return {
         "messages": [
             ToolMessage(
                 content=user_message,
                 tool_call_id=state["messages"][-1].tool_calls[0]["id"],
-                # submap_info = subRange
             )
             ]
         }
 
     content = "环境设置完成"
-    # subRange.clear()
-    ## todo 生成场景数据
+
     return {
         "messages": [
             ToolMessage(
@@ -201,28 +203,7 @@ def add_tool_message(state: State):
         ]
     }
 
-# @workflow.add_node
-# def recheck(state: State):
-#     print("当前节点-----------recheck----------------")
-#     for message in  state['messages']:
-#             if isinstance(message, ToolMessage):
-#                 print("--------------------------------ToolMessage---------------------", message)
-#                 if hasattr(message, 'submap_info'):
-#                     print("submap_info:", message.submap_info)
-#                     return "recheck"
-#     content = "修改部分内容"
-#     return {
-#         "messages": [
-#             AIMessage(
-#                 content=content,
-#             )
-#         ]
-#     }
 
-# workflow.add_edge(START, "info")
-# workflow.add_conditional_edges("info", get_state,["add_tool_message", "info", END])
-# workflow.add_conditional_edges("add_tool_message",get_state, ["recheck", "info"])
-# workflow.add_conditional_edges("recheck",get_state, ["recheck", "info"])
 
 workflow.add_conditional_edges("info", get_state, ["add_tool_message", "info", END])
 workflow.add_edge("add_tool_message", "info")
@@ -230,11 +211,8 @@ workflow.add_edge(START, "info")
 graph = workflow.compile()
 ########################################################################
 
-# from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import OllamaEmbeddings
-# from langchain.ollama import OllamaEmbeddings
-
 
 # 构建知识向量库
 def get_biome_docs():
@@ -287,16 +265,15 @@ def init():
 
 
     # 建立知识索引库 
-    # 使用自定义嵌入
-    # global vectorstore
-    # embeddings = OllamaEmbeddings(model='nomic-embed-text')
-    # vectorstore = FAISS.from_documents(biome_data_docs, embeddings)
-    # # 保存索引
-    # vectorstore.save_local("biome_knowledge_index")
+    global vectorstore
+    embeddings = OllamaEmbeddings(model='nomic-embed-text')
+    vectorstore = FAISS.from_documents(biome_data_docs, embeddings)
+    # 保存索引
+    vectorstore.save_local("biome_knowledge_index")
 
 
 def chat(humanMsg:str, session_id:str):
-    print("-----------------chat-----------")
+    # print("-----------------chat-----------")
     # 临界资源
     result = {
         "success": 1,
@@ -317,43 +294,36 @@ def chat(humanMsg:str, session_id:str):
         if isinstance(last_message, AIMessage) and len(last_message.tool_calls) > 0:
             args = last_message.tool_calls[-1].get('args')
             name = last_message.tool_calls[-1].get('name')
-            # global subRange
-
-        # if  len(Messages) >= 3 and len(Messages[0].tool_calls) > 0:
-        #     args = Messages[1].tool_calls[-1].get('args')
-        #     name = Messages[1].tool_calls[-1].get('name')
-        #     print("=================调整后的新参数============================")
 
         last_message.pretty_print()
     
     if name and args:
+        # print("subRange-------",subRange)
         # global subRange
-        copied_subRange = subRange.copy()  # 创建浅拷贝
+        copied_subRange = subRange.copy()  
         copied_subRange.pop("_last_operation", None)
         copied_subRange.pop("_has_repeated_idx", None)
-        if subRange["_last_operation"] == "createSubBiomeMap":
-            subRange.clear()   
+        if subRange["_has_repeated_idx"] == False:
+             subRange.clear()   
+        # if subRange["_last_operation"] == "createSubBiomeMap":
+        #     subRange.clear()   
         # elif subRange["_last_operation"] == "mod_subMap" and subRange["_has_repeated_idx"] == False :
         #     subRange.clear()    
         result["data"] = copied_subRange
         result["msg"] = output["info"]['messages'][-1].content
-        print("result------1------", result)
         return result
     else:
         result["msg"] = output["info"]['messages'][-1].content
-        print("result------2------", result)
+        # print("result------2------", result)
         return result
 
 def set_env(args):
     global subRange
-    print("subRange.length--------------",len(subRange),"content------", subRange )
     colorAssets = preload_1.filterByColor(args["colors"])
     if len(subRange)>0:
-        print("-----------mod_subMap------")
         subRange, have_idx0 = mod_subMap(colorAssets,subRange)
         subRange["_last_operation"] = "mod_subMap" 
     else:
-        print("-----------createSubBiomeMap------")
         subRange, have_idx0 = preload_1.createSubBiomeMap(args["temperature"]["min"],
                                 args["temperature"]["max"],
                                 args["humidity"]["min"],
@@ -361,7 +331,7 @@ def set_env(args):
                                 colorAssets)
         subRange["_last_operation"] = "createSubBiomeMap" 
         
-    subRange["_has_repeated_id"] = have_idx0
+    subRange["_has_repeated_idx"] = have_idx0
     return subRange, have_idx0  
 
 def mod_subMap(colorAssets, subRange):
@@ -370,27 +340,27 @@ def mod_subMap(colorAssets, subRange):
     have_idx0 = False
     for subrange in subRange['subRanges']:
         if subrange["idx"] in seen_ids:
-            seen_ids.add(subrange["idx"])
             subrange["idx"] = -1
-    for doc in biome_data_docs:
-        if any(idx in seen_ids for idx in doc.metadata["biome_indices"]):
-            for name in doc.metadata["biome_name"]:
-                unused_colors.discard(name) 
+        else:
+            seen_ids.add(subrange["idx"])
+    for name, index in preload_1.originBiomeMap.items():
+        if index in seen_ids:
+            # 如果索引在 seen_ids 中，从 unused_colors 中移除该名称
+            unused_colors.discard(name)
 
-    print("subrange===========1============",subRange)
     for subrange in subRange['subRanges']:
         if subrange["idx"] == -1:
-            if unused_colors:
+            if len(unused_colors)>0:
                 selected_color = unused_colors.pop()
-                for doc in biome_data_docs:
-                    if selected_color in doc.metadata["biome_name"]:
-                        selected_idx = doc.metadata["biome_indices"][doc.metadata["biome_name"].index(selected_color)]
-                        subrange["idx"] = selected_idx
-                        break
+                # print("还有可用颜色", selected_color)
+                if selected_color in preload_1.originBiomeMap:
+                    selected_idx = preload_1.originBiomeMap[selected_color]
+                    subrange["idx"] = selected_idx
+                    # print(f"Color '{selected_color}'对应的索引号是: {selected_idx}")
+                    break
             else:
+                # print("没有可用的颜色了，colorAssets：",colorAssets)
                 have_idx0 = True
                 break
-
-    print("subrange===========2============",subRange)
 
     return subRange, have_idx0  
