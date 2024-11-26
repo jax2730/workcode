@@ -34,6 +34,20 @@ import math
 import random
 from . import utils as util
 
+# 默认参数
+stamp_terrain_instance = {
+			"width":	1.000000,
+			"height":	1.000000,
+			"verticalScale":	1,
+			"transition":	0.500000,
+			"axis.x":	0,
+			"axis.y":	1,
+			"axis.z":	0,
+			"angle":	0,
+			"verticalTrans":	0,
+			"stamp_terrain_heightmap":	"biome_terrain/StampTerrain/Height Map_haidao.raw"
+		}
+
 # 加载模板库
 def load_stample_terrain_instance(dir):
     # stamp_terrain_instances:模板文件
@@ -85,3 +99,19 @@ def createTerrainStamp(TerrainAssets):
                 terrain_stamps.append(heightmap)
     print("terrain_stamps", terrain_stamps)
     return terrain_stamps
+
+class Point3:
+    def __init__(self, x=0, y=0, z=0):
+        self.x = x
+        self.y = y
+        self.z = z
+def to_rad(deg):
+    return deg / 180 * math.pi
+# 经纬度转换为归一化球坐标
+def get_normalized_coordinate(lat, lng):
+    lat = to_rad(lat)
+    lng = to_rad(lng)
+    x = math.cos(lat) * math.cos(lng)
+    y = math.cos(lat) * math.sin(lng)
+    z = math.sin(lat)
+    return Point3(x, y, z)

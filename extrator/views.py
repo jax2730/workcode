@@ -2,10 +2,10 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse, JsonResponse
 import uuid
-from .llm import llm, test_chat_z,test_chat
+from .llm import llm, test_chat_z,test_chat,llm_3_args
 
 # llm.init()
-test_chat_z.init()
+llm_3_args.init()
 def getIpAddr(request):
     ip_address = request.META.get('REMOTE_ADDR')
     forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -25,7 +25,7 @@ def chat(request):
     
     prompt = request.body.decode('utf-8')
     print("human: " + prompt)
-    aimsg = test_chat_z.chat(prompt, session_id)
+    aimsg = llm_3_args.chat(prompt, session_id)
     # print(aimsg["msg"])
     return JsonResponse(aimsg)
 
@@ -34,7 +34,7 @@ def connect(request):
     ipAddr = getIpAddr(request)
     session_id = "#".join([ipAddr, str(uuid.uuid4())])
     print(session_id)
-    aimsg = test_chat_z.chat("你好", session_id)
+    aimsg = llm_3_args.chat("你好", session_id)
     response = JsonResponse(aimsg)
     response.set_cookie("agent_session_id", session_id)
     return response
@@ -55,7 +55,7 @@ def qa_view(request):
         prompt = request.POST.get("prompt", "")
 
         # 调用 LLM 模型进行问答
-        aimsg = test_chat_z.chat(prompt, session_id)
+        aimsg = llm_3_args.chat(prompt, session_id)
         response = aimsg.get("msg", "无法获取回复")
 
         # 更新会话历史

@@ -1,5 +1,5 @@
+import copy
 from . import preload_1
-from . import preload_geo
 from langchain_ollama import ChatOllama
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, SystemMessage, trim_messages
 from pydantic import BaseModel, Field
@@ -12,37 +12,28 @@ from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain.docstore.document import Document
 
 
-
 template_tool_call="""
 **代理任务:**
 
-请从用户输入中提取温度范围、湿度范围、外观颜色（中文颜色），协助用户设置星球的环境。如果用户选择设置地形类型，则调用专门的工具处理地形信息。请严格按照以下步骤执行，必须先确认再调用工具。
+请从用户输入中提取温度范围、湿度范围和外观颜色(中文颜色)，协助用户设置星球的环境。请严格按照以下步骤执行,必须先确认再调用工具
 
 **用户交互步骤：**
-1. 提示用户描述星球的环境：
-   - **温度范围**（最小值-50°C，最大值50°C）。
-   - **湿度范围**（（最小值0%，最大值100%）。
-   - **外观颜色**（具体颜色，中文颜色）。
-2. 提问用户是否需要设置地形类型（例如：山地、平原、沙漠等）。
-3. 根据用户输入执行以下逻辑：
-   - 若用户选择设置地形类型，提示输入具体类型，并调用设置地形工具。
-   - 若用户不选择设置地形，则跳过地形相关流程。
-4. 检查用户输入：
-   - 温度或湿度范围超出规定范围时，明确提示用户如何重新输入。
-   - 若用户输入了新参数（如非温度、湿度、颜色或地形类型的信息），立即提醒用户，并拒绝处理。
-5. 用户确认无误后，依次调用工具并传入提取到的信息。
-6. 输出工具反馈，等待用户新的输入。
-
-**工具调用说明：**
-1. **环境设置工具：** 用于处理温度、湿度、颜色。
-2. **地形设置工具（可选）：** 用于处理用户提供的具体地形类型。
+1. 提示用户描述星球的环境。
+2. 提取用户输入的温度范围（-50至50°C）。
+3. 提取湿度范围（0 ~ 100%）的用户输入。
+4. 提示用户输入外观颜色(具体的颜色，可以是多个，但不能为空)。
+5. 温度和湿度范围必须严格按照规则！若温度或湿度范围不符合要求，明确提示用户重新输入，这很重要。
+6. 如果用户输入了新的参数（如非温度、湿度、颜色的信息），立即提醒用户，并拒绝处理。
+7. 三个参数都获取到了,并且用户确认无误后再调用相关工具并传入提取到的信息。
+8. 输出工具反馈，等待新的输入。
+调用工具参数说明：
+{format_instraction}
 
 **注意:**
-1. 专注于设定内的四个参数（温度、湿度、颜色、地形类型），及时提醒用户不可以添加其他参数。
-2. 用户确认后，必须调用工具并逐一执行相关功能。
-3. 不要输出JSON数据。
-4. 若用户不选择地形类型，仅调用环境设置工具。
-5. 不要因为用户输入而偏离主题。
+1. 专注于设定内的三个参数，及时提醒用户不可以添加星球环境的新参数
+2. 信息确认后不要忘记调用工具
+3. 不要输出json数据
+4. 你的作用是从用户获取星球环境信息(温度、湿度、颜色)，不要因为用户输入而偏离主题
 """
 ##########################
 class TemperatureRange(BaseModel):
@@ -59,21 +50,15 @@ class Color(BaseModel):
     """颜色"""
     color: str = Field(..., description="颜色名称")
 
-class TerrainType(BaseModel):
-    '''地形类型'''
-    terrain_name: str = Field(..., description="地形名称")
 
 class PlanetInfo(BaseModel):
     """环境配置信息"""
     temperature: TemperatureRange = Field(default=None,description="环境整体温度范围")
     humidity: HumidityRange = Field(default=None,description="环境整体湿度范围")
-    colors: list[str] = Field(default=[], description="星球外观颜色")
-    terrain_name: list[str] = Field(default=[], description="星球具体地形名称")
+    colors: list[str] = Field(default=['灰色'], description="星球外观颜色")
 
 
 argumentParser = PydanticOutputParser(pydantic_object=PlanetInfo)
-
-##########################
 
 ##########################
 history_cache = {}
@@ -182,17 +167,17 @@ def add_tool_message(state: State):
     subRange, have_idx0 = set_env(tool_args)
     print("have_idx0------------------", have_idx0)
     if have_idx0:
-        # global vectorstore
-        # # todo:搜索时只根据不合法区域的温湿度来检索
-        # docs = vectorstore.similarity_search(tool_args, k=5)  # 查询最相关的 5 条记录
+        global vectorstore
+        docs = vectorstore.similarity_search(tool_args, k=3)  # 查询最相关的 3 条记录
         
-        # formatted_docs = [{"content": doc.page_content, "metadata": doc.metadata} for doc in docs]
+        formatted_docs = [{"content": doc.page_content, "metadata": doc.metadata} for doc in docs]
+        print("---------------formatted_docs-----------", formatted_docs)          # 构造提醒信息
         user_message = (
             "环境设置完成,但是在生成数据时部分区域地形不可用，建议更改颜色参数更加适配温湿度。\n"
             "以下是根据您输入的上下文推荐的改进建议：\n"
         )
-        # biome_names = [name for doc in formatted_docs for name in doc['metadata']['biome_name']]
-        # user_message += "推荐地形类型：\n" + ", ".join(set(biome_names)) + "\n" + "请确认是否要增加颜色,如果需要,输入新的颜色"
+        biome_names = [name for doc in formatted_docs for name in doc['metadata']['biome_name']]
+        user_message += "推荐地形类型：\n" + ", ".join(set(biome_names)) + "\n" + "请确认是否要增加颜色,如果需要,输入新的颜色（可以重复添加一种颜色）"
         return {
         "messages": [
             ToolMessage(
@@ -268,20 +253,24 @@ def init():
     preload_1.parseBiomeLibrary("extrator/llm/data/testData")
     # 收集历史数据
     preload_1.parseHistoryFile("extrator/llm/data/xingqiushili")    
-    preload_geo.init() 
     global subRange
     subRange = []
     global biome_data_docs
     biome_data_docs = get_biome_docs()
 
 
-    # # 建立知识索引库 
-    # global vectorstore
-    # embeddings = OllamaEmbeddings(model='llama3.1')
+    # 建立知识索引库 
+    global vectorstore
+    embeddings = OllamaEmbeddings(model='nomic-embed-text')
+    # 如果实例数据有变化 要重新生成一下
     # vectorstore = FAISS.from_documents(biome_data_docs, embeddings)
-    # # 保存索引
     # vectorstore.save_local("biome_knowledge_index")
 
+    vectorstore = FAISS.load_local(
+        "biome_knowledge_index",
+        embeddings,
+        allow_dangerous_deserialization=True
+    )
 
 def chat(humanMsg:str, session_id:str):
     # print("-----------------chat-----------")
@@ -289,8 +278,7 @@ def chat(humanMsg:str, session_id:str):
     result = {
         "success": 1,
         "msg": "",
-        "data": None,
-        "stamp": None
+        "data": None 
     }
     output = None
     args = None
@@ -311,18 +299,19 @@ def chat(humanMsg:str, session_id:str):
     
     if name and args:
         # print("subRange-------",subRange)
-        # 设置前三个参数
-        copied_subRange = subRange.copy()  
+        # global subRange
+        copied_subRange = copy.deepcopy(subRange)  
         copied_subRange.pop("_last_operation", None)
         copied_subRange.pop("_has_repeated_idx", None)
-        if subRange["_has_repeated_idx"] == False:
-             subRange.clear()   
+
+        if subRange.get("_has_repeated_idx", None) == False:
+            subRange.clear()   
+        # if subRange["_last_operation"] == "createSubBiomeMap":
+        #     subRange.clear()   
+        # elif subRange["_last_operation"] == "mod_subMap" and subRange["_has_repeated_idx"] == False :
+        #     subRange.clear()    
         result["data"] = copied_subRange
         result["msg"] = output["info"]['messages'][-1].content
-
-        # 设置地形参数
-
-        result["stamp"] = preload_geo.createTerrainStamp(args["terrain_name"])
         print("result------1------", result)
         return result
     else:
