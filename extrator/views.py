@@ -5,7 +5,8 @@ import uuid
 from .llm import llm, test_chat_z,test_chat,llm_3_args
 
 # llm.init()
-llm_3_args.init()
+# llm_3_args.init()
+test_chat_z.init()
 def getIpAddr(request):
     ip_address = request.META.get('REMOTE_ADDR')
     forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -55,7 +56,7 @@ def qa_view(request):
         prompt = request.POST.get("prompt", "")
 
         # 调用 LLM 模型进行问答
-        aimsg = llm_3_args.chat(prompt, session_id)
+        aimsg = test_chat_z.chat(prompt, session_id)
         response = aimsg.get("msg", "无法获取回复")
 
         # 更新会话历史

@@ -35,7 +35,7 @@ def parseBiomeLibrary(configPath):
     global originBiomeMap   
     for idx, ele in enumerate(testData):
         originBiomeMap[ele["name"]] = idx
-    print("originBiomeMap", originBiomeMap)
+    # print("originBiomeMap", originBiomeMap)
     
     colorMap = {}
     materialMap = {}

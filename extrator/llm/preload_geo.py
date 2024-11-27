@@ -25,6 +25,7 @@
 
 '''
 
+import copy
 import os
 from langchain_ollama import OllamaEmbeddings
 from langchain_community.vectorstores import FAISS
@@ -77,41 +78,59 @@ def get_stamp_docs():
         ))
     return stamp_data_docs
 
-terrainstore = []
+global terrainstore
 def init():
     print("----------初始化----------")
 
     # 建立知识索引库 
     global terrainstore
     embeddings = OllamaEmbeddings(model='nomic-embed-text')
-    terrainstore = FAISS.from_documents(get_stamp_docs(), embeddings)
-    print("terrainstore", terrainstore)
-    # 保存索引
-    terrainstore.save_local("stamp_knowledge_index")
+    #  # 如果实例数据有变化 要重新生成一下
+    # terrainstore = FAISS.from_documents(get_stamp_docs(), embeddings)
+    # print("terrainstore", terrainstore)
+    # # 保存索引
+    # terrainstore.save_local("stamp_knowledge_index")
+    terrainstore = FAISS.load_local(
+        "stamp_knowledge_index",
+        embeddings,
+        allow_dangerous_deserialization=True
+    )
 
 def createTerrainStamp(TerrainAssets):
     terrain_stamps = []
+    # TerrainAssets [{'latitude': 30, 'longitude': 120, 'type': '平原'}, {'latitude': 88, 'longitude': -120, 'type': '山地'}]
+    print("TerrainAssets", TerrainAssets)
+    global terrainstore
+    i = 0
     for terrain in TerrainAssets:
-        docs = terrainstore.similarity_search(terrain, k=2) 
+        terrain_data = copy.copy(stamp_terrain_instance)
+        docs = terrainstore.similarity_search(terrain["type"], k=1)
+        if i>=6: 
+            break
         for doc in docs:
             heightmap = doc.metadata.get('heightmap')
             if heightmap:  # 确保 heightmap 存在
-                terrain_stamps.append(heightmap)
+                i += 1
+                print("terrain---------------", terrain)
+                x,y,z = get_normalized_coordinate(terrain["latitude"],terrain["longitude"])
+                terrain_data["stamp_terrain_heightmap"] = "biome_terrain/StampTerrain/"+heightmap   
+                terrain_data["axis.x"] = round(x, 6)
+                terrain_data["axis.y"] = round(y, 6)
+                terrain_data["axis.z"] = round(z, 6)
+                # terrain_stamps.append(heightmap)
+                terrain_stamps.append(terrain_data)
     print("terrain_stamps", terrain_stamps)
     return terrain_stamps
 
-class Point3:
-    def __init__(self, x=0, y=0, z=0):
-        self.x = x
-        self.y = y
-        self.z = z
+
+
+# 经纬度转换为归一化球坐标
 def to_rad(deg):
     return deg / 180 * math.pi
-# 经纬度转换为归一化球坐标
 def get_normalized_coordinate(lat, lng):
     lat = to_rad(lat)
     lng = to_rad(lng)
     x = math.cos(lat) * math.cos(lng)
     y = math.cos(lat) * math.sin(lng)
     z = math.sin(lat)
-    return Point3(x, y, z)
+    return x, y, z
