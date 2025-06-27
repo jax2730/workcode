@@ -1,270 +1,190 @@
-#include "traffic.h"
-#include <cmath>
-#include <algorithm>
-#include <functional>
-
-Car::Car(int id) 
-    : mData(nullptr), mId(id), mHasDestination(false)
+#include "Traffic.h"
+#include "EchoSceneManager.h"
+#include "EchoWorldManager.h"
+#include "Actor/EchoActorManager.h"
+#include "Actor/EchoActor.h"
+#include "EchoSphericalTerrainComponent.h"
+#include"EchoPlanetRoad.h"
+#include"EchoPlanetRoadResource.h"
+#include"TrafficManager.h"
+#include "EchoPiecewiseBezierUtil.h"
+#include"chrono"
+namespace Echo
 {
-    mDestination[0] = mDestination[1] = mDestination[2] = 0.0f;
+
+	Traffic::Traffic(SceneManager* InSceneManger, WorldManager* InWorldMgr)
+
+	{
+
+	}
+
+	Traffic::~Traffic()
+	{
+
+	}
+
+	void Traffic::Tick(float dt)
+	{
+		if(m_roadManager)
+			m_roadManager->update(dt);
+	}
+
+	bool Traffic::OnActorCreateFinish()
+	{
+		LogManager::instance()->logMessage("123");
+		LogManager::instance()->logMessage("1111", LML_CRITICAL);
+		if (mActor)
+		{
+			LogManager::instance()->logMessage("MiniMapManager::OnActorCreateFinish: Actor [" + mActor->getUniqueName() + "] 创建完成，开始初始化道路系统。");
+
+			auto* component = mActor->GetFirstComByType<SphericalTerrainComponent>().get();
+			if (component)
+			{
+				
+				m_targetPlanet = component->GetSphericalTerrain();
+				m_targetPlanet->addLoadListener(this);
+				
+			}
+			return false;
+			}
+		
+
+
+		return false;
+	}
+
+
+	void Traffic::OnCreateFinish()
+	{
+
+		if (m_targetPlanet)
+		{
+			const PlanetRoadGroup& roadGroup = m_targetPlanet->mRoad->mPlanetRoadData->getPlanetRoadGroup();
+
+			m_roadManager = new Road(roadGroup.roads[0]);//std::make_unique<Road>(roadGroup.roads[0]);
+
+			if (!roadGroup.roads.empty())
+			{
+				Vehicle* car = new Vehicle;
+
+				m_roadManager->addCar(car);
+
+				LogManager::instance()->logMessage("Created " + std::to_string(m_Vehicles.size()) + " vehicles on road system.");
+			}
+		}
+
+
+	}
+	
+	
+
+	void Traffic::OnDestroy()
+	{
+
+	}
+	Road::Road(const PlanetRoadData& roadData) : mRoadsData(roadData)
+	{
+		for (size_t i = 0; i < roadData.beziers.size() - 1; ++i)
+		{
+			const auto& startPoint = roadData.beziers[i];
+			const auto& endPoint = roadData.beziers[i+1];
+
+			float currSeg = PiecewiseBezierUtil::LengthFromTime(
+				startPoint.point,
+				startPoint.destination_control,
+				endPoint.point,
+				endPoint.source_control,
+				1.0f
+			);
+			mLens += currSeg;
+			mSeg.push_back(mLens);
+		}
+
+		
+		//LogManager::instance()->logMessage("Road Manager created, managing " + std::to_string(m_allRoadsData.size()) + " roads.");
+
+	}
+
+	void Road::addCar(Vehicle* car)
+	{
+		if (car)
+		{
+			mCars.push_back(car);
+		}
+	}
+
+	void Road::update(float deltaTime) 
+	{
+
+		for (Vehicle* car : mCars)
+		{
+
+			// 2. 更新车辆已行驶的总路程
+			car->update(deltaTime);
+
+
+			// 4. 如果路程超过总长，让它循环
+			if (car->s > mLens && mLens > 0) {
+				car->s = fmod(car->s, mLens);
+			}
+
+			// 5. 查找车辆当前在哪一段 (piece_index)
+			// ... (这部分逻辑需要道路的分段累积长度，我们可以在 Road 类中缓存，或者在这里即时计算)
+			unsigned int piece_index = 0;
+			float length_before_piece = 0;
+			for (size_t i = 0; i < mSeg.size(); ++i)
+			{
+				if (car->s <= mSeg[i])
+				{
+					piece_index = i;
+					length_before_piece = (i == 0) ? 0.0f : mSeg[i - 1];
+					break;
+				}
+			}
+
+
+
+			// 6. 计算在当前这一小段上行驶的距离
+			float distanceOnSegment = car->s - length_before_piece;
+
+			// 7. 根据路程反求出插值参数 t
+			const auto& startPoint = mRoadsData.beziers[piece_index];
+			const auto& endPoint = mRoadsData.beziers[piece_index + 1];
+			float t = PiecewiseBezierUtil::LengthsTot(startPoint.point, startPoint.destination_control, endPoint.point, endPoint.source_control, distanceOnSegment, 0.f);
+
+			// 8. 根据 t 计算出车辆的当前位置
+			car->pos = PiecewiseBezierUtil::CInterpolate(startPoint.point, startPoint.destination_control, endPoint.point, endPoint.source_control, t);
+			car->dir = PiecewiseBezierUtil::CInterpolate(startPoint.point, startPoint.destination_control, endPoint.point, endPoint.source_control, t+0.01f);
+			car->dir -= car->pos;
+			car->dir.Normalize();
+			car->updatePos();
+		}
+		
+	}
+	
+
+
+	Vehicle::Vehicle(float initialSpeed)
+		: s(0.f), speed(initialSpeed), acc(0.f), pos(Vector3::ZERO)
+	{
+		mCar = Echo::ActorSystem::instance()->getActiveActorManager()->createActor(Name("actors/car_005.act"), "", false, false);
+	}
+
+	
+
+	void Vehicle::update(float deltaTime)
+	{
+		s += speed * deltaTime;
+	}
+
+	void Vehicle::updatePos()
+	{
+		if (!mCar.Expired())
+		{
+			mCar->setPosition(pos);
+			mCar->setRotation(Quaternion::FromToRotation({ 1.0f, 0.0f, 0.0f }, dir));
+		}
+	}
+
 }
 
-Car::~Car()
-{
-}
-
-void Car::UpdatePosition(float deltaTime)
-{
-    if (!mData || !mHasDestination) return;
-    
-    float toTarget[3] = {
-        mDestination[0] - mData->pos[0],
-        mDestination[1] - mData->pos[1],
-        mDestination[2] - mData->pos[2]
-    };
-    
-    float distance = std::sqrt(toTarget[0] * toTarget[0] + 
-                              toTarget[1] * toTarget[1] + 
-                              toTarget[2] * toTarget[2]);
-    
-    if (distance < 0.1f) {
-        mHasDestination = false;
-        mData->speed = 0.0f;
-        return;
-    }
-    
-    toTarget[0] /= distance;
-    toTarget[1] /= distance;
-    toTarget[2] /= distance;
-    
-    mData->dir[0] = toTarget[0];
-    mData->dir[1] = toTarget[1];
-    mData->dir[2] = toTarget[2];
-    
-    float moveDistance = mData->speed * deltaTime;
-    if (moveDistance > distance) {
-        mData->pos[0] = mDestination[0];
-        mData->pos[1] = mDestination[1];
-        mData->pos[2] = mDestination[2];
-        mHasDestination = false;
-        mData->speed = 0.0f;
-    } else {
-        mData->pos[0] += toTarget[0] * moveDistance;
-        mData->pos[1] += toTarget[1] * moveDistance;
-        mData->pos[2] += toTarget[2] * moveDistance;
-    }
-}
-
-void Car::SetDestination(float x, float y, float z)
-{
-    mDestination[0] = x;
-    mDestination[1] = y;
-    mDestination[2] = z;
-    mHasDestination = true;
-}
-
-void Car::SetSpeed(float speed)
-{
-    if (mData) {
-        mData->speed = std::max(0.0f, speed);
-    }
-}
-
-CalculationClass::CalculationClass()
-    : m_timer(0.0f)                    // 1. float m_timer
-    , m_currentValue(0)                // 2. int m_currentValue
-    , m_updateFinished(false)          // 3. std::atomic<bool> m_updateFinished
-    , m_syncFinished(true)             // 4. std::atomic<bool> m_syncFinished  
-    , m_shouldStop(false)              // 5. std::atomic<bool> m_shouldStop
-    , mThread(nullptr)                 // 6. std::thread* mThread
-{
-    m_lastUpdateTime = std::chrono::high_resolution_clock::now();
-    mThread = new std::thread(std::bind(&CalculationClass::Update, this));
-}
-
-CalculationClass::~CalculationClass()
-{
-    Stop();
-    if (mThread && mThread->joinable()) {
-        mThread->join();
-    }
-    delete mThread;
-    mThread = nullptr;
-}
-
-void CalculationClass::Update()
-{
-    while (!m_shouldStop) {
-        auto currentTime = std::chrono::high_resolution_clock::now();
-        float deltaTime = std::chrono::duration<float>(currentTime - m_lastUpdateTime).count();
-        m_lastUpdateTime = currentTime;
-        
-        // 等待Sync完成
-        {
-            std::unique_lock<std::mutex> lock(m_syncMutex);
-            m_syncCV.wait(lock, [this] { return m_syncFinished.load() || m_shouldStop.load(); });
-        }
-        
-        if (m_shouldStop) break;
-        
-        // 开始新的计算周期
-        m_syncFinished = false;
-        m_updateFinished = false;
-          m_timer += deltaTime;
-        m_currentValue = static_cast<int>(m_timer * 60.0f);
-        
-        // 更新车辆位置（需要加锁保护）
-        {
-            std::lock_guard<std::mutex> dataLock(m_dataMutex);
-            UpdateCarPositions(deltaTime);
-        }
-        
-        // 准备下一帧数据
-        {
-            std::lock_guard<std::mutex> dataLock(m_dataMutex);
-            m_nextFrameData.clear();
-            for (const auto& data : mDatas) {
-                m_nextFrameData.push_back(data);
-            }
-        }
-        
-        // 标记更新完成
-        m_updateFinished = true;
-        m_updateCV.notify_one();
-        
-        std::this_thread::sleep_for(std::chrono::milliseconds(16));
-    }
-}
-
-void CalculationClass::Sync()
-{
-    // 等待Update完成当前计算
-    std::unique_lock<std::mutex> lock(m_syncMutex);
-    m_updateCV.wait(lock, [this] { 
-        return m_updateFinished.load() || m_shouldStop.load(); 
-    });
-    
-    if (m_shouldStop) return;
-    
-    // 交换缓冲区数据
-    {
-        std::lock_guard<std::mutex> dataLock(m_dataMutex);
-        m_currentFrameData = m_nextFrameData;
-    }
-    
-    // 通知Update可以继续下一轮计算
-    m_syncFinished = true;
-    m_syncCV.notify_one();
-}
-
-void CalculationClass::Stop()
-{
-    m_shouldStop = true;
-    m_syncCV.notify_all();
-    m_updateCV.notify_all();
-}
-
-int CalculationClass::GetCurrentValue() const
-{
-    return m_currentValue;
-}
-
-float CalculationClass::GetTimer() const
-{
-    return m_timer;
-}
-
-void CalculationClass::AddCar(int carId, float x, float y, float z)
-{
-    std::lock_guard<std::mutex> lock(m_dataMutex);
-    
-    auto it = std::find_if(mCars.begin(), mCars.end(), 
-        [carId](const Car& car) { return car.GetId() == carId; });
-    
-    if (it != mCars.end()) return;
-    
-    PrimitiveData data;
-    data.carId = carId;
-    data.pos[0] = x; data.pos[1] = y; data.pos[2] = z;
-    data.speed = 0.0f;
-    data.dir[0] = 1.0f; data.dir[1] = 0.0f; data.dir[2] = 0.0f;
-    
-    mDatas.push_back(data);
-    
-    Car car(carId);
-    car.SetData(&mDatas.back());
-    mCars.push_back(car);
-}
-
-void CalculationClass::RemoveCar(int carId)
-{
-    std::lock_guard<std::mutex> lock(m_dataMutex);
-    
-    // 先移除Car对象
-    mCars.erase(std::remove_if(mCars.begin(), mCars.end(),
-        [carId](const Car& car) { return car.GetId() == carId; }), 
-        mCars.end());
-    
-    // 再移除对应的数据
-    mDatas.erase(std::remove_if(mDatas.begin(), mDatas.end(),
-        [carId](const PrimitiveData& data) { return data.carId == carId; }), 
-        mDatas.end());
-        
-    // 重新建立Car和PrimitiveData的关联关系
-    // 这里需要更安全的方式来重新关联
-    for (auto& car : mCars) {
-        car.SetData(nullptr); // 先清空
-        for (auto& data : mDatas) {
-            if (car.GetId() == data.carId) {
-                car.SetData(&data);
-                break;
-            }
-        }
-    }
-}
-
-void CalculationClass::SetCarDestination(int carId, float x, float y, float z)
-{
-    std::lock_guard<std::mutex> lock(m_dataMutex);
-    Car* car = FindCarById(carId);
-    if (car) {
-        car->SetDestination(x, y, z);
-    }
-}
-
-void CalculationClass::SetCarSpeed(int carId, float speed)
-{
-    std::lock_guard<std::mutex> lock(m_dataMutex);
-    Car* car = FindCarById(carId);
-    if (car) {
-        car->SetSpeed(speed);
-    }
-}
-
-std::vector<PrimitiveData> CalculationClass::GetCarDataSafe() const
-{
-    std::lock_guard<std::mutex> lock(m_dataMutex);
-    return m_currentFrameData;
-}
-
-size_t CalculationClass::GetCarCount() const
-{
-    std::lock_guard<std::mutex> lock(m_dataMutex);
-    return mCars.size();
-}
-
-void CalculationClass::UpdateCarPositions(float deltaTime)
-{
-    // 注意：这个方法在Update线程中调用，mCars已经在调用处被锁保护
-    for (auto& car : mCars) {
-        car.UpdatePosition(deltaTime);
-    }
-}
-
-Car* CalculationClass::FindCarById(int carId)
-{
-    auto it = std::find_if(mCars.begin(), mCars.end(),
-        [carId](const Car& car) { return car.GetId() == carId; });
-    
-    return (it != mCars.end()) ? &(*it) : nullptr;
-}
