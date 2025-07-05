@@ -24,17 +24,20 @@ namespace Echo
 
 		void addCar(Vehicle* car);
 		void update(float deltaTime);
-
 		uint16 getRoadId() const { return mRoadsData.roadID; }
+		float getRoadLength() const { return mLens; }
 		uint16 getSourceCityId() const;
 		uint16 getDestinationCityId() const;
 		void setNextRoad(Road* nextRoad) { m_nextRoad = nextRoad; }
 		Road* getNextRoad() const { return m_nextRoad; }
 
+		// 添加Traffic引用以支持路径导航
+		void setTrafficManager(class Traffic* trafficManager) { m_trafficManager = trafficManager; }
+
 		Vehicle* findLeadingVehicle(const Vehicle* vehicle) const;
 		float calculateGapToLeadingVehicle(const Vehicle* vehicle) const;
 
-
+		friend class Traffic;
 
 	private:
 		PlanetRoadData mRoadsData;
@@ -48,6 +51,7 @@ namespace Echo
 		bool m_roadDataCached = false;
 
 		Road* m_nextRoad = nullptr;
+		class Traffic* m_trafficManager = nullptr; // 指向Traffic实例的指针
 
 	};
 
@@ -63,7 +67,7 @@ namespace Echo
 		enum class VehicleType
 		{
 			Car = 0,
-		Truck = 1
+			Truck = 1
 		};
 
 		Vehicle(float initialSpeed = 25.0f, LaneDirection direction = LaneDirection::Forward);
@@ -75,11 +79,16 @@ namespace Echo
 		void setCarFollowingModel(std::unique_ptr<ICarFollowingModel> model);
 		ICarFollowingModel* getCarFollowingModel() const { return m_carFollowingModel.get(); }
 		void applyCarFollowing(float deltaTime, const Vehicle* leadingVehicle, float gap);
-
 		// 设置驾驶员特性
 		void setDriverVariation(float variationCoeff);
 		float getDriverFactor() const { return m_driverFactor; }
 
+		// 路径相关方法
+		void setPath(const std::vector<uint16>& roadIds);
+		bool moveToNextRoad();
+		bool moveToPreviousRoad(); //逆向车辆
+		uint16 getCurrentRoadId() const;
+		bool hasPath() const; // 检查是否有分配的路径
 
 	public:
 		int id = 0; // 车辆ID
@@ -101,10 +110,13 @@ namespace Echo
 		std::unique_ptr<ICarFollowingModel> m_carFollowingModel;
 		float m_driverFactor = 1.0f;
 		float m_driverVariationCoeff = 0.15f;
-
 		// 车辆物理参数
 		float m_length = 5.0f;  // 车长
 		float m_width = 2.5f;   // 车宽
+
+		// 路径跟踪
+		std::vector<uint16> m_pathRoads;
+		int m_currentRoadIndex = -1;
 
 	};
 
@@ -147,20 +159,26 @@ namespace Echo
 		void setDefaultCarFollowingModel(CarFollowingModelFactory::ModelType modelType);
 		void updateGlobalModelParameters(const IDMModel::Parameters& idmParams, const ACCModel::Parameters& accParams);
 
-		
+
 		void useConservativeDriving();    // 保守驾驶模式
 		void useAggressiveDriving();      // 激进驾驶模式
 		void useNormalDriving();          // 正常驾驶模式
 		void setDriverVariationLevel(float level);  // 设置驾驶员变异水平 (0.0-1.0)
-
 		// 车辆管理
 		void addMultipleVehicles(int numVehicles);  // 添加多个车辆
 		void setVehicleDensity(float vehiclesPerKm);  // 设置车辆密度
-
+		// 路径管理
+		void generateAllPaths();
+		void assignPathToVehicle(Vehicle* vehicle, int pathIndex);
+		void assignBackwardPathToVehicle(Vehicle* vehicle, int pathIndex); // 为逆向车辆分配反向路径
+		void assignPathsToAllVehicles();
+		Road* getRoadById(uint16 roadId);  // 根据道路ID查找道路对象
 
 	private:
 
 		void createConnectedRoadNetwork(const PlanetRoadGroup& roadGroup);
+		void generatePathsRecursive(Road* currentRoad, std::vector<uint16>& currentPath,
+			std::set<uint16>& visited, std::set<std::vector<uint16>>& uniquePaths, int maxDepth);
 
 		void initializeCarFollowingModels();
 		std::unique_ptr<ICarFollowingModel> createModelForVehicle(Vehicle::VehicleType type);
@@ -181,6 +199,10 @@ namespace Echo
 		IDMModel::Parameters m_idmParams;
 		ACCModel::Parameters m_accParams;
 		float m_driverVariationCoeff = 0.15f;//驾驶员变异系数
+
+		// 路径管理
+		std::vector<std::vector<uint16>> m_allPaths;
+		bool m_pathsGenerated = false;
 
 	};
 }
