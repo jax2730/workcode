@@ -8,6 +8,10 @@
 #include"EchoPlanetRoad.h"
 #include "EchoSphericalTerrainManager.h"
 #include"CarFollowingModel.h"
+#include <thread>
+#include <future>
+#include"mutex"
+#include"condition_variable"
 namespace Echo
 {
 	class SceneManager;
@@ -36,6 +40,13 @@ namespace Echo
 
 		Vehicle* findLeadingVehicle(const Vehicle* vehicle) const;
 		float calculateGapToLeadingVehicle(const Vehicle* vehicle) const;
+
+
+		void sortVehicles();
+		void updateEnvironment();
+		void updateLeadIndex(int i);
+		void updateLagIndex(int i);
+		Vehicle* getVehicleByIndex(int index) const;
 
 		friend class Traffic;
 
@@ -102,6 +113,12 @@ namespace Echo
 		Vector3 roadNormal = Vector3::UNIT_Y;
 		float laneWidth = 3.5f; // 车道宽度
 		float laneOffset = 0.0f; // 车道偏移（正值右车道，负值左车道）
+		int iLead = -1;    // 前车索引
+		int iLag = -1;
+		// 车辆物理参数
+		float m_length = 5.0f;  // 车长
+		float m_width = 2.5f;   // 车宽
+
 
 	private:
 		ActorPtr mCar;
@@ -110,9 +127,7 @@ namespace Echo
 		std::unique_ptr<ICarFollowingModel> m_carFollowingModel;
 		float m_driverFactor = 1.0f;
 		float m_driverVariationCoeff = 0.15f;
-		// 车辆物理参数
-		float m_length = 5.0f;  // 车长
-		float m_width = 2.5f;   // 车宽
+		
 
 		// 路径跟踪
 		std::vector<uint16> m_pathRoads;
@@ -139,15 +154,18 @@ namespace Echo
 		Vector3 mCurrentPos;
 	};
 
+	
+
 	class Traffic : public ActorLoadListener, public SphericalTerrain::LoadListener
 	{
 	public:
 		Traffic(SceneManager* InSceneManger, WorldManager* InWorldMgr);
 		~Traffic();
 
-		void Tick(float dt);
-
-
+		void initRoads();
+		void onTick();
+		void onUpdate();
+		void initVehicle();
 
 		//回调
 		bool OnActorCreateFinish() override;
@@ -174,8 +192,23 @@ namespace Echo
 		void assignPathsToAllVehicles();
 		Road* getRoadById(uint16 roadId);  // 根据道路ID查找道路对象
 
-	private:
+		SphericalTerrain* getTargetPlanet() const { return m_targetPlanet; }
 
+	private:
+		class Barrier
+		{
+		public:
+			void wait();
+			void signal();
+		private:
+			std::promise<void> m_promise;
+			std::mutex m_mutex;
+			std::condition_variable m_cv;
+			bool m_signaled = false;
+		};
+
+	private:
+		void _tick(float dt);
 		void createConnectedRoadNetwork(const PlanetRoadGroup& roadGroup);
 		void generatePathsRecursive(Road* currentRoad, std::vector<uint16>& currentPath,
 			std::set<uint16>& visited, std::set<std::vector<uint16>>& uniquePaths, int maxDepth);
@@ -204,5 +237,13 @@ namespace Echo
 		std::vector<std::vector<uint16>> m_allPaths;
 		bool m_pathsGenerated = false;
 
+		std::thread* m_thread = nullptr;
+		bool m_bContinue = false;
+		bool m_bQuite = false;
+		bool m_isInitialized = false;
+		Barrier m_workBarrier;
+		Barrier m_mainBarrier;
+		Barrier m_initBarrier;
+		//Barrier m_finalInitBarrier;
 	};
 }
