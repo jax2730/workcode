@@ -221,7 +221,7 @@ namespace Echo
 
 		if (m_pathsGenerated)
 		{
-			addMultipleVehicles(2000);
+			addMultipleVehicles(200);
 			assignPathsToAllVehicles();
 		}
 	}
@@ -272,7 +272,7 @@ namespace Echo
 			}
 			else
 			{
-				// 【重要】添加这个else块来捕获失败情况
+				// 失败情况
 				LogManager::instance()->logMessage("CRITICAL ERROR: Condition to add vehicles was FALSE. No vehicles will be created.");
 				if (roadGroup.roads.empty()) {
 					LogManager::instance()->logMessage("Reason: roadGroup.roads is empty.");
@@ -811,7 +811,7 @@ namespace Echo
 		}
 
 		LogManager::instance()->logMessage("Traffic: Driver variation level set to " + std::to_string(m_driverVariationCoeff));
-	}
+	}	
 
 	// 车辆管理方法
 
