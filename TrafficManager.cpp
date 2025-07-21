@@ -218,7 +218,7 @@ namespace Echo
 
 		if (m_pathsGenerated)
 		{
-			addMultipleVehicles(2000);
+			addMultipleVehicles(200);
 			assignPathsToAllVehicles();
 		}
 	}
@@ -255,6 +255,10 @@ namespace Echo
 				return; // 成功加载Highway数据后直接返回
 			}
 		}
+
+
+
+
 	}
 
 
@@ -283,21 +287,32 @@ namespace Echo
 			"] to Node[" + std::to_string(mTargetNodeId) + "] length=" + std::to_string(mLens));
 	}
 
-	Road::Road(const HighwayLink& linkData, const HighwayNode& sourceNode, const std::vector<Vector3>& coordinates)
-		:mRoadId(linkData.road_id), mRoadName(linkData.road_name), mSourceNodeId(linkData.source), mTargetNodeId(linkData.target), m_coordinatePath(m_coordinatePath), m_isHighwayRoad(true)
+	Road::Road(const HighwayLink& linkData, const HighwayNode& sourceNode, const HighwayNode& targetNode, const std::vector<Vector3>& coordinates)
+		:mRoadId(linkData.road_id), mRoadName(linkData.road_name), mSourceNodeId(linkData.source), mTargetNodeId(linkData.target), m_coordinatePath(coordinates)
 	{
-		mLens = linkData.length;
+		//mLens = linkData.length;
 		if (coordinates.size() >= 2)
 		{
 			m_segmentLengths.reserve(coordinates.size() - 1);
 			m_cumulativeLengths.reserve(coordinates.size());
 			m_cumulativeLengths.push_back(0.0f);
-			for (size_t i = 0; i < coordinates.size(); ++i)
+			for (size_t i = 1; i < coordinates.size(); ++i)
 			{
-				float segmentLength = (coordinates[i] - coordinates[i - 1]).length();
+				Vector3 segment = coordinates[i] - coordinates[i - 1];
+				float segmentLength = sqrt(segment.x * segment.x + segment.y * segment.y + segment.z * segment.z);
+
+				if (segmentLength <= 0.0f) {
+					segmentLength = 0.1f; // 最小长度
+				}
 				m_segmentLengths.push_back(segmentLength);
 				m_cumulativeLengths.push_back(m_cumulativeLengths.back() + segmentLength);
 			}
+
+			mLens = m_cumulativeLengths.back();
+		}
+		else
+		{
+			mLens = linkData.length;
 		}
 
 	}
@@ -408,25 +423,43 @@ namespace Echo
 				}
 			}
 
-			// 4. 查找车辆当前在哪一段 (piece_index)
-			unsigned int piece_index = 0;
-			float length_before_piece = 0;
-			for (size_t i = 0; i < mSeg.size(); ++i)
+			Vector3 centerPos = getPositionAtDistance(car->s);
+			Vector3 direction = getDirectionAtDistance(car->s);
+			Vector3 normal = getNormalAtDistance(car->s);
+
+			Vector3 right = direction.crossProduct(normal);
+			if (right.length() < 0.1f)
 			{
-				if (car->s <= mSeg[i])
+				Vector3 up = Vector3::UNIT_Y;
+				right = direction.crossProduct(up);
+				if (right.length() < 0.1f)
 				{
-					piece_index = i;
-					length_before_piece = (i == 0) ? 0.0f : mSeg[i - 1];
-					break;
+					up = Vector3::UNIT_Z;
+					right = direction.crossProduct(up);
 				}
 			}
+			right.normalise();
 
-			// 5. 计算在当前这一小段上行驶的距离
-			float distanceOnSegment = car->s - length_before_piece;
+			// 根据车辆方向调整行驶方向
+			Vector3 vehicleDirection = direction;
+			if (car->laneDirection == Vehicle::LaneDirection::Backward) {
+				vehicleDirection = -direction;
+			}
 
-			
-		
-		
+			// 设置车辆的位置和方向
+			Vector3 offsetVector = right * car->laneOffset;
+			car->pos = centerPos + offsetVector;
+			car->dir = vehicleDirection;
+
+			// 设置车辆旋转矩阵
+			Matrix3 mat;
+			mat.SetColumn(0, vehicleDirection);
+			mat.SetColumn(1, normal);
+			mat.SetColumn(2, right);
+			car->rot.FromRotationMatrix(mat);
+
+
+
 			//car->updatePos();
 		}
 
@@ -715,6 +748,7 @@ namespace Echo
 			//float driverVariation = 0.25f + (rand() % 10) * 0.01f; // 0.25-0.7的变异系数
 			//newVehicle->setDriverVariation(driverVariation);
 			m_roadManager->addCar(newVehicle);
+
 			m_Vehicles.push_back(newVehicle);
 		}
 
@@ -1044,12 +1078,16 @@ namespace Echo
 		
 			// 尝试从当前道路的目标节点出发的其他道路
 		uint16 destNodeId = currentRoad->getDestinationNodeId();
-		if (destNodeId != 0) {
+		if (destNodeId != 0)
+		{
 			auto it = m_nodeConnections.find(destNodeId);
-			if (it != m_nodeConnections.end()) {
-				for (Road* candidateRoad : it->second) {
+			if (it != m_nodeConnections.end())
+			{
+				for (Road* candidateRoad : it->second)
+				{
 					if (candidateRoad->getSourceNodeId() == destNodeId &&
-						visited.find(candidateRoad->getRoadId()) == visited.end()) {
+						visited.find(candidateRoad->getRoadId()) == visited.end())
+					{
 
 						currentPath.push_back(candidateRoad->getRoadId());
 						visited.insert(candidateRoad->getRoadId());
@@ -1521,6 +1559,8 @@ namespace Echo
 			std::to_string(m_allRoads.size()) + " roads");
 	}
 
+
+
 	HighwayConnectData Traffic::parseHighwayConnectData(const std::string& jsonFilePath)
 	{
 
@@ -1654,23 +1694,197 @@ namespace Echo
 
 	HighwayGraphData Traffic::parseHighwayGraphData(const std::string& jsonFilePath)
 	{
-		return HighwayGraphData();
+		HighwayGraphData result;
+
+		
+		DataStreamPtr pDataStream(Root::instance()->GetFileDataStream(jsonFilePath.c_str(), false, "json"));
+		if (pDataStream.isNull() || pDataStream->size() == 0)
+		{
+			return result;
+		}
+
+		
+		size_t nSize = pDataStream->size();
+		char* pData = new char[nSize + 1];
+		memset(pData, 0, nSize + 1);
+		pDataStream->seek(0);
+		pDataStream->read(pData, nSize);
+
+		
+		cJSON* root = cJSON_Parse(pData);
+		delete[] pData;
+
+		if (!root)
+		{
+			return result;
+		}
+
+		
+		cJSON* directed = cJSON_GetObjectItem(root, "directed");
+		if (directed && (directed->type == cJSON_True || directed->type == cJSON_False))
+		{
+			result.directed = (directed->type == cJSON_True);
+		}
+
+		cJSON* multigraph = cJSON_GetObjectItem(root, "multigraph");
+		if (multigraph && (multigraph->type == cJSON_True || multigraph->type == cJSON_False))
+		{
+			result.multigraph = (multigraph->type == cJSON_True);
+		}
+
+		
+		cJSON* nodes = cJSON_GetObjectItem(root, "nodes");
+		if (nodes && nodes->type == cJSON_Array)
+		{
+			int nodeCount = cJSON_GetArraySize(nodes);
+			for (int n = 0; n < nodeCount; n++)
+			{
+				cJSON* node = cJSON_GetArrayItem(nodes, n);
+				if (!node)
+				{
+					continue;
+				}
+				HighwayNode hwNode;
+
+				cJSON* geometry = cJSON_GetObjectItem(node, "geometry");
+				if (geometry && geometry->type == cJSON_Array && cJSON_GetArraySize(geometry) >= 3)
+				{
+					cJSON* x = cJSON_GetArrayItem(geometry, 0);
+					cJSON* y = cJSON_GetArrayItem(geometry, 1);
+					cJSON* z = cJSON_GetArrayItem(geometry, 2);
+					if (x && x->type == cJSON_Number && y && y->type == cJSON_Number && z && z->type == cJSON_Number)
+					{
+						hwNode.geometry.x = static_cast<float>(x->valuedouble);
+						hwNode.geometry.y = static_cast<float>(y->valuedouble);
+						hwNode.geometry.z = static_cast<float>(z->valuedouble);
+					}
+				}
+
+				cJSON* name = cJSON_GetObjectItem(node, "name");
+				if (name && name->type == cJSON_String)
+				{
+					hwNode.name = name->valuestring;
+				}
+
+				cJSON* id = cJSON_GetObjectItem(node, "id");
+				if (id && id->type == cJSON_Number)
+				{
+					hwNode.id = static_cast<uint16>(id->valueint);
+				}
+
+				result.nodes.push_back(hwNode);
+			}
+		}
+
+		// analys links
+		cJSON* links = cJSON_GetObjectItem(root, "links");
+		if (links && links->type == cJSON_Array)
+		{
+			int linkCount = cJSON_GetArraySize(links);
+			for (int l = 0; l < linkCount; l++)
+			{
+				cJSON* link = cJSON_GetArrayItem(links, l);
+				if (!link) continue;
+
+				HighwayLink hwLink;
+
+				cJSON* length = cJSON_GetObjectItem(link, "length");
+				if (length && length->type == cJSON_Number)
+				{
+					hwLink.length = static_cast<float>(length->valuedouble);
+				}
+
+				cJSON* road_id = cJSON_GetObjectItem(link, "road_id");
+				if (road_id && road_id->type == cJSON_Number)
+				{
+					hwLink.road_id = static_cast<uint16>(road_id->valueint);
+				}
+
+				cJSON* road_name = cJSON_GetObjectItem(link, "road_name");
+				if (road_name && road_name->type == cJSON_String)
+				{
+					hwLink.road_name = road_name->valuestring;
+				}
+
+				cJSON* source = cJSON_GetObjectItem(link, "source");
+				if (source && source->type == cJSON_Number)
+				{
+					hwLink.source = static_cast<uint16>(source->valueint);
+				}
+
+				cJSON* target = cJSON_GetObjectItem(link, "target");
+				if (target && target->type == cJSON_Number)
+				{
+					hwLink.target = static_cast<uint16>(target->valueint);
+				}
+
+				result.links.push_back(hwLink);
+			}
+		}
+
+		cJSON_Delete(root);
+
+		return result;
 	}
 
+	//combine json
 	void Traffic::createRoadNetworkFromHighwayData(const HighwayConnectData& connectData, const HighwayGraphData& graphData)
 	{
+		LogManager::instance()->logMessage("Creating highway road network from combined data...");
+
+		
+		std::map<std::string, std::vector<Vector3>> roadNameToCoordinates;
+		for (const auto& feature : connectData.features)
+		{
+			roadNameToCoordinates[feature.properties.NAME] = feature.geometry.coordinates;
+		}
+
+		// 创建节点ID到节点的映射
+		std::map<uint16, HighwayNode> nodeIdToNode;
+		for (const auto& node : graphData.nodes)
+		{
+			nodeIdToNode[node.id] = node;
+		}
+
+		// 为每个link创建道路
+		for (const auto& link : graphData.links) {
+			// 查找源节点和目标节点
+			auto sourceNodeIt = nodeIdToNode.find(link.source);
+			auto targetNodeIt = nodeIdToNode.find(link.target);
+
+			if (sourceNodeIt == nodeIdToNode.end() || targetNodeIt == nodeIdToNode.end())
+			{
+				continue;
+			}
+
+			
+			auto coordIt = roadNameToCoordinates.find(link.road_name);
+			if (coordIt == roadNameToCoordinates.end())
+			{
+				continue;
+			}
+
+			// 创建Road对象
+			Road* newRoad = createRoadFromHighwayLink(link, sourceNodeIt->second, targetNodeIt->second, coordIt->second);
+			if (newRoad)
+			{
+				m_allRoads.push_back(newRoad);
+			}
+		}
+
+		LogManager::instance()->logMessage("Highway road network creation completed. Total roads: " + std::to_string(m_allRoads.size()));
 	}
 
+	//
 	Road* Traffic::createRoadFromHighwayLink(const HighwayLink& link, const HighwayNode& sourceNode, const HighwayNode& targetNode, const std::vector<Vector3>& coordinates)
 	{
+		Road* road = new Road(link, sourceNode, targetNode, coordinates);
+		road->setTrafficManager(this);
 
-		return nullptr;
+		return road;
 	}
 
-	// Road类的JSON构造函数实现
-
-
-	// 简化的JSON数据方法实现
+	
 	uint16 Road::getSourceNodeId() const
 	{
 		return mSourceNodeId;
@@ -1681,7 +1895,87 @@ namespace Echo
 		return mTargetNodeId;
 	}
 
+	Vector3 Road::getPositionAtDistance(float distance) const
+	{
+		if (!m_isHighwayRoad || m_coordinatePath.empty()) {
+			return Vector3::ZERO;
+		}
 
+		// 处理边界情况
+		if (distance <= 0.0f) {
+			return m_coordinatePath[0];
+		}
+		if (distance >= mLens) {
+			return m_coordinatePath.back();
+		}
+
+		// 查找包含该距离的线段
+		for (size_t i = 0; i < m_cumulativeLengths.size() - 1; ++i) {
+			if (distance <= m_cumulativeLengths[i + 1]) {
+				float segmentStart = m_cumulativeLengths[i];
+				float segmentEnd = m_cumulativeLengths[i + 1];
+				float segmentLength = segmentEnd - segmentStart;
+
+				if (segmentLength < 0.001f) {
+					return m_coordinatePath[i];
+				}
+
+				// 计算在线段内的插值参数
+				float t = (distance - segmentStart) / segmentLength;
+				t = std::max(0.0f, std::min(1.0f, t)); // 确保t在[0,1]范围内
+
+				// 线性插值
+				return m_coordinatePath[i] + (m_coordinatePath[i + 1] - m_coordinatePath[i]) * t;
+			}
+		}
+
+		return m_coordinatePath.back();
+	}
+
+	Vector3 Road::getDirectionAtDistance(float distance) const
+	{
+		if (!m_isHighwayRoad || m_coordinatePath.size() < 2) {
+			return Vector3::UNIT_X; // 默认方向
+		}
+
+		// 处理边界情况
+		if (distance <= 0.0f) {
+			Vector3 direction = m_coordinatePath[1] - m_coordinatePath[0];
+			direction.Normalize();
+			return direction;
+		}
+		if (distance >= mLens) {
+			Vector3 direction = m_coordinatePath.back() - m_coordinatePath[m_coordinatePath.size() - 2];
+			direction.Normalize();
+			return direction;
+		}
+
+		// 查找包含该距离的线段
+		for (size_t i = 0; i < m_cumulativeLengths.size() - 1; ++i) {
+			if (distance <= m_cumulativeLengths[i + 1]) {
+				Vector3 direction = m_coordinatePath[i + 1] - m_coordinatePath[i];
+				direction.Normalize();
+				return direction;
+			}
+		}
+
+		// 默认返回最后一段的方向
+		Vector3 direction = m_coordinatePath.back() - m_coordinatePath[m_coordinatePath.size() - 2];
+		direction.Normalize();
+		return direction;
+	}
+
+	Vector3 Road::getNormalAtDistance(float distance) const
+	{
+		if (!m_isHighwayRoad) {
+			return Vector3::UNIT_Y; // 法向量
+		}
+
+		// Highway道路，假设法向量总是向上
+
+
+		return Vector3::UNIT_Y;
+	}
 
 
 }
