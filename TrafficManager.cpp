@@ -193,7 +193,7 @@ namespace Echo
 		}
 	}
 
-	//等待工作线程完成当前帧的数据计算，更新数据
+	//等待工作线程完成当前帧的数据计算，更新数据 
 	void Traffic::onUpdate()
 	{
 		if (!m_isInitialized) {
@@ -269,27 +269,12 @@ namespace Echo
 	//道路链接
 	
 
-	Road::Road(const JsonRoadLink& linkData, const JsonRoadNode& sourceNode, const JsonRoadNode& targetNode)
-		: mRoadId(linkData.road_id)
-		, mRoadName(linkData.road_name)
-		, mSourceNodeId(linkData.source)
-		, mTargetNodeId(linkData.target)
-		, mStartPos(sourceNode.geometry)
-		, mEndPos(targetNode.geometry)
-		, mLens(linkData.length)
-	{
-		// 为JSON道路创建简单的分段 //复杂分段？
-		// 这里创建一个简单的直线分段
-		mSeg.push_back(mLens);
-
-		LogManager::instance()->logMessage("Created Highway Road[" + std::to_string(mRoadId) +
-			"] '" + mRoadName + "' from Node[" + std::to_string(mSourceNodeId) +
-			"] to Node[" + std::to_string(mTargetNodeId) + "] length=" + std::to_string(mLens));
-	}
+	
 
 	Road::Road(const HighwayLink& linkData, const HighwayNode& sourceNode, const HighwayNode& targetNode, const std::vector<Vector3>& coordinates)
 		:mRoadId(linkData.road_id), mRoadName(linkData.road_name), mSourceNodeId(linkData.source), mTargetNodeId(linkData.target), m_coordinatePath(coordinates)
 	{
+		m_isHighwayRoad = true;
 		//mLens = linkData.length;
 		if (coordinates.size() >= 2)
 		{
@@ -1358,7 +1343,7 @@ namespace Echo
 
 
 	// JSON数据解析方法实现
-	JsonRoadData Traffic::parseJsonRoadData(const std::string& jsonFilePath)
+	/*JsonRoadData Traffic::parseJsonRoadData(const std::string& jsonFilePath)
 	{
 		JsonRoadData roadData;
 
@@ -1500,9 +1485,9 @@ namespace Echo
 
 		return roadData;
 	}
-
+	*/
 	// 从JSON数据创建道路网络
-	void Traffic::createConnectedRoadNetworkFromJson(const JsonRoadData& roadData)
+	/*void Traffic::createConnectedRoadNetworkFromJson(const JsonRoadData& roadData)
 	{
 		// 清理现有道路
 		for (Road* road : m_allRoads) {
@@ -1558,7 +1543,7 @@ namespace Echo
 		LogManager::instance()->logMessage("Created connected road network from JSON with " +
 			std::to_string(m_allRoads.size()) + " roads");
 	}
-
+	*/
 
 
 	HighwayConnectData Traffic::parseHighwayConnectData(const std::string& jsonFilePath)
@@ -1833,10 +1818,26 @@ namespace Echo
 		LogManager::instance()->logMessage("Creating highway road network from combined data...");
 
 		
-		std::map<std::string, std::vector<Vector3>> roadNameToCoordinates;
+		std::map<std::pair<uint16, uint16>, std::vector<Vector3>> nodeIdPairToCoordinates;
 		for (const auto& feature : connectData.features)
 		{
-			roadNameToCoordinates[feature.properties.NAME] = feature.geometry.coordinates;
+			if (feature.properties.connect_bridge_id.size() >= 2) {
+				uint16 sourceId = static_cast<uint16>(feature.properties.connect_bridge_id[0]);
+				uint16 targetId = static_cast<uint16>(feature.properties.connect_bridge_id[1]);
+
+				// 创建节点对作为key
+				std::pair<uint16, uint16> nodeIdPair = std::make_pair(sourceId, targetId);
+				nodeIdPairToCoordinates[nodeIdPair] = feature.geometry.coordinates;
+
+				// 也添加反向映射（双向道路）
+				std::pair<uint16, uint16> reverseNodeIdPair = std::make_pair(targetId, sourceId);
+				nodeIdPairToCoordinates[reverseNodeIdPair] = feature.geometry.coordinates;
+
+				LogManager::instance()->logMessage("Loaded coordinates for node pair (" + std::to_string(sourceId) + " -> " + std::to_string(targetId) + "): '" + feature.properties.NAME + "' (" + std::to_string(feature.geometry.coordinates.size()) + " points)");
+			}
+			else {
+				LogManager::instance()->logMessage("Warning: Feature '" + feature.properties.NAME + "' has insufficient connect_bridge_id data");
+			}
 		}
 
 		// 创建节点ID到节点的映射
@@ -1854,23 +1855,46 @@ namespace Echo
 
 			if (sourceNodeIt == nodeIdToNode.end() || targetNodeIt == nodeIdToNode.end())
 			{
+				LogManager::instance()->logMessage("Warning: Link[" + std::to_string(link.road_id) + "] '" + link.road_name + "' has missing nodes (source=" + std::to_string(link.source) + ", target=" + std::to_string(link.target) + ")");
 				continue;
 			}
 
-			
-			auto coordIt = roadNameToCoordinates.find(link.road_name);
-			if (coordIt == roadNameToCoordinates.end())
+			// 使用节点ID对查找对应的坐标数据
+			std::pair<uint16, uint16> nodeIdPair = std::make_pair(link.source, link.target);
+			auto coordIt = nodeIdPairToCoordinates.find(nodeIdPair);
+			std::vector<Vector3> coordinates;
+
+			if (coordIt == nodeIdPairToCoordinates.end())
 			{
-				continue;
+				// 如果找不到匹配的坐标，使用节点位置创建简单的直线坐标
+				LogManager::instance()->logMessage("Warning: No coordinate data found for node pair (" + std::to_string(link.source) + " -> " + std::to_string(link.target) + ") of road '" + link.road_name + "', creating fallback coordinates");
+				coordinates.push_back(sourceNodeIt->second.geometry);
+				coordinates.push_back(targetNodeIt->second.geometry);
+			}
+			else
+			{
+				coordinates = coordIt->second;
+				LogManager::instance()->logMessage("Found " + std::to_string(coordinates.size()) + " coordinates for node pair (" + std::to_string(link.source) + " -> " + std::to_string(link.target) + ") of road '" + link.road_name + "'");
+			}
+
+			// 确保至少有两个坐标点
+			if (coordinates.size() < 2)
+			{
+				LogManager::instance()->logMessage("Warning: Road '" + link.road_name + "' has insufficient coordinates, using node positions");
+				coordinates.clear();
+				coordinates.push_back(sourceNodeIt->second.geometry);
+				coordinates.push_back(targetNodeIt->second.geometry);
 			}
 
 			// 创建Road对象
-			Road* newRoad = createRoadFromHighwayLink(link, sourceNodeIt->second, targetNodeIt->second, coordIt->second);
+			Road* newRoad = createRoadFromHighwayLink(link, sourceNodeIt->second, targetNodeIt->second, coordinates);
 			if (newRoad)
 			{
 				m_allRoads.push_back(newRoad);
+				LogManager::instance()->logMessage("Successfully created Road[" + std::to_string(link.road_id) + "] '" + link.road_name + "' with " + std::to_string(coordinates.size()) + " coordinates");
 			}
 		}
+
 
 		LogManager::instance()->logMessage("Highway road network creation completed. Total roads: " + std::to_string(m_allRoads.size()));
 	}
