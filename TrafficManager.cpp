@@ -562,6 +562,7 @@ namespace Echo
 
 	// Road连接相关方法实现
 	void Road::setNextRoad(Road* nextRoad) { m_nextRoad = nextRoad; }
+	
 	//默认跟车模型参数设置
 	void Traffic::initializeCarFollowingModels()
 	{
@@ -987,45 +988,83 @@ namespace Echo
 	{
 		if (m_pathsGenerated) return;
 
-		// 完全动态路径生成 - 基于实际道路网络自动创建路径
 		m_allPaths.clear();
+		LogManager::instance()->logMessage("=== 开始基于节点网络生成路径 ===");
+		LogManager::instance()->logMessage("道路总数: " + std::to_string(m_allRoads.size()) + ", 节点总数: " + std::to_string(m_highwayNodes.size()));
 
-		LogManager::instance()->logMessage("开始动态生成路径，共" + std::to_string(m_allRoads.size()) + "条道路");
+		// 构建节点邻接表（节点ID -> 连接的节点ID列表）
+		std::map<uint16, std::vector<uint16>> nodeAdjacencyMap;
+		std::map<std::pair<uint16, uint16>, uint16> nodeToRoadMap; // (源节点,目标节点) -> 道路ID
 
-		// 1. 为每条道路生成单道路路径
+		// 遍历所有道路，构建节点连接图
 		for (Road* road : m_allRoads) {
-			if (road) {
-				std::vector<uint16> singlePath = { road->getRoadId() };
-				m_allPaths.push_back(singlePath);
+			if (road && road->isHighwayRoad()) {
+				uint16 sourceNode = road->getSourceNodeId();
+				uint16 targetNode = road->getDestinationNodeId();
+				uint16 roadId = road->getRoadId();
+
+				// 构建双向邻接表（高速公路一般是双向的）
+				nodeAdjacencyMap[sourceNode].push_back(targetNode);
+				nodeAdjacencyMap[targetNode].push_back(sourceNode);
+
+				// 记录节点对到道路的映射
+				nodeToRoadMap[{sourceNode, targetNode}] = roadId;
+				nodeToRoadMap[{targetNode, sourceNode}] = roadId;
+
+				LogManager::instance()->logMessage("添加节点连接: " + std::to_string(sourceNode) + " <-> " + std::to_string(targetNode) + " (Road " + std::to_string(roadId) + ")");
 			}
 		}
 
-		// 2. 基于道路连接关系生成多道路路径
-		for (Road* startRoad : m_allRoads) {
-			if (!startRoad) continue;
+		LogManager::instance()->logMessage("节点邻接图构建完成，连接节点数: " + std::to_string(nodeAdjacencyMap.size()));
 
-			// 使用递归方法生成从当前道路开始的所有路径
-			std::vector<uint16> currentPath = { startRoad->getRoadId() };
-			std::set<uint16> visited = { startRoad->getRoadId() };
-			std::set<std::vector<uint16>> uniquePaths;
+		// 生成节点间路径（使用BFS在节点网络上寻路）
+		std::set<std::vector<uint16>> allNodePaths;
+		const int maxPathLength = 4; // 最大路径长度（节点数）
 
-			generatePathsRecursive(startRoad, currentPath, visited, uniquePaths, 5);
+		// 为每个节点作为起点生成路径
+		for (const auto& startEntry : nodeAdjacencyMap) {
+			uint16 startNodeId = startEntry.first;
 
-			// 将生成的路径添加到总路径列表
-			for (const auto& path : uniquePaths) {
-				m_allPaths.push_back(path);
+			// BFS生成从当前节点开始的所有路径
+			generateNodePathsBFS(startNodeId, nodeAdjacencyMap, allNodePaths, maxPathLength);
+		}
+
+		LogManager::instance()->logMessage("生成节点路径数: " + std::to_string(allNodePaths.size()));
+
+		// 将节点路径转换为道路路径
+		for (const auto& nodePath : allNodePaths) {
+			if (nodePath.size() < 2) continue; // 至少需要两个节点形成道路
+
+			std::vector<uint16> roadPath;
+			bool validPath = true;
+
+			// 将相邻节点对转换为道路ID
+			for (size_t i = 0; i < nodePath.size() - 1; ++i) {
+				uint16 fromNode = nodePath[i];
+				uint16 toNode = nodePath[i + 1];
+
+				auto roadIt = nodeToRoadMap.find({ fromNode, toNode });
+				if (roadIt != nodeToRoadMap.end()) {
+					roadPath.push_back(roadIt->second);
+				}
+				else {
+					LogManager::instance()->logMessage("警告: 无法找到节点 " + std::to_string(fromNode) + " -> " + std::to_string(toNode) + " 对应的道路");
+					validPath = false;
+					break;
+				}
+			}
+
+			if (validPath && !roadPath.empty()) {
+				m_allPaths.push_back(roadPath);
 			}
 		}
 
-		// 3. 移除重复路径
-		std::set<std::vector<uint16>> uniquePathSet(m_allPaths.begin(), m_allPaths.end());
-		m_allPaths.assign(uniquePathSet.begin(), uniquePathSet.end());
+		LogManager::instance()->logMessage("=== 节点网络路径生成完成 ===");
+		LogManager::instance()->logMessage("有效路径总数: " + std::to_string(m_allPaths.size()));
 
-		LogManager::instance()->logMessage("动态路径生成完成，共" + std::to_string(m_allPaths.size()) + "条路径");
-
-		// 输出路径信息用于调试
-		for (size_t i = 0; i < m_allPaths.size(); ++i) {
-			std::string pathStr = "Path[" + std::to_string(i) + "]: ";
+		// 输出前10条路径进行调试
+		for (size_t i = 0; i < std::min(static_cast<size_t>(10), m_allPaths.size()); ++i) {
+			std::string pathStr = "NetworkPath[" + std::to_string(i) + "]: ";
 			for (size_t j = 0; j < m_allPaths[i].size(); ++j) {
 				pathStr += "Road[" + std::to_string(m_allPaths[i][j]) + "]";
 				if (j < m_allPaths[i].size() - 1) pathStr += "->";
@@ -1039,6 +1078,60 @@ namespace Echo
 		m_pathsGenerated = true;
 	}
 
+	void Traffic::generateNodePathsBFS(uint16 startNodeId,
+		const std::map<uint16, std::vector<uint16>>& nodeAdjacencyMap,
+		std::set<std::vector<uint16>>& allNodePaths, int maxPathLength)
+	{
+		// BFS队列：存储 (当前路径, 当前节点)
+		std::queue<std::pair<std::vector<uint16>, uint16>> bfsQueue;
+
+		// 初始状态：从起始节点开始
+		std::vector<uint16> initialPath = { startNodeId };
+		bfsQueue.push({ initialPath, startNodeId });
+
+		while (!bfsQueue.empty()) {
+			auto current = bfsQueue.front();
+			bfsQueue.pop();
+
+			std::vector<uint16> currentPath = current.first;
+			uint16 currentNodeId = current.second;
+
+			// 如果路径长度达到最大值，停止扩展
+			if (currentPath.size() >= maxPathLength) {
+				if (currentPath.size() >= 2) {
+					allNodePaths.insert(currentPath);
+				}
+				continue;
+			}
+
+			// 添加当前路径（如果长度 >= 2）
+			if (currentPath.size() >= 2) {
+				allNodePaths.insert(currentPath);
+			}
+
+			// 获取当前节点的所有邻接节点
+			auto adjacencyIt = nodeAdjacencyMap.find(currentNodeId);
+			if (adjacencyIt != nodeAdjacencyMap.end()) {
+				for (uint16 nextNodeId : adjacencyIt->second) {
+					// 避免环路：检查节点是否已经在当前路径中
+					bool alreadyInPath = false;
+					for (uint16 pathNodeId : currentPath) {
+						if (pathNodeId == nextNodeId) {
+							alreadyInPath = true;
+							break;
+						}
+					}
+
+					if (!alreadyInPath) {
+						// 创建新路径
+						std::vector<uint16> newPath = currentPath;
+						newPath.push_back(nextNodeId);
+						bfsQueue.push({ newPath, nextNodeId });
+					}
+				}
+			}
+		}
+	}
 	void Traffic::generatePathsRecursive(Road* currentRoad, std::vector<uint16>& currentPath,
 		std::set<uint16>& visited, std::set<std::vector<uint16>>& uniquePaths, int maxDepth)
 	{
@@ -1816,6 +1909,9 @@ namespace Echo
 	void Traffic::createRoadNetworkFromHighwayData(const HighwayConnectData& connectData, const HighwayGraphData& graphData)
 	{
 		LogManager::instance()->logMessage("Creating highway road network from combined data...");
+
+		m_highwayGraphData = graphData;
+		m_highwayNodes = graphData.nodes;
 
 		
 		std::map<std::pair<uint16, uint16>, std::vector<Vector3>> nodeIdPairToCoordinates;

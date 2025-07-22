@@ -88,8 +88,8 @@ namespace Echo
 	class Vehicle;
 	class Road {
 	public:
-		Road(const JsonRoadLink& linkData, const JsonRoadNode& sourceNode, const JsonRoadNode& targetNode);
-		Road(const HighwayLink& linkData, const HighwayNode& sourceNode, const std::vector<Vector3>& coordinates);
+		//Road(const JsonRoadLink& linkData, const JsonRoadNode& sourceNode, const JsonRoadNode& targetNode);
+		Road(const HighwayLink& linkData, const HighwayNode& sourceNode, const HighwayNode& targetNode, const std::vector<Vector3>& coordinates);
 		void addCar(Vehicle* car);
 		void update(float deltaTime);
 		uint16 getRoadId() const { return mRoadId; }
@@ -101,6 +101,9 @@ namespace Echo
 
 		// 添加Traffic引用以支持路径导航
 		void setTrafficManager(class Traffic* trafficManager) { m_trafficManager = trafficManager; }
+
+		bool isHighwayRoad() const { return m_isHighwayRoad; }
+
 
 		Vehicle* findLeadingVehicle(const Vehicle* vehicle) const;
 		float calculateGapToLeadingVehicle(const Vehicle* vehicle) const;
@@ -274,16 +277,19 @@ namespace Echo
 
 			
 		// JSON相关方法声明
-			JsonRoadData parseJsonRoadData(const std::string& jsonFilePath);
-			void createConnectedRoadNetworkFromJson(const JsonRoadData& roadData);
+			/*JsonRoadData parseJsonRoadData(const std::string& jsonFilePath);
+			void createConnectedRoadNetworkFromJson(const JsonRoadData& roadData);*/
 			// Highway Connect JSON相关方法声明
 			HighwayConnectData parseHighwayConnectData(const std::string& jsonFilePath);
 			HighwayGraphData parseHighwayGraphData(const std::string& jsonFilePath);
 			void createRoadNetworkFromHighwayData(const HighwayConnectData& connectData, const HighwayGraphData& graphData);
 			Road* createRoadFromHighwayLink(const HighwayLink& link, const HighwayNode& sourceNode, const HighwayNode& targetNode, const std::vector<Vector3>& coordinates);
 
-
-
+			//路径Bfs
+			
+			void generateNodePathsBFS(uint16 startNodeId,
+				const std::map<uint16, std::vector<uint16>>& nodeAdjacencyMap,
+				std::set<std::vector<uint16>>& allNodePaths, int maxPathLength);
 			void initializeCarFollowingModels();
 			std::unique_ptr<ICarFollowingModel> createModelForVehicle(Vehicle::VehicleType type);
 
@@ -300,6 +306,10 @@ namespace Echo
 			// JSON相关成员变量
 			JsonRoadData m_jsonRoadData;
 			std::map<uint16, JsonRoadNode> m_nodeMap; // 节点ID到节点的映射
+
+			HighwayGraphData m_highwayGraphData;
+			std::vector<HighwayNode> m_highwayNodes;
+
 
 			//跟车模型配置
 			CarFollowingModelFactory::ModelType m_defaultModelType = CarFollowingModelFactory::ModelType::IDM;
