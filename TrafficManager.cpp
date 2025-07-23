@@ -218,7 +218,7 @@ namespace Echo
 
 		if (m_pathsGenerated)
 		{
-			addMultipleVehicles(200);
+			addMultipleVehicles(10);
 			assignPathsToAllVehicles();
 		}
 	}
@@ -1003,7 +1003,7 @@ namespace Echo
 				uint16 targetNode = road->getDestinationNodeId();
 				uint16 roadId = road->getRoadId();
 
-				// 构建双向邻接表（高速公路一般是双向的）
+				// 构建双向邻接表
 				nodeAdjacencyMap[sourceNode].push_back(targetNode);
 				nodeAdjacencyMap[targetNode].push_back(sourceNode);
 
@@ -1013,23 +1013,144 @@ namespace Echo
 
 				LogManager::instance()->logMessage("添加节点连接: " + std::to_string(sourceNode) + " <-> " + std::to_string(targetNode) + " (Road " + std::to_string(roadId) + ")");
 			}
-		}
+		}		LogManager::instance()->logMessage("节点邻接图构建完成，连接节点数: " + std::to_string(nodeAdjacencyMap.size()));
 
-		LogManager::instance()->logMessage("节点邻接图构建完成，连接节点数: " + std::to_string(nodeAdjacencyMap.size()));
+		// 动态计算网络特征参数
+		int totalNodes = static_cast<int>(nodeAdjacencyMap.size());
+		int totalRoads = static_cast<int>(m_allRoads.size());
 
-		// 生成节点间路径（使用BFS在节点网络上寻路）
+		// 根据网络规模动态调整参数
+		int maxPathsToGenerate = std::min(200, std::max(20, totalRoads / 5)); // 基于道路数量调整
+		int minPathLength = std::max(3, totalNodes / 20); // 最小路径长度：网络节点数的5%
+		int maxSearchDepth = std::min(100, totalNodes); // 最大搜索深度：不超过总节点数
+		int targetPathLength = std::max(10, totalNodes / 3); // 目标路径长度：网络节点数的1/3
+
+		LogManager::instance()->logMessage("动态参数设置 - 最大路径数: " + std::to_string(maxPathsToGenerate) +
+			", 最小长度: " + std::to_string(minPathLength) +
+			", 目标长度: " + std::to_string(targetPathLength) +
+			", 最大深度: " + std::to_string(maxSearchDepth));
+
+		// 自适应起点选择策略
 		std::set<std::vector<uint16>> allNodePaths;
-		const int maxPathLength = 4; // 最大路径长度（节点数）
+		std::vector<std::pair<uint16, int>> candidateStartNodes;
 
-		// 为每个节点作为起点生成路径
-		for (const auto& startEntry : nodeAdjacencyMap) {
-			uint16 startNodeId = startEntry.first;
-
-			// BFS生成从当前节点开始的所有路径
-			generateNodePathsBFS(startNodeId, nodeAdjacencyMap, allNodePaths, maxPathLength);
+		// 统计度数分布
+		std::map<int, int> degreeDistribution;
+		for (const auto& entry : nodeAdjacencyMap) {
+			int degree = static_cast<int>(entry.second.size());
+			degreeDistribution[degree]++;
 		}
 
-		LogManager::instance()->logMessage("生成节点路径数: " + std::to_string(allNodePaths.size()));
+		// 智能选择起点：优先选择低度数节点，但也包括一些中等度数节点
+		for (const auto& entry : nodeAdjacencyMap) {
+			int degree = static_cast<int>(entry.second.size());
+			// 根据网络规模动态调整起点选择策略
+			bool shouldInclude = false;
+			if (totalNodes < 50) {
+				// 小网络：包含度数≤3的节点
+				shouldInclude = (degree <= 3);
+			}
+			else if (totalNodes < 200) {
+				// 中等网络：包含度数≤4的节点，以及一些度数为5的节点
+				shouldInclude = (degree <= 4) || (degree == 5 && candidateStartNodes.size() < maxPathsToGenerate / 2);
+			}
+			else {
+				// 大网络：更宽松的选择策略
+				shouldInclude = (degree <= 5) || (degree <= 8 && candidateStartNodes.size() < maxPathsToGenerate / 3);
+			}
+
+			if (shouldInclude) {
+				candidateStartNodes.push_back({ entry.first, degree });
+			}
+		}
+
+		// 按度数排序，优先使用低度数节点
+		std::sort(candidateStartNodes.begin(), candidateStartNodes.end(),
+			[](const auto& a, const auto& b) { return a.second < b.second; });
+
+		LogManager::instance()->logMessage("自适应选择起点节点: " + std::to_string(candidateStartNodes.size()) + " 个");
+		for (const auto& [degree, count] : degreeDistribution) {
+			LogManager::instance()->logMessage("度数 " + std::to_string(degree) + ": " + std::to_string(count) + " 个节点");
+		}
+		// 从候选起点生成长距离路径
+		for (size_t i = 0; i < candidateStartNodes.size() && allNodePaths.size() < maxPathsToGenerate; ++i) {
+			uint16 startNode = candidateStartNodes[i].first;
+
+			// 使用改进的DFS查找长距离路径
+			std::function<void(uint16, std::vector<uint16>&, std::set<uint16>&, int)> findLongPathsDFS =
+				[&](uint16 currentNode, std::vector<uint16>& path, std::set<uint16>& visited, int depth) {
+				if (allNodePaths.size() >= maxPathsToGenerate || depth > maxSearchDepth) return;
+
+				// 动态保存路径：根据路径长度和网络特征决定是否保存
+				bool shouldSavePath = false;
+
+				// 条件1：路径达到最小长度，且到达了低度数节点（可能的端点）
+				if (path.size() >= minPathLength && currentNode != startNode) {
+					auto nodeIt = std::find_if(candidateStartNodes.begin(), candidateStartNodes.end(),
+						[currentNode](const auto& p) { return p.first == currentNode; });
+					if (nodeIt != candidateStartNodes.end()) {
+						shouldSavePath = true;
+					}
+				}
+
+				// 条件2：路径达到目标长度，无论是否到达特殊节点都保存
+				if (path.size() >= targetPathLength) {
+					shouldSavePath = true;
+				}
+
+				// 条件3：路径很长（超过目标长度1.5倍），优先保存
+				if (path.size() >= targetPathLength * 3 / 2) {
+					shouldSavePath = true;
+					allNodePaths.insert(path);
+					return; // 路径足够长，停止继续扩展
+				}
+
+				// 条件4：对于超大网络，适当保存中等长度的路径
+				if (totalNodes > 100 && path.size() >= targetPathLength / 2 && path.size() % 10 == 0) {
+					shouldSavePath = true;
+				}
+
+				if (shouldSavePath) {
+					allNodePaths.insert(path);
+				}
+
+				// 继续DFS搜索
+				auto adjIt = nodeAdjacencyMap.find(currentNode);
+				if (adjIt != nodeAdjacencyMap.end()) {
+					for (uint16 nextNode : adjIt->second) {
+						if (visited.find(nextNode) == visited.end()) {
+							path.push_back(nextNode);
+							visited.insert(nextNode);
+							findLongPathsDFS(nextNode, path, visited, depth + 1);
+							path.pop_back();
+							visited.erase(nextNode);
+						}
+					}
+				}				};
+
+			std::vector<uint16> initialPath = { startNode };
+			std::set<uint16> initialVisited = { startNode };
+			findLongPathsDFS(startNode, initialPath, initialVisited, 0);
+		}
+
+		LogManager::instance()->logMessage("生成长距离路径数: " + std::to_string(allNodePaths.size()));
+
+		// 分析生成的路径长度分布
+		std::map<int, int> pathLengthDistribution;
+		int maxPathLength = 0;
+		int minPaLength = 999;
+		for (const auto& nodePath : allNodePaths) {
+			int pathLength = static_cast<int>(nodePath.size());
+			pathLengthDistribution[pathLength]++;
+			maxPathLength = std::max(maxPathLength, pathLength);
+			minPaLength = std::min(minPaLength, pathLength);
+		}
+
+		LogManager::instance()->logMessage("路径长度分析 - 最短: " + std::to_string(minPaLength) +
+			" 节点, 最长: " + std::to_string(maxPathLength) + " 节点");
+		for (const auto& [length, count] : pathLengthDistribution) {
+			LogManager::instance()->logMessage("长度 " + std::to_string(length) + " 节点: " + std::to_string(count) + " 条路径");
+		}
 
 		// 将节点路径转换为道路路径
 		for (const auto& nodePath : allNodePaths) {
@@ -1047,32 +1168,58 @@ namespace Echo
 				if (roadIt != nodeToRoadMap.end()) {
 					roadPath.push_back(roadIt->second);
 				}
-				else {
-					LogManager::instance()->logMessage("警告: 无法找到节点 " + std::to_string(fromNode) + " -> " + std::to_string(toNode) + " 对应的道路");
-					validPath = false;
-					break;
-				}
+				
 			}
 
 			if (validPath && !roadPath.empty()) {
 				m_allPaths.push_back(roadPath);
 			}
 		}
+		LogManager::instance()->logMessage("=== 自适应路径生成完成 ===");
+		LogManager::instance()->logMessage("有效完整路径总数: " + std::to_string(m_allPaths.size()));
 
-		LogManager::instance()->logMessage("=== 节点网络路径生成完成 ===");
-		LogManager::instance()->logMessage("有效路径总数: " + std::to_string(m_allPaths.size()));
+		// 分析生成的道路路径长度分布
+		std::map<int, int> roadPathLengthDistribution;
+		int maxRoadPathLength = 0;
+		int minRoadPathLength = 999;
+		for (const auto& roadPath : m_allPaths) {
+			int pathLength = static_cast<int>(roadPath.size());
+			roadPathLengthDistribution[pathLength]++;
+			maxRoadPathLength = std::max(maxRoadPathLength, pathLength);
+			minRoadPathLength = std::min(minRoadPathLength, pathLength);
+		}
 
-		// 输出前10条路径进行调试
-		for (size_t i = 0; i < std::min(static_cast<size_t>(10), m_allPaths.size()); ++i) {
-			std::string pathStr = "NetworkPath[" + std::to_string(i) + "]: ";
-			for (size_t j = 0; j < m_allPaths[i].size(); ++j) {
-				pathStr += "Road[" + std::to_string(m_allPaths[i][j]) + "]";
-				if (j < m_allPaths[i].size() - 1) pathStr += "->";
+		LogManager::instance()->logMessage("道路路径长度分析 - 最短: " + std::to_string(minRoadPathLength) +
+			" 段, 最长: " + std::to_string(maxRoadPathLength) + " 段");
+		for (const auto& [length, count] : roadPathLengthDistribution) {
+			LogManager::instance()->logMessage("长度 " + std::to_string(length) + " 段: " + std::to_string(count) + " 条路径");
+		}
+
+		// 智能输出路径样本（显示不同长度的代表性路径）
+		std::vector<size_t> sampleIndices;
+
+		// 选择短、中、长路径的代表样本
+		for (size_t i = 0; i < m_allPaths.size(); ++i) {
+			int pathLength = static_cast<int>(m_allPaths[i].size());
+
+			// 选择代表性路径：最短的、中等长度的、最长的
+			if (pathLength == minRoadPathLength ||
+				pathLength == maxRoadPathLength ||
+				(pathLength >= (minRoadPathLength + maxRoadPathLength) / 2 - 2 &&
+					pathLength <= (minRoadPathLength + maxRoadPathLength) / 2 + 2)) {
+				sampleIndices.push_back(i);
+				if (sampleIndices.size() >= 10) break; // 限制输出数量
+			}
+		}
+
+		LogManager::instance()->logMessage("=== 代表性路径样本 ===");
+		for (size_t idx : sampleIndices) {
+			std::string pathStr = "AdaptivePath[" + std::to_string(idx) + "] (" + std::to_string(m_allPaths[idx].size()) + "段): ";
+			for (size_t j = 0; j < m_allPaths[idx].size(); ++j) {
+				pathStr += "Road[" + std::to_string(m_allPaths[idx][j]) + "]";
+				if (j < m_allPaths[idx].size() - 1) pathStr += "->";
 			}
 			LogManager::instance()->logMessage(pathStr);
-		}
-		if (m_allPaths.size() > 10) {
-			LogManager::instance()->logMessage("... 还有 " + std::to_string(m_allPaths.size() - 10) + " 条路径");
 		}
 
 		m_pathsGenerated = true;
