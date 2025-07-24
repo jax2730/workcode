@@ -98,6 +98,18 @@ namespace Echo
 		}
 	}
 
+	void Traffic::UpdatePositon()
+	{
+		for (Vehicle* vehicle : m_Vehicles)
+		{
+			if (vehicle)
+			{
+		
+				vehicle->updatePos();
+			}
+		}
+	}
+
 	bool Traffic::OnActorCreateFinish()
 	{
 		LogManager::instance()->logMessage("123");
@@ -137,8 +149,9 @@ namespace Echo
 
 		m_mainBarrier.signal();
 
-	}
 
+	}
+	
 	void Traffic::onTick()
 	{
 		using namespace std::chrono;
@@ -161,14 +174,14 @@ namespace Echo
 			
 			auto tickBegin = steady_clock::now();
 			std::chrono::nanoseconds dt = tickBegin - lastTikcBegin;
+			//LogManager::instance()->logMessage()
 			//_tick(dt.count() / 1000.f);
 			_tick(std::chrono::duration<float>(dt).count());
 
 			lastTikcBegin = tickBegin;
 
 			//等待 主线程使用数据更新场景
-
-			
+			//UpdatePositon();
 
 			m_workBarrier.signal();
 			m_mainBarrier.wait();
@@ -197,14 +210,15 @@ namespace Echo
 		//用更新后的数据更新车的实际位置 数据设置给小车
 		//获取更新后的数据，用更新后的数据更新车的实际位置
 
-		/*for (vehicle* vehicle : m_vehicles)
+		//UpdatePositon();
+		for (Vehicle* vehicle : m_Vehicles)
 		{
 			if (vehicle)
 			{
-				 将计算线程计算出的位置和旋转同步到渲染对象
-				vehicle->updatepos();
+				 //将计算线程计算出的位置和旋转同步到渲染对象
+				vehicle->updatePos();
 			}
-		}*/
+		}
 
 
 		m_mainBarrier.signal();
@@ -221,7 +235,7 @@ namespace Echo
 
 		if (m_pathsGenerated)
 		{
-			addMultipleVehicles(200);
+			addMultipleVehicles(3000);
 			assignPathsToAllVehicles();
 		}
 	}
@@ -542,7 +556,7 @@ namespace Echo
 				car->dir = -tangent;
 			}
 
-			car->updatePos();
+			//car->updatePos();
 		}
 
 		// 执行车辆转移
@@ -659,7 +673,7 @@ namespace Echo
 
 	// Road连接相关方法实现
 	uint16 Road::getSourceCityId() const
-	{
+	{ 
 		if (mRoadsData.source.type == PlanetRoadData::TerminalType::City)
 		{
 			return mRoadsData.source.id;
@@ -675,6 +689,7 @@ namespace Echo
 		}
 		return 0; // 无效ID
 	}
+	inline void Road::setNextRoad(Road* nextRoad) { m_nextRoad = nextRoad; }
 	//默认跟车模型参数设置
 	void Traffic::initializeCarFollowingModels()
 	{
@@ -688,7 +703,7 @@ namespace Echo
 		m_idmParams.noiseLevel = 0.1f;
 
 		// 设置ACC默认参数
-		m_accParams.v0 = 25.0f;
+		m_accParams.v0 = 25.0f; 
 		m_accParams.T = 1.0f;
 		m_accParams.s0 = 3.0f;
 		m_accParams.a = 8.0f;
@@ -821,11 +836,11 @@ namespace Echo
 
 		const float baseSpeed = 3.0f;  // 基础速度 (m/s)
 		const float laneOffset = 4.5f;  // 车道偏移
-		const float minGap = 80.0f;     // 车辆之间的最小间距
+		const float minGap = 100.0f;     // 车辆之间的最小间距
 
 		// 计算正向和逆向车辆数量（70%正向，30%逆向）
 		int forwardVehicles = static_cast<int>(numVehicles );
-		int backwardVehicles = numVehicles - forwardVehicles;
+		int backwardVehicles = static_cast<int>(numVehicles);
 
 		// 添加正向车辆
 		for (int i = 0; i < forwardVehicles; ++i) {
@@ -849,7 +864,26 @@ namespace Echo
 			m_Vehicles.push_back(newVehicle);
 		}
 
+		for (int i = 0; i < forwardVehicles; ++i) {
 
+			float vehicleSpeed = baseSpeed + (rand() % 5 - 2) * 0.5;
+			vehicleSpeed = std::max(1.0f, vehicleSpeed);
+
+			Vehicle* newVehicle = new Vehicle(vehicleSpeed, Vehicle::LaneDirection::Backward);
+			newVehicle->id = m_Vehicles.size() + 1;
+			
+			newVehicle->laneOffset = laneOffset + (rand() % 3 - 1) * 0.3f;
+			newVehicle->s = m_roadManager->mLens - (i * minGap);
+
+			auto carFollowingModel = createModelForVehicle(Vehicle::VehicleType::Car);
+			newVehicle->setCarFollowingModel(std::move(carFollowingModel));
+
+			//newVehicle->setDriverVariation(m_driverVariationCoeff);
+			//float driverVariation = 0.25f + (rand() % 10) * 0.01f; // 0.25-0.7的变异系数
+			//newVehicle->setDriverVariation(driverVariation);
+			m_roadManager->addCar(newVehicle);
+			m_Vehicles.push_back(newVehicle);
+		}
 
 		// 添加逆向车辆
 		/*for (int i = 0; i < backwardvehicles; ++i) {
@@ -1366,7 +1400,7 @@ namespace Echo
 		LogManager::instance()->logMessage("Starting intelligent path assignment for " + std::to_string(m_Vehicles.size()) + " vehicles with " + std::to_string(m_allPaths.size()) + " available paths.");
 
 		// 智能分配车辆到不同道路，保持minGap间距
-		const float minGap = 80.0f; // 与addMultipleVehicles中的minGap保持一致
+		const float minGap = 100.0f; // 与addMultipleVehicles中的minGap保持一致
 
 		// 1. 按道路分组分配车辆，而不是按路径
 		std::map<uint16, std::vector<Vehicle*>> roadVehicleGroups;

@@ -32,7 +32,7 @@ namespace Echo
 		float getRoadLength() const { return mLens; }
 		uint16 getSourceCityId() const;
 		uint16 getDestinationCityId() const;
-		void setNextRoad(Road* nextRoad) { m_nextRoad = nextRoad; }
+		void setNextRoad(Road* nextRoad);
 		Road* getNextRoad() const { return m_nextRoad; }
 
 		// 添加Traffic引用以支持路径导航
@@ -209,6 +209,7 @@ namespace Echo
 
 	private:
 		void _tick(float dt);
+		void UpdatePositon();
 		void createConnectedRoadNetwork(const PlanetRoadGroup& roadGroup);
 		void generatePathsRecursive(Road* currentRoad, std::vector<uint16>& currentPath,
 			std::set<uint16>& visited, std::set<std::vector<uint16>>& uniquePaths, int maxDepth);
