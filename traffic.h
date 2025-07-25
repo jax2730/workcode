@@ -27,7 +27,10 @@ namespace Echo
 		Road(const PlanetRoadData& roadData);
 
 		void addCar(Vehicle* car);
+		void removeCar(Vehicle* car);
 		void update(float deltaTime);
+		void updateVehicleState(Vehicle* vehicle, float dt);
+
 		uint16 getRoadId() const { return mRoadsData.roadID; }
 		float getRoadLength() const { return mLens; }
 		uint16 getSourceCityId() const;
@@ -40,7 +43,7 @@ namespace Echo
 
 		Vehicle* findLeadingVehicle(const Vehicle* vehicle) const;
 		float calculateGapToLeadingVehicle(const Vehicle* vehicle) const;
-
+		void checkVisible();
 
 		void sortVehicles();
 		void updateEnvironment();
@@ -66,6 +69,14 @@ namespace Echo
 
 	};
 
+	struct VehicleRenderData
+	{
+		
+		Vector3 pos = Vector3::ZERO;
+		Quaternion rot = Quaternion::IDENTITY;
+	};
+
+
 	class Vehicle
 	{
 	public:
@@ -80,9 +91,11 @@ namespace Echo
 			Car = 0,
 			Truck = 1
 		};
-
-		Vehicle(float initialSpeed = 25.0f, LaneDirection direction = LaneDirection::Forward);
+	
+		Vehicle(float initialSpeed, LaneDirection direction);
 		void assignToRoute(const std::list<uint16>& route, Road* roadManager);
+		void setCurrentRoad(Road* road) { m_currentRoad = road; }
+		Road* getCurrentRoad() const { return m_currentRoad; }
 		void update(float deltaTime);
 		void updatePos();
 
@@ -110,6 +123,7 @@ namespace Echo
 		Vector3 pos;
 		Vector3 dir;
 		Quaternion rot;
+		Road* m_currentRoad = nullptr;
 		Vector3 roadNormal = Vector3::UNIT_Y;
 		float laneWidth = 3.5f; // 车道宽度
 		float laneOffset = 0.0f; // 车道偏移（正值右车道，负值左车道）
@@ -119,6 +133,7 @@ namespace Echo
 		float m_length = 5.0f;  // 车长
 		float m_width = 2.5f;   // 车宽
 
+		bool Visible = false;
 
 	private:
 		ActorPtr mCar;
@@ -132,7 +147,7 @@ namespace Echo
 		// 路径跟踪
 		std::vector<uint16> m_pathRoads;
 		int m_currentRoadIndex = -1;
-
+		 friend class Road;
 	};
 
 	struct CityUI
@@ -156,22 +171,36 @@ namespace Echo
 
 	
 
-	class Traffic : public ActorLoadListener, public SphericalTerrain::LoadListener
+	class Traffic : public ActorLoadListener, public SphericalTerrain::LoadListener, public FrameListener
 	{
+	public:
+		class VehicleTiker : public Job
+		{
+		public:
+			VehicleTiker(Traffic* traffic);
+			virtual ~VehicleTiker();
+
+			virtual void Execute();
+		private:
+			Traffic* mTraffic = nullptr;
+		};
 	public:
 		Traffic(SceneManager* InSceneManger, WorldManager* InWorldMgr);
 		~Traffic();
+
 
 		void initRoads();
 		void onTick();
 		void onUpdate();
 		void initVehicle();
-
+		void checkVehicle();
 		//回调
 		bool OnActorCreateFinish() override;
 
 		void OnCreateFinish() override;
 		void OnDestroy() override;
+
+		bool frameStarted(const FrameEvent& evt) override;
 
 		// 跟车模型配置 - 简化的模块化接口
 		void setDefaultCarFollowingModel(CarFollowingModelFactory::ModelType modelType);
@@ -194,7 +223,24 @@ namespace Echo
 
 		SphericalTerrain* getTargetPlanet() const { return m_targetPlanet; }
 
-	private:
+		struct DoubleBuffer
+		{
+			std::vector<VehicleRenderData> frontBuffer;
+			std::vector<VehicleRenderData> backBuffer;
+			std::mutex swapMutex;
+
+			void swapBuffer()
+			{
+				std::lock_guard<std::mutex> lock(swapMutex);
+				frontBuffer.swap(backBuffer);
+			}
+
+		};
+
+
+
+
+
 		class Barrier
 		{
 		public:
@@ -245,6 +291,9 @@ namespace Echo
 		Barrier m_workBarrier;
 		Barrier m_mainBarrier;
 		Barrier m_initBarrier;
+
+		std::atomic<bool> m_onTickCompleted{ false };
+
 		//Barrier m_finalInitBarrier;
 	};
 }

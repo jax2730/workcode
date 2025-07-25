@@ -47,10 +47,12 @@ namespace Echo
 		initializeCarFollowingModels();
 		srand(static_cast<unsigned int>(time(nullptr)));
 		//m_workBarrier.signal();
+		Root::instance()->addFrameListener(this);
 	}
 
 	Traffic::~Traffic()
 	{
+		Root::instance()->removeFrameListener(this);
 		m_bQuite = true;
 		m_mainBarrier.signal();
 
@@ -137,6 +139,10 @@ namespace Echo
 
 	void Traffic::OnCreateFinish()
 	{
+
+		//需要一个标记 数据已就位
+
+
 		LogManager::instance()->logMessage("Planet data loading complete. Starting Traffic worker thread now...");
 
 		m_thread = new std::thread(std::bind(&Traffic::onTick, this));
@@ -161,43 +167,134 @@ namespace Echo
 		{
 			initRoads();
 			initialized = true;
-			m_workBarrier.signal();
-			//
+			
+			
 
 			
 		}
-		m_mainBarrier.wait();
+		
         //初始化标记
 
-		while (!m_bQuite)
-		{
-			
-			auto tickBegin = steady_clock::now();
-			std::chrono::nanoseconds dt = tickBegin - lastTikcBegin;
-			//LogManager::instance()->logMessage()
-			//_tick(dt.count() / 1000.f);
+		
+			auto frameStart = steady_clock::now();
+			std::chrono::nanoseconds dt = frameStart - lastTikcBegin;
+
+			// 测量_tick计算时间
+			auto computeStart = steady_clock::now();
 			_tick(std::chrono::duration<float>(dt).count());
+			//checkVehicle();
+			//
+			auto computeEnd = steady_clock::now();
+			auto computeTime = duration_cast<milliseconds>(computeEnd - computeStart);
 
-			lastTikcBegin = tickBegin;
+			lastTikcBegin = frameStart;
 
-			//等待 主线程使用数据更新场景
-			//UpdatePositon();
+			// 通知主线程计算完成
+			auto waitStart = steady_clock::now();
+			
+			auto waitEnd = steady_clock::now();
+			auto waitTime = duration_cast<milliseconds>(waitEnd - waitStart);
 
-			m_workBarrier.signal();
-			m_mainBarrier.wait();
+			// 每100帧输出一次性能统计
+			static int frameCount = 0;
+			static float computecount = 0;
+			static float waitcount = 0;
+			if (++frameCount % 100 == 0) {
+				LogManager::instance()->logMessage("Tick WorkThread - Compute: " + std::to_string(computecount / 100) +
+					"ns, Wait: " + std::to_string(waitcount / 100) + "ns");
+				frameCount = 0;
+				computecount = 0;
+				 waitcount = 0;
+			}
+			else
+			{
+				computecount += computeTime.count();
+				waitcount += waitTime.count();
+			}
+			//计算完成的标记
 
+			m_onTickCompleted = true;
 
+	}
 
+	void Traffic::checkVehicle()
+	{
+		
+		for (Road* road : m_allRoads)
+		{
+			if (road) {
+
+				road->checkVisible();
+			}
 		}
 	}
+	void Road::checkVisible()
+	{
+
+		if (!Root::instance()->getMainSceneManager() || !Root::instance()->getMainSceneManager()->getMainCamera()) return;
+		Camera* mainCamera = Root::instance()->getMainSceneManager()->getMainCamera();
+
+		auto isVisible = [mainCamera](const AxisAlignedBox& bound) {
+			if (bound.isNull())
+				return false;
+
+			// Infinite boxes always visible
+			if (bound.isInfinite())
+				return true;
+
+			// Get centre of the box
+			Vector3 centre = bound.getCenter();
+			// Get the half-size of the box
+			Vector3 halfSize = bound.getHalfSize();
+
+			// For each plane, see if all points are on the negative side
+			// If so, object is not visible
+			for (int plane = 0; plane < 6; ++plane)
+			{
+				// Skip far plane if infinite view frustum
+				if (plane == FRUSTUM_PLANE_FAR && mainCamera->getFarClipDistance() == 0)
+					continue;
+
+				Plane::Side side = mainCamera->getFrustumPlane(plane).getSide(centre, halfSize);
+				if (side == Plane::NEGATIVE_SIDE)
+				{
+					return false;
+				}
+
+			}
+			return true;
+		};
+
+		//if(!isVisible(roadAABB))
+		{
+			return;
+		}
+
+		for (Vehicle* vehicle : mCars)
+		{
+			const AxisAlignedBox& aabb = vehicle->mCar->getWorldBounds();
+			vehicle->Visible = isVisible(aabb);
+		}
+	}
+
+	//void ::che   const AxisAlignedBox& aabb = mCar->getWorldBounds();
+	//bool isVisible = Root::instance()->getMainSceneManager()->getMainCamera()->isVisible(aabb);
+	//for(road
+	// 
+	//{}
 
 	//等待工作线程完成当前帧的数据计算，更新数据
 	void Traffic::onUpdate()
 	{
+		using namespace std::chrono;
+		auto lastTikcBegin = steady_clock::now();
+
 		if (!m_isInitialized) {
 			// 初始化还未完成，跳过此次更新
 			return;
 		}
+		
+		
 		/*static bool final_init_done = false;
 		if (!final_init_done)
 		{
@@ -206,6 +303,18 @@ namespace Echo
 			m_finalInitBarrier.signal();
 		}*/
 		m_workBarrier.wait();
+
+		auto frameStart = steady_clock::now();
+		std::chrono::nanoseconds dt = frameStart - lastTikcBegin;
+
+
+		
+		
+
+
+		//等待
+		//
+		
 		//获取更新后的数据
 		//用更新后的数据更新车的实际位置 数据设置给小车
 		//获取更新后的数据，用更新后的数据更新车的实际位置
@@ -219,9 +328,32 @@ namespace Echo
 				vehicle->updatePos();
 			}
 		}
+		//更新时间
 
 
 		m_mainBarrier.signal();
+		auto computeEnd = steady_clock::now();
+		auto computeTime = duration_cast<milliseconds>(computeEnd - frameStart);
+
+		auto waitTime = duration_cast<milliseconds>(frameStart - lastTikcBegin);
+
+		static int frameCount = 0;
+		static float computecount = 0;
+		static float waitcount = 0;
+		if (++frameCount % 100 == 0) {
+			LogManager::instance()->logMessage("update WorkThread - Compute: " + std::to_string(computecount/100) +
+				"ns, Wait: " + std::to_string(waitcount/100) + "ns");
+
+			frameCount = 0;
+			computecount = 0;
+			waitcount = 0;
+		}
+		else
+		{
+			computecount += computeTime.count();
+			waitcount += waitTime.count();
+		}
+
 	}
 
 	void Traffic::initVehicle()
@@ -239,6 +371,8 @@ namespace Echo
 			assignPathsToAllVehicles();
 		}
 	}
+
+	
 
 	void Traffic::initRoads()
 	{
@@ -303,6 +437,43 @@ namespace Echo
 	{
 		//移除小车  销毁
 	}
+
+	bool Traffic::frameStarted(const FrameEvent& evt)
+	{
+		static bool isInitialized = false;
+		static std::unique_ptr<VehicleTiker> vehicleTiker = nullptr;
+
+		if (!isInitialized /*初始化  数据就位的标记*/)
+		{
+			// 1.根据数据初始化道路和车
+			if (m_isInitialized && !m_allRoads.empty())
+			{
+				// 2.创建VehicleTiker
+				vehicleTiker = std::make_unique<VehicleTiker>(this);
+
+				// 3.启动VehicleTiker (异步执行onTick)
+				vehicleTiker->RunJob();
+
+				isInitialized = true;
+			}
+		}
+
+		// 检查上一帧的计算是否完成，如果完成则获取结果并提交新的Job
+		if (isInitialized && m_onTickCompleted.exchange(false))
+		{
+			// 获取计算结果并更新位置
+			UpdatePositon();
+
+			// 提交新的VehicleTiker Job到后台执行
+			if (vehicleTiker)
+			{
+				vehicleTiker->RunJob();
+			}
+		}
+
+		return true; // 继续渲染
+	}
+
 	//道路链接
 	void Traffic::createConnectedRoadNetwork(const PlanetRoadGroup& roadGroup)
 	{
@@ -591,8 +762,8 @@ namespace Echo
 					if (vehicle->moveToNextRoad()) {
 						uint16 nextRoadId = vehicle->getCurrentRoadId();
 						nextRoad = m_trafficManager->getRoadById(nextRoadId);
-						LogManager::instance()->logMessage("Forward Vehicle " + std::to_string(vehicle->id) +
-							" following path to Road " + std::to_string(nextRoadId));
+						/*LogManager::instance()->logMessage("Forward Vehicle " + std::to_string(vehicle->id) +
+							" following path to Road " + std::to_string(nextRoadId));*/
 					}
 				}
 				else {
@@ -604,8 +775,8 @@ namespace Echo
 						if (nextRoad) {
 							vehicle->s = nextRoad->mLens - std::max(0.0f, overshoot);
 						}
-						LogManager::instance()->logMessage("Backward Vehicle " + std::to_string(vehicle->id) +
-							" following reverse path to Road " + std::to_string(nextRoadId));
+						/*LogManager::instance()->logMessage("Backward Vehicle " + std::to_string(vehicle->id) +
+							" following reverse path to Road " + std::to_string(nextRoadId));*/
 					}
 				}
 
@@ -623,14 +794,14 @@ namespace Echo
 			// 添加到目标道路
 			if (nextRoad) {
 				nextRoad->addCar(vehicle);
-				LogManager::instance()->logMessage("Vehicle " + std::to_string(vehicle->id) +
+				/*LogManager::instance()->logMessage("Vehicle " + std::to_string(vehicle->id) +
 					" transferred from Road " + std::to_string(getRoadId()) +
 					" to Road " + std::to_string(nextRoad->getRoadId()) +
-					" with overshoot: " + std::to_string(overshoot));
+					" with overshoot: " + std::to_string(overshoot));*/
 			}
 			else {
-				LogManager::instance()->logMessage("Vehicle " + std::to_string(vehicle->id) +
-					" has no next road - removing from simulation");
+				/*LogManager::instance()->logMessage("Vehicle " + std::to_string(vehicle->id) +
+					" has no next road - removing from simulation");*/
 			}
 		}
 
@@ -663,7 +834,8 @@ namespace Echo
 
 	void Vehicle::updatePos()
 	{
-		if (!mCar.Expired())
+		
+		if (!mCar.Expired() && Visible)
 		{
 			mCar->setPosition(pos);
 			mCar->setRotation(rot);
@@ -881,7 +1053,7 @@ namespace Echo
 			//newVehicle->setDriverVariation(m_driverVariationCoeff);
 			//float driverVariation = 0.25f + (rand() % 10) * 0.01f; // 0.25-0.7的变异系数
 			//newVehicle->setDriverVariation(driverVariation);
-			m_roadManager->addCar(newVehicle);
+			m_roadManager->addCar(newVehicle);//删除
 			m_Vehicles.push_back(newVehicle);
 		}
 
@@ -1074,6 +1246,8 @@ namespace Echo
 		return std::max(0.0f, gap); // 确保间距非负
 	}
 
+
+
 	//  跟车模型
 
 	void Vehicle::setCarFollowingModel(std::unique_ptr<ICarFollowingModel> model)
@@ -1237,47 +1411,47 @@ namespace Echo
 
 		float originalPosition = vehicle->s;
 
-		// 验证车辆当前道路与路径起始道路是否匹配
-		uint16 currentRoadId = 0;
+		//// 验证车辆当前道路与路径起始道路是否匹配
+		//uint16 currentRoadId = 0;
 
-		Road* currentRoad = nullptr;
+		//Road* currentRoad = nullptr;
 
-		for (Road* road : m_allRoads) {
-			// 检查车辆是否在这条道路上
-			auto& cars = road->mCars; // 需要访问道路的车辆列表
-			if (std::find(cars.begin(), cars.end(), vehicle) != cars.end()) {
-				currentRoadId = road->getRoadId();
+		//for (Road* road : m_allRoads) {
+		//	// 检查车辆是否在这条道路上
+		//	auto& cars = road->mCars; // 需要访问道路的车辆列表
+		//	if (std::find(cars.begin(), cars.end(), vehicle) != cars.end()) {
+		//		currentRoadId = road->getRoadId();
 
-				currentRoad = road;
+		//		currentRoad = road;
 
-				break;
-			}
-		}
+		//		break;
+		//	}
+		//}
 
-		// 如果当前道路与路径起始道路不匹配，需要重新分配车辆
-		if (currentRoadId != path[0]) {
-			// 将车辆从当前道路移除
-			/*for (Road* road : m_allRoads) {
-				auto& cars = road->mCars;*/
-			if(currentRoad){
-				auto& cars = currentRoad->mCars;
-				auto it = std::find(cars.begin(), cars.end(), vehicle);
-				if (it != cars.end()) {
-					cars.erase(it);
-					//break;
-				}
-			}
+		//// 如果当前道路与路径起始道路不匹配，需要重新分配车辆
+		//if (currentRoadId != path[0]) {
+		//	// 将车辆从当前道路移除
+		//	/*for (Road* road : m_allRoads) {
+		//		auto& cars = road->mCars;*/
+		//	if(currentRoad){
+		//		auto& cars = currentRoad->mCars;
+		//		auto it = std::find(cars.begin(), cars.end(), vehicle);
+		//		if (it != cars.end()) {
+		//			cars.erase(it);
+		//			//break;
+		//		}
+		//	}
 
-			// 将车辆添加到路径起始道路
-			Road* startRoad = getRoadById(path[0]);
-			if (startRoad) {
-				//vehicle->s = 0.0f; // 重置位置
-				vehicle->s = originalPosition;//间距位置
-				startRoad->addCar(vehicle);
-				LogManager::instance()->logMessage("Vehicle " + std::to_string(vehicle->id) +
-					" moved to start road " + std::to_string(path[0]) + " at position " + std::to_string(vehicle->s));
-			}
-		}
+		//	// 将车辆添加到路径起始道路
+		//	Road* startRoad = getRoadById(path[0]);
+		//	if (startRoad) {
+		//		//vehicle->s = 0.0f; // 重置位置
+		//		vehicle->s = originalPosition;//间距位置
+		//		startRoad->addCar(vehicle);
+		//		LogManager::instance()->logMessage("Vehicle " + std::to_string(vehicle->id) +
+		//			" moved to start road " + std::to_string(path[0]) + " at position " + std::to_string(vehicle->s));
+		//	}
+		//}
 
 		vehicle->setPath(path);
 		LogManager::instance()->logMessage("Vehicle[" + std::to_string(vehicle->id) + "] 分配路径[" + std::to_string(pathIndex) + "] 起始道路:" + std::to_string(path[0]) + " 位置:" + std::to_string(vehicle->s));
@@ -1538,6 +1712,24 @@ namespace Echo
 
 
 	
+
+	Traffic::VehicleTiker::VehicleTiker(Traffic* pTraffic) : Job(Name("VehicleTiker"), Normal)
+		, mTraffic(pTraffic)
+	{
+	}
+
+	Traffic::VehicleTiker::~VehicleTiker()
+	{
+		CancelOrWait();
+	}
+
+	void Traffic::VehicleTiker::Execute()
+	{
+		if (mTraffic)
+		{
+			mTraffic->onTick();
+		}
+	}
 
 }
 
