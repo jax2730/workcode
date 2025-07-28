@@ -266,9 +266,7 @@ namespace Echo
 		PlanetRoad* m_planetRoad = nullptr;
 		std::set<uint16> m_visibleRoadsLastFrame;
 		SphericalTerrain* m_targetPlanet = nullptr;
-		//std::map<uint16, Road> m_Roads;
-		//Road* m_roadManager = nullptr;
-		Road* m_roadManager = nullptr;
+		
 		std::vector<Vehicle*> m_Vehicles; // 存储车辆指针
 
 		// 道路连接系统
@@ -294,6 +292,6 @@ namespace Echo
 
 		std::atomic<bool> m_onTickCompleted{ false };
 
-		//Barrier m_finalInitBarrier;
+		
 	};
 }

@@ -162,7 +162,7 @@ namespace Echo
 	{
 		using namespace std::chrono;
 		static auto lastTikcBegin = steady_clock::now();
-	    static bool initialized = false;
+	    /*static bool initialized = false;
 		if (!initialized)
 		{
 			initRoads();
@@ -171,7 +171,7 @@ namespace Echo
 			
 
 			
-		}
+		}*/
 		
         //初始化标记
 
@@ -201,7 +201,7 @@ namespace Echo
 			static float waitcount = 0;
 			if (++frameCount % 100 == 0) {
 				LogManager::instance()->logMessage("Tick WorkThread - Compute: " + std::to_string(computecount / 100) +
-					"ns, Wait: " + std::to_string(waitcount / 100) + "ns");
+					"ms, Wait: " + std::to_string(waitcount / 100) + "ms");
 				frameCount = 0;
 				computecount = 0;
 				 waitcount = 0;
@@ -307,11 +307,6 @@ namespace Echo
 		auto frameStart = steady_clock::now();
 		std::chrono::nanoseconds dt = frameStart - lastTikcBegin;
 
-
-		
-		
-
-
 		//等待
 		//
 		
@@ -341,8 +336,8 @@ namespace Echo
 		static float computecount = 0;
 		static float waitcount = 0;
 		if (++frameCount % 100 == 0) {
-			LogManager::instance()->logMessage("update WorkThread - Compute: " + std::to_string(computecount/100) +
-				"ns, Wait: " + std::to_string(waitcount/100) + "ns");
+			LogManager::instance()->logMessage("update mainThread - Compute: " + std::to_string(computecount/100) +
+				"ms, Wait: " + std::to_string(waitcount/100) + "ms");
 
 			frameCount = 0;
 			computecount = 0;
@@ -385,36 +380,11 @@ namespace Echo
 			// 创建道路连接网络
 			createConnectedRoadNetwork(roadGroup);
 
-			// 使用第一条道路作为起始道路
-			if (m_allRoads.size() > 0) {
-				m_roadManager = m_allRoads[0]; // 使用road[0]
-			}
+			
 
-			if (!roadGroup.roads.empty() && m_roadManager)
+			if (!roadGroup.roads.empty() && !m_allRoads.empty())
 			{
-				// 
-				//const float baseSpeed = 50.0f;
-				//const float laneOffset = 3.0f; // 车道偏移
-				//
-				// 第一辆正向行驶
-				//Vehicle* forwardCar = new Vehicle(baseSpeed, Vehicle::LaneDirection::Forward);
-				//forwardCar->id = 1;
-				//forwardCar->laneOffset = laneOffset;
-				//forwardCar->s = 0.0f;
-				//m_roadManager->addCar(forwardCar);
-				//m_Vehicles.push_back(forwardCar);
-
-				// 第二辆车反向行驶
-				//Vehicle* backwardCar = new Vehicle(baseSpeed, Vehicle::LaneDirection::Backward);
-				//backwardCar->id = 2;
-				//backwardCar->laneOffset = laneOffset;
-				//backwardCar->s = 100.0f;
-				//m_roadManager->addCar(backwardCar);
-				//m_Vehicles.push_back(backwardCar);
 				generateAllPaths();
-
-
-				
 				LogManager::instance()->logMessage("Connected road network created with " + std::to_string(m_allRoads.size()) + " roads.");
 
 			}
@@ -425,7 +395,7 @@ namespace Echo
 				if (roadGroup.roads.empty()) {
 					LogManager::instance()->logMessage("Reason: roadGroup.roads is empty.");
 				}
-				if (!m_roadManager) {
+				if (!m_allRoads.empty()) {
 					LogManager::instance()->logMessage("Reason: m_roadManager is null or road network creation failed.");
 				}
 			}
@@ -446,7 +416,7 @@ namespace Echo
 		if (!isInitialized /*初始化  数据就位的标记*/)
 		{
 			// 1.根据数据初始化道路和车
-			if (m_isInitialized && !m_allRoads.empty())
+			if (m_isInitialized)
 			{
 				// 2.创建VehicleTiker
 				vehicleTiker = std::make_unique<VehicleTiker>(this);
@@ -556,7 +526,7 @@ namespace Echo
 	void Road::update(float deltaTime)
 	{
 
-		updateEnvironment();
+		updateEnvironment();//  发生变化才调用
 		// 收集需要转移的车辆
 		std::vector<Vehicle*> vehiclesToTransfer;
 
@@ -1004,15 +974,13 @@ namespace Echo
 
 	void Traffic::addMultipleVehicles(int numVehicles)
 	{
-		if (!m_roadManager || numVehicles <= 0) return;
+		if (numVehicles <= 0) return;
 
 		const float baseSpeed = 3.0f;  // 基础速度 (m/s)
 		const float laneOffset = 4.5f;  // 车道偏移
-		const float minGap = 100.0f;     // 车辆之间的最小间距
-
-		// 计算正向和逆向车辆数量（70%正向，30%逆向）
-		int forwardVehicles = static_cast<int>(numVehicles );
-		int backwardVehicles = static_cast<int>(numVehicles);
+		// 计算正向和逆向车辆数量
+		int forwardVehicles = numVehicles / 2;
+		int backwardVehicles = numVehicles / 2;
 
 		// 添加正向车辆
 		for (int i = 0; i < forwardVehicles; ++i) {
@@ -1024,15 +992,6 @@ namespace Echo
 			newVehicle->id = m_Vehicles.size() + 1;
 			// 正向车辆使用正车道偏移（右侧车道）- 更大的偏移确保隔离
 			newVehicle->laneOffset = laneOffset + (rand() % 3 - 1) * 0.3f;
-			newVehicle->s = i * minGap;
-
-			auto carFollowingModel = createModelForVehicle(Vehicle::VehicleType::Car);
-			newVehicle->setCarFollowingModel(std::move(carFollowingModel));
-
-			//newVehicle->setDriverVariation(m_driverVariationCoeff);
-			//float driverVariation = 0.25f + (rand() % 10) * 0.01f; // 0.25-0.7的变异系数
-			//newVehicle->setDriverVariation(driverVariation);
-			m_roadManager->addCar(newVehicle);
 			m_Vehicles.push_back(newVehicle);
 		}
 
@@ -1045,46 +1004,21 @@ namespace Echo
 			newVehicle->id = m_Vehicles.size() + 1;
 			
 			newVehicle->laneOffset = laneOffset + (rand() % 3 - 1) * 0.3f;
-			newVehicle->s = m_roadManager->mLens - (i * minGap);
-
 			auto carFollowingModel = createModelForVehicle(Vehicle::VehicleType::Car);
 			newVehicle->setCarFollowingModel(std::move(carFollowingModel));
 
 			//newVehicle->setDriverVariation(m_driverVariationCoeff);
 			//float driverVariation = 0.25f + (rand() % 10) * 0.01f; // 0.25-0.7的变异系数
 			//newVehicle->setDriverVariation(driverVariation);
-			m_roadManager->addCar(newVehicle);//删除
 			m_Vehicles.push_back(newVehicle);
 		}
-
-		// 添加逆向车辆
-		/*for (int i = 0; i < backwardvehicles; ++i) {
-			float vehiclespeed = basespeed + (rand() % 5 - 2);
-			vehiclespeed = std::max(5.0f, vehiclespeed);
-
-			vehicle* newvehicle = new vehicle(vehiclespeed, vehicle::lanedirection::backward);
-			newvehicle->id = m_vehicles.size() + 1;
-			 逆向车辆使用负车道偏移（左侧车道）- 更大的偏移确保隔离
-			newvehicle->laneoffset = laneoffset + (rand() % 3 - 1) * 0.3f;
-			 逆向车辆从道路末端开始
-			newvehicle->s = m_roadmanager->mlens - (i * mingap);
-
-			auto carfollowingmodel = createmodelforvehicle(vehicle::vehicletype::car);
-			newvehicle->setcarfollowingmodel(std::move(carfollowingmodel));
-			 设置驾驶员变异
-			newvehicle->setdrivervariation(m_drivervariationcoeff);
-
-			 添加到道路和车辆列表
-			m_roadmanager->addcar(newvehicle);
-			m_vehicles.push_back(newvehicle);
-		}*/
 
 		LogManager::instance()->logMessage("Traffic: Added " + std::to_string(numVehicles) + " vehicles. Total vehicles: " + std::to_string(m_Vehicles.size()));
 	}
 	//车辆密度
 	void Traffic::setVehicleDensity(float vehiclesPerKm)
 	{
-		if (!m_roadManager || vehiclesPerKm <= 0) return;
+		if (vehiclesPerKm <= 0) return;
 
 		// 计算道路总长度（假设）
 		float totalRoadLength = 1000.0f; // 1km，可以根据实际道路长度调整
@@ -1506,63 +1440,6 @@ namespace Echo
 		LogManager::instance()->logMessage("Backward Vehicle[" + std::to_string(vehicle->id) + "] 分配反向路径[" + std::to_string(pathIndex) + "] 起始道路:" + std::to_string(backwardPath[0]));
 
 	}
-	//路径分配
-	/*void Traffic::assignPathsToAllVehicles()
-	{
-		if (m_allPaths.empty()) {
-			LogManager::instance()->logMessage("No paths available for vehicle assignment.");
-			return;
-		}
-
-		LogManager::instance()->logMessage("Starting flexible path assignment for " + std::to_string(m_Vehicles.size()) + " vehicles with " + std::to_string(m_allPaths.size()) + " available paths.");
-
-		// 配置参数：可以调整这些值来控制分配策略
-		const int maxSpecificPaths = std::min(static_cast<int>(m_allPaths.size()), static_cast<int>(m_Vehicles.size())); // 最多分配特定路径的车辆数量
-		const bool enableRandomAssignment = true; // 是否为未分配特定路径的车辆随机分配路径
-
-		int assignedSpecificPaths = 0;
-		int assignedRandomPaths = 0;
-
-		// 第一阶段：为前N辆车分配特定路径（按车辆和路径索引匹配）
-		for (int i = 0; i < std::min(maxSpecificPaths, static_cast<int>(m_Vehicles.size())); ++i) {
-			if (i < m_allPaths.size()) {
-				Vehicle* vehicle = m_Vehicles[i];
-
-				if (vehicle->laneDirection == Vehicle::LaneDirection::Forward) {
-					assignPathToVehicle(vehicle, i);
-					assignedSpecificPaths++;
-					LogManager::instance()->logMessage("Forward Vehicle " + std::to_string(vehicle->id) + " assigned specific path " + std::to_string(i));
-				}
-				else if (vehicle->laneDirection == Vehicle::LaneDirection::Backward) {
-					assignBackwardPathToVehicle(vehicle, i);
-					assignedSpecificPaths++;
-					LogManager::instance()->logMessage("Backward Vehicle " + std::to_string(vehicle->id) + " assigned specific backward path " + std::to_string(i));
-				}
-			}
-		}
-
-		// 第二阶段：为剩余车辆随机分配路径（如果启用）
-		if (enableRandomAssignment) {
-			for (int i = maxSpecificPaths; i < m_Vehicles.size(); ++i) {
-				Vehicle* vehicle = m_Vehicles[i];
-
-				// 随机选择一个路径索引
-				int randomPathIndex = rand() % m_allPaths.size();
-
-				if (vehicle->laneDirection == Vehicle::LaneDirection::Forward) {
-					assignPathToVehicle(vehicle, randomPathIndex);
-					assignedRandomPaths++;
-					LogManager::instance()->logMessage("Forward Vehicle " + std::to_string(vehicle->id) + " assigned random path " + std::to_string(randomPathIndex));
-				}
-				else if (vehicle->laneDirection == Vehicle::LaneDirection::Backward) {
-					assignBackwardPathToVehicle(vehicle, randomPathIndex);
-					assignedRandomPaths++;
-					LogManager::instance()->logMessage("Backward Vehicle " + std::to_string(vehicle->id) + " assigned random backward path " + std::to_string(randomPathIndex));
-				}
-			}
-		}
-	}
-	*/
 
 	void Traffic::assignPathsToAllVehicles()
 	{
@@ -1574,9 +1451,9 @@ namespace Echo
 		LogManager::instance()->logMessage("Starting intelligent path assignment for " + std::to_string(m_Vehicles.size()) + " vehicles with " + std::to_string(m_allPaths.size()) + " available paths.");
 
 		// 智能分配车辆到不同道路，保持minGap间距
-		const float minGap = 100.0f; // 与addMultipleVehicles中的minGap保持一致
+		const float minGap = 100.0f; 
 
-		// 1. 按道路分组分配车辆，而不是按路径
+		// 1. 按道路分组分配车辆
 		std::map<uint16, std::vector<Vehicle*>> roadVehicleGroups;
 
 		// 2. 将车辆按照它们当前的相对间距分组分配到不同道路
@@ -1592,6 +1469,22 @@ namespace Echo
 			}
 			Road* targetRoad = m_allRoads[roadIndex];
 
+			// 计算车辆在目标道路上的位置
+			int vehicleOrderOnRoad = roadVehicleGroups[targetRoad->getRoadId()].size();
+
+			if (vehicle->laneDirection == Vehicle::LaneDirection::Forward) {
+				// 正向车辆：从道路起点开始，按间距排列
+				vehicle->s = vehicleOrderOnRoad * minGap;
+			}
+			else {
+				// 逆向车辆：从道路末端开始，按间距排列
+				vehicle->s = targetRoad->getRoadLength() - (vehicleOrderOnRoad * minGap);
+				vehicle->s = std::max(0.0f, vehicle->s);
+			}
+
+			// 将车辆添加到目标道路
+			targetRoad->addCar(vehicle);
+
 			// 为车辆分配合适的路径（从目标道路开始的路径）
 			int pathIndex = -1;
 			for (int p = 0; p < m_allPaths.size(); ++p) {
@@ -1606,31 +1499,30 @@ namespace Echo
 				pathIndex = 0;
 			}
 
+
 			if (pathIndex >= 0) {
-				// 计算车辆在目标道路上的理想位置（保持minGap间距）
-				int vehicleOrderOnRoad = roadVehicleGroups[targetRoad->getRoadId()].size();
-				float idealPosition = vehicleOrderOnRoad * minGap;
-
-				// 保存原始位置，然后设置理想位置
-				float originalS = vehicle->s;
-				vehicle->s = idealPosition;
-
-				// 分配路径
 				if (vehicle->laneDirection == Vehicle::LaneDirection::Forward) {
-					assignPathToVehicle(vehicle, pathIndex);
+					vehicle->setPath(m_allPaths[pathIndex]);
 				}
 				else {
-					assignBackwardPathToVehicle(vehicle, pathIndex);
+					// 逆向车辆使用反向路径
+					const auto& forwardPath = m_allPaths[pathIndex];
+					std::vector<uint16> backwardPath;
+					for (auto it = forwardPath.rbegin(); it != forwardPath.rend(); ++it) {
+						backwardPath.push_back(*it);
+					}
+					vehicle->setPath(backwardPath);
 				}
-
-				// 记录这辆车已分配到这条道路
-				roadVehicleGroups[targetRoad->getRoadId()].push_back(vehicle);
-
-				LogManager::instance()->logMessage("Vehicle " + std::to_string(vehicle->id) +
-					" assigned to Road " + std::to_string(targetRoad->getRoadId()) +
-					" at position " + std::to_string(vehicle->s) +
-					" (order: " + std::to_string(vehicleOrderOnRoad) + ")");
 			}
+
+			// 记录这辆车已分配到这条道路
+			roadVehicleGroups[targetRoad->getRoadId()].push_back(vehicle);
+
+			LogManager::instance()->logMessage("Vehicle " + std::to_string(vehicle->id) +
+				" (" + (vehicle->laneDirection == Vehicle::LaneDirection::Forward ? "Forward" : "Backward") + ")" +
+				" assigned to Road " + std::to_string(targetRoad->getRoadId()) +
+				" (length: " + std::to_string(targetRoad->getRoadLength()) + ")" +
+				" at position " + std::to_string(vehicle->s));
 
 			// 每分配几辆车就换到下一条道路
 			if ((i + 1) % vehiclesPerRoad == 0) {
@@ -1638,10 +1530,9 @@ namespace Echo
 			}
 		}
 
-		LogManager::instance()->logMessage("Intelligent path assignment completed. Vehicles distributed across " +
-			std::to_string(roadVehicleGroups.size()) + " roads with minGap spacing.");
+		LogManager::instance()->logMessage("Path and road assignment completed. Vehicles distributed across " +
+			std::to_string(roadVehicleGroups.size()) + " roads.");
 	}
-
 
 	// Vehicle路径跟踪方法
 
@@ -1727,6 +1618,16 @@ namespace Echo
 	{
 		if (mTraffic)
 		{
+			static bool jobInitialized = false;
+
+			if (!jobInitialized)
+			{
+				// Job中的一次性初始化：道路创建和车辆生成
+				mTraffic->initRoads();
+				mTraffic->initVehicle();
+				jobInitialized = true;
+			}
+
 			mTraffic->onTick();
 		}
 	}
