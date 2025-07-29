@@ -71,7 +71,7 @@ namespace Echo
 
 	struct VehicleRenderData
 	{
-		
+
 		Vector3 pos = Vector3::ZERO;
 		Quaternion rot = Quaternion::IDENTITY;
 	};
@@ -91,7 +91,7 @@ namespace Echo
 			Car = 0,
 			Truck = 1
 		};
-	
+
 		Vehicle(float initialSpeed, LaneDirection direction);
 		void assignToRoute(const std::list<uint16>& route, Road* roadManager);
 		void setCurrentRoad(Road* road) { m_currentRoad = road; }
@@ -142,12 +142,12 @@ namespace Echo
 		std::unique_ptr<ICarFollowingModel> m_carFollowingModel;
 		float m_driverFactor = 1.0f;
 		float m_driverVariationCoeff = 0.15f;
-		
+
 
 		// 路径跟踪
 		std::vector<uint16> m_pathRoads;
 		int m_currentRoadIndex = -1;
-		 friend class Road;
+		friend class Road;
 	};
 
 	struct CityUI
@@ -169,7 +169,7 @@ namespace Echo
 		Vector3 mCurrentPos;
 	};
 
-	
+
 
 	class Traffic : public ActorLoadListener, public SphericalTerrain::LoadListener, public FrameListener
 	{
@@ -191,7 +191,7 @@ namespace Echo
 
 		void initRoads();
 		void onTick();
-		void onUpdate();
+		//void onUpdate();
 		void initVehicle();
 		void checkVehicle();
 		//回调
@@ -266,7 +266,7 @@ namespace Echo
 		PlanetRoad* m_planetRoad = nullptr;
 		std::set<uint16> m_visibleRoadsLastFrame;
 		SphericalTerrain* m_targetPlanet = nullptr;
-		
+
 		std::vector<Vehicle*> m_Vehicles; // 存储车辆指针
 
 		// 道路连接系统
@@ -290,8 +290,10 @@ namespace Echo
 		Barrier m_mainBarrier;
 		Barrier m_initBarrier;
 
+	    std::unique_ptr<VehicleTiker> vehicleTiker;
+
 		std::atomic<bool> m_onTickCompleted{ false };
 
-		
+
 	};
 }

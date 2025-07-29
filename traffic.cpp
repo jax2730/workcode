@@ -106,7 +106,7 @@ namespace Echo
 		{
 			if (vehicle)
 			{
-		
+
 				vehicle->updatePos();
 			}
 		}
@@ -141,85 +141,67 @@ namespace Echo
 	{
 
 		//需要一个标记 数据已就位
+		if (m_targetPlanet && !m_isInitialized) // 确保只初始化一次
+		{
+			LogManager::instance()->logMessage("Planet data loading complete. Starting Traffic worker thread now...");
 
+			
 
-		LogManager::instance()->logMessage("Planet data loading complete. Starting Traffic worker thread now...");
-
-		m_thread = new std::thread(std::bind(&Traffic::onTick, this));
-		m_workBarrier.wait();
-		LogManager::instance()->logMessage("Data initialization complete. Starting vehicle creation on main thread...");
-		initVehicle();
-
-		m_isInitialized = true;
-		LogManager::instance()->logMessage("All initialization finished.");
-
-		m_mainBarrier.signal();
-
-
+		}
 	}
-	
+
 	void Traffic::onTick()
 	{
 		using namespace std::chrono;
 		static auto lastTikcBegin = steady_clock::now();
-	    /*static bool initialized = false;
-		if (!initialized)
+		// 工作线程等待初始化完成
+		
+
+
+		auto frameStart = steady_clock::now();
+		std::chrono::nanoseconds dt = frameStart - lastTikcBegin;
+
+		// 测量_tick计算时间
+		auto computeStart = steady_clock::now();
+		_tick(std::chrono::duration<float>(dt).count());
+		checkVehicle();
+		//
+		auto computeEnd = steady_clock::now();
+		auto computeTime = duration_cast<milliseconds>(computeEnd - computeStart);
+
+		lastTikcBegin = frameStart;
+
+		// 通知主线程计算完成
+		auto waitStart = steady_clock::now();
+
+		auto waitEnd = steady_clock::now();
+		auto waitTime = duration_cast<milliseconds>(waitEnd - waitStart);
+
+		// 每100帧输出一次性能统计
+		static int frameCount = 0;
+		static float computecount = 0;
+		static float waitcount = 0;
+		if (++frameCount % 100 == 0) {
+			LogManager::instance()->logMessage("Tick WorkThread - Compute: " + std::to_string(computecount / 100) +
+				"ms, Wait: " + std::to_string(waitcount / 100) + "ms");
+			frameCount = 0;
+			computecount = 0;
+			waitcount = 0;
+		}
+		else
 		{
-			initRoads();
-			initialized = true;
-			
-			
+			computecount += computeTime.count();
+			waitcount += waitTime.count();
+		}
+		//计算完成的标记
 
-			
-		}*/
-		
-        //初始化标记
-
-		
-			auto frameStart = steady_clock::now();
-			std::chrono::nanoseconds dt = frameStart - lastTikcBegin;
-
-			// 测量_tick计算时间
-			auto computeStart = steady_clock::now();
-			_tick(std::chrono::duration<float>(dt).count());
-			//checkVehicle();
-			//
-			auto computeEnd = steady_clock::now();
-			auto computeTime = duration_cast<milliseconds>(computeEnd - computeStart);
-
-			lastTikcBegin = frameStart;
-
-			// 通知主线程计算完成
-			auto waitStart = steady_clock::now();
-			
-			auto waitEnd = steady_clock::now();
-			auto waitTime = duration_cast<milliseconds>(waitEnd - waitStart);
-
-			// 每100帧输出一次性能统计
-			static int frameCount = 0;
-			static float computecount = 0;
-			static float waitcount = 0;
-			if (++frameCount % 100 == 0) {
-				LogManager::instance()->logMessage("Tick WorkThread - Compute: " + std::to_string(computecount / 100) +
-					"ms, Wait: " + std::to_string(waitcount / 100) + "ms");
-				frameCount = 0;
-				computecount = 0;
-				 waitcount = 0;
-			}
-			else
-			{
-				computecount += computeTime.count();
-				waitcount += waitTime.count();
-			}
-			//计算完成的标记
-
-			m_onTickCompleted = true;
+		m_onTickCompleted = true;
 
 	}
 
 	void Traffic::checkVehicle()
 	{
-		
+
 		for (Road* road : m_allRoads)
 		{
 			if (road) {
@@ -265,11 +247,6 @@ namespace Echo
 			return true;
 		};
 
-		//if(!isVisible(roadAABB))
-		{
-			return;
-		}
-
 		for (Vehicle* vehicle : mCars)
 		{
 			const AxisAlignedBox& aabb = vehicle->mCar->getWorldBounds();
@@ -284,7 +261,7 @@ namespace Echo
 	//{}
 
 	//等待工作线程完成当前帧的数据计算，更新数据
-	void Traffic::onUpdate()
+	/*void Traffic::onUpdate()
 	{
 		using namespace std::chrono;
 		auto lastTikcBegin = steady_clock::now();
@@ -293,15 +270,15 @@ namespace Echo
 			// 初始化还未完成，跳过此次更新
 			return;
 		}
-		
-		
-		/*static bool final_init_done = false;
-		if (!final_init_done)
-		{
-			initVehicle();
-			final_init_done = true;
-			m_finalInitBarrier.signal();
-		}*/
+
+
+		//static bool final_init_done = false;
+		//if (!final_init_done)
+		//{
+		//	initVehicle();
+		//	final_init_done = true;
+		//	m_finalInitBarrier.signal();
+		//}
 		m_workBarrier.wait();
 
 		auto frameStart = steady_clock::now();
@@ -309,17 +286,17 @@ namespace Echo
 
 		//等待
 		//
-		
+
 		//获取更新后的数据
 		//用更新后的数据更新车的实际位置 数据设置给小车
 		//获取更新后的数据，用更新后的数据更新车的实际位置
 
-		//UpdatePositon();
+		//UpdatePositon();吧
 		for (Vehicle* vehicle : m_Vehicles)
 		{
 			if (vehicle)
 			{
-				 //将计算线程计算出的位置和旋转同步到渲染对象
+				//将计算线程计算出的位置和旋转同步到渲染对象
 				vehicle->updatePos();
 			}
 		}
@@ -336,8 +313,8 @@ namespace Echo
 		static float computecount = 0;
 		static float waitcount = 0;
 		if (++frameCount % 100 == 0) {
-			LogManager::instance()->logMessage("update mainThread - Compute: " + std::to_string(computecount/100) +
-				"ms, Wait: " + std::to_string(waitcount/100) + "ms");
+			LogManager::instance()->logMessage("update mainThread - Compute: " + std::to_string(computecount / 100) +
+				"ms, Wait: " + std::to_string(waitcount / 100) + "ms");
 
 			frameCount = 0;
 			computecount = 0;
@@ -349,7 +326,7 @@ namespace Echo
 			waitcount += waitTime.count();
 		}
 
-	}
+	}*/
 
 	void Traffic::initVehicle()
 	{
@@ -367,7 +344,7 @@ namespace Echo
 		}
 	}
 
-	
+
 
 	void Traffic::initRoads()
 	{
@@ -380,7 +357,7 @@ namespace Echo
 			// 创建道路连接网络
 			createConnectedRoadNetwork(roadGroup);
 
-			
+
 
 			if (!roadGroup.roads.empty() && !m_allRoads.empty())
 			{
@@ -410,35 +387,83 @@ namespace Echo
 
 	bool Traffic::frameStarted(const FrameEvent& evt)
 	{
-		static bool isInitialized = false;
-		static std::unique_ptr<VehicleTiker> vehicleTiker = nullptr;
+		static auto lastTikcBegin = std::chrono::steady_clock::now();
+		static int counter = 0;
+		static float sumOfDt = 0.0f;
+		static float sumOfUpdate = 0.0f;
+		// 工作线程等待初始化完成
+		auto frameStart = std::chrono::steady_clock::now();
+		std::chrono::nanoseconds dt = frameStart - lastTikcBegin;
+		lastTikcBegin = frameStart;
+		++counter;
+		sumOfDt += std::chrono::duration_cast<std::chrono::milliseconds>(dt).count();
+		
 
-		if (!isInitialized /*初始化  数据就位的标记*/)
+
+
+		if (!m_isInitialized && m_targetPlanet && m_targetPlanet->mRoad)
 		{
-			// 1.根据数据初始化道路和车
-			if (m_isInitialized)
+			// 仅在第一次满足条件时执行
+			static bool jobSubmitted = false;
+			if (!jobSubmitted)
 			{
-				// 2.创建VehicleTiker
+
+				// 创建并运行后台Job，负责初始化道路 (initRoads)
+				LogManager::instance()->logMessage("Submitting VehicleTiker job for road initialization...");
 				vehicleTiker = std::make_unique<VehicleTiker>(this);
 
-				// 3.启动VehicleTiker (异步执行onTick)
 				vehicleTiker->RunJob();
-
-				isInitialized = true;
+				jobSubmitted = true;
 			}
+
+			// 主线程等待后台Job完成道路初始化 (initRoads)
+			//    VehicleTiker::Execute 会在 initRoads 后 signal m_workBarrier
+			//m_workBarrier.wait();
+			
+			// 道路初始化已完成，现在主线程可以安全地初始化车辆 (initVehicle)
+			LogManager::instance()->logMessage("Roads initialized. Starting vehicle creation on main thread...");
+			//initVehicle();
+
+			// 所有初始化完成
+			m_isInitialized = true;
+			LogManager::instance()->logMessage("All initialization finished. Traffic system is running.");
+
+			// 初始化完成后，让 onTick 的第一次计算可以开始
+			m_mainBarrier.signal();
 		}
 
-		// 检查上一帧的计算是否完成，如果完成则获取结果并提交新的Job
-		if (isInitialized && m_onTickCompleted.exchange(false))
+		// 检查上一帧的计算是否完成
+		if (m_isInitialized && m_onTickCompleted.exchange(false))
 		{
-			// 获取计算结果并更新位置
+			// 获取计算结果并更新渲染对象的位置
 			UpdatePositon();
 
-			// 提交新的VehicleTiker Job到后台执行
+			auto afterUpdate = std::chrono::steady_clock::now();
+			sumOfUpdate += std::chrono::duration_cast<std::chrono::milliseconds>(afterUpdate - frameStart).count();
+			// 提交新的VehicleTiker Job到后台执行下一帧的计算
+
+
+
 			if (vehicleTiker)
 			{
 				vehicleTiker->RunJob();
 			}
+		}
+
+		if (counter % 100 == 0)
+		{
+			std::stringstream ss;
+			ss << "frameStarted duration: ";
+			ss << sumOfDt / 100.0f;
+			ss << ", update duration: ";
+			ss << sumOfUpdate / 100.0f;
+			ss << "\n";
+
+			LogManager::instance()->logMessage(ss.str());
+
+			counter = 0;
+			sumOfDt = 0.0f;
+			sumOfUpdate = 0.0f;
 		}
 
 		return true; // 继续渲染
@@ -653,7 +678,7 @@ namespace Echo
 				centerPos = centerPosLocal; // 如果没有星球信息，使用本地坐标
 			}
 
-			
+
 			// 8. 计算贝塞尔曲线在当前点的切线方向
 			Vector3 tangent = PiecewiseBezierUtil::CTangent(startPoint.point, startPoint.destination_control, endPoint.point, endPoint.source_control, t);
 
@@ -802,20 +827,32 @@ namespace Echo
 		s += speed * deltaTime;
 	}
 
+	void EchoLogToConsole(const String& log)
+	{
+#ifdef _WIN32
+		OutputDebugString(log.c_str());
+#else
+		LogManager::instance()->logMessage(log.c_str());
+#endif
+	}
+
 	void Vehicle::updatePos()
 	{
-		
-		if (!mCar.Expired() && Visible)
-		{
-			mCar->setPosition(pos);
-			mCar->setRotation(rot);
 
+		if (!mCar.Expired())
+		{
+			if (Visible)
+			{
+				mCar->setPosition(pos);
+				mCar->setRotation(rot);
+			}
+			mCar->setVisiable(Visible);
 		}
 	}
 
 	// Road连接相关方法实现
 	uint16 Road::getSourceCityId() const
-	{ 
+	{
 		if (mRoadsData.source.type == PlanetRoadData::TerminalType::City)
 		{
 			return mRoadsData.source.id;
@@ -845,7 +882,7 @@ namespace Echo
 		m_idmParams.noiseLevel = 0.1f;
 
 		// 设置ACC默认参数
-		m_accParams.v0 = 25.0f; 
+		m_accParams.v0 = 25.0f;
 		m_accParams.T = 1.0f;
 		m_accParams.s0 = 3.0f;
 		m_accParams.a = 8.0f;
@@ -968,7 +1005,7 @@ namespace Echo
 		}
 
 		LogManager::instance()->logMessage("Traffic: Driver variation level set to " + std::to_string(m_driverVariationCoeff));
-	}	
+	}
 
 	// 车辆管理方法
 
@@ -1002,7 +1039,7 @@ namespace Echo
 
 			Vehicle* newVehicle = new Vehicle(vehicleSpeed, Vehicle::LaneDirection::Backward);
 			newVehicle->id = m_Vehicles.size() + 1;
-			
+
 			newVehicle->laneOffset = laneOffset + (rand() % 3 - 1) * 0.3f;
 			auto carFollowingModel = createModelForVehicle(Vehicle::VehicleType::Car);
 			newVehicle->setCarFollowingModel(std::move(carFollowingModel));
@@ -1451,7 +1488,7 @@ namespace Echo
 		LogManager::instance()->logMessage("Starting intelligent path assignment for " + std::to_string(m_Vehicles.size()) + " vehicles with " + std::to_string(m_allPaths.size()) + " available paths.");
 
 		// 智能分配车辆到不同道路，保持minGap间距
-		const float minGap = 100.0f; 
+		const float minGap = 100.0f;
 
 		// 1. 按道路分组分配车辆
 		std::map<uint16, std::vector<Vehicle*>> roadVehicleGroups;
@@ -1562,7 +1599,7 @@ namespace Echo
 		}
 		return false; // 空路径时返回false
 	}
-	
+
 
 	bool Vehicle::moveToPreviousRoad()
 	{
@@ -1589,7 +1626,7 @@ namespace Echo
 
 	//路径管理
 
-	
+
 	Road* Traffic::getRoadById(uint16 roadId)
 	{
 		for (Road* road : m_allRoads) {
@@ -1602,7 +1639,7 @@ namespace Echo
 
 
 
-	
+
 
 	Traffic::VehicleTiker::VehicleTiker(Traffic* pTraffic) : Job(Name("VehicleTiker"), Normal)
 		, mTraffic(pTraffic)
@@ -1625,6 +1662,10 @@ namespace Echo
 				// Job中的一次性初始化：道路创建和车辆生成
 				mTraffic->initRoads();
 				mTraffic->initVehicle();
+				// 
+				// 通知主线程道路初始化完成，可以进行车辆初始化
+				
+
 				jobInitialized = true;
 			}
 
