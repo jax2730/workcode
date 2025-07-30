@@ -112,7 +112,7 @@ namespace Echo
 		Vector3 getPositionAtDistance(float distance) const;
 		Vector3 getDirectionAtDistance(float distance) const;
 		Vector3 getNormalAtDistance(float distance) const;
-
+		void checkVisible();
 		void sortVehicles();
 		void updateEnvironment();
 		void updateLeadIndex(int i);
@@ -200,6 +200,7 @@ namespace Echo
 		float m_length = 5.0f;  // 车长
 		float m_width = 2.5f;   // 车宽
 
+		bool Visible = false;
 
 	private:
 		ActorPtr mCar;
@@ -213,29 +214,43 @@ namespace Echo
 		// 路径跟踪
 		std::vector<uint16> m_pathRoads;
 		int m_currentRoadIndex = -1;
-
+		friend class Road;
 	};
 
 
 
 
 
-	class Traffic : public ActorLoadListener, public SphericalTerrain::LoadListener
+	class Traffic : public ActorLoadListener, public SphericalTerrain::LoadListener, public FrameListener
 	{
+	public:
+		class VehicleTiker : public Job
+		{
+		public:
+			VehicleTiker(Traffic* traffic);
+			virtual ~VehicleTiker();
+			virtual void Execute();
+		private:
+			Traffic* mTraffic = nullptr;
+
+		};
+
+
 	public:
 		Traffic(SceneManager* InSceneManger, WorldManager* InWorldMgr);
 		~Traffic();
 
 		void initRoads();
 		void onTick();
-		void onUpdate();
 		void initVehicle();
-
+		void checkVehicle();
 		//回调
 		bool OnActorCreateFinish() override;
 
 		void OnCreateFinish() override;
 		void OnDestroy() override;
+
+		bool frameStarted(const FrameEvent& evt) override;
 
 		// 跟车模型配置 - 简化的模块化接口
 		void setDefaultCarFollowingModel(CarFollowingModelFactory::ModelType modelType);
@@ -334,5 +349,8 @@ namespace Echo
 			WorldManager* mWorldMgr = nullptr;
 
 			std::string m_safeLevelName = "karst2";
+
+			std::atomic<bool> m_onTickCompleted{ false };
+			std::unique_ptr<VehicleTiker> vehicleTiker;
 	};
 }

@@ -51,6 +51,7 @@ namespace Echo
 		initializeCarFollowingModels();
 		srand(static_cast<unsigned int>(time(nullptr)));
 		//m_workBarrier.signal();
+		Root::instance()->addFrameListener(this);
 	}
 
 	Traffic::~Traffic()
@@ -140,17 +141,7 @@ namespace Echo
 		// 
 		m_safeLevelName = safeLevelName;
 
-		
-
-		m_thread = new std::thread(std::bind(&Traffic::onTick, this));
-		m_workBarrier.wait();
-		LogManager::instance()->logMessage("Data initialization complete. Starting vehicle creation on main thread...");
-		initVehicle();
-		
-		m_isInitialized = true;
-		LogManager::instance()->logMessage("All initialization finished.");
-
-		m_mainBarrier.signal();
+	
 
 	}
 
@@ -158,54 +149,104 @@ namespace Echo
 	{
 		using namespace std::chrono;
 		static auto lastTikcBegin = steady_clock::now();
-		static bool initialized = false;
-		if (!initialized)
-		{
-			initRoads();
-			initialized = true;
-			m_workBarrier.signal();
-			//
+		// 工作线程等待初始化完成
 
+
+
+		auto frameStart = steady_clock::now();
+		std::chrono::nanoseconds dt = frameStart - lastTikcBegin;
+
+		// 测量_tick计算时间
+		auto computeStart = steady_clock::now();
+		_tick(std::chrono::duration<float>(dt).count());
+		checkVehicle();
+		//
+		auto computeEnd = steady_clock::now();
+		auto computeTime = duration_cast<milliseconds>(computeEnd - computeStart);
+
+		lastTikcBegin = frameStart;
+
+		// 通知主线程计算完成
+
+
+		// 每100帧输出一次性能统计
+		static int frameCount = 0;
+		static float computecount = 0;
+
+		if (++frameCount % 100 == 0) {
+			LogManager::instance()->logMessage("Tick WorkThread - Compute: " + std::to_string(computecount / 100) +
+				"ms, Wait: " + "ms");
+			frameCount = 0;
+			computecount = 0;
 
 		}
-		m_mainBarrier.wait();
-		//初始化标记
-
-		while (!m_bQuite)
+		else
 		{
+			computecount += computeTime.count();
 
-			auto tickBegin = steady_clock::now();
-			std::chrono::nanoseconds dt = tickBegin - lastTikcBegin;
-			//_tick(dt.count() / 1000.f);
-			_tick(std::chrono::duration<float>(dt).count());
+		}
+		//计算完成的标记
 
-			lastTikcBegin = tickBegin;
+		m_onTickCompleted = true;
 
-			//等待 主线程使用数据更新场景
+	}
+	void Traffic::checkVehicle()
+	{
 
-			UpdatePositon();
+		for (Road* road : m_allRoads)
+		{
+			if (road) {
 
-			m_workBarrier.signal();
-			m_mainBarrier.wait();
-
-
-
+				road->checkVisible();
+			}
 		}
 	}
+	void Road::checkVisible()
+	{
+
+		if (!Root::instance()->getMainSceneManager() || !Root::instance()->getMainSceneManager()->getMainCamera()) return;
+		Camera* mainCamera = Root::instance()->getMainSceneManager()->getMainCamera();
+
+		auto isVisible = [mainCamera](const AxisAlignedBox& bound) {
+			if (bound.isNull())
+				return false;
+
+			// Infinite boxes always visible
+			if (bound.isInfinite())
+				return true;
+
+			// Get centre of the box
+			Vector3 centre = bound.getCenter();
+			// Get the half-size of the box
+			Vector3 halfSize = bound.getHalfSize();
+
+			// For each plane, see if all points are on the negative side
+			// If so, object is not visible
+			for (int plane = 0; plane < 6; ++plane)
+			{
+				// Skip far plane if infinite view frustum
+				if (plane == FRUSTUM_PLANE_FAR && mainCamera->getFarClipDistance() == 0)
+					continue;
+
+				Plane::Side side = mainCamera->getFrustumPlane(plane).getSide(centre, halfSize);
+				if (side == Plane::NEGATIVE_SIDE)
+				{
+					return false;
+				}
+
+			}
+			return true;
+		};
+
+		for (Vehicle* vehicle : mCars)
+		{
+			const AxisAlignedBox& aabb = vehicle->mCar->getWorldBounds();
+			vehicle->Visible = isVisible(aabb);
+		}
+	}
+
 
 	//等待工作线程完成当前帧的数据计算，更新数据 
-	void Traffic::onUpdate()
-	{
-		if (!m_isInitialized) {
-			// 初始化还未完成，跳过此次更新
-			return;
-		}
-		
-		m_workBarrier.wait();
-	
-
-		m_mainBarrier.signal();
-	}
 
 	void Traffic::initVehicle()
 	{
@@ -277,15 +318,46 @@ namespace Echo
 		:mRoadId(linkData.road_id), mRoadName(linkData.road_name), mSourceNodeId(linkData.source), mTargetNodeId(linkData.target), m_coordinatePath(coordinates)
 	{
 		m_isHighwayRoad = true;
+		std::vector<Vector3> adjustedCoordinates = coordinates;
+
+		if (coordinates.size() >= 2) {
+			// 检查coordinates的实际方向是否与期望的source->target方向一致
+			Vector3 coordStartPos = coordinates[0];
+			Vector3 coordEndPos = coordinates.back();
+			Vector3 expectedStartPos = sourceNode.geometry;
+			Vector3 expectedEndPos = targetNode.geometry;
+
+			// 计算距离来判断方向是否正确
+			float startDistanceMatch = (coordStartPos - expectedStartPos).length();
+			float endDistanceMatch = (coordEndPos - expectedEndPos).length();
+			float startDistanceReverse = (coordStartPos - expectedEndPos).length();
+			float endDistanceReverse = (coordEndPos - expectedStartPos).length();
+
+			bool needReverse = (startDistanceReverse + endDistanceReverse) < (startDistanceMatch + endDistanceMatch);
+
+			if (needReverse) {
+				LogManager::instance()->logMessage("🔄 Road[" + std::to_string(linkData.road_id) +
+					"] '" + linkData.road_name + "' coordinates auto-reversed to match source->target direction");
+				std::reverse(adjustedCoordinates.begin(), adjustedCoordinates.end());
+			}
+			else {
+				LogManager::instance()->logMessage("✅ Road[" + std::to_string(linkData.road_id) +
+					"] '" + linkData.road_name + "' coordinates direction verified correct");
+			}
+		}
+
+		// 使用调整后的坐标
+		m_coordinatePath = adjustedCoordinates;
+
 		//mLens = linkData.length;
-		if (coordinates.size() >= 2)
+		if (m_coordinatePath.size() >= 2)
 		{
-			m_segmentLengths.reserve(coordinates.size() - 1);
-			m_cumulativeLengths.reserve(coordinates.size());
+			m_segmentLengths.reserve(m_coordinatePath.size() - 1);
+			m_cumulativeLengths.reserve(m_coordinatePath.size());
 			m_cumulativeLengths.push_back(0.0f);
-			for (size_t i = 1; i < coordinates.size(); ++i)
+			for (size_t i = 1; i < m_coordinatePath.size(); ++i)
 			{
-				Vector3 segment = coordinates[i] - coordinates[i - 1];
+				Vector3 segment = m_coordinatePath[i] - m_coordinatePath[i - 1];
 				float segmentLength = sqrt(segment.x * segment.x + segment.y * segment.y + segment.z * segment.z);
 
 				if (segmentLength <= 0.0f) {
@@ -486,7 +558,7 @@ namespace Echo
 							uint16 nextRoadSourceNode = nextRoad->getSourceNodeId();
 							uint16 nextRoadTargetNode = nextRoad->getDestinationNodeId();
 
-							LogManager::instance()->logMessage("🔍 Forward Vehicle " + std::to_string(vehicle->id) +
+							LogManager::instance()->logMessage(" Forward Vehicle " + std::to_string(vehicle->id) +
 								" transfer analysis: Current Road[" + std::to_string(getRoadId()) + "] target node " + std::to_string(currentRoadTargetNode) +
 								" → Next Road[" + std::to_string(nextRoadId) + "] (source:" + std::to_string(nextRoadSourceNode) +
 								", target:" + std::to_string(nextRoadTargetNode) + ")");
@@ -498,7 +570,7 @@ namespace Echo
 							if (canConnectToSource && !canConnectToTarget) {
 								// 标准正向连接：当前道路终点 → 下一道路起点
 								vehicle->s = std::max(0.0f, overshoot);
-								LogManager::instance()->logMessage("✅ Forward Vehicle " + std::to_string(vehicle->id) +
+								LogManager::instance()->logMessage(" Forward Vehicle " + std::to_string(vehicle->id) +
 									" standard connection via node " + std::to_string(currentRoadTargetNode) +
 									" from Road " + std::to_string(getRoadId()) + " → Road " + std::to_string(nextRoadId) +
 									" starting at position " + std::to_string(vehicle->s));
@@ -506,7 +578,7 @@ namespace Echo
 							else if (canConnectToTarget && !canConnectToSource) {
 								// 反向连接：当前道路终点 → 下一道路终点（需要从终点向起点行驶）
 								vehicle->s = nextRoad->mLens - std::max(0.0f, overshoot);
-								LogManager::instance()->logMessage("🔄 Forward Vehicle " + std::to_string(vehicle->id) +
+								LogManager::instance()->logMessage(" Forward Vehicle " + std::to_string(vehicle->id) +
 									" reverse connection via node " + std::to_string(currentRoadTargetNode) +
 									" from Road " + std::to_string(getRoadId()) + " → Road " + std::to_string(nextRoadId) +
 									" starting at END position " + std::to_string(vehicle->s) + " (reverse direction)");
@@ -514,13 +586,13 @@ namespace Echo
 							else if (canConnectToSource && canConnectToTarget) {
 								// 双重连接（可能是环路）：优先选择正向连接
 								vehicle->s = std::max(0.0f, overshoot);
-								LogManager::instance()->logMessage("⚠️ Forward Vehicle " + std::to_string(vehicle->id) +
+								LogManager::instance()->logMessage(" Forward Vehicle " + std::to_string(vehicle->id) +
 									" dual connection detected, using standard connection via node " + std::to_string(currentRoadTargetNode) +
 									" from Road " + std::to_string(getRoadId()) + " → Road " + std::to_string(nextRoadId));
 							}
 							else {
 								// 无连接：这表明路径生成有问题，使用启发式方法
-								LogManager::instance()->logMessage("❌ ERROR: Forward Vehicle " + std::to_string(vehicle->id) +
+								LogManager::instance()->logMessage(" ERROR: Forward Vehicle " + std::to_string(vehicle->id) +
 									" NO valid connection found between Road " + std::to_string(getRoadId()) +
 									" (target:" + std::to_string(currentRoadTargetNode) + ") and Road " + std::to_string(nextRoadId) +
 									" (source:" + std::to_string(nextRoadSourceNode) + ", target:" + std::to_string(nextRoadTargetNode) + ")");
@@ -1905,211 +1977,93 @@ namespace Echo
 		return nullptr;
 	}
 
+	bool Traffic::frameStarted(const FrameEvent& evt)
 
-
-
-	// JSON数据解析方法实现
-	/*JsonRoadData Traffic::parseJsonRoadData(const std::string& jsonFilePath)
 	{
-		JsonRoadData roadData;
+		static auto lastTikcBegin = std::chrono::steady_clock::now();
+		static int counter = 0;
+		static float sumOfDt = 0.0f;
+		static float sumOfUpdate = 0.0f;
+		// 工作线程等待初始化完成
+		auto frameStart = std::chrono::steady_clock::now();
+		std::chrono::nanoseconds dt = frameStart - lastTikcBegin;
+		lastTikcBegin = frameStart;
+		++counter;
+		sumOfDt += std::chrono::duration_cast<std::chrono::milliseconds>(dt).count();
 
-		
-		DataStreamPtr pDataStream(Root::instance()->GetFileDataStream(jsonFilePath.c_str(), false, "json"));
-		if (pDataStream.isNull() || pDataStream->size() == 0)
+
+
+
+		if (!m_isInitialized)
 		{
-			LogManager::instance()->logMessage("Failed to load JSON file: " + jsonFilePath);
-			return roadData;
-		}
-
-		// pathDada
-		size_t nSize = pDataStream->size();
-		char* pData = new char[nSize + 1];
-		memset(pData, 0, nSize + 1);
-		pDataStream->seek(0);
-		pDataStream->read(pData, nSize);
-
-		// analysis JSON
-		cJSON* pRoot = cJSON_Parse(pData);
-		delete[] pData;
-
-		if (pRoot == nullptr)
-		{
-			LogManager::instance()->logMessage("Failed to parse JSON file: " + jsonFilePath);
-			return roadData;
-		}
-
-		// nodesArray
-		cJSON* pNodes = cJSON_GetObjectItem(pRoot, "nodes");
-		if (pNodes && pNodes->type == cJSON_Array)
-		{
-			int nodeCount = cJSON_GetArraySize(pNodes);
-			roadData.nodes.reserve(nodeCount);
-
-			for (int i = 0; i < nodeCount; ++i)
+			// 仅在第一次满足条件时执行
+			static bool jobSubmitted = false;
+			if (!jobSubmitted)
 			{
-				cJSON* pNode = cJSON_GetArrayItem(pNodes, i);
-				if (pNode)
-				{
-					JsonRoadNode node;
 
-					
-					cJSON* pId = cJSON_GetObjectItem(pNode, "id");
-					if (pId && pId->type == cJSON_Number)
-					{
-						node.id = (uint16)pId->valueint;
-					}
+				// 创建并运行后台Job，负责初始化道路 (initRoads)
+				LogManager::instance()->logMessage("Submitting VehicleTiker job for road initialization...");
+				vehicleTiker = std::make_unique<VehicleTiker>(this);
 
-					
-					cJSON* pName = cJSON_GetObjectItem(pNode, "name");
-					if (pName && pName->type == cJSON_String)
-					{
-						node.name = pName->valuestring;
-					}
+				vehicleTiker->RunJob();
+				jobSubmitted = true;
+			}
 
-					// gemetric position
-					cJSON* pGeometry = cJSON_GetObjectItem(pNode, "geometry");
-					if (pGeometry && pGeometry->type == cJSON_Array )
-					{
-						cJSON* pX = cJSON_GetArrayItem(pGeometry, 0);
-						cJSON* pY = cJSON_GetArrayItem(pGeometry, 1);
-						cJSON* pZ = cJSON_GetArrayItem(pGeometry, 2);
+			// 主线程等待后台Job完成道路初始化 (initRoads)
+			//    VehicleTiker::Execute 会在 initRoads 后 signal m_workBarrier
+			//m_workBarrier.wait();
 
-						if (pX && pX->type == cJSON_Number) node.geometry.x = (float)pX->valuedouble;
-						if (pY && pY->type == cJSON_Number) node.geometry.y = (float)pY->valuedouble;
-						if (pZ && pZ->type == cJSON_Number) node.geometry.z = (float)pZ->valuedouble;
-					}
+			// 道路初始化已完成，现在主线程可以安全地初始化车辆 (initVehicle)
+			LogManager::instance()->logMessage("Roads initialized. Starting vehicle creation on main thread...");
+			//initVehicle();
 
-					roadData.nodes.push_back(node);
-					m_nodeMap[node.id] = node; // establish the mapping from id to node
-				}
+			// 所有初始化完成
+			m_isInitialized = true;
+			LogManager::instance()->logMessage("All initialization finished. Traffic system is running.");
+
+			// 初始化完成后，让 onTick 的第一次计算可以开始
+			m_mainBarrier.signal();
+		}
+
+		// 检查上一帧的计算是否完成
+		if (m_isInitialized && m_onTickCompleted.exchange(false))
+		{
+			// 获取计算结果并更新渲染对象的位置
+			UpdatePositon();
+
+			auto afterUpdate = std::chrono::steady_clock::now();
+			sumOfUpdate += std::chrono::duration_cast<std::chrono::milliseconds>(afterUpdate - frameStart).count();
+			// 提交新的VehicleTiker Job到后台执行下一帧的计算
+
+
+
+			if (vehicleTiker)
+			{
+				vehicleTiker->RunJob();
 			}
 		}
 
-		
-		// analysis linksArry
-		cJSON* pLinks = cJSON_GetObjectItem(pRoot, "links");
-		if (pLinks && pLinks->type == cJSON_Array)
+		if (counter % 100 == 0)
 		{
-			int linkCount = cJSON_GetArraySize(pLinks);
-			roadData.links.reserve(linkCount);
-			for (size_t i = 0; i < linkCount; ++i)
-			{
-				cJSON* pLink = cJSON_GetArrayItem(pLinks, i);
-				if (pLink)
-				{
-					JsonRoadLink link;
+			std::stringstream ss;
+			ss << "frameStarted duration: ";
+			ss << sumOfDt / 100.0f;
+			ss << ", update duration: ";
+			ss << sumOfUpdate / 100.0f;
+			ss << "\n";
 
-					//read roadId
-					cJSON* pRoadId = cJSON_GetObjectItem(pLink, "road_id");
+			LogManager::instance()->logMessage(ss.str());
 
-					if (pRoadId && pRoadId->type == cJSON_Number)
-					{
-						link.road_id = (UINT16)pRoadId->valueint;
-					}
-
-					cJSON* pRoadName = cJSON_GetObjectItem(pLink, "road_name");
-					if (pRoadName && pRoadName->type == cJSON_String)
-					{
-						link.road_name = pRoadName->valuestring;
-					}
-
-					//
-					cJSON* pSource = cJSON_GetObjectItem(pLink, "source");
-					if (pSource && pSource->type == cJSON_Number)
-					{
-						link.source = (uint16)pSource->valueint;
-					}
-
-					cJSON* pTarget = cJSON_GetObjectItem(pLink, "target");
-
-					if (pTarget && pTarget->type == cJSON_Number)
-					{
-						link.source = (uint16)pTarget->valueint;
-					}
-
-					cJSON* pLength = cJSON_GetObjectItem(pLink, "length");
-
-					if (pLength && pLength->type == cJSON_Number)
-					{
-						link.length = (uint16)pLength->valueint;
-					}
-					roadData.links.push_back(link);
-
-				}
-				
-			}
-			
-			
-		
+			counter = 0;
+			sumOfDt = 0.0f;
+			sumOfUpdate = 0.0f;
 		}
-		
-		cJSON_Delete(pRoot);
 
-		LogManager::instance()->logMessage("Successfully parsed JSON road data: " +
-			std::to_string(roadData.nodes.size()) + " nodes, " +
-			std::to_string(roadData.links.size()) + " links");
-
-		return roadData;
+		return true; // 继续渲染
 	}
-	*/
-	// 从JSON数据创建道路网络
-	/*void Traffic::createConnectedRoadNetworkFromJson(const JsonRoadData& roadData)
-	{
-		// 清理现有道路
-		for (Road* road : m_allRoads) {
-			delete road;
-		}
-		m_allRoads.clear();
-		m_nodeConnections.clear();
 
-		// 为每个链接创建道路对象
-		for (const auto& link : roadData.links)
-		{
-			// 查找源节点和目标节点
-			auto sourceIt = m_nodeMap.find(link.source);
-			auto targetIt = m_nodeMap.find(link.target);
 
-			if (sourceIt != m_nodeMap.end() && targetIt != m_nodeMap.end())
-			{
-				// 创建道路对象
-				Road* road = new Road(link, sourceIt->second, targetIt->second);
-				road->setTrafficManager(this);
-				m_allRoads.push_back(road);
 
-				// 建立节点连接映射
-				m_nodeConnections[link.source].push_back(road);
-				m_nodeConnections[link.target].push_back(road);
-			}
-		}
-
-		// 建立道路连接关系
-		for (Road* road : m_allRoads)
-		{
-			uint16 destNodeId = road->getDestinationNodeId();
-			if (destNodeId != 0)
-			{
-				// 查找从目标节点出发的道路
-				auto it = m_nodeConnections.find(destNodeId);
-				if (it != m_nodeConnections.end())
-				{
-					for (Road* candidateRoad : it->second)
-					{
-						if (candidateRoad->getSourceNodeId() == destNodeId && candidateRoad != road)
-						{
-							road->setNextRoad(candidateRoad);
-							LogManager::instance()->logMessage("Connected JSON Road[" + std::to_string(road->getRoadId()) +
-								"] -> Road[" + std::to_string(candidateRoad->getRoadId()) + "] via Node ID " + std::to_string(destNodeId));
-							break;
-						}
-					}
-				}
-			}
-		}
-
-		LogManager::instance()->logMessage("Created connected road network from JSON with " +
-			std::to_string(m_allRoads.size()) + " roads");
-	}
-	*/
 
 
 	HighwayConnectData Traffic::parseHighwayConnectData(const std::string& jsonFilePath)
@@ -2391,18 +2345,22 @@ namespace Echo
 		for (const auto& feature : connectData.features)
 		{
 			if (feature.properties.connect_bridge_id.size() >= 2) {
-				uint16 sourceId = static_cast<uint16>(feature.properties.connect_bridge_id[0]);
-				uint16 targetId = static_cast<uint16>(feature.properties.connect_bridge_id[1]);
+				uint16 originalSourceId = static_cast<uint16>(feature.properties.connect_bridge_id[0]);
+				uint16 originalTargetId = static_cast<uint16>(feature.properties.connect_bridge_id[1]);
 
-				// 创建节点对作为key
-				std::pair<uint16, uint16> nodeIdPair = std::make_pair(sourceId, targetId);
-				nodeIdPairToCoordinates[nodeIdPair] = feature.geometry.coordinates;
+				// 原始方向的坐标（从connect_bridge_id[0]到connect_bridge_id[1]）
+				std::pair<uint16, uint16> originalPair = std::make_pair(originalSourceId, originalTargetId);
+				nodeIdPairToCoordinates[originalPair] = feature.geometry.coordinates;
 
-				// 也添加反向映射（双向道路）
-				std::pair<uint16, uint16> reverseNodeIdPair = std::make_pair(targetId, sourceId);
-				nodeIdPairToCoordinates[reverseNodeIdPair] = feature.geometry.coordinates;
+				// 反向的坐标（需要反转coordinates数组以匹配反向逻辑）
+				std::pair<uint16, uint16> reversePair = std::make_pair(originalTargetId, originalSourceId);
+				std::vector<Vector3> reverseCoordinates = feature.geometry.coordinates;
+				std::reverse(reverseCoordinates.begin(), reverseCoordinates.end());
+				nodeIdPairToCoordinates[reversePair] = reverseCoordinates;
 
-				LogManager::instance()->logMessage("Loaded coordinates for node pair (" + std::to_string(sourceId) + " -> " + std::to_string(targetId) + "): '" + feature.properties.NAME + "' (" + std::to_string(feature.geometry.coordinates.size()) + " points)");
+				LogManager::instance()->logMessage(" Processed bidirectional coordinates for nodes (" +
+					std::to_string(originalSourceId) + "<->" + std::to_string(originalTargetId) +
+					"): '" + feature.properties.NAME + "' (" + std::to_string(feature.geometry.coordinates.size()) + " points)");
 			}
 			else {
 				LogManager::instance()->logMessage("Warning: Feature '" + feature.properties.NAME + "' has insufficient connect_bridge_id data");
@@ -2568,6 +2526,39 @@ namespace Echo
 
 
 		return Vector3::UNIT_Y;
+	}
+
+
+	Traffic::VehicleTiker::VehicleTiker(Traffic* pTraffic) : Job(Name("VehicleTiker"), Normal)
+		, mTraffic(pTraffic)
+	{
+	}
+
+	Traffic::VehicleTiker::~VehicleTiker()
+	{
+		CancelOrWait();
+	}
+
+	void Traffic::VehicleTiker::Execute()
+	{
+		if (mTraffic)
+		{
+			static bool jobInitialized = false;
+
+			if (!jobInitialized)
+			{
+				// Job中的一次性初始化：道路创建和车辆生成
+				mTraffic->initRoads();
+				mTraffic->initVehicle();
+				// 
+				// 通知主线程道路初始化完成，可以进行车辆初始化
+
+
+				jobInitialized = true;
+			}
+
+			mTraffic->onTick();
+		}
 	}
 
 
