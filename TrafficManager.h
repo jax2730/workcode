@@ -43,15 +43,15 @@ namespace Echo
 	struct HighwayFeature {
 		std::string type = "Feature";
 		struct Properties {
-			std::string NAME;  
+			std::string NAME;
 			std::vector<std::string> connect_bridge_name;
 			std::vector<uint16> connect_bridge_id;
-			std::string length; 
+			std::string length;
 		} properties;
 
 		struct Geometry {
 			std::string type = "LineString";
-			std::vector<Vector3> coordinates; 
+			std::vector<Vector3> coordinates;
 		} geometry;
 	};
 
@@ -119,7 +119,7 @@ namespace Echo
 		void updateLagIndex(int i);
 		Vehicle* getVehicleByIndex(int index) const;
 
-	friend class Traffic;
+		friend class Traffic;
 	private:
 		// JSON道路相关成员变量
 		uint16 mRoadId = 0;
@@ -201,6 +201,7 @@ namespace Echo
 		float m_width = 2.5f;   // 车宽
 
 		bool Visible = false;
+		bool m_needReverseDirection = false;
 
 	private:
 		ActorPtr mCar;
@@ -271,7 +272,7 @@ namespace Echo
 		void assignPathsToAllVehicles();
 		Road* getRoadById(uint16 roadId);  // 根据道路ID查找道路对象
 
-		
+
 
 	private:
 		class Barrier
@@ -290,18 +291,18 @@ namespace Echo
 			void generatePathsRecursive(Road* currentRoad, std::vector<uint16>& currentPath,
 				std::set<uint16>& visited, std::set<std::vector<uint16>>& uniquePaths, int maxDepth);
 
-			
-		// JSON相关方法声明
-			/*JsonRoadData parseJsonRoadData(const std::string& jsonFilePath);
-			void createConnectedRoadNetworkFromJson(const JsonRoadData& roadData);*/
-			// Highway Connect JSON相关方法声明
+
+			// JSON相关方法声明
+				/*JsonRoadData parseJsonRoadData(const std::string& jsonFilePath);
+				void createConnectedRoadNetworkFromJson(const JsonRoadData& roadData);*/
+				// Highway Connect JSON相关方法声明
 			HighwayConnectData parseHighwayConnectData(const std::string& jsonFilePath);
 			HighwayGraphData parseHighwayGraphData(const std::string& jsonFilePath);
 			void createRoadNetworkFromHighwayData(const HighwayConnectData& connectData, const HighwayGraphData& graphData);
 			Road* createRoadFromHighwayLink(const HighwayLink& link, const HighwayNode& sourceNode, const HighwayNode& targetNode, const std::vector<Vector3>& coordinates);
 
 			//路径Bfs
-			
+
 			void generateNodePathsBFS(uint16 startNodeId,
 				const std::map<uint16, std::vector<uint16>>& nodeAdjacencyMap,
 				std::set<std::vector<uint16>>& allNodePaths, int maxPathLength);
@@ -309,7 +310,7 @@ namespace Echo
 			std::unique_ptr<ICarFollowingModel> createModelForVehicle(Vehicle::VehicleType type);
 
 			std::set<uint16> m_visibleRoadsLastFrame;
-			
+
 			//std::map<uint16, Road> m_Roads;
 			//Road* m_roadManager = nullptr;
 			Road* m_roadManager = nullptr;

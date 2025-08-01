@@ -46,7 +46,7 @@ namespace Echo
 
 	Traffic::Traffic(SceneManager* InSceneManger, WorldManager* InWorldMgr)
 		:mSceneMgr(InSceneManger)
-		,mWorldMgr(InWorldMgr)
+		, mWorldMgr(InWorldMgr)
 	{
 		initializeCarFollowingModels();
 		srand(static_cast<unsigned int>(time(nullptr)));
@@ -115,7 +115,7 @@ namespace Echo
 
 
 		LogManager::instance()->logMessage("FINISH");
-		
+
 		return false;
 	}
 
@@ -130,18 +130,18 @@ namespace Echo
 
 		// 尝试在主线程中安全获取关卡名
 		if (mWorldMgr) {
-		
-				LogManager::instance()->logMessage("Attempting to get level name in main thread...");
-				safeLevelName = mWorldMgr->getLevelName();
-				getLevelSuccess = true;
-				LogManager::instance()->logMessage("Successfully got level name in main thread: " + safeLevelName);
-			
+
+			LogManager::instance()->logMessage("Attempting to get level name in main thread...");
+			safeLevelName = mWorldMgr->getLevelName();
+			getLevelSuccess = true;
+			LogManager::instance()->logMessage("Successfully got level name in main thread: " + safeLevelName);
+
 		}
 
 		// 
 		m_safeLevelName = safeLevelName;
 
-	
+
 
 	}
 
@@ -173,7 +173,7 @@ namespace Echo
 		static int frameCount = 0;
 		static float computecount = 0;
 
-		if (++frameCount % 100 == 0) {
+		/*if (++frameCount % 100 == 0) {
 			LogManager::instance()->logMessage("Tick WorkThread - Compute: " + std::to_string(computecount / 100) +
 				"ms, Wait: " + "ms");
 			frameCount = 0;
@@ -184,7 +184,7 @@ namespace Echo
 		{
 			computecount += computeTime.count();
 
-		}
+		}*/
 		//计算完成的标记
 
 		m_onTickCompleted = true;
@@ -259,11 +259,11 @@ namespace Echo
 
 		if (m_pathsGenerated)
 		{
-			addMultipleVehicles(10);
+			addMultipleVehicles(2);
 			assignPathsToAllVehicles();
 		}
 	}
-	
+
 	void Traffic::initRoads()
 	{
 		LogManager::instance()->logMessage("=== initRoads() starting with thread-safe implementation ===");
@@ -297,7 +297,7 @@ namespace Echo
 			}
 		}
 
-		
+
 
 
 
@@ -310,9 +310,9 @@ namespace Echo
 		//移除小车  销毁
 	}
 	//道路链接
-	
 
-	
+
+
 
 	Road::Road(const HighwayLink& linkData, const HighwayNode& sourceNode, const HighwayNode& targetNode, const std::vector<Vector3>& coordinates)
 		:mRoadId(linkData.road_id), mRoadName(linkData.road_name), mSourceNodeId(linkData.source), mTargetNodeId(linkData.target), m_coordinatePath(coordinates)
@@ -374,9 +374,7 @@ namespace Echo
 			mLens = linkData.length;
 		}
 
-	}
-
-	void Road::addCar(Vehicle* car)
+	}	void Road::addCar(Vehicle* car)
 	{
 		if (car)
 		{
@@ -481,9 +479,16 @@ namespace Echo
 					car->s = mLens + fmod(car->s, mLens); // 逆向车辆从末端开始循环
 				}
 			}
+			float effective_s = car->m_needReverseDirection ? (mLens - car->s) : car->s;
 
-			Vector3 centerPos = getPositionAtDistance(car->s);
-			Vector3 direction = getDirectionAtDistance(car->s);
+			Vector3 centerPos = getPositionAtDistance(effective_s);
+			Vector3 direction = getDirectionAtDistance(effective_s);
+
+			// 🔧 如果车辆需要反向方向计算（反向连接），反转方向
+			if (car->m_needReverseDirection) {
+				direction = -direction;
+			}
+
 			Vector3 normal = getNormalAtDistance(car->s);
 
 			Vector3 right = direction.crossProduct(normal);
@@ -550,57 +555,84 @@ namespace Echo
 					// 正向车辆：移动到路径中的下一条道路
 					if (vehicle->moveToNextRoad()) {
 						uint16 nextRoadId = vehicle->getCurrentRoadId();
-						nextRoad = m_trafficManager->getRoadById(nextRoadId);
-
-						// 关键修复：检查道路节点连接是否正确
+						nextRoad = m_trafficManager->getRoadById(nextRoadId);						// 关键修复：检查道路节点连接是否正确
 						if (nextRoad) {
-							uint16 currentRoadTargetNode = getDestinationNodeId();
-							uint16 nextRoadSourceNode = nextRoad->getSourceNodeId();
-							uint16 nextRoadTargetNode = nextRoad->getDestinationNodeId();
+							uint16_t departureNodeId = vehicle->m_needReverseDirection ? getSourceNodeId() : getDestinationNodeId();
+							uint16_t currentRoadTargetNode = departureNodeId; // 使用正确的出发节点进行连接判断
 
-							LogManager::instance()->logMessage(" Forward Vehicle " + std::to_string(vehicle->id) +
-								" transfer analysis: Current Road[" + std::to_string(getRoadId()) + "] target node " + std::to_string(currentRoadTargetNode) +
-								" → Next Road[" + std::to_string(nextRoadId) + "] (source:" + std::to_string(nextRoadSourceNode) +
-								", target:" + std::to_string(nextRoadTargetNode) + ")");
+							uint16_t nextRoadSourceNode = nextRoad->getSourceNodeId();
+							uint16_t nextRoadTargetNode = nextRoad->getDestinationNodeId();
+
+							// 获取车辆在当前道路起点的初始坐标
+							Vector3 currentInitialPos = getPositionAtDistance(0.0f);
+							Vector3 vehicleCurrentPos = vehicle->pos;
+
+							LogManager::instance()->logMessage("[VEHICLE_TRANSFER] Vehicle " + std::to_string(vehicle->id) +
+								" | DIRECTION: FORWARD (target→source) | ANALYSIS:" +
+								"\n  Current Road[" + std::to_string(getRoadId()) + "] (src:" + std::to_string(getSourceNodeId()) + "→tgt:" + std::to_string(currentRoadTargetNode) + ")" +
+								"\n  Next Road[" + std::to_string(nextRoadId) + "] (src:" + std::to_string(nextRoadSourceNode) + "→tgt:" + std::to_string(nextRoadTargetNode) + ")" +
+								"\n  Vehicle initial coords from road start: (" + std::to_string(currentInitialPos.x) + ", " + std::to_string(currentInitialPos.y) + ")" +
+								"\n  Current position: (" + std::to_string(vehicleCurrentPos.x) + ", " + std::to_string(vehicleCurrentPos.y) + ")" +
+								"\n  Distance along road: " + std::to_string(vehicle->s) + "/" + std::to_string(mLens) +
+								"\n  Overshoot: " + std::to_string(overshoot));
 
 							// 🎯 智能连接判断：优先选择正确的连接方式
 							bool canConnectToSource = (currentRoadTargetNode == nextRoadSourceNode);
 							bool canConnectToTarget = (currentRoadTargetNode == nextRoadTargetNode);
-
 							if (canConnectToSource && !canConnectToTarget) {
 								// 标准正向连接：当前道路终点 → 下一道路起点
 								vehicle->s = std::max(0.0f, overshoot);
-								LogManager::instance()->logMessage(" Forward Vehicle " + std::to_string(vehicle->id) +
-									" standard connection via node " + std::to_string(currentRoadTargetNode) +
-									" from Road " + std::to_string(getRoadId()) + " → Road " + std::to_string(nextRoadId) +
-									" starting at position " + std::to_string(vehicle->s));
+								vehicle->m_needReverseDirection = false; // 重置反向标记
+
+								Vector3 nextRoadInitialPos = nextRoad->getPositionAtDistance(0.0f);
+								LogManager::instance()->logMessage("[CONNECTION_SUCCESS] Vehicle " + std::to_string(vehicle->id) +
+									" | TYPE: Standard Forward Connection (target→source)" +
+									"\n  Route: Road[" + std::to_string(getRoadId()) + "] → Road[" + std::to_string(nextRoadId) + "]" +
+									"\n  Connection Node: " + std::to_string(currentRoadTargetNode) +
+									"\n  New Position: " + std::to_string(vehicle->s) + " (from start)" +
+									"\n  Next road initial coords: (" + std::to_string(nextRoadInitialPos.x) + ", " + std::to_string(nextRoadInitialPos.y) + ")" +
+									"\n  Direction: Normal forward movement");
 							}
 							else if (canConnectToTarget && !canConnectToSource) {
 								// 反向连接：当前道路终点 → 下一道路终点（需要从终点向起点行驶）
-								vehicle->s = nextRoad->mLens - std::max(0.0f, overshoot);
-								LogManager::instance()->logMessage(" Forward Vehicle " + std::to_string(vehicle->id) +
-									" reverse connection via node " + std::to_string(currentRoadTargetNode) +
-									" from Road " + std::to_string(getRoadId()) + " → Road " + std::to_string(nextRoadId) +
-									" starting at END position " + std::to_string(vehicle->s) + " (reverse direction)");
+								vehicle->s = std::max(0.0f, overshoot); // [核心修改] 车辆的逻辑位移仍从0开始
+								vehicle->m_needReverseDirection = true;  // 标记需要反向方向计算
+
+								Vector3 nextRoadEndPos = nextRoad->getPositionAtDistance(nextRoad->mLens);
+								LogManager::instance()->logMessage("[CONNECTION_SUCCESS] Vehicle " + std::to_string(vehicle->id) +
+									" | TYPE: Reverse Connection (target→target)" +
+									"\n  Route: Road[" + std::to_string(getRoadId()) + "] → Road[" + std::to_string(nextRoadId) + "]" +
+									"\n  Connection Node: " + std::to_string(currentRoadTargetNode) +
+									"\n  New Position: " + std::to_string(vehicle->s) + " (from end, reverse direction)" +
+									"\n  Next road end coords: (" + std::to_string(nextRoadEndPos.x) + ", " + std::to_string(nextRoadEndPos.y) + ")" +
+									"\n  Direction: Reverse movement (end→start)");
 							}
 							else if (canConnectToSource && canConnectToTarget) {
 								// 双重连接（可能是环路）：优先选择正向连接
 								vehicle->s = std::max(0.0f, overshoot);
-								LogManager::instance()->logMessage(" Forward Vehicle " + std::to_string(vehicle->id) +
-									" dual connection detected, using standard connection via node " + std::to_string(currentRoadTargetNode) +
-									" from Road " + std::to_string(getRoadId()) + " → Road " + std::to_string(nextRoadId));
+
+								Vector3 nextRoadStartPos = nextRoad->getPositionAtDistance(0.0f);
+								LogManager::instance()->logMessage("[CONNECTION_SUCCESS] Vehicle " + std::to_string(vehicle->id) +
+									" | TYPE: Dual Connection (both source&target match)" +
+									"\n  Route: Road[" + std::to_string(getRoadId()) + "] → Road[" + std::to_string(nextRoadId) + "]" +
+									"\n  Connection Node: " + std::to_string(currentRoadTargetNode) + " (choosing standard forward)" +
+									"\n  New Position: " + std::to_string(vehicle->s) + " (from start)" +
+									"\n  Next road start coords: (" + std::to_string(nextRoadStartPos.x) + ", " + std::to_string(nextRoadStartPos.y) + ")" +
+									"\n  Direction: Standard forward (dual option resolved)");
 							}
 							else {
 								// 无连接：这表明路径生成有问题，使用启发式方法
-								LogManager::instance()->logMessage(" ERROR: Forward Vehicle " + std::to_string(vehicle->id) +
-									" NO valid connection found between Road " + std::to_string(getRoadId()) +
-									" (target:" + std::to_string(currentRoadTargetNode) + ") and Road " + std::to_string(nextRoadId) +
-									" (source:" + std::to_string(nextRoadSourceNode) + ", target:" + std::to_string(nextRoadTargetNode) + ")");
-
-								// 启发式修复：使用默认起点位置，并标记路径问题
 								vehicle->s = std::max(0.0f, overshoot);
-								LogManager::instance()->logMessage("🩹 Using fallback position for Vehicle " + std::to_string(vehicle->id) +
-									" - Path may need regeneration");
+
+								Vector3 nextRoadFallbackPos = nextRoad->getPositionAtDistance(0.0f);
+								LogManager::instance()->logMessage("[CONNECTION_ERROR] Vehicle " + std::to_string(vehicle->id) +
+									" | TYPE: No Valid Connection Found" +
+									"\n  Route: Road[" + std::to_string(getRoadId()) + "] → Road[" + std::to_string(nextRoadId) + "]" +
+									"\n  Current target node: " + std::to_string(currentRoadTargetNode) +
+									"\n  Next road nodes: (src:" + std::to_string(nextRoadSourceNode) + ", tgt:" + std::to_string(nextRoadTargetNode) + ")" +
+									"\n  Fallback position: " + std::to_string(vehicle->s) + " (using road start)" +
+									"\n  Next road fallback coords: (" + std::to_string(nextRoadFallbackPos.x) + ", " + std::to_string(nextRoadFallbackPos.y) + ")" +
+									"\n  ⚠️ WARNING: Path may need regeneration - node connectivity broken");
 							}
 						}
 
@@ -610,55 +642,92 @@ namespace Echo
 					// 逆向车辆：移动到路径中的上一条道路
 					if (vehicle->moveToPreviousRoad()) {
 						uint16 nextRoadId = vehicle->getCurrentRoadId();
-						nextRoad = m_trafficManager->getRoadById(nextRoadId);
-
-						// 逆向车辆的节点连接检查
+						nextRoad = m_trafficManager->getRoadById(nextRoadId);						// 逆向车辆的节点连接检查
 						if (nextRoad) {
 							uint16 currentRoadSourceNode = getSourceNodeId();
 							uint16 nextRoadTargetNode = nextRoad->getDestinationNodeId();
+							uint16 nextRoadSourceNode = nextRoad->getSourceNodeId();
 
-							if (currentRoadSourceNode == nextRoadTargetNode) {
+							// 获取车辆在当前道路起点的初始坐标信息
+							Vector3 currentInitialPos = getPositionAtDistance(0.0f);
+							Vector3 vehicleCurrentPos = vehicle->pos;
+
+							LogManager::instance()->logMessage("[VEHICLE_TRANSFER] Vehicle " + std::to_string(vehicle->id) +
+								" | DIRECTION: BACKWARD (source→target) | ANALYSIS:" +
+								"\n  Current Road[" + std::to_string(getRoadId()) + "] (src:" + std::to_string(currentRoadSourceNode) + "→tgt:" + std::to_string(getDestinationNodeId()) + ")" +
+								"\n  Next Road[" + std::to_string(nextRoadId) + "] (src:" + std::to_string(nextRoadSourceNode) + "→tgt:" + std::to_string(nextRoadTargetNode) + ")" +
+								"\n  Vehicle initial coords from road start: (" + std::to_string(currentInitialPos.x) + ", " + std::to_string(currentInitialPos.y) + ")" +
+								"\n  Current position: (" + std::to_string(vehicleCurrentPos.x) + ", " + std::to_string(vehicleCurrentPos.y) + ")" +
+								"\n  Distance along road: " + std::to_string(vehicle->s) + "/" + std::to_string(mLens) +
+								"\n  Overshoot: " + std::to_string(overshoot));							if (currentRoadSourceNode == nextRoadTargetNode) {
 								// 正确连接：从新道路末端开始
 								vehicle->s = nextRoad->mLens - std::max(0.0f, overshoot);
-								LogManager::instance()->logMessage("Backward Vehicle " + std::to_string(vehicle->id) +
-									" correctly transferred via node " + std::to_string(currentRoadSourceNode) +
-									" from Road " + std::to_string(getRoadId()) + " to Road " + std::to_string(nextRoadId) +
-									" starting at position " + std::to_string(vehicle->s));
+
+								Vector3 nextRoadEndPos = nextRoad->getPositionAtDistance(nextRoad->mLens);
+								LogManager::instance()->logMessage("[CONNECTION_SUCCESS] Vehicle " + std::to_string(vehicle->id) +
+									" | TYPE: Standard Backward Connection (source→target)" +
+									"\n  Route: Road[" + std::to_string(getRoadId()) + "] → Road[" + std::to_string(nextRoadId) + "]" +
+									"\n  Connection Node: " + std::to_string(currentRoadSourceNode) +
+									"\n  New Position: " + std::to_string(vehicle->s) + " (from end)" +
+									"\n  Next road end coords: (" + std::to_string(nextRoadEndPos.x) + ", " + std::to_string(nextRoadEndPos.y) + ")" +
+									"\n  Direction: Backward movement (end→start)");
 							}
-							else {
+								else {
 								// 检查是否需要从起点进入
-								uint16 nextRoadSourceNode = nextRoad->getSourceNodeId();
 								if (currentRoadSourceNode == nextRoadSourceNode) {
 									// 需要从下一道路的起点开始
 									vehicle->s = std::max(0.0f, overshoot);
-									LogManager::instance()->logMessage("Backward Vehicle " + std::to_string(vehicle->id) +
-										" entering via start node " + std::to_string(currentRoadSourceNode) +
-										" from Road " + std::to_string(getRoadId()) + " to Road " + std::to_string(nextRoadId) +
-										" starting at position " + std::to_string(vehicle->s));
+
+									Vector3 nextRoadStartPos = nextRoad->getPositionAtDistance(0.0f);
+									LogManager::instance()->logMessage("[CONNECTION_SUCCESS] Vehicle " + std::to_string(vehicle->id) +
+										" | TYPE: Backward-to-Source Connection (source→source)" +
+										"\n  Route: Road[" + std::to_string(getRoadId()) + "] → Road[" + std::to_string(nextRoadId) + "]" +
+										"\n  Connection Node: " + std::to_string(currentRoadSourceNode) +
+										"\n  New Position: " + std::to_string(vehicle->s) + " (from start)" +
+										"\n  Next road start coords: (" + std::to_string(nextRoadStartPos.x) + ", " + std::to_string(nextRoadStartPos.y) + ")" +
+										"\n  Direction: Enter from start point");
 								}
 								else {
 									// 无法找到正确连接，使用默认位置
 									vehicle->s = nextRoad->mLens - std::max(0.0f, overshoot);
-									LogManager::instance()->logMessage("WARNING: Backward Vehicle " + std::to_string(vehicle->id) +
-										" node connection mismatch - current source: " + std::to_string(currentRoadSourceNode) +
-										", next source: " + std::to_string(nextRoadSourceNode) +
-										", next target: " + std::to_string(nextRoadTargetNode));
+
+									Vector3 nextRoadFallbackPos = nextRoad->getPositionAtDistance(vehicle->s);
+									LogManager::instance()->logMessage("[CONNECTION_ERROR] Vehicle " + std::to_string(vehicle->id) +
+										" | TYPE: Backward Node Mismatch" +
+										"\n  Route: Road[" + std::to_string(getRoadId()) + "] → Road[" + std::to_string(nextRoadId) + "]" +
+										"\n  Current source node: " + std::to_string(currentRoadSourceNode) +
+										"\n  Next road nodes: (src:" + std::to_string(nextRoadSourceNode) + ", tgt:" + std::to_string(nextRoadTargetNode) + ")" +
+										"\n  Fallback position: " + std::to_string(vehicle->s) + " (using road end)" +
+										"\n  Next road fallback coords: (" + std::to_string(nextRoadFallbackPos.x) + ", " + std::to_string(nextRoadFallbackPos.y) + ")" +
+										"\n  ⚠️ WARNING: Node connectivity mismatch for backward vehicle");
 								}
 							}
 						}
 					}
-				}
-
-				if (!nextRoad) {
-					LogManager::instance()->logMessage("Vehicle " + std::to_string(vehicle->id) +
-						" reached end of path - using default next road");
+				}				if (!nextRoad) {
+					LogManager::instance()->logMessage("[PATH_END] Vehicle " + std::to_string(vehicle->id) +
+						" | REASON: Reached end of assigned path" +
+						"\n  Last Road: [" + std::to_string(getRoadId()) + "]" +
+						"\n  Action: Using default next road as fallback" +
+						"\n  Vehicle initial coords from road start: (" + std::to_string(getPositionAtDistance(0.0f).x) + ", " + std::to_string(getPositionAtDistance(0.0f).y) + ")");
 					nextRoad = m_nextRoad; // 路径结束，使用默认下一条道路
 				}
 			}
-
 			else {
 				// 没有路径或Traffic引用，使用默认下一条道路
 				nextRoad = m_nextRoad;
+
+				// 获取车辆坐标信息用于调试
+				Vector3 currentInitialPos = getPositionAtDistance(0.0f);
+				Vector3 vehicleCurrentPos = vehicle->pos;
+
+				LogManager::instance()->logMessage("[NO_PATH] Vehicle " + std::to_string(vehicle->id) +
+					" | REASON: No assigned path or TrafficManager reference" +
+					"\n  Current Road: [" + std::to_string(getRoadId()) + "]" +
+					"\n  Vehicle initial coords from road start: (" + std::to_string(currentInitialPos.x) + ", " + std::to_string(currentInitialPos.y) + ")" +
+					"\n  Current position: (" + std::to_string(vehicleCurrentPos.x) + ", " + std::to_string(vehicleCurrentPos.y) + ")" +
+					"\n  Action: Using default next road");
+
 				// 对于没有路径的车辆，设置默认位置
 				if (vehicle->laneDirection == Vehicle::LaneDirection::Forward) {
 					vehicle->s = std::max(0.0f, overshoot); // 从新道路起点开始
@@ -668,22 +737,38 @@ namespace Echo
 						vehicle->s = nextRoad->mLens - std::max(0.0f, overshoot); // 从新道路末端开始
 					}
 				}
-			}
-
-			// 添加到目标道路
+			}			// 添加到目标道路
 			if (nextRoad) {
 				nextRoad->addCar(vehicle);
-				LogManager::instance()->logMessage("Vehicle " + std::to_string(vehicle->id) +
-					" transferred from Road " + std::to_string(getRoadId()) +
-					" to Road " + std::to_string(nextRoad->getRoadId()) +
-					" with overshoot: " + std::to_string(overshoot) +
-					" new position: " + std::to_string(vehicle->s));
+
+				// 获取详细的转移结果信息
+				Vector3 currentRoadStart = getPositionAtDistance(0.0f);
+				Vector3 nextRoadStart = nextRoad->getPositionAtDistance(0.0f);
+				Vector3 vehicleNewPos = nextRoad->getPositionAtDistance(vehicle->s);
+
+				LogManager::instance()->logMessage("[TRANSFER_COMPLETE] Vehicle " + std::to_string(vehicle->id) +
+					" | TRANSFER SUMMARY:" +
+					"\n  From: Road[" + std::to_string(getRoadId()) + "] (start coords: " + std::to_string(currentRoadStart.x) + ", " + std::to_string(currentRoadStart.y) + ")" +
+					"\n  To: Road[" + std::to_string(nextRoad->getRoadId()) + "] (start coords: " + std::to_string(nextRoadStart.x) + ", " + std::to_string(nextRoadStart.y) + ")" +
+					"\n  Overshoot distance: " + std::to_string(overshoot) +
+					"\n  New position on road: " + std::to_string(vehicle->s) + "/" + std::to_string(nextRoad->mLens) +
+					"\n  New world coordinates: (" + std::to_string(vehicleNewPos.x) + ", " + std::to_string(vehicleNewPos.y) + ")" +
+					"\n  Direction: " + (vehicle->laneDirection == Vehicle::LaneDirection::Forward ? "Forward" : "Backward") +
+					"\n  Reverse flag: " + (vehicle->m_needReverseDirection ? "True" : "False"));
 			}
 			else {
-				LogManager::instance()->logMessage("Vehicle " + std::to_string(vehicle->id) +
-					" has no next road - removing from simulation");
+				Vector3 currentRoadStart = getPositionAtDistance(0.0f);
+				Vector3 vehicleCurrentPos = vehicle->pos;
+
+				LogManager::instance()->logMessage("[TRANSFER_FAILED] Vehicle " + std::to_string(vehicle->id) +
+					" | NO DESTINATION ROAD AVAILABLE" +
+					"\n  Last Road: [" + std::to_string(getRoadId()) + "] (start coords: " + std::to_string(currentRoadStart.x) + ", " + std::to_string(currentRoadStart.y) + ")" +
+					"\n  Vehicle position: (" + std::to_string(vehicleCurrentPos.x) + ", " + std::to_string(vehicleCurrentPos.y) + ")" +
+					"\n  Overshoot: " + std::to_string(overshoot) +
+					"\n  Action: Removing vehicle from simulation");
 			}
 		}
+
 
 	}
 
@@ -724,12 +809,12 @@ namespace Echo
 
 	// Road连接相关方法实现
 	void Road::setNextRoad(Road* nextRoad) { m_nextRoad = nextRoad; }
-	
+
 	//默认跟车模型参数设置
 	void Traffic::initializeCarFollowingModels()
 	{
 		// 设置IDM默认参数
-		m_idmParams.v0 = 25.0f;       // 期望速度 (m/s)
+		m_idmParams.v0 = 10.0f;       // 期望速度 (m/s)
 		m_idmParams.T = 1.0f;         // 期望时间间隔 (s)
 		m_idmParams.s0 = 3.0f;        // 最小间距 (m)
 		m_idmParams.a = 8.0f;         // 最大加速度 (m/s²)
@@ -738,7 +823,7 @@ namespace Echo
 		m_idmParams.noiseLevel = 0.1f;
 
 		// 设置ACC默认参数
-		m_accParams.v0 = 25.0f;
+		m_accParams.v0 = 10.0f;
 		m_accParams.T = 1.0f;
 		m_accParams.s0 = 3.0f;
 		m_accParams.a = 8.0f;
@@ -1644,7 +1729,7 @@ namespace Echo
 		}
 
 		// 尝试从当前道路的目标城市出发的其他道路
-		
+
 			// 尝试从当前道路的目标节点出发的其他道路
 		uint16 destNodeId = currentRoad->getDestinationNodeId();
 		if (destNodeId != 0)
@@ -1771,7 +1856,7 @@ namespace Echo
 
 	}
 	//路径分配
-	
+
 
 	void Traffic::assignPathsToAllVehicles()
 	{
@@ -1928,13 +2013,13 @@ namespace Echo
 	{
 		if (m_currentRoadIndex + 1 < m_pathRoads.size()) {
 			m_currentRoadIndex++;
-			
+
 			return true;
 		}
 		else if (!m_pathRoads.empty()) {
 			// 路径循环：回到路径起点
 			m_currentRoadIndex = 0;
-		
+
 			return true;
 		}
 		return false; // 空路径时返回false
@@ -1946,7 +2031,7 @@ namespace Echo
 		if (m_currentRoadIndex > 0)
 		{
 			m_currentRoadIndex--;
-			
+
 			return true;
 		}
 		return false;
@@ -2052,7 +2137,7 @@ namespace Echo
 			ss << sumOfUpdate / 100.0f;
 			ss << "\n";
 
-			LogManager::instance()->logMessage(ss.str());
+			//LogManager::instance()->logMessage(ss.str());
 
 			counter = 0;
 			sumOfDt = 0.0f;
@@ -2195,27 +2280,27 @@ namespace Echo
 		cJSON_Delete(root);
 		return result;
 	}
-	
+
 
 	HighwayGraphData Traffic::parseHighwayGraphData(const std::string& jsonFilePath)
 	{
 		HighwayGraphData result;
 
-		
+
 		DataStreamPtr pDataStream(Root::instance()->GetFileDataStream(jsonFilePath.c_str(), false, "json"));
 		if (pDataStream.isNull() || pDataStream->size() == 0)
 		{
 			return result;
 		}
 
-		
+
 		size_t nSize = pDataStream->size();
 		char* pData = new char[nSize + 1];
 		memset(pData, 0, nSize + 1);
 		pDataStream->seek(0);
 		pDataStream->read(pData, nSize);
 
-		
+
 		cJSON* root = cJSON_Parse(pData);
 		delete[] pData;
 
@@ -2224,7 +2309,7 @@ namespace Echo
 			return result;
 		}
 
-		
+
 		cJSON* directed = cJSON_GetObjectItem(root, "directed");
 		if (directed && (directed->type == cJSON_True || directed->type == cJSON_False))
 		{
@@ -2237,7 +2322,7 @@ namespace Echo
 			result.multigraph = (multigraph->type == cJSON_True);
 		}
 
-		
+
 		cJSON* nodes = cJSON_GetObjectItem(root, "nodes");
 		if (nodes && nodes->type == cJSON_Array)
 		{
@@ -2340,7 +2425,7 @@ namespace Echo
 		m_highwayGraphData = graphData;
 		m_highwayNodes = graphData.nodes;
 
-		
+
 		std::map<std::pair<uint16, uint16>, std::vector<Vector3>> nodeIdPairToCoordinates;
 		for (const auto& feature : connectData.features)
 		{
@@ -2435,7 +2520,7 @@ namespace Echo
 		return road;
 	}
 
-	
+
 	uint16 Road::getSourceNodeId() const
 	{
 		return mSourceNodeId;
