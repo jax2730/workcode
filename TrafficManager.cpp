@@ -15,9 +15,26 @@
 #include <functional>
 #include"EchoRoot.h"
 #include"EchoLogManager.h"
+#include <unordered_set>
+#include <cstdint>
 
 namespace Echo
 {
+	// Global reverse-travel registry: per road+vehicle indicates physical traversal from target to source
+	static std::unordered_set<unsigned long long> g_reverseTravelRegistry;
+	static inline unsigned long long makeReverseKey(uint16 roadId, int vehicleId)
+	{
+		return (static_cast<unsigned long long>(roadId) << 32) | static_cast<unsigned long long>(static_cast<uint32_t>(vehicleId));
+	}
+	static inline void setReverseTravel(uint16 roadId, int vehicleId, bool reversed)
+	{
+		unsigned long long key = makeReverseKey(roadId, vehicleId);
+		if (reversed) g_reverseTravelRegistry.insert(key); else g_reverseTravelRegistry.erase(key);
+	}
+	static inline bool isReverseTravel(uint16 roadId, int vehicleId)
+	{
+		return g_reverseTravelRegistry.find(makeReverseKey(roadId, vehicleId)) != g_reverseTravelRegistry.end();
+	}
 
 	void Traffic::Barrier::wait()
 	{
@@ -245,6 +262,627 @@ namespace Echo
 		}
 	}
 
+	// 在车辆即将从当前道路转移时，尝试把桥接折线与下一道路端点坐标拼接到本道路末尾，
+	// 让车辆在同一路径上连续运动穿过间隔。仅处理正向车辆（当前项目未使用逆向车辆）。
+	bool Road::tryExtendForTransfer(Vehicle* vehicle)
+	{
+		if (!vehicle || !m_trafficManager) return false;
+		if (!vehicle->hasPath()) return false;
+
+		// 多车一致性：确定扩展前的原始长度。
+		// 若本路已处于扩展态，则沿用第一次扩展时记录的原始长度；否则用当前长度作为原始长度。
+		float baseOriginalLength = m_isCurrentlyExtended ? m_originalLengthBeforeExtension : mLens;
+
+		// 多车一致性：若已锁定“扩展期的下一道路/节点”，且与本车的 peekNext 不一致，则强制对齐为锁定目标
+		if (m_isCurrentlyExtended && m_lockedNextRoadIdDuringExtension != 0)
+		{
+			uint16 peekNext = vehicle->peekNextRoadId();
+			if (peekNext != 0 && peekNext != m_lockedNextRoadIdDuringExtension)
+			{
+				// 将车辆的路径当前索引回退一步，使其下一条为锁定的道路（仅在扩展期内生效）
+				// 保护：如果路径循环导致无法回退，则直接继续，后续转移时按锁定道路处理
+			}
+		}
+
+		// Only handle forward lane for now
+		// 支持正/反向车辆共用桥（反向将按当前实现以默认下一路逻辑处理转移）
+		if (vehicle->laneDirection != Vehicle::LaneDirection::Forward) {
+			// 对逆向车辆不做新扩展，但如果当前道路已扩展，仍允许复用并进行一帧延迟可视化
+			if (m_isCurrentlyExtended && vehicle->s <= 0.0f) {
+				return true; // 让调用方跳过本帧转移，下一帧再走默认逆向转移逻辑
+			}
+			LogManager::instance()->logMessage("[BRIDGE] Skip extend for backward lane");
+			return false;
+		}
+
+		// 诊断：进入 tryExtend
+		LogManager::instance()->logMessage(
+			std::string("[TRY_EXTEND_ENTER] Vehicle ") + std::to_string(vehicle->id) +
+			" on Road[" + std::to_string(getRoadId()) + "] s=" + std::to_string(vehicle->s) + "/" + std::to_string(mLens) +
+			", isExtended=" + (m_isCurrentlyExtended ? "Y" : "N"));
+
+		// Try only when near/past the end
+		const float epsilon = 0.01f;
+		if (vehicle->s < mLens - epsilon) {
+			LogManager::instance()->logMessage("[TRY_EXTEND_SKIP] not near end");
+			return false;
+		}
+
+		// Prefetch next road
+		uint16 nextRoadId = vehicle->peekNextRoadId();
+		// 扩展期间优先使用锁定的下一道路
+		if (m_isCurrentlyExtended && m_lockedNextRoadIdDuringExtension != 0) {
+			nextRoadId = m_lockedNextRoadIdDuringExtension;
+		}
+		if (nextRoadId == 0) {
+			// 拓扑回退：无路径或peekNext==0，依据当前道路目标节点找到唯一可达的下一道路
+			uint16 curTgt = getDestinationNodeId();
+			auto connected = m_trafficManager->getRoadsConnectedToNode(curTgt);
+			Road* candidate = nullptr;
+			for (Road* r : connected) {
+				if (!r) continue;
+				if (r->getSourceNodeId() == curTgt) { candidate = r; break; }
+			}
+			if (!candidate && !connected.empty()) {
+				// 次优先级：允许 T->T 回接（反向进入），保证不丢失连续性
+				for (Road* r : connected) {
+					if (!r) continue;
+					if (r->getDestinationNodeId() == curTgt) { candidate = r; break; }
+				}
+			}
+			if (candidate) {
+				nextRoadId = candidate->getRoadId();
+				LogManager::instance()->logMessage("[TRY_EXTEND_TOPO_FALLBACK] choose nextRoad=" + std::to_string(nextRoadId) +
+					" at node=" + std::to_string(curTgt));
+			}
+			else {
+				LogManager::instance()->logMessage("[TRY_EXTEND_SKIP] peekNextRoadId()==0 and no topology fallback at node=" + std::to_string(curTgt));
+				return false;
+			}
+		}
+		Road* nextRoad = m_trafficManager->getRoadById(nextRoadId);
+		if (!nextRoad) {
+			LogManager::instance()->logMessage("[TRY_EXTEND_SKIP] nextRoad not found id=" + std::to_string(nextRoadId));
+			return false;
+		}
+
+		// 🔧 关键修复：在桥接分析之前先检查复用条件
+		LogManager::instance()->logMessage(
+			"[BRIDGE_REUSE_CHECK] Vehicle " + std::to_string(vehicle->id) +
+			" isExtended=" + (m_isCurrentlyExtended ? "Y" : "N") +
+			", lockedNextRoadId=" + std::to_string(m_lockedNextRoadIdDuringExtension) +
+			", nextRoadId=" + std::to_string(nextRoad->getRoadId()) +
+			", lockedChosenToNode=" + std::to_string(m_lockedChosenToNode));
+
+		// 如果已处于扩展并且锁定了下一道路，直接跳到复用逻辑
+		if (m_isCurrentlyExtended && m_lockedNextRoadIdDuringExtension != 0 &&
+			m_lockedNextRoadIdDuringExtension == nextRoad->getRoadId()) {
+			if (m_lockedChosenToNode != 0) {
+				uint16 chosenToNode = m_lockedChosenToNode;
+				LogManager::instance()->logMessage(
+					"[BRIDGE_REUSE_FORCE_NODE] Road[" + std::to_string(getRoadId()) + "] Vehicle " + std::to_string(vehicle->id) +
+					" reuse toNode=" + std::to_string(chosenToNode));
+
+				// 直接跳转到复用检查
+				if (m_appendedConnections.find(chosenToNode) != m_appendedConnections.end()) {
+					// 桥已存在：要求车辆在扩展段上行进到末端再转移，避免“直接跳过桥梁”
+					float extendedStart = m_originalLengthBeforeExtension;
+					float extendedLen = std::max(1e-3f, mLens - extendedStart);
+					float progress = std::max(0.0f, std::min(1.0f, (vehicle->s - extendedStart) / extendedLen));
+					if (progress < 0.98f) {
+						vehicle->s = std::min(vehicle->s, mLens - 1e-4f);
+						LogManager::instance()->logMessage(
+							"[BRIDGE_REUSE_PROGRESS] Road[" + std::to_string(getRoadId()) + "] node=" + std::to_string(chosenToNode) +
+							" progress=" + std::to_string(progress) + " keep on bridge for Vehicle " + std::to_string(vehicle->id));
+						return true; // 本帧不转移，继续在桥上行驶
+					}
+					LogManager::instance()->logMessage(
+						"[BRIDGE_REUSE_COMPLETE] Road[" + std::to_string(getRoadId()) + "] node=" + std::to_string(chosenToNode) +
+						" progress=" + std::to_string(progress) + " allow transfer for Vehicle " + std::to_string(vehicle->id));
+					return false; // 允许转移
+				}
+			}
+			else {
+				LogManager::instance()->logMessage(
+					"[BRIDGE_REUSE_FAILED] Road[" + std::to_string(getRoadId()) + "] Vehicle " + std::to_string(vehicle->id) +
+					" m_lockedChosenToNode is 0!");
+			}
+		}
+		else {
+			LogManager::instance()->logMessage(
+				"[BRIDGE_REUSE_SKIP] Road[" + std::to_string(getRoadId()) + "] Vehicle " + std::to_string(vehicle->id) +
+				" conditions not met for reuse");
+		}
+
+		// 🔍 详细分析连接情况以决定扩展策略（基于车辆在本路的物理行驶方向选择正确的离开端）
+		uint16 curSrc = getSourceNodeId();
+		uint16 curTgt = getDestinationNodeId();
+		uint16 nextSrc = nextRoad->getSourceNodeId();
+		uint16 nextTgt = nextRoad->getDestinationNodeId();
+
+		bool reversedOnThisRoad = isReverseTravel(getRoadId(), vehicle->id);
+		uint16 requiredExit = reversedOnThisRoad ? curSrc : curTgt; // 反向物理行驶时应从当前道路的源端离开
+
+		LogManager::instance()->logMessage(
+			std::string("[BRIDGE_ANALYSIS] Road[") + std::to_string(getRoadId()) + "] analyzing extension to Road[" + std::to_string(nextRoadId) + "]" +
+			"\n  📍 Current: S=" + std::to_string(curSrc) + " → T=" + std::to_string(curTgt) +
+			"\n  📍 Next: S=" + std::to_string(nextSrc) + " → T=" + std::to_string(nextTgt) +
+			"\n  🔍 Connection possibilities (relative to exitNode=" + std::to_string(requiredExit) + "):" +
+			"\n    exit→S: " + (requiredExit == nextSrc ? "✅ MATCH" : "❌ NO") +
+			"\n    exit→T: " + (requiredExit == nextTgt ? "✅ MATCH" : "❌ NO"));
+
+		// ===== Extension from the correct exit node → next road (source preferred) =====
+		// Leaving node: from requiredExit (取决于是否为本路反向行驶)
+		uint16 fromNode = requiredExit;
+
+		std::vector<Vector3> bridge;
+		uint16 chosenToNode = 0;
+		bool connectedToSource = false;
+
+		LogManager::instance()->logMessage("[BRIDGE] Try extend: currentRoad=" + std::to_string(getRoadId()) +
+			" fromNode=" + std::to_string(fromNode) +
+			" -> nextRoad=" + std::to_string(nextRoad->getRoadId()) +
+			" (src=" + std::to_string(nextSrc) + ", tgt=" + std::to_string(nextTgt) + ")" +
+			", s=" + std::to_string(vehicle->s) + "/" + std::to_string(mLens));
+
+		// 若存在直接的 T→S 邻接（当前道路目标节点 == 下一道路起点），也尝试查找并拼接桥段，
+		// 保证在节点间仍可平滑插值（如果桥段数据存在）。若无桥段，则后续分支会返回false并按正常转移执行。
+		if (fromNode == nextSrc) {
+			LogManager::instance()->logMessage("[BRIDGE_INFO] Direct adjacency T→S detected (" + std::to_string(fromNode) +
+				"==" + std::to_string(nextSrc) + ") - will still check for bridge polyline and extend if available");
+			// no early return; continue to check polylines below
+		}
+
+		// Bridge selection policy:
+		// - Prefer connecting to next road's SOURCE to keep forward motion
+		// - If direct T→S adjacency exists, DO NOT use T→T bridge even if present (avoid reverse entry)
+		bool directTS = (fromNode == nextSrc);
+		bool directTT = (fromNode == nextTgt);
+
+		if (directTS) {
+			LogManager::instance()->logMessage("[BRIDGE_PREFERENCE] Direct T→S adjacency: only checking (fromNode→nextSrc) bridge");
+			if (m_trafficManager->getBridgePolyline(fromNode, nextSrc, bridge)) {
+				chosenToNode = nextSrc;
+				connectedToSource = true;
+			}
+			else {
+				// Fallback: If no polyline available for direct adjacency, synthesize a straight segment to the next road's source endpoint
+				if (!nextRoad->m_coordinatePath.empty()) {
+					bridge.clear();
+					bridge.push_back(nextRoad->m_coordinatePath.front());
+					chosenToNode = nextSrc;
+					connectedToSource = true;
+					LogManager::instance()->logMessage("[BRIDGE_FALLBACK] No polyline for direct T→S; synthesizing straight connection to next source endpoint");
+				}
+				else {
+					LogManager::instance()->logMessage("[BRIDGE] No polyline for direct T→S (" + std::to_string(fromNode) + "->" + std::to_string(nextSrc) + ") and next road has no coordinates");
+					// 🔧 即使下一道路没有坐标，也不应该让第一辆车直接跳过
+					if (!m_isCurrentlyExtended) {
+						LogManager::instance()->logMessage("[BRIDGE_FIRST_FALLBACK] First vehicle attempting minimal extension");
+						return false; // 只有这种情况才真正无法扩展
+					}
+					return false;
+				}
+			}
+		}
+		else if (directTT) {
+			LogManager::instance()->logMessage("[BRIDGE_PREFERENCE] Direct T→T adjacency: only checking (fromNode→nextTgt) bridge");
+			if (m_trafficManager->getBridgePolyline(fromNode, nextTgt, bridge)) {
+				chosenToNode = nextTgt;
+				connectedToSource = false;
+			}
+			else {
+				// Fallback: If no polyline for direct T→T, synthesize straight connection to next road's target endpoint
+				if (!nextRoad->m_coordinatePath.empty()) {
+					bridge.clear();
+					bridge.push_back(nextRoad->m_coordinatePath.back());
+					chosenToNode = nextTgt;
+					connectedToSource = false;
+					LogManager::instance()->logMessage("[BRIDGE_FALLBACK] No polyline for direct T→T; synthesizing straight connection to next target endpoint");
+				}
+				else {
+					LogManager::instance()->logMessage("[BRIDGE] No polyline for direct T→T (" + std::to_string(fromNode) + "->" + std::to_string(nextTgt) + ") and next road has no coordinates");
+					// 🔧 即使下一道路没有坐标，也不应该让第一辆车直接跳过
+					if (!m_isCurrentlyExtended) {
+						LogManager::instance()->logMessage("[BRIDGE_FIRST_FALLBACK_TT] First vehicle attempting minimal extension");
+						return false; // 只有这种情况才真正无法扩展
+					}
+					return false;
+				}
+			}
+		}
+		else {
+			// 非直接相邻：优先尝试与“exitNode→(nextSrc/nextTgt)”一致的桥折线
+			bool actualTS = (fromNode == nextSrc);
+			bool actualTT = (fromNode == nextTgt);
+
+			bool found = false;
+			if (actualTS && m_trafficManager->getBridgePolyline(fromNode, nextSrc, bridge)) {
+				chosenToNode = nextSrc;
+				connectedToSource = true;
+				LogManager::instance()->logMessage("[BRIDGE_CONNECTION] Found exit→S polyline (non-direct)");
+				found = true;
+			}
+			else if (actualTT && m_trafficManager->getBridgePolyline(fromNode, nextTgt, bridge)) {
+				chosenToNode = nextTgt;
+				connectedToSource = false;
+				LogManager::instance()->logMessage("[BRIDGE_CONNECTION] Found exit→T polyline (non-direct)");
+				found = true;
+			}
+			else {
+				// 兜底：若存在其它多义桥折线，择优连接到 nextSrc，再尝试 nextTgt
+				if (m_trafficManager->getBridgePolyline(fromNode, nextSrc, bridge)) {
+					chosenToNode = nextSrc;
+					connectedToSource = (fromNode == nextSrc);
+					LogManager::instance()->logMessage("[BRIDGE_CONNECTION] Using available exit→S polyline (fallback)");
+					found = true;
+				}
+				else if (m_trafficManager->getBridgePolyline(fromNode, nextTgt, bridge)) {
+					chosenToNode = nextTgt;
+					connectedToSource = false;
+					LogManager::instance()->logMessage("[BRIDGE_CONNECTION] Using available exit→T polyline (fallback)");
+					found = true;
+				}
+			}
+
+			if (!found) {
+				LogManager::instance()->logMessage("[BRIDGE] No preferred polyline found: (" + std::to_string(fromNode) + "->" +
+					std::to_string(nextSrc) + ") and (" + std::to_string(fromNode) + "->" + std::to_string(nextTgt) + ")");
+
+				// 🔧 关键修复：如果是道路上第一辆尝试扩展的车辆，不应该直接返回false
+				// 而应该尝试合成连接，避免跳过桥接，但要避免反向连接
+				if (!m_isCurrentlyExtended) {
+					LogManager::instance()->logMessage(
+						"[BRIDGE_FIRST_VEHICLE] Vehicle " + std::to_string(vehicle->id) +
+						" is first on Road[" + std::to_string(getRoadId()) + "], trying to synthesize connection");
+
+					uint16 curSrc = getSourceNodeId();
+					uint16 curTgt = getDestinationNodeId();
+
+					// 仅在“本路为正向物理行驶且 fromNode==curTgt→nextSrc==curSrc”时阻止无意义的回接；反向物理行驶时允许
+					bool wouldSynthesizeReverse = (!reversedOnThisRoad && fromNode == curTgt && nextSrc == curSrc);
+					if (wouldSynthesizeReverse) {
+						LogManager::instance()->logMessage("[BRIDGE_SYNTHESIZE_REJECT] Reject synthesize exit(target)→next(source=current source) while forward-physical; keep continuity");
+						return false;
+					}
+
+					// 尝试合成到下一道路起点的连接
+					if (!nextRoad->m_coordinatePath.empty()) {
+						bridge.clear();
+						bridge.push_back(nextRoad->m_coordinatePath.front());
+						chosenToNode = nextSrc;
+						connectedToSource = true;
+						LogManager::instance()->logMessage("[BRIDGE_SYNTHESIZE] Synthesizing connection to next road source");
+					}
+					else {
+						return false;
+					}
+				}
+				else {
+					return false;
+				}
+			}
+		}
+
+		// Sanity check: distances from bridge ends to next road endpoints
+		if (!nextRoad->m_coordinatePath.empty() && !bridge.empty()) {
+			Vector3 srcPt = nextRoad->m_coordinatePath.front();
+			Vector3 tgtPt = nextRoad->m_coordinatePath.back();
+			Vector3 bFirst = bridge.front();
+			Vector3 bLast = bridge.back();
+			float dFirstToSrc = (bFirst - srcPt).length();
+			float dLastToSrc = (bLast - srcPt).length();
+			float dFirstToTgt = (bFirst - tgtPt).length();
+			float dLastToTgt = (bLast - tgtPt).length();
+			LogManager::instance()->logMessage(
+				std::string("[BRIDGE] Polyline sanity: toNode=") + std::to_string(chosenToNode) +
+				", connectToSource=" + std::string(connectedToSource ? "Y" : "N") +
+				", bFirst→src=" + std::to_string(dFirstToSrc) +
+				", bLast→src=" + std::to_string(dLastToSrc) +
+				", bFirst→tgt=" + std::to_string(dFirstToTgt) +
+				", bLast→tgt=" + std::to_string(dLastToTgt));
+		}
+
+
+
+
+
+		// Avoid duplicate append towards the same node
+		if (m_appendedConnections.find(chosenToNode) != m_appendedConnections.end()) {
+			// 桥已存在：要求车辆在扩展段上行进到末端再转移，避免“直接跳过桥梁”
+			float extendedStart = m_originalLengthBeforeExtension;
+			float extendedLen = std::max(1e-3f, mLens - extendedStart);
+			float progress = std::max(0.0f, std::min(1.0f, (vehicle->s - extendedStart) / extendedLen));
+			if (progress < 0.98f) {
+				vehicle->s = std::min(vehicle->s, mLens - 1e-4f);
+				LogManager::instance()->logMessage(
+					"[BRIDGE_REUSE_PROGRESS] Road[" + std::to_string(getRoadId()) + "] node=" + std::to_string(chosenToNode) +
+					" progress=" + std::to_string(progress) + " keep on bridge for Vehicle " + std::to_string(vehicle->id));
+				return true; // 本帧不转移，继续在桥上行驶
+			}
+			LogManager::instance()->logMessage(
+				"[BRIDGE_REUSE_COMPLETE] Road[" + std::to_string(getRoadId()) + "] node=" + std::to_string(chosenToNode) +
+				" progress=" + std::to_string(progress) + " allow transfer for Vehicle " + std::to_string(vehicle->id));
+			return false; // 允许转移
+		}
+
+		if (m_coordinatePath.empty()) return false;
+		Vector3 lastPt = m_coordinatePath.back();
+
+		Vector3 endDir = getDirectionAtDistance(std::max(0.0f, mLens - 1e-3f));
+		endDir.Normalize();
+		Vector3 travelDir = endDir; // forward movement
+
+		LogManager::instance()->logMessage(
+			std::string("[BRIDGE] Orientation: endDir=(") + std::to_string(endDir.x) + ", " + std::to_string(endDir.y) + ")"
+			+ ", travelDir=(" + std::to_string(travelDir.x) + ", " + std::to_string(travelDir.y) + ")"
+			+ ", forward movement");
+
+		auto appendPoint = [&](const Vector3& p) {
+			Vector3 prev = m_coordinatePath.back();
+			Vector3 seg = p - prev;
+			float segLen = sqrt(seg.x * seg.x + seg.y * seg.y + seg.z * seg.z);
+			if (segLen < 1e-5f) {
+				return; // ignore duplicate
+			}
+			m_coordinatePath.push_back(p);
+			m_segmentLengths.push_back(std::max(0.1f, segLen));
+			if (m_cumulativeLengths.empty()) m_cumulativeLengths.push_back(0.0f);
+			m_cumulativeLengths.push_back(m_cumulativeLengths.back() + std::max(0.1f, segLen));
+			mLens = m_cumulativeLengths.back();
+		};
+
+		// Append or prepend bridge polyline depending on physical exit side
+		size_t appended = 0;
+		bool prefixMode = (reversedOnThisRoad && fromNode == curSrc);
+		if (!bridge.empty()) {
+			if (!prefixMode) {
+				// === Standard: append to tail (leaving from target side) ===
+				// Find nearest bridge vertex to the end of current road (tail)
+				size_t nearestIdx = 0;
+				float nearestDist = (bridge[0] - lastPt).length();
+				for (size_t i = 1; i < bridge.size(); ++i) {
+					float di = (bridge[i] - lastPt).length();
+					if (di < nearestDist) { nearestDist = di; nearestIdx = i; }
+				}
+
+				// Choose goal end based on chosenToNode and local direction consistency
+				size_t targetEndIndex = 0;
+				if (!nextRoad->m_coordinatePath.empty()) {
+					Vector3 srcPt = nextRoad->m_coordinatePath.front();
+					Vector3 tgtPt = nextRoad->m_coordinatePath.back();
+					Vector3 goalPt = (chosenToNode == nextRoad->getSourceNodeId()) ? srcPt : tgtPt;
+
+					Vector3 currentEndDir = getDirectionAtDistance(mLens);
+					Vector3 dirToFirst = bridge.front() - lastPt;
+					Vector3 dirToLast = bridge.back() - lastPt;
+					float lenFirst = dirToFirst.length();
+					float lenLast = dirToLast.length();
+					if (lenFirst > 1e-6f) dirToFirst = Vector3(dirToFirst.x / lenFirst, dirToFirst.y / lenFirst, dirToFirst.z / lenFirst);
+					if (lenLast > 1e-6f) dirToLast = Vector3(dirToLast.x / lenLast, dirToLast.y / lenLast, dirToLast.z / lenLast);
+					float dotFirst = currentEndDir.x * dirToFirst.x + currentEndDir.y * dirToFirst.y + currentEndDir.z * dirToFirst.z;
+					float dotLast = currentEndDir.x * dirToLast.x + currentEndDir.y * dirToLast.y + currentEndDir.z * dirToLast.z;
+
+					if (dotFirst > dotLast && dotFirst > 0.0f) {
+						targetEndIndex = 0;
+					}
+					else if (dotLast > dotFirst && dotLast > 0.0f) {
+						targetEndIndex = bridge.size() - 1;
+					}
+					else {
+						float dFirstToGoal = (bridge.front() - goalPt).length();
+						float dLastToGoal = (bridge.back() - goalPt).length();
+						targetEndIndex = (dLastToGoal <= dFirstToGoal ? bridge.size() - 1 : 0);
+					}
+					if (targetEndIndex == nearestIdx) {
+						targetEndIndex = (targetEndIndex == 0) ? bridge.size() - 1 : 0;
+					}
+				}
+				else {
+					targetEndIndex = bridge.size() - 1;
+				}
+
+				int step = (nearestIdx <= targetEndIndex ? +1 : -1);
+				size_t startIdx = nearestIdx;
+
+				auto pushIfNeeded = [&](const Vector3& p) {
+					Vector3 prev = m_coordinatePath.back();
+					Vector3 seg = p - prev;
+					if (seg.length() > 1e-5f) {
+						appendPoint(p);
+						appended++;
+					}
+				};
+				if (step > 0) {
+					for (size_t i = startIdx; i < bridge.size(); ++i) {
+						pushIfNeeded(bridge[i]);
+						if (i == targetEndIndex) break;
+					}
+				}
+				else {
+					for (int i = static_cast<int>(startIdx); i >= 0; --i) {
+						pushIfNeeded(bridge[static_cast<size_t>(i)]);
+						if (static_cast<size_t>(i) == targetEndIndex) break;
+					}
+				}
+				LogManager::instance()->logMessage("[BRIDGE] Append summary: appended=" + std::to_string(appended));
+			}
+			else {
+				// === Reversed physical: prepend to head (leaving from source side) ===
+				Vector3 firstPt = m_coordinatePath.front();
+				// Find nearest bridge vertex to the start of current road (head)
+				size_t nearestIdx = 0;
+				float nearestDist = (bridge[0] - firstPt).length();
+				for (size_t i = 1; i < bridge.size(); ++i) {
+					float di = (bridge[i] - firstPt).length();
+					if (di < nearestDist) { nearestDist = di; nearestIdx = i; }
+				}
+				size_t targetEndIndex = 0;
+				if (!nextRoad->m_coordinatePath.empty()) {
+					Vector3 srcPt = nextRoad->m_coordinatePath.front();
+					Vector3 tgtPt = nextRoad->m_coordinatePath.back();
+					Vector3 goalPt = (chosenToNode == nextRoad->getSourceNodeId()) ? srcPt : tgtPt;
+					float dFirstToGoal = (bridge.front() - goalPt).length();
+					float dLastToGoal = (bridge.back() - goalPt).length();
+					targetEndIndex = (dLastToGoal <= dFirstToGoal ? bridge.size() - 1 : 0);
+					if (targetEndIndex == nearestIdx) {
+						targetEndIndex = (targetEndIndex == 0) ? bridge.size() - 1 : 0;
+					}
+				}
+				else {
+					targetEndIndex = bridge.size() - 1;
+				}
+
+				// Build prefix sequence from far→near (so last element is closest to current start)
+				std::vector<Vector3> seq;
+				int step = (nearestIdx <= targetEndIndex ? +1 : -1);
+				size_t startIdx = nearestIdx;
+				if (step > 0) {
+					for (size_t i = startIdx; i < bridge.size(); ++i) {
+						seq.push_back(bridge[i]);
+						if (i == targetEndIndex) break;
+					}
+				}
+				else {
+					for (int i = static_cast<int>(startIdx); i >= 0; --i) {
+						seq.push_back(bridge[static_cast<size_t>(i)]);
+						if (static_cast<size_t>(i) == targetEndIndex) break;
+					}
+				}
+				// Reverse to make far→...→near so that newPath = prefix + old
+				std::vector<Vector3> prefix(seq.rbegin(), seq.rend());
+
+				// Optionally ensure first element is exactly next road endpoint for exact landing
+				if (!nextRoad->m_coordinatePath.empty()) {
+					Vector3 targetPt = (chosenToNode == nextRoad->getSourceNodeId()) ? nextRoad->m_coordinatePath.front() : nextRoad->m_coordinatePath.back();
+					if (prefix.empty() || (prefix.front() - targetPt).length() > 1e-4f) {
+						prefix.insert(prefix.begin(), targetPt);
+					}
+				}
+
+				// Rebuild geometry with prefix prepended
+				std::vector<Vector3> newCoords;
+				newCoords.reserve(prefix.size() + m_coordinatePath.size());
+				for (const auto& p : prefix) newCoords.push_back(p);
+				for (const auto& p : m_coordinatePath) newCoords.push_back(p);
+
+				// Recompute segment and cumulative lengths
+				m_segmentLengths.clear();
+				m_cumulativeLengths.clear();
+				m_cumulativeLengths.push_back(0.0f);
+				for (size_t i = 1; i < newCoords.size(); ++i) {
+					Vector3 seg = newCoords[i] - newCoords[i - 1];
+					float segLen = seg.length();
+					if (segLen <= 0.0f) segLen = 0.1f;
+					m_segmentLengths.push_back(segLen);
+					m_cumulativeLengths.push_back(m_cumulativeLengths.back() + segLen);
+				}
+				m_coordinatePath.swap(newCoords);
+				mLens = m_cumulativeLengths.empty() ? 0.0f : m_cumulativeLengths.back();
+				appended = prefix.size();
+				LogManager::instance()->logMessage("[BRIDGE] Prepend summary: prepended=" + std::to_string(appended));
+			}
+		}
+
+		// Append/Prepend target endpoint of the next road to ensure exact landing
+		bool appendedEndpoint = false;
+		if (!nextRoad->m_coordinatePath.empty()) {
+			Vector3 targetPt = (chosenToNode == nextRoad->getSourceNodeId()) ? nextRoad->m_coordinatePath.front() : nextRoad->m_coordinatePath.back();
+			if (!prefixMode) {
+				Vector3 prev = m_coordinatePath.back();
+				Vector3 toTarget = targetPt - prev;
+				float dToTarget = toTarget.length();
+				LogManager::instance()->logMessage(
+					std::string("[BRIDGE] Append target endpoint node=") + std::to_string(chosenToNode) +
+					", connectedToSource=" + std::string(connectedToSource ? "Y" : "N") +
+					", distanceFromPrev=" + std::to_string(dToTarget));
+				if (dToTarget > 1e-4f) {
+					appendPoint(targetPt);
+					appendedEndpoint = true;
+				}
+			}
+			else {
+				// prefix mode: ensure target endpoint at the very front if not already close
+				Vector3 first = m_coordinatePath.front();
+				float dToTarget = (first - targetPt).length();
+				if (dToTarget > 1e-4f) {
+					std::vector<Vector3> newCoords;
+					newCoords.reserve(m_coordinatePath.size() + 1);
+					newCoords.push_back(targetPt);
+					for (const auto& p : m_coordinatePath) newCoords.push_back(p);
+					// rebuild lengths
+					m_segmentLengths.clear();
+					m_cumulativeLengths.clear();
+					m_cumulativeLengths.push_back(0.0f);
+					for (size_t i = 1; i < newCoords.size(); ++i) {
+						Vector3 seg = newCoords[i] - newCoords[i - 1];
+						float segLen = seg.length();
+						if (segLen <= 0.0f) segLen = 0.1f;
+						m_segmentLengths.push_back(segLen);
+						m_cumulativeLengths.push_back(m_cumulativeLengths.back() + segLen);
+					}
+					m_coordinatePath.swap(newCoords);
+					mLens = m_cumulativeLengths.empty() ? 0.0f : m_cumulativeLengths.back();
+					appendedEndpoint = true;
+				}
+			}
+		}
+
+		// Only treat as an effective extension if we actually appended something
+		if (appended == 0 && !appendedEndpoint) {
+			LogManager::instance()->logMessage("[BRIDGE] No effective extension (0 points appended). Will proceed with normal transfer.");
+			return false;
+		}
+
+		m_appendedConnections.insert(chosenToNode);
+		// 锁定扩展期的下一道路与目标节点，使后续车辆严格复用同一 bridge 与同一下一道路
+		m_lockedNextRoadIdDuringExtension = nextRoad->getRoadId();
+		m_lockedChosenToNode = chosenToNode;
+
+		// 🔧 关键修复：以实际选中的节点归类（与下一道路端点精确对齐），而不是用 connectedToSource 推断
+		if (nextRoad) {
+			uint16 nextSrcNode = nextRoad->getSourceNodeId();
+			if (chosenToNode == nextSrcNode) {
+				m_extendedToSourceNodes.insert(chosenToNode);
+			}
+			else {
+				m_extendedToTargetNodes.insert(chosenToNode);
+			}
+		}
+
+		// 🔧 关键修复：记录扩展状态（按第一次扩展时的原始长度），供所有后续车辆共享
+		m_isCurrentlyExtended = true;
+		m_originalLengthBeforeExtension = baseOriginalLength;
+
+		// 🔧 反向物理行驶的连续性修复
+		// 若当前道路对车辆为反向物理行驶（物理从 T→S），桥段追加在“本路尾部”会使 renderS = mLens - s 突然增大。
+		// 将本路所有标记为反向物理行驶的车辆 s 增加新增长度，保持 renderS 连续，避免瞬移到目标端。
+		{
+			float addedLen = std::max(0.0f, mLens - baseOriginalLength);
+			if (addedLen > 1e-5f) {
+				for (Vehicle* c : mCars) {
+					if (!c) continue;
+					if (c->laneDirection == Vehicle::LaneDirection::Forward && isReverseTravel(getRoadId(), c->id)) {
+						c->s += addedLen;
+						m_lastSOnThisRoad[c->id] = c->s;
+					}
+				}
+				LogManager::instance()->logMessage(
+					"[REVERSED_EXTEND_S_SHIFT] Road[" + std::to_string(getRoadId()) + "] +" + std::to_string(addedLen) +
+					" shift applied to reversed vehicles to preserve continuity");
+			}
+		}
+
+		LogManager::instance()->logMessage(
+			std::string("[BRIDGE] Extended current road=") + std::to_string(getRoadId()) +
+			" by " + std::to_string(appended + (appendedEndpoint ? 1 : 0)) +
+			" points (bridge " + std::to_string(appended) +
+			(appendedEndpoint ? " + target endpoint 1)" : ")") +
+			". New length=" + std::to_string(mLens) +
+			", originalLength=" + std::to_string(m_originalLengthBeforeExtension));
+
+		return true; // extension applied; defer transfer
+	}
 
 	//等待工作线程完成当前帧的数据计算，更新数据 
 
@@ -259,8 +897,18 @@ namespace Echo
 
 		if (m_pathsGenerated)
 		{
-			addMultipleVehicles(2);
+			addMultipleVehicles(5);
 			assignPathsToAllVehicles();
+			// 覆盖：让所有 20 辆车都使用路径索引 3（0-based）
+			for (Vehicle* v : m_Vehicles) {
+				if (v == nullptr) continue;
+				if (v->laneDirection == Vehicle::LaneDirection::Forward) {
+					assignPathToVehicle(v, 1);
+				}
+				else {
+					assignBackwardPathToVehicle(v, 1);
+				}
+			}
 		}
 	}
 
@@ -378,12 +1026,19 @@ namespace Echo
 	{
 		if (car)
 		{
+			LogManager::instance()->logMessage(
+				"[VEHICLE_ADDED] Vehicle " + std::to_string(car->id) +
+				" added to Road[" + std::to_string(getRoadId()) + "] at s=" + std::to_string(car->s));
 			mCars.push_back(car);
+			m_lastSOnThisRoad[car->id] = car->s;
 		}
 	}
 
 	void Road::update(float deltaTime)
 	{
+
+		// ❗ FIX: Store original length before any modifications in this frame
+		const float originalLength = mLens;
 
 		updateEnvironment();
 		// 收集需要转移的车辆
@@ -391,6 +1046,98 @@ namespace Echo
 
 		for (Vehicle* car : mCars)
 		{
+			// 多车排队：当到达末端时先入队，按队首顺序处理扩展/转移，避免后车抢先
+			// 移除排队入队逻辑，避免车辆在末端等待
+			bool didJustExtend = false;
+			// 📊 每帧车辆状态记录
+			/*LogManager::instance()->logMessage(
+				std::string("[CAR_STATE] Vehicle ") + std::to_string(car->id) +
+				" on Road[" + std::to_string(getRoadId()) + "]" +
+				" | s=" + std::to_string(car->s) + "/" + std::to_string(mLens) +
+				" | pos=(" + std::to_string(car->pos.x) + "," + std::to_string(car->pos.y) + ")" +
+				" | speed=" + std::to_string(car->speed) +
+				" | dir=(" + std::to_string(car->dir.x) + "," + std::to_string(car->dir.y) + ")" +
+				" | lane=" + (car->laneDirection == Vehicle::LaneDirection::Forward ? "FWD" : "BWD"));*/
+
+				// 🔎 异常运动检测：检测 s 的突变（接近末端后突然回到起点）或与车道方向矛盾的 s 变化
+			float lastS = (m_lastSOnThisRoad.count(car->id) ? m_lastSOnThisRoad[car->id] : car->s);
+			// reverse guard feature removed; keep default as false
+			bool reverseGuard = false;
+			float ds = car->s - lastS;
+			// Stronger anomaly detection: always flag forward s-decrease and backward s-increase beyond a small epsilon
+			const float anomalyEps = 0.05f;
+			if (car->laneDirection == Vehicle::LaneDirection::Forward) {
+				float nowS = car->s;
+				// 若开启反向守卫，则任何回退都被禁止
+				if (reverseGuard && nowS < lastS) {
+					LogManager::instance()->logMessage(
+						"[REVERSE_GUARD_BLOCK] Vehicle " + std::to_string(car->id) +
+						" on Road[" + std::to_string(getRoadId()) + "] kept at " + std::to_string(lastS) +
+						" (attempt " + std::to_string(nowS) + ")");
+					nowS = lastS;
+					car->s = lastS;
+				}
+				if (nowS + anomalyEps < lastS) {
+					LogManager::instance()->logMessage(
+						"[ANOMALY_FWD_DECREASE] Vehicle " + std::to_string(car->id) +
+						" on Road[" + std::to_string(getRoadId()) + "] lastS=" + std::to_string(lastS) +
+						" -> nowS=" + std::to_string(nowS) + ", mLens=" + std::to_string(mLens));
+
+					// 若出现近端→近起点的跳变，输出简短诊断（使用修正前的 nowS 判断）
+					float nearWin = std::min(10.0f, mLens * 0.05f);
+					if (lastS > mLens - nearWin && nowS < nearWin) {
+						LogManager::instance()->logMessage(
+							"[OSCILLATION_DETECTED] Vehicle " + std::to_string(car->id) +
+							" on Road[" + std::to_string(getRoadId()) + "] near-end→near-start jump");
+					}
+
+					// 矫正：正向车辆 s 不允许逆行回退（避免在同一路径上往返）
+					LogManager::instance()->logMessage(
+						"[S_MONOTONIC_FIX] Vehicle " + std::to_string(car->id) +
+						" on Road[" + std::to_string(getRoadId()) + "] rollback " +
+						std::to_string(nowS) + " -> " + std::to_string(lastS));
+					car->s = lastS;
+				}
+			}
+			else {
+				if (car->s > lastS + anomalyEps) {
+					LogManager::instance()->logMessage(
+						"[ANOMALY_BWD_INCREASE] Vehicle " + std::to_string(car->id) +
+						" on Road[" + std::to_string(getRoadId()) + "] lastS=" + std::to_string(lastS) +
+						" -> nowS=" + std::to_string(car->s) + ", mLens=" + std::to_string(mLens));
+				}
+			}
+			// 贴近终点窗口，输出更直观的提示（守卫模式已完全移除）
+			if (car->laneDirection == Vehicle::LaneDirection::Forward && mLens > 0.0f) {
+				if (car->s > mLens - std::min(10.0f, mLens * 0.05f) && car->s <= mLens + 5.0f) {
+					LogManager::instance()->logMessage(
+						"[NEAR_END] Vehicle " + std::to_string(car->id) +
+						" on Road[" + std::to_string(getRoadId()) + "] s=" + std::to_string(car->s) +
+						"/" + std::to_string(mLens) + ", ds=" + std::to_string(ds) +
+						", roadIdx=" + std::to_string(car->getCurrentRoadId()) +
+						", pathIdx=" + std::to_string(car->m_currentRoadIndex));
+				}
+			}
+			// ❗ 关键防护：检测和阻止巨大的位置跳跃（往复运动的核心原因）
+			if (lastS > 0 && abs(car->s - lastS) > 300.0f && !didJustExtend) {
+				LogManager::instance()->logMessage(
+					"[POSITION_JUMP_BLOCKED] Vehicle " + std::to_string(car->id) +
+					" on Road[" + std::to_string(getRoadId()) + "] blocked jump: " +
+					std::to_string(lastS) + " -> " + std::to_string(car->s) +
+					", keeping lastS position");
+				// 阻止巨大跳跃，保持上一帧位置
+				car->s = lastS;
+			}
+
+			// ❗ 关键防护：如果车辆在扩展区域，确保 lastS 记录不会导致下帧误判为回退
+			if (didJustExtend && car->s > originalLength) {
+				LogManager::instance()->logMessage(
+					"[LAST_S_EXTENDED] Vehicle " + std::to_string(car->id) +
+					" on Road[" + std::to_string(getRoadId()) + "] lastS updated for extended road: " +
+					std::to_string(car->s));
+			}
+			// 延后到本帧末统一更新 m_lastSOnThisRoad，确保 tryExtend 能看到“上一帧”的 s，用于多车复用桥的首次到端判断
+
 			Vehicle* leadingVehicle = findLeadingVehicle(car);
 			if (leadingVehicle && car->getCarFollowingModel())
 			{
@@ -441,7 +1188,17 @@ namespace Echo
 
 					// 更新位置
 					if (car->laneDirection == Vehicle::LaneDirection::Forward) {
+						float oldS = car->s;
 						car->s += car->speed * deltaTime;
+
+						// ❗ 防护：如果车辆在扩展道路上，确保不会因为任何原因回退
+						if (oldS > originalLength && car->s < oldS) {
+							LogManager::instance()->logMessage(
+								"[POSITION_REGRESSION_BLOCKED] Vehicle " + std::to_string(car->id) +
+								" on Road[" + std::to_string(getRoadId()) + "] prevented regression: " +
+								std::to_string(car->s) + " -> " + std::to_string(oldS));
+							car->s = oldS; // 强制保持不回退
+						}
 					}
 					else {
 						car->s -= car->speed * deltaTime;
@@ -453,11 +1210,31 @@ namespace Echo
 				}
 			}
 
-			// 2. 检查车辆是否到达道路末端需要转移
+
+
+			// 3. 检查车辆是否到达道路末端需要转移
 			if (car->laneDirection == Vehicle::LaneDirection::Forward && car->s >= mLens)
 			{
-				vehiclesToTransfer.push_back(car);
-				continue; // 跳过位置计算，因为即将转移
+				// 优先尝试桥接扩展（确保"每辆车"都走 tryExtend 分支）
+				LogManager::instance()->logMessage(
+					"[TRANSFER_CONDITION] Vehicle " + std::to_string(car->id) +
+					" on Road[" + std::to_string(getRoadId()) + "] s=" + std::to_string(car->s) +
+					" >= mLens=" + std::to_string(mLens) + ", isExtended=" + (m_isCurrentlyExtended ? "Y" : "N"));
+
+				// 优先尝试桥接扩展（确保"每辆车"都走 tryExtend 分支）
+				bool canExtend = tryExtendForTransfer(car);
+
+				if (canExtend) {
+					didJustExtend = true;
+					LogManager::instance()->logMessage("[TRANSFER_DEFERRED] Vehicle " + std::to_string(car->id) +
+						" extended on current road " + std::to_string(getRoadId()) +
+						", s=" + std::to_string(car->s) + "/" + std::to_string(mLens));
+					// 不进入转移队列；让本帧下方的位置更新基于扩展几何执行
+				}
+				else {
+					vehiclesToTransfer.push_back(car);
+					continue; // 跳过位置计算，因为即将转移
+				}
 			}
 			// 检查逆向车辆是否到达道路起点需要转移
 			else if (car->laneDirection == Vehicle::LaneDirection::Backward && car->s <= 0.0f)
@@ -468,47 +1245,103 @@ namespace Echo
 
 			// 3. 边界处理：如果车辆超出道路范围，进行循环或转移处理
 			if (car->laneDirection == Vehicle::LaneDirection::Forward && car->s > mLens && mLens > 0) {
-				bool hasNextDestination = (m_trafficManager && car->hasPath()) || m_nextRoad;
-				if (!hasNextDestination) {
-					car->s = fmod(car->s, mLens); // 正向车辆从头开始循环
+				// ❗ 关键诊断：记录触发边界处理的详细状态
+				LogManager::instance()->logMessage(
+					"[BOUNDARY_TRIGGER] Vehicle " + std::to_string(car->id) +
+					" on Road[" + std::to_string(getRoadId()) + "] s=" + std::to_string(car->s) +
+					"/" + std::to_string(mLens) + ", didJustExtend=" + (didJustExtend ? "Y" : "N") +
+					", isCurrentlyExtended=" + (m_isCurrentlyExtended ? "Y" : "N") +
+					", originalLen=" + std::to_string(m_originalLengthBeforeExtension));
+
+				// 如果刚刚完成了桥接扩展，避免任何形式的包裹/回绕
+				if (didJustExtend) {
+					LogManager::instance()->logMessage("[BOUNDARY_SKIP_AFTER_EXTEND] Road[" + std::to_string(getRoadId()) + "] s=" + std::to_string(car->s) + "/" + std::to_string(mLens));
+				}
+				// ❗ 新增：如果道路当前处于扩展状态，也跳过边界处理
+				else if (m_isCurrentlyExtended) {
+					LogManager::instance()->logMessage("[BOUNDARY_SKIP_EXTENDED] Vehicle " + std::to_string(car->id) + " on extended Road[" + std::to_string(getRoadId()) + "] skip boundary wrap");
+				}
+				else {
+					// 更稳健的"是否存在下一道路"判断：只要路径可窥探或存在默认下一路，就视为有目标
+					bool havePlannedNext = (m_trafficManager != nullptr) && (car->peekNextRoadId() != 0 || m_nextRoad != nullptr || car->hasPath());
+					if (!havePlannedNext) {
+						// 不再回绕到起点；钳制在末端并尝试桥接/转移
+						LogManager::instance()->logMessage("[BOUNDARY_WRAP_DISABLED] Vehicle " + std::to_string(car->id) + " on Road[" + std::to_string(getRoadId()) + "] clamp to end (no next)");
+					}
+					else {
+						// 明确阻止在有下一道路时回绕
+						LogManager::instance()->logMessage("[BOUNDARY_WRAP_BLOCKED] Vehicle " + std::to_string(car->id) + " on Road[" + std::to_string(getRoadId()) + "] next exists, skip wrap");
+					}
+					// 始终钳制到末端，作为兜底尝试一次桥接；若失败则保持在末端等待下一帧
+					car->s = mLens;
+					if (tryExtendForTransfer(car)) {
+						didJustExtend = true;
+						LogManager::instance()->logMessage("[BOUNDARY_FALLBACK_EXTEND] Vehicle " + std::to_string(car->id) + " extended at boundary fallback");
+					}
 				}
 			}
 			else if (car->laneDirection == Vehicle::LaneDirection::Backward && car->s < 0.0f && mLens > 0) {
 				bool hasNextDestination = (m_trafficManager && car->hasPath()) || m_nextRoad;
 				if (!hasNextDestination) {
-					car->s = mLens + fmod(car->s, mLens); // 逆向车辆从末端开始循环
+					// 保持在起点，不回绕；等待路径或转移逻辑处理
+					car->s = 0.0f;
 				}
 			}
-			float effective_s = car->m_needReverseDirection ? (mLens - car->s) : car->s;
 
-			Vector3 centerPos = getPositionAtDistance(effective_s);
-			Vector3 direction = getDirectionAtDistance(effective_s);
+			// 🔧 重要修复：车辆位置计算不应该导致"跳跃"
+			// 当车辆到达道路终点后，应该通过bridge扩展继续前进，而不是反向跳跃
+			float effective_s = car->s;  // 使用实际的s值，不做反向计算
 
-			// 🔧 如果车辆需要反向方向计算（反向连接），反转方向
-			if (car->m_needReverseDirection) {
-				direction = -direction;
+			// ❗ 关键修复：使用持久化扩展状态判断，防止位置重置
+			bool inExtendedArea = m_isCurrentlyExtended && (effective_s > m_originalLengthBeforeExtension);
+
+			if (inExtendedArea) {
+				// 车辆正在扩展的bridge部分运动，保持其真实位置，绝不限制
+				LogManager::instance()->logMessage(
+					"[BRIDGE_POSITION_PERSISTENT] Vehicle " + std::to_string(car->id) +
+					" on Road[" + std::to_string(getRoadId()) + "] in persistent extended area: s=" +
+					std::to_string(effective_s) + "/" + std::to_string(mLens) +
+					", originalLen=" + std::to_string(m_originalLengthBeforeExtension));
+				// 在扩展区域时，effective_s 保持不变，绝对不做任何限制
 			}
+			else if (effective_s > mLens) {
+				// 只有在非扩展情况下才限制到当前道路长度
+				LogManager::instance()->logMessage(
+					"[POSITION_CLAMP] Vehicle " + std::to_string(car->id) +
+					" on Road[" + std::to_string(getRoadId()) + "] clamped: " +
+					std::to_string(effective_s) + " -> " + std::to_string(mLens));
+				effective_s = mLens;
+			}
+
+			// 在当前道路上，根据该车是否标记为对此路反向行驶决定评估位置/方向
+			float renderS = effective_s;
+			if (isReverseTravel(getRoadId(), car->id)) {
+				renderS = std::max(0.0f, mLens - effective_s);
+			}
+			Vector3 centerPos = getPositionAtDistance(renderS);
+			Vector3 direction = getDirectionAtDistance(renderS);
+
+			// 若该车在本路为反向行驶，方向取反；否则仅受车道方向影响
+			Vector3 vehicleDirection = direction;
+			if (car->laneDirection == Vehicle::LaneDirection::Backward || isReverseTravel(getRoadId(), car->id)) {
+				vehicleDirection = -direction;
+			}
+			// 注意：移除了m_needReverseDirection的方向反转，因为这会导致不连续的运动
 
 			Vector3 normal = getNormalAtDistance(car->s);
 
-			Vector3 right = direction.crossProduct(normal);
+			Vector3 right = vehicleDirection.crossProduct(normal);
 			if (right.length() < 0.1f)
 			{
 				Vector3 up = Vector3::UNIT_Y;
-				right = direction.crossProduct(up);
+				right = vehicleDirection.crossProduct(up);
 				if (right.length() < 0.1f)
 				{
 					up = Vector3::UNIT_Z;
-					right = direction.crossProduct(up);
+					right = vehicleDirection.crossProduct(up);
 				}
 			}
 			right.normalise();
-
-			// 根据车辆方向调整行驶方向
-			Vector3 vehicleDirection = direction;
-			if (car->laneDirection == Vehicle::LaneDirection::Backward) {
-				vehicleDirection = -direction;
-			}
 
 			// 设置车辆的位置和方向
 			Vector3 offsetVector = right * car->laneOffset;
@@ -522,25 +1355,68 @@ namespace Echo
 			mat.SetColumn(2, right);
 			car->rot.FromRotationMatrix(mat);
 
+			if (didJustExtend) {
+				LogManager::instance()->logMessage(
+					std::string("[EXTENDED_IMMEDIATE_UPDATE] Vehicle ") + std::to_string(car->id) +
+					" on Road[" + std::to_string(getRoadId()) + "] updated in same frame after extend: s=" +
+					std::to_string(car->s) + "/" + std::to_string(mLens));
+			}
+
 
 
 			//car->updatePos();
 		}
 
-		// 执行车辆转移
+		// 🔄 本帧循环结束前，统一刷新每辆车的 lastS（保证 tryExtend 的上一帧判定一致）
+		for (Vehicle* car : mCars)
+		{
+			m_lastSOnThisRoad[car->id] = car->s;
+		}
+
+		// 🔍 执行车辆转移 - 添加详细诊断日志
 		for (Vehicle* vehicle : vehiclesToTransfer)
 		{
+			// ❗ FIX: Calculate overshoot based on the road length AT THE MOMENT OF TRANSFER (which may be extended),
+			// not the potentially stale originalLength. The 'mLens' here is the current, correct, extended length.
+			float overshoot = vehicle->s - mLens;
+
+			// 📊 详细的车辆转移开始状态日志
+			LogManager::instance()->logMessage(
+				std::string("[TRANSFER_BEGIN] Vehicle ") + std::to_string(vehicle->id) +
+				" on Road[" + std::to_string(getRoadId()) + "]" +
+				" | s=" + std::to_string(vehicle->s) +
+				", mLens=" + std::to_string(mLens) +
+				", overshoot=" + std::to_string(overshoot) +
+				" | pos=(" + std::to_string(vehicle->pos.x) + "," + std::to_string(vehicle->pos.y) + ")" +
+				" | dir=(" + std::to_string(vehicle->dir.x) + "," + std::to_string(vehicle->dir.y) + ")" +
+				" | laneDir=" + (vehicle->laneDirection == Vehicle::LaneDirection::Forward ? "Forward" : "Backward"));
+
+			// 记录归一化 overshoot（便于与下一道路放置对应）
+			float normalizedStartS = 0.0f;
+
 			// 从当前道路移除车辆
 			auto it = std::find(mCars.begin(), mCars.end(), vehicle);
 			if (it != mCars.end())
 			{
+				LogManager::instance()->logMessage(
+					"[VEHICLE_REMOVED] Vehicle " + std::to_string(vehicle->id) +
+					" removed from Road[" + std::to_string(getRoadId()) + "] cars list");
 				mCars.erase(it);
+				// 守卫模式已移除，无需清理
 			}
+			else {
+				LogManager::instance()->logMessage(
+					"[VEHICLE_NOT_FOUND] Vehicle " + std::to_string(vehicle->id) +
+					" NOT found in Road[" + std::to_string(getRoadId()) + "] cars list - potential issue!");
+			}
+			// Clear lastS tracking for this vehicle on this road to avoid stale comparisons on re-entry
+			m_lastSOnThisRoad.erase(vehicle->id);
 
 			// 计算超出距离
-			float overshoot = 0.0f;
 			if (vehicle->laneDirection == Vehicle::LaneDirection::Forward) {
-				overshoot = vehicle->s - mLens;
+				// ❗ FIX: The overshoot is already calculated correctly above.
+				// This recalculation was a source of bugs.
+				// overshoot = vehicle->s - mLens;
 			}
 			else {
 				// 逆向车辆从道路起点移动到末端
@@ -553,12 +1429,44 @@ namespace Echo
 				// 车辆有分配的路径
 				if (vehicle->laneDirection == Vehicle::LaneDirection::Forward) {
 					// 正向车辆：移动到路径中的下一条道路
+					uint16 beforeMoveRoadId = vehicle->getCurrentRoadId();
 					if (vehicle->moveToNextRoad()) {
 						uint16 nextRoadId = vehicle->getCurrentRoadId();
-						nextRoad = m_trafficManager->getRoadById(nextRoadId);						// 关键修复：检查道路节点连接是否正确
+						nextRoad = m_trafficManager->getRoadById(nextRoadId);
+
+						// 多车一致性：若当前道路处于扩展期且已锁定下一道路，则强制使用锁定的下一道路，
+						// 并同步车辆的路径索引到该道路，避免走到不同分支导致“跳过某些道路/桥”。
+						if (m_isCurrentlyExtended && m_lockedNextRoadIdDuringExtension != 0) {
+							uint16 lockedId = m_lockedNextRoadIdDuringExtension;
+							if (nextRoadId != lockedId) {
+								nextRoad = m_trafficManager->getRoadById(lockedId);
+								// 调整车辆路径索引与锁定道路对齐
+								for (size_t idx = 0; idx < vehicle->m_pathRoads.size(); ++idx) {
+									if (vehicle->m_pathRoads[idx] == lockedId) {
+										vehicle->m_currentRoadIndex = static_cast<int>(idx);
+										break;
+									}
+								}
+								LogManager::instance()->logMessage(
+									"[TRANSFER_LOCK_ENFORCED] Road[" + std::to_string(getRoadId()) + "] force next Road[" + std::to_string(lockedId) +
+									"] for Vehicle " + std::to_string(vehicle->id));
+							}
+						}
+
+						// 检测路径循环
+						if (nextRoadId == beforeMoveRoadId) {
+							LogManager::instance()->logMessage(
+								"[PATH_CYCLE_DETECTED] Vehicle " + std::to_string(vehicle->id) +
+								" stayed on same road " + std::to_string(nextRoadId) + " - path may be single road");
+						}
+						else if (nextRoadId < beforeMoveRoadId) {
+							LogManager::instance()->logMessage(
+								"[PATH_CYCLE_SUSPECTED] Vehicle " + std::to_string(vehicle->id) +
+								" moved from road " + std::to_string(beforeMoveRoadId) +
+								" to road " + std::to_string(nextRoadId) + " - possible cycle");
+						}						// 简化节点连接检查：正向车辆总是从target节点离开
 						if (nextRoad) {
-							uint16_t departureNodeId = vehicle->m_needReverseDirection ? getSourceNodeId() : getDestinationNodeId();
-							uint16_t currentRoadTargetNode = departureNodeId; // 使用正确的出发节点进行连接判断
+							uint16_t currentRoadTargetNode = getDestinationNodeId(); // 正向车辆从target节点离开
 
 							uint16_t nextRoadSourceNode = nextRoad->getSourceNodeId();
 							uint16_t nextRoadTargetNode = nextRoad->getDestinationNodeId();
@@ -574,42 +1482,161 @@ namespace Echo
 								"\n  Vehicle initial coords from road start: (" + std::to_string(currentInitialPos.x) + ", " + std::to_string(currentInitialPos.y) + ")" +
 								"\n  Current position: (" + std::to_string(vehicleCurrentPos.x) + ", " + std::to_string(vehicleCurrentPos.y) + ")" +
 								"\n  Distance along road: " + std::to_string(vehicle->s) + "/" + std::to_string(mLens) +
-								"\n  Overshoot: " + std::to_string(overshoot));
+								"\n  Overshoot: " + std::to_string(overshoot) +
+								"\n  Bridge? src→src=" + std::string(m_trafficManager->getBridgePolyline(currentRoadTargetNode, nextRoadSourceNode, *(new std::vector<Vector3>())) ? "Y" : "N") +
+								", src→tgt=" + std::string(m_trafficManager->getBridgePolyline(currentRoadTargetNode, nextRoadTargetNode, *(new std::vector<Vector3>())) ? "Y" : "N"));
 
 							// 🎯 智能连接判断：优先选择正确的连接方式
 							bool canConnectToSource = (currentRoadTargetNode == nextRoadSourceNode);
 							bool canConnectToTarget = (currentRoadTargetNode == nextRoadTargetNode);
+							// 🔧 关键修复：使用真实的连接类型判断，而不是简单的节点存在性
+							bool hasExtendedToSource = (m_extendedToSourceNodes.find(nextRoadSourceNode) != m_extendedToSourceNodes.end());
+							bool hasExtendedToTarget = (m_extendedToTargetNodes.find(nextRoadTargetNode) != m_extendedToTargetNodes.end());
+
+							// 🔍 详细的S→S、S→T、T→S、T→T连接情况分析
+							uint16 curSrc = getSourceNodeId();
+							uint16 curTgt = currentRoadTargetNode;
+							uint16 nextSrc = nextRoadSourceNode;
+							uint16 nextTgt = nextRoadTargetNode;
+
+							LogManager::instance()->logMessage(
+								std::string("[CONNECTIVITY_ANALYSIS] Vehicle ") + std::to_string(vehicle->id) +
+								" | Current Road[" + std::to_string(getRoadId()) + "] (S:" + std::to_string(curSrc) + "→T:" + std::to_string(curTgt) + ")" +
+								" → Next Road[" + std::to_string(nextRoadId) + "] (S:" + std::to_string(nextSrc) + "→T:" + std::to_string(nextTgt) + ")" +
+								"\n  🔗 Connection possibilities:" +
+								"\n    T→S (standard): " + (curTgt == nextSrc ? "✅ MATCH" : "❌ NO") + " (" + std::to_string(curTgt) + "→" + std::to_string(nextSrc) + ")" +
+								"\n    T→T (reverse): " + (curTgt == nextTgt ? "✅ MATCH" : "❌ NO") + " (" + std::to_string(curTgt) + "→" + std::to_string(nextTgt) + ")" +
+								"\n    S→S (loop): " + (curSrc == nextSrc ? "✅ MATCH" : "❌ NO") + " (" + std::to_string(curSrc) + "→" + std::to_string(nextSrc) + ")" +
+								"\n    S→T (reverse): " + (curSrc == nextTgt ? "✅ MATCH" : "❌ NO") + " (" + std::to_string(curSrc) + "→" + std::to_string(nextTgt) + ")" +
+								"\n  🌉 Bridge status: extSrc=" + (hasExtendedToSource ? "Y" : "N") + ", extTgt=" + (hasExtendedToTarget ? "Y" : "N"));
+
+							// 额外打印：当前道路末端坐标、下一道路端点坐标、车辆当前位置
+							Vector3 curEnd = getPositionAtDistance(mLens);
+							Vector3 curStart = getPositionAtDistance(0.0f);
+							Vector3 nextStart = nextRoad->getPositionAtDistance(0.0f);
+							Vector3 nextEnd = nextRoad->getPositionAtDistance(nextRoad->mLens);
+							LogManager::instance()->logMessage(
+								std::string("[TRANSFER_DEBUG] connectivity: ") +
+								"canSrc=" + (canConnectToSource ? "Y" : "N") +
+								", canTgt=" + (canConnectToTarget ? "Y" : "N") +
+								", extSrc=" + (hasExtendedToSource ? "Y" : "N") +
+								", extTgt=" + (hasExtendedToTarget ? "Y" : "N") +
+								" | curStart=(" + std::to_string(curStart.x) + "," + std::to_string(curStart.y) + ")" +
+								" curEnd=(" + std::to_string(curEnd.x) + "," + std::to_string(curEnd.y) + ")" +
+								" nextStart=(" + std::to_string(nextStart.x) + "," + std::to_string(nextStart.y) + ")" +
+								" nextEnd=(" + std::to_string(nextEnd.x) + "," + std::to_string(nextEnd.y) + ")"
+							);
+
+							// 若已在当前道路末尾追加了"到下一道路终点"的桥段，则优先按照 target→target 进行反向进入
 							if (canConnectToSource && !canConnectToTarget) {
 								// 标准正向连接：当前道路终点 → 下一道路起点
-								vehicle->s = std::max(0.0f, overshoot);
-								vehicle->m_needReverseDirection = false; // 重置反向标记
-
+								float m = nextRoad->mLens > 0.0f ? fmod(std::max(0.0f, overshoot), nextRoad->mLens) : 0.0f;
+								normalizedStartS = m;
+								vehicle->s = m;
+								setReverseTravel(nextRoadId, vehicle->id, false);
+								// 若目标道路已处于扩展态，则将进入位置钳制在“原始主体”内，防止直接落在扩展段导致跳过主体
+								if (nextRoad->m_isCurrentlyExtended) {
+									float bodyEnd = std::max(0.0f, nextRoad->m_originalLengthBeforeExtension - 1e-4f);
+									if (vehicle->s > bodyEnd) {
+										LogManager::instance()->logMessage(
+											"[ENTRY_CLAMP_TO_BODY] clamp s=" + std::to_string(vehicle->s) + " -> " + std::to_string(bodyEnd) +
+											" on extended next Road[" + std::to_string(nextRoadId) + "]");
+										vehicle->s = bodyEnd;
+									}
+								}
+								vehicle->pos = nextRoad->getPositionAtDistance(vehicle->s);
+								vehicle->dir = nextRoad->getDirectionAtDistance(vehicle->s);
+								LogManager::instance()->logMessage("[TRANSFER_S_PLACEMENT] T->S normalized s=" + std::to_string(normalizedStartS));
 								Vector3 nextRoadInitialPos = nextRoad->getPositionAtDistance(0.0f);
-								LogManager::instance()->logMessage("[CONNECTION_SUCCESS] Vehicle " + std::to_string(vehicle->id) +
-									" | TYPE: Standard Forward Connection (target→source)" +
-									"\n  Route: Road[" + std::to_string(getRoadId()) + "] → Road[" + std::to_string(nextRoadId) + "]" +
-									"\n  Connection Node: " + std::to_string(currentRoadTargetNode) +
-									"\n  New Position: " + std::to_string(vehicle->s) + " (from start)" +
-									"\n  Next road initial coords: (" + std::to_string(nextRoadInitialPos.x) + ", " + std::to_string(nextRoadInitialPos.y) + ")" +
-									"\n  Direction: Normal forward movement");
+								LogManager::instance()->logMessage("[CONNECTION_SUCCESS_T_TO_S] ✅ Vehicle " + std::to_string(vehicle->id) +
+									" | BEHAVIOR: Standard forward connection" +
+									"\n  🎯 Connection type: T→S (Current Target → Next Source)" +
+									"\n  🛣️  Route: Road[" + std::to_string(getRoadId()) + "] → Road[" + std::to_string(nextRoadId) + "]" +
+									"\n  🔗 Connection Node: " + std::to_string(currentRoadTargetNode) +
+									"\n  🚗 Vehicle positioning: s=" + std::to_string(vehicle->s) + " (starting from road START, modulo overshoot)" +
+									"\n  📍 Next road initial coords: (" + std::to_string(nextRoadInitialPos.x) + ", " + std::to_string(nextRoadInitialPos.y) + ")" +
+									"\n  ✅ EXPECTED: Normal forward movement, no reversal or teleporting");
 							}
 							else if (canConnectToTarget && !canConnectToSource) {
-								// 反向连接：当前道路终点 → 下一道路终点（需要从终点向起点行驶）
-								vehicle->s = std::max(0.0f, overshoot); // [核心修改] 车辆的逻辑位移仍从0开始
-								vehicle->m_needReverseDirection = true;  // 标记需要反向方向计算
-
-								Vector3 nextRoadEndPos = nextRoad->getPositionAtDistance(nextRoad->mLens);
-								LogManager::instance()->logMessage("[CONNECTION_SUCCESS] Vehicle " + std::to_string(vehicle->id) +
-									" | TYPE: Reverse Connection (target→target)" +
-									"\n  Route: Road[" + std::to_string(getRoadId()) + "] → Road[" + std::to_string(nextRoadId) + "]" +
-									"\n  Connection Node: " + std::to_string(currentRoadTargetNode) +
-									"\n  New Position: " + std::to_string(vehicle->s) + " (from end, reverse direction)" +
-									"\n  Next road end coords: (" + std::to_string(nextRoadEndPos.x) + ", " + std::to_string(nextRoadEndPos.y) + ")" +
-									"\n  Direction: Reverse movement (end→start)");
+								// Physical topology requires entering next road from its target and moving toward source (reverse traversal).
+								// We keep s increasing for the vehicle model, but mark this road as reverse-travel for this vehicle,
+								// so rendering/position/direction will use (mLens - s) and -dir during evaluation on next road.
+								float m = nextRoad->mLens > 0.0f ? fmod(std::max(0.0f, overshoot), nextRoad->mLens) : 0.0f;
+								normalizedStartS = m; // keep s increasing from 0
+								vehicle->s = normalizedStartS;
+								setReverseTravel(nextRoadId, vehicle->id, true);
+								// compute placement using reversed evaluation
+								float evalS = std::max(0.0f, nextRoad->mLens - vehicle->s);
+								vehicle->pos = nextRoad->getPositionAtDistance(evalS);
+								vehicle->dir = -nextRoad->getDirectionAtDistance(evalS);
+								LogManager::instance()->logMessage("[TRANSFER_S_PLACEMENT] T->T_REVERSED evaluated s=" + std::to_string(evalS));
+							}
+							else if (hasExtendedToTarget) {
+								// 目标端扩展存在：按与 T→T 相同的反向进入处理，避免被错误地当作正向进入
+								float m = nextRoad->mLens > 0.0f ? fmod(std::max(0.0f, overshoot), nextRoad->mLens) : 0.0f;
+								normalizedStartS = m; // s 从 0 计，但评估取反向
+								vehicle->s = normalizedStartS;
+								setReverseTravel(nextRoadId, vehicle->id, true);
+								float evalS = std::max(0.0f, nextRoad->mLens - vehicle->s);
+								vehicle->pos = nextRoad->getPositionAtDistance(evalS);
+								vehicle->dir = -nextRoad->getDirectionAtDistance(evalS);
+								LogManager::instance()->logMessage("[TRANSFER_S_PLACEMENT] BRIDGE_TARGET_REVERSED evaluated s=" + std::to_string(evalS));
+							}
+							else if (hasExtendedToSource && !canConnectToSource) {
+								float m = nextRoad->mLens > 0.0f ? fmod(std::max(0.0f, overshoot), nextRoad->mLens) : 0.0f;
+								normalizedStartS = m;
+								vehicle->s = m;
+								if (nextRoad->m_isCurrentlyExtended) {
+									float bodyEnd = std::max(0.0f, nextRoad->m_originalLengthBeforeExtension - 1e-4f);
+									if (vehicle->s > bodyEnd) {
+										LogManager::instance()->logMessage(
+											"[ENTRY_CLAMP_TO_BODY] clamp s=" + std::to_string(vehicle->s) + " -> " + std::to_string(bodyEnd) +
+											" on extended next Road[" + std::to_string(nextRoadId) + "] (forced source)");
+										vehicle->s = bodyEnd;
+									}
+								}
+								vehicle->pos = nextRoad->getPositionAtDistance(vehicle->s);
+								vehicle->dir = nextRoad->getDirectionAtDistance(vehicle->s);
+								LogManager::instance()->logMessage("[TRANSFER_S_PLACEMENT] BRIDGE_SOURCE normalized s=" + std::to_string(normalizedStartS));
+								Vector3 nextRoadStartPos = nextRoad->getPositionAtDistance(0.0f);
+								LogManager::instance()->logMessage(
+									"[CONNECTION_BRIDGE_SOURCE] ➡️ Vehicle " + std::to_string(vehicle->id) +
+									" | BEHAVIOR: Extended bridge to SOURCE, forcing forward entry" +
+									"\n  🎯 Connection type: T→S (Current Target → Next Source) - FORCED" +
+									"\n  📍 Bridge extension detected towards node: " + std::to_string(nextRoadSourceNode) +
+									"\n  🚗 Vehicle positioning: s=" + std::to_string(vehicle->s) + " (starting from road START, modulo overshoot)" +
+									"\n  📍 Next road start coords: (" + std::to_string(nextRoadStartPos.x) + ", " + std::to_string(nextRoadStartPos.y) + ")" +
+									"\n  ✅ NORMAL FORWARD MOVEMENT expected");
+							}
+							else if (canConnectToTarget && !canConnectToSource) {
+								// Physical topology requires entering next road from its target and moving toward source (reverse traversal).
+								// We keep s increasing for the vehicle model, but mark this road as reverse-travel for this vehicle,
+								// so rendering/position/direction will use (mLens - s) and -dir during evaluation on next road.
+								float m = nextRoad->mLens > 0.0f ? fmod(std::max(0.0f, overshoot), nextRoad->mLens) : 0.0f;
+								normalizedStartS = m; // keep s increasing from 0
+								vehicle->s = normalizedStartS;
+								setReverseTravel(nextRoadId, vehicle->id, true);
+								// compute placement using reversed evaluation
+								float evalS = std::max(0.0f, nextRoad->mLens - vehicle->s);
+								vehicle->pos = nextRoad->getPositionAtDistance(evalS);
+								vehicle->dir = -nextRoad->getDirectionAtDistance(evalS);
+								LogManager::instance()->logMessage("[TRANSFER_S_PLACEMENT] T->T_REVERSED evaluated s=" + std::to_string(evalS));
 							}
 							else if (canConnectToSource && canConnectToTarget) {
 								// 双重连接（可能是环路）：优先选择正向连接
 								vehicle->s = std::max(0.0f, overshoot);
+								if (nextRoad->m_isCurrentlyExtended) {
+									float bodyEnd = std::max(0.0f, nextRoad->m_originalLengthBeforeExtension - 1e-4f);
+									if (vehicle->s > bodyEnd) {
+										LogManager::instance()->logMessage(
+											"[ENTRY_CLAMP_TO_BODY] clamp s=" + std::to_string(vehicle->s) + " -> " + std::to_string(bodyEnd) +
+											" on extended next Road[" + std::to_string(nextRoadId) + "] (dual-connect forward)");
+										vehicle->s = bodyEnd;
+									}
+								}
+								// 立即更新车辆位置和方向，防止跳跃
+								vehicle->pos = nextRoad->getPositionAtDistance(vehicle->s);
+								vehicle->dir = nextRoad->getDirectionAtDistance(vehicle->s);
 
 								Vector3 nextRoadStartPos = nextRoad->getPositionAtDistance(0.0f);
 								LogManager::instance()->logMessage("[CONNECTION_SUCCESS] Vehicle " + std::to_string(vehicle->id) +
@@ -623,6 +1650,9 @@ namespace Echo
 							else {
 								// 无连接：这表明路径生成有问题，使用启发式方法
 								vehicle->s = std::max(0.0f, overshoot);
+								// 立即更新车辆位置和方向，防止跳跃
+								vehicle->pos = nextRoad->getPositionAtDistance(vehicle->s);
+								vehicle->dir = nextRoad->getDirectionAtDistance(vehicle->s);
 
 								Vector3 nextRoadFallbackPos = nextRoad->getPositionAtDistance(0.0f);
 								LogManager::instance()->logMessage("[CONNECTION_ERROR] Vehicle " + std::to_string(vehicle->id) +
@@ -739,7 +1769,32 @@ namespace Echo
 				}
 			}			// 添加到目标道路
 			if (nextRoad) {
+				// Initialize next road's lastS for this vehicle to its entry s to avoid stale lastS causing a snap
+				nextRoad->m_lastSOnThisRoad.erase(vehicle->id);
+				nextRoad->m_lastSOnThisRoad[vehicle->id] = vehicle->s;
 				nextRoad->addCar(vehicle);
+				// 移除排队初始化，恢复自由推进
+
+				// 🔧 多车一致性：仅当当前道路已无车辆时才重置扩展状态；否则保留，避免后续车辆“闪现”
+				if (mCars.empty())
+				{
+					LogManager::instance()->logMessage(
+						"[EXTENSION_RESET] Road[" + std::to_string(getRoadId()) +
+						"] no vehicles remain, resetting extension state");
+					m_isCurrentlyExtended = false;
+					m_originalLengthBeforeExtension = 0.0f;
+					// 清理连接类型记录
+					m_extendedToSourceNodes.clear();
+					m_extendedToTargetNodes.clear();
+					m_lockedNextRoadIdDuringExtension = 0;
+					m_lockedChosenToNode = 0;
+				}
+				else
+				{
+					LogManager::instance()->logMessage(
+						"[EXTENSION_PERSIST] Road[" + std::to_string(getRoadId()) +
+						"] keep extension for remaining " + std::to_string(mCars.size()) + " vehicles");
+				}
 
 				// 获取详细的转移结果信息
 				Vector3 currentRoadStart = getPositionAtDistance(0.0f);
@@ -754,7 +1809,7 @@ namespace Echo
 					"\n  New position on road: " + std::to_string(vehicle->s) + "/" + std::to_string(nextRoad->mLens) +
 					"\n  New world coordinates: (" + std::to_string(vehicleNewPos.x) + ", " + std::to_string(vehicleNewPos.y) + ")" +
 					"\n  Direction: " + (vehicle->laneDirection == Vehicle::LaneDirection::Forward ? "Forward" : "Backward") +
-					"\n  Reverse flag: " + (vehicle->m_needReverseDirection ? "True" : "False"));
+					"\n  Movement: Continuous forward progression");
 			}
 			else {
 				Vector3 currentRoadStart = getPositionAtDistance(0.0f);
@@ -1225,7 +2280,17 @@ namespace Echo
 
 		// 更新位置
 		if (laneDirection == LaneDirection::Forward) {
+			float oldS = s;
 			s += speed * deltaTime;
+
+			// ❗ 防护：防止跟车模型导致的位置回退（这可能是往复的另一个原因）
+			if (s < oldS && oldS > 0) {
+				LogManager::instance()->logMessage(
+					"[CAR_FOLLOWING_REGRESSION_BLOCKED] Vehicle " + std::to_string(id) +
+					" prevented regression in applyCarFollowing: " +
+					std::to_string(s) + " -> " + std::to_string(oldS));
+				s = oldS; // 强制保持不回退
+			}
 		}
 		else {
 			s -= speed * deltaTime;
@@ -1687,18 +2752,23 @@ namespace Echo
 
 			// 获取当前节点的所有邻接节点
 			auto adjacencyIt = nodeAdjacencyMap.find(currentNodeId);
-			if (adjacencyIt != nodeAdjacencyMap.end()) {
-				for (uint16 nextNodeId : adjacencyIt->second) {
+			if (adjacencyIt != nodeAdjacencyMap.end())
+			{
+				for (uint16 nextNodeId : adjacencyIt->second)
+				{
 					// 避免环路：检查节点是否已经在当前路径中
 					bool alreadyInPath = false;
-					for (uint16 pathNodeId : currentPath) {
-						if (pathNodeId == nextNodeId) {
+					for (uint16 pathNodeId : currentPath)
+					{
+						if (pathNodeId == nextNodeId)
+						{
 							alreadyInPath = true;
 							break;
 						}
 					}
 
-					if (!alreadyInPath) {
+					if (!alreadyInPath)
+					{
 						// 创建新路径
 						std::vector<uint16> newPath = currentPath;
 						newPath.push_back(nextNodeId);
@@ -1770,10 +2840,12 @@ namespace Echo
 		uint16 currentRoadId = 0;
 		Road* currentRoad = nullptr;
 
-		for (Road* road : m_allRoads) {
+		for (Road* road : m_allRoads)
+		{
 			// 检查车辆是否在这条道路上
 			auto& cars = road->mCars;
-			if (std::find(cars.begin(), cars.end(), vehicle) != cars.end()) {
+			if (std::find(cars.begin(), cars.end(), vehicle) != cars.end())
+			{
 				currentRoadId = road->getRoadId();
 				currentRoad = road;
 				break;
@@ -1782,12 +2854,15 @@ namespace Echo
 
 		// 将车辆添加到路径起始道路（无论当前在哪里）
 		Road* startRoad = getRoadById(path[0]);
-		if (startRoad) {
+		if (startRoad)
+		{
 			// 如果车辆已经在其他道路上，先移除
-			if (currentRoad && currentRoadId != path[0]) {
+			if (currentRoad && currentRoadId != path[0])
+			{
 				auto& cars = currentRoad->mCars;
 				auto it = std::find(cars.begin(), cars.end(), vehicle);
-				if (it != cars.end()) {
+				if (it != cars.end())
+				{
 					cars.erase(it);
 				}
 			}
@@ -1910,65 +2985,75 @@ namespace Echo
 		const float minGap = 80.0f;
 		std::map<size_t, std::vector<Vehicle*>> pathVehicleGroups; // 每条路径分配的车辆
 
-		// 计算每条路径应该分配的车辆数量（基于路径长度权重）
+		// 计算每条路径应该分配的车辆数量（基于路径长度权重，允许为0，避免强制给初始路径分配1辆）
 		std::vector<int> vehiclesPerPath(m_allPaths.size(), 0);
 		int totalPathLength = 0;
 		for (const auto& [pathIdx, pathLength] : pathsByLength) {
 			totalPathLength += pathLength;
 		}
 
-		// 根据路径长度权重分配车辆
 		int assignedVehicles = 0;
+		if (totalPathLength > 0) {
+			std::vector<std::pair<double, size_t>> fracParts; // (fractional, pathIdx)
+			fracParts.reserve(pathsByLength.size());
+			for (size_t i = 0; i < pathsByLength.size(); ++i) {
+				size_t pathIdx = pathsByLength[i].first;
+				int pathLength = pathsByLength[i].second;
+				double quota = static_cast<double>(pathLength) / static_cast<double>(totalPathLength) * static_cast<double>(m_Vehicles.size());
+				int base = static_cast<int>(std::floor(quota));
+				vehiclesPerPath[pathIdx] = base;
+				assignedVehicles += base;
+				fracParts.emplace_back(quota - static_cast<double>(base), pathIdx);
+				LogManager::instance()->logMessage("路径[" + std::to_string(pathIdx) + "] 长度" +
+					std::to_string(pathLength) + "段，基础分配" + std::to_string(base) + "辆车");
+			}
+			int remaining = static_cast<int>(m_Vehicles.size()) - assignedVehicles;
+			if (remaining > 0) {
+				std::sort(fracParts.begin(), fracParts.end(), [](const auto& a, const auto& b) {
+					return a.first > b.first; // 按小数部分从大到小
+					});
+				for (int i = 0; i < remaining && i < static_cast<int>(fracParts.size()); ++i) {
+					size_t pathIdx = fracParts[i].second;
+					vehiclesPerPath[pathIdx] += 1;
+				}
+				assignedVehicles += std::max(0, remaining);
+			}
+		}
+		else {
+			// 退化情况：所有路径长度为0，全部分配到索引最小的路径
+			if (!pathsByLength.empty()) {
+				size_t fallbackIdx = pathsByLength[0].first;
+				vehiclesPerPath[fallbackIdx] = static_cast<int>(m_Vehicles.size());
+				assignedVehicles = static_cast<int>(m_Vehicles.size());
+			}
+		}
+
+		// 执行车辆分配（按 pathsByLength 的顺序，避免原始顺序偏置）
+		int vehicleIndex = 0;
 		for (size_t i = 0; i < pathsByLength.size(); ++i) {
 			size_t pathIdx = pathsByLength[i].first;
-			int pathLength = pathsByLength[i].second;
-
-			// 长路径分配更多车辆，但至少每条路径分配1辆车
-			int vehicleCount = std::max(1, static_cast<int>(
-				static_cast<double>(pathLength) / totalPathLength * m_Vehicles.size()));
-
-			// 确保不超过剩余车辆数
-			vehicleCount = std::min(vehicleCount, static_cast<int>(m_Vehicles.size()) - assignedVehicles);
-			vehiclesPerPath[pathIdx] = vehicleCount;
-			assignedVehicles += vehicleCount;
-
-			LogManager::instance()->logMessage("路径[" + std::to_string(pathIdx) + "] 长度" +
-				std::to_string(pathLength) + "段，分配" + std::to_string(vehicleCount) + "辆车");
-		}
-
-		// 将剩余车辆分配给最长的路径
-		if (assignedVehicles < m_Vehicles.size()) {
-			size_t longestPathIdx = pathsByLength[0].first;
-			vehiclesPerPath[longestPathIdx] += (m_Vehicles.size() - assignedVehicles);
-			LogManager::instance()->logMessage("剩余" + std::to_string(m_Vehicles.size() - assignedVehicles) +
-				"辆车分配给最长路径[" + std::to_string(longestPathIdx) + "]");
-		}
-
-		// 执行车辆分配
-		int vehicleIndex = 0;
-		for (size_t pathIdx = 0; pathIdx < m_allPaths.size(); ++pathIdx) {
 			int vehicleCount = vehiclesPerPath[pathIdx];
 			if (vehicleCount == 0) continue;
 
 			const auto& path = m_allPaths[pathIdx];
 			if (path.empty()) continue;
 
-			// 获取路径起始道路
 			Road* startRoad = getRoadById(path[0]);
 			if (!startRoad) {
 				LogManager::instance()->logMessage("警告: 无法找到路径起始道路 Road[" + std::to_string(path[0]) + "]");
 				continue;
 			}
 
-			// 为这条路径分配指定数量的车辆
-			for (int v = 0; v < vehicleCount && vehicleIndex < m_Vehicles.size(); ++v, ++vehicleIndex) {
+			for (int v = 0; v < vehicleCount && vehicleIndex < static_cast<int>(m_Vehicles.size()); ++v, ++vehicleIndex) {
 				Vehicle* vehicle = m_Vehicles[vehicleIndex];
-
-				// 设置车辆在起始道路上的位置（基于车辆在路径中的顺序）
 				float vehiclePosition = v * minGap;
+				// 初始投放位置不得超过起始道路长度，避免一开始就被夹到末端造成“瞬移到终点”观感
+				float startLen = startRoad->getRoadLength();
+				if (startLen > 0.0f) {
+					vehiclePosition = std::max(0.0f, std::min(vehiclePosition, std::max(0.0f, startLen - 1e-4f)));
+				}
 				vehicle->s = vehiclePosition;
 
-				// 分配路径
 				if (vehicle->laneDirection == Vehicle::LaneDirection::Forward) {
 					assignPathToVehicle(vehicle, static_cast<int>(pathIdx));
 				}
@@ -1976,9 +3061,7 @@ namespace Echo
 					assignBackwardPathToVehicle(vehicle, static_cast<int>(pathIdx));
 				}
 
-				// 记录分配
 				pathVehicleGroups[pathIdx].push_back(vehicle);
-
 				LogManager::instance()->logMessage("Vehicle[" + std::to_string(vehicle->id) + "] 分配到路径[" +
 					std::to_string(pathIdx) + "] (" + std::to_string(path.size()) + "段) 位置:" + std::to_string(vehiclePosition));
 			}
@@ -2001,10 +3084,12 @@ namespace Echo
 	void Vehicle::setPath(const std::vector<uint16>& roadIds)
 	{
 		m_pathRoads = roadIds;
-		if (!roadIds.empty()) {
+		if (!roadIds.empty())
+		{
 			m_currentRoadIndex = 0;  // 确保从路径的第一个道路开始
 		}
-		else {
+		else
+		{
 			m_currentRoadIndex = -1; // 无效状态
 		}
 	}
@@ -2018,11 +3103,26 @@ namespace Echo
 		}
 		else if (!m_pathRoads.empty()) {
 			// 路径循环：回到路径起点
+			LogManager::instance()->logMessage(
+				"[PATH_CYCLE] Vehicle " + std::to_string(id) +
+				" completed path, cycling back to road " + std::to_string(m_pathRoads[0]));
 			m_currentRoadIndex = 0;
 
 			return true;
 		}
 		return false; // 空路径时返回false
+	}
+
+	uint16 Vehicle::peekNextRoadId() const
+	{
+		if (m_pathRoads.empty()) return 0;
+		int nextIndex = m_currentRoadIndex + 1;
+		if (nextIndex < static_cast<int>(m_pathRoads.size()))
+		{
+			return m_pathRoads[nextIndex];
+		}
+		// 循环路径：回到起点
+		return m_pathRoads[0];
 	}
 
 
@@ -2436,12 +3536,14 @@ namespace Echo
 				// 原始方向的坐标（从connect_bridge_id[0]到connect_bridge_id[1]）
 				std::pair<uint16, uint16> originalPair = std::make_pair(originalSourceId, originalTargetId);
 				nodeIdPairToCoordinates[originalPair] = feature.geometry.coordinates;
+				m_bridgeCoordinates[originalPair] = feature.geometry.coordinates;
 
 				// 反向的坐标（需要反转coordinates数组以匹配反向逻辑）
 				std::pair<uint16, uint16> reversePair = std::make_pair(originalTargetId, originalSourceId);
 				std::vector<Vector3> reverseCoordinates = feature.geometry.coordinates;
 				std::reverse(reverseCoordinates.begin(), reverseCoordinates.end());
 				nodeIdPairToCoordinates[reversePair] = reverseCoordinates;
+				m_bridgeCoordinates[reversePair] = reverseCoordinates;
 
 				LogManager::instance()->logMessage(" Processed bidirectional coordinates for nodes (" +
 					std::to_string(originalSourceId) + "<->" + std::to_string(originalTargetId) +
@@ -2518,6 +3620,14 @@ namespace Echo
 		road->setTrafficManager(this);
 
 		return road;
+	}
+
+	bool Traffic::getBridgePolyline(uint16 fromNode, uint16 toNode, std::vector<Vector3>& outPolyline) const
+	{
+		auto it = m_bridgeCoordinates.find({ fromNode, toNode });
+		if (it == m_bridgeCoordinates.end()) return false;
+		outPolyline = it->second;
+		return !outPolyline.empty();
 	}
 
 
@@ -2645,6 +3755,20 @@ namespace Echo
 			mTraffic->onTick();
 		}
 	}
-
+	std::vector<Road*> Traffic::getRoadsConnectedToNode(uint16 nodeId) const
+	{
+		std::vector<Road*> result;
+		for (Road* road : m_allRoads) {
+			if (!road) continue;
+			if (road->getSourceNodeId() == nodeId || road->getDestinationNodeId() == nodeId) {
+				result.push_back(road);
+			}
+		}
+		return result;
+	}
 
 }
+
+// 基于节点的拓扑查询：返回与指定节点相连的道路
+
+
