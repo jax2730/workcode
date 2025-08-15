@@ -305,12 +305,17 @@ namespace Echo
 
 		// Prefetch next road
 		uint16 nextRoadId = vehicle->peekNextRoadId();
-		// 扩展期间优先使用锁定的下一道路
-		if (m_isCurrentlyExtended && m_lockedNextRoadIdDuringExtension != 0) {
-			nextRoadId = m_lockedNextRoadIdDuringExtension;
+		// 扩展期间如存在已锁定的下一道路，但与车辆规划不一致，则不覆写车辆规划
+		if (m_isCurrentlyExtended && m_lockedNextRoadIdDuringExtension != 0 &&
+			m_lockedNextRoadIdDuringExtension != nextRoadId)
+		{
+			LogManager::instance()->logMessage(
+				"[BRIDGE_LOCK_MISMATCH] Road[" + std::to_string(getRoadId()) + "] plannedNext=" + std::to_string(nextRoadId) +
+				" lockedNext=" + std::to_string(m_lockedNextRoadIdDuringExtension) + " — will NOT override");
 		}
-		if (nextRoadId == 0) {
-			// 拓扑回退：无路径或peekNext==0，依据当前道路目标节点找到唯一可达的下一道路
+		// 优先按规划获取下一道路；若对象不存在（而非ID为0），再进行拓扑回退
+		Road* nextRoad = m_trafficManager->getRoadById(nextRoadId);
+		if (!nextRoad) {
 			uint16 curTgt = getDestinationNodeId();
 			auto connected = m_trafficManager->getRoadsConnectedToNode(curTgt);
 			Road* candidate = nullptr;
@@ -319,7 +324,6 @@ namespace Echo
 				if (r->getSourceNodeId() == curTgt) { candidate = r; break; }
 			}
 			if (!candidate && !connected.empty()) {
-				// 次优先级：允许 T->T 回接（反向进入），保证不丢失连续性
 				for (Road* r : connected) {
 					if (!r) continue;
 					if (r->getDestinationNodeId() == curTgt) { candidate = r; break; }
@@ -327,18 +331,14 @@ namespace Echo
 			}
 			if (candidate) {
 				nextRoadId = candidate->getRoadId();
+				nextRoad = candidate;
 				LogManager::instance()->logMessage("[TRY_EXTEND_TOPO_FALLBACK] choose nextRoad=" + std::to_string(nextRoadId) +
 					" at node=" + std::to_string(curTgt));
 			}
 			else {
-				LogManager::instance()->logMessage("[TRY_EXTEND_SKIP] peekNextRoadId()==0 and no topology fallback at node=" + std::to_string(curTgt));
+				LogManager::instance()->logMessage("[TRY_EXTEND_SKIP] no next road found for planned id, and no topology fallback at node=" + std::to_string(curTgt));
 				return false;
 			}
-		}
-		Road* nextRoad = m_trafficManager->getRoadById(nextRoadId);
-		if (!nextRoad) {
-			LogManager::instance()->logMessage("[TRY_EXTEND_SKIP] nextRoad not found id=" + std::to_string(nextRoadId));
-			return false;
 		}
 
 		// 🔧 关键修复：在桥接分析之前先检查复用条件
@@ -407,7 +407,15 @@ namespace Echo
 		uint16 nextTgt = nextRoad->getDestinationNodeId();
 
 		bool reversedOnThisRoad = isReverseTravel(getRoadId(), vehicle->id);
-		uint16 requiredExit = reversedOnThisRoad ? curSrc : curTgt; // 反向物理行驶时应从当前道路的源端离开
+		// 基于拓扑决定首选离开端：优先在与下一道路相连的一侧离开
+		bool preferExitAtTarget = false;
+		if (curTgt == nextSrc || curTgt == nextTgt) {
+			preferExitAtTarget = true;
+		}
+		else if (curSrc == nextSrc || curSrc == nextTgt) {
+			preferExitAtTarget = false;
+		}
+		uint16 requiredExit = preferExitAtTarget ? curTgt : curSrc;
 
 		LogManager::instance()->logMessage(
 			std::string("[BRIDGE_ANALYSIS] Road[") + std::to_string(getRoadId()) + "] analyzing extension to Road[" + std::to_string(nextRoadId) + "]" +
@@ -421,23 +429,34 @@ namespace Echo
 		// Leaving node: from requiredExit (取决于是否为本路反向行驶)
 		uint16 fromNode = requiredExit;
 
-		// 只有当车辆“接近对应离开端”的距离阈值内才尝试扩展，避免第一辆在未到离开端时直接进入转移
+		// 只有当车辆接近“将要离开”的那一端时才尝试扩展，针对反向/正向分别计算
 		{
-			// 自适应近端阈值：道路长度的1%，限制在[0.5, 5]米
 			const float nearEps = std::max(0.5f, std::min(5.0f, mLens * 0.01f));
 			bool nearExit = false;
-			if (!reversedOnThisRoad) {
-				// 正向物理：离开端在末端，判 s ≥ mLens - nearEps
-				nearExit = (vehicle->s >= std::max(0.0f, mLens - nearEps));
+			if (requiredExit == curTgt) {
+				// 在目标端离开
+				if (!reversedOnThisRoad) {
+					nearExit = (vehicle->s >= std::max(0.0f, mLens - nearEps));
+				}
+				else {
+					// 反向物理：靠近目标端意味着 s 足够小
+					nearExit = (vehicle->s <= nearEps);
+				}
 			}
 			else {
-				// 反向物理：离开端在起点。由于渲染与放置使用 renderS = mLens - s，
-				// 物理接近起点应由 renderS ≤ nearEps 判定，而不是 s ≤ nearEps
-				float renderS = std::max(0.0f, mLens - vehicle->s);
-				nearExit = (renderS <= nearEps);
+				// 在源端离开
+				if (!reversedOnThisRoad) {
+					nearExit = (vehicle->s <= nearEps);
+				}
+				else {
+					float renderS = std::max(0.0f, mLens - vehicle->s);
+					nearExit = (renderS <= nearEps);
+				}
 			}
 			if (!nearExit) {
-				LogManager::instance()->logMessage("[TRY_EXTEND_SKIP] not near required exit");
+				LogManager::instance()->logMessage(
+					"[TRY_EXTEND_SKIP] not near required exit node=" + std::to_string(requiredExit) +
+					" (reversed=" + std::string(reversedOnThisRoad ? "Y" : "N") + ")");
 				return false;
 			}
 		}
@@ -1264,42 +1283,64 @@ namespace Echo
 
 
 
-			// 3.1 反向物理行驶的离开端（在起点）处理：
-			// 对于标记为“在本路反向物理行驶”的正向车辆，接近起点时应优先尝试桥接扩展，避免直接进入下一路导致首车跳桥
+			// 3.1 反向物理行驶车辆的提前离开检查：基于与下一道路的拓扑，选择正确的离开端
 			if (car->laneDirection == Vehicle::LaneDirection::Forward && isReverseTravel(getRoadId(), car->id))
 			{
-				const float nearEpsExit = std::max(0.5f, std::min(5.0f, mLens * 0.01f));
-				// 反向物理：renderS = mLens - s，接近起点等价于 renderS ≤ nearEps
-				float renderSExit = std::max(0.0f, mLens - car->s);
-				if (renderSExit <= nearEpsExit)
+				uint16 plannedNextId = car->peekNextRoadId();
+				Road* plannedNext = m_trafficManager ? m_trafficManager->getRoadById(plannedNextId) : nullptr;
+				if (plannedNext)
 				{
-					LogManager::instance()->logMessage(
-						"[REVERSED_EXIT_CHECK] Vehicle " + std::to_string(car->id) +
-						" on Road[" + std::to_string(getRoadId()) + "] near reversed exit (renderS=" + std::to_string(renderSExit) +
-						", eps=" + std::to_string(nearEpsExit) + ")");
+					uint16 curSrcNode = getSourceNodeId();
+					uint16 curTgtNode = getDestinationNodeId();
+					uint16 nextSrcNode = plannedNext->getSourceNodeId();
+					uint16 nextTgtNode = plannedNext->getDestinationNodeId();
 
-					bool canExtendReversed = tryExtendForTransfer(car);
-					if (canExtendReversed)
+					// 期望离开端：优先与下一道路相连的一侧
+					bool exitAtTarget = (curTgtNode == nextSrcNode) || (curTgtNode == nextTgtNode);
+					const float nearEpsExit = std::max(0.5f, std::min(5.0f, mLens * 0.01f));
+					bool nearExit = false;
+					if (exitAtTarget)
 					{
-						didJustExtend = true;
-						LogManager::instance()->logMessage(
-							"[TRANSFER_DEFERRED_REVERSED] Vehicle " + std::to_string(car->id) +
-							" extended (reversed exit) on Road[" + std::to_string(getRoadId()) + "]");
+						// 反向物理且在目标端离开：进入本路时 s≈0 即接近目标端
+						nearExit = (car->s <= nearEpsExit);
 					}
 					else
 					{
-						if (!m_isCurrentlyExtended)
+						// 在源端离开：使用 renderS 接近判断
+						float renderSExit = std::max(0.0f, mLens - car->s);
+						nearExit = (renderSExit <= nearEpsExit);
+					}
+
+					if (nearExit)
+					{
+						LogManager::instance()->logMessage(
+							"[REVERSED_EXIT_CHECK] Vehicle " + std::to_string(car->id) +
+							" on Road[" + std::to_string(getRoadId()) + "] near exit node=" +
+							std::to_string(exitAtTarget ? curTgtNode : curSrcNode));
+
+						bool canExtendReversed = tryExtendForTransfer(car);
+						if (canExtendReversed)
 						{
-							// 首车或尚未扩展成功：驻留在起点附近，下一帧再尝试，避免直接跳过桥
-							car->s = std::max(0.0f, std::min(car->s, 1e-4f));
+							didJustExtend = true;
 							LogManager::instance()->logMessage(
-								"[REVERSED_EXIT_HOLD] Road[" + std::to_string(getRoadId()) + "] hold Vehicle " + std::to_string(car->id) +
-								" at start to retry bridge next frame");
-							continue; // 本帧不转移
+								"[TRANSFER_DEFERRED_REVERSED] Vehicle " + std::to_string(car->id) +
+								" extended (reversed) on Road[" + std::to_string(getRoadId()) + "]");
 						}
-						// 已经扩展且接近离开端：触发转移流程（复用进度已完成）
-						vehiclesToTransfer.push_back(car);
-						continue; // 跳过位置计算，因为即将转移
+						else
+						{
+							if (!m_isCurrentlyExtended)
+							{
+								// 首车或未扩展：钳制在对应离开端附近，下一帧再试
+								if (exitAtTarget) car->s = std::max(0.0f, std::min(car->s, nearEpsExit));
+								else car->s = std::max(0.0f, std::min(car->s, 1e-4f));
+								LogManager::instance()->logMessage(
+									"[REVERSED_EXIT_HOLD] Road[" + std::to_string(getRoadId()) + "] hold Vehicle " + std::to_string(car->id) +
+									" near exit to retry bridge next frame");
+								continue;
+							}
+							vehiclesToTransfer.push_back(car);
+							continue;
+						}
 					}
 				}
 			}
@@ -1553,22 +1594,18 @@ namespace Echo
 						uint16 nextRoadId = vehicle->getCurrentRoadId();
 						nextRoad = m_trafficManager->getRoadById(nextRoadId);
 
-						// 多车一致性：若当前道路处于扩展期且已锁定下一道路，则强制使用锁定的下一道路，
-						// 并同步车辆的路径索引到该道路，避免走到不同分支导致“跳过某些道路/桥”。
+						// 多车一致性：扩展期仅在锁定与规划一致时复用，不改写车辆规划
 						if (m_isCurrentlyExtended && m_lockedNextRoadIdDuringExtension != 0) {
 							uint16 lockedId = m_lockedNextRoadIdDuringExtension;
-							if (nextRoadId != lockedId) {
-								nextRoad = m_trafficManager->getRoadById(lockedId);
-								// 调整车辆路径索引与锁定道路对齐
-								for (size_t idx = 0; idx < vehicle->m_pathRoads.size(); ++idx) {
-									if (vehicle->m_pathRoads[idx] == lockedId) {
-										vehicle->m_currentRoadIndex = static_cast<int>(idx);
-										break;
-									}
-								}
+							if (nextRoadId == lockedId) {
 								LogManager::instance()->logMessage(
-									"[TRANSFER_LOCK_ENFORCED] Road[" + std::to_string(getRoadId()) + "] force next Road[" + std::to_string(lockedId) +
-									"] for Vehicle " + std::to_string(vehicle->id));
+									"[TRANSFER_LOCK_MATCH] Road[" + std::to_string(getRoadId()) + "] next matches locked Road[" +
+									std::to_string(lockedId) + "] for Vehicle " + std::to_string(vehicle->id));
+							}
+							else {
+								LogManager::instance()->logMessage(
+									"[TRANSFER_LOCK_MISMATCH] Road[" + std::to_string(getRoadId()) + "] plannedNext=" + std::to_string(nextRoadId) +
+									" lockedNext=" + std::to_string(lockedId) + " — will NOT override");
 							}
 						}
 
