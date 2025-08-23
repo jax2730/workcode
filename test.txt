@@ -407,6 +407,13 @@ namespace Echo
 		uint16 nextTgt = nextRoad->getDestinationNodeId();
 
 		bool reversedOnThisRoad = isReverseTravel(getRoadId(), vehicle->id);
+		// Debug: capture reverse flags and basic state for diagnosing near-exit logic
+		LogManager::instance()->logMessage(
+			"[REV_FLAGS] vid=" + std::to_string(vehicle->id) +
+			" road=" + std::to_string(getRoadId()) +
+			" laneDir=" + std::string(vehicle->laneDirection == Vehicle::LaneDirection::Backward ? "BWD" : "FWD") +
+			" revTravel=" + std::string(reversedOnThisRoad ? "Y" : "N") +
+			" s=" + std::to_string(vehicle->s) + "/" + std::to_string(mLens));
 
 		// 基于拓扑决定首选离开端：优先在与下一道路相连的一侧离开
 		bool preferExitAtTarget = false;
@@ -467,13 +474,7 @@ namespace Echo
 				sFromExit = reversedOnThisRoad ? std::max(0.0f, mLens - vehicle->s) : vehicle->s;
 			}
 			bool nearExit = (sFromExit <= nearEps);
-			// 逆向边界微容差：到达对应离开端边界时直接视为近端
-			if (reversedOnThisRoad) {
-				if ((requiredExit == curSrc && vehicle->s >= std::max(0.0f, mLens - 1e-3f)) ||
-					(requiredExit == curTgt && vehicle->s <= 1e-3f)) {
-					nearExit = true;
-				}
-			}
+			// 辅助诊断：输出更详细的近端距离与反向标志
 			LogManager::instance()->logMessage(
 				std::string("[NEAR_EXIT_DIAG] Road[") + std::to_string(getRoadId()) + "] reqExit=" + std::to_string(requiredExit) +
 				" reversed=" + (reversedOnThisRoad ? "Y" : "N") +
