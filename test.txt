@@ -17,7 +17,7 @@
 #include"EchoLogManager.h"
 #include <unordered_set>
 #include <cstdint>
-
+#include<EchoVegetationAreaTestHelper.h>
 namespace Echo
 {
 	// Global reverse-travel registry: per road+vehicle indicates physical traversal from target to source
@@ -1169,7 +1169,7 @@ namespace Echo
 
 		if (m_pathsGenerated)
 		{
-			addMultipleVehicles(5);
+			addMultipleVehicles(10);
 			assignPathsToAllVehicles();
 			// 覆盖：让所有 20 辆车都使用路径索引 3（0-based）
 			for (Vehicle* v : m_Vehicles) {
@@ -2659,7 +2659,7 @@ namespace Echo
 	void Traffic::initializeCarFollowingModels()
 	{
 		// 设置IDM默认参数
-		m_idmParams.v0 = 10.0f;       // 期望速度 (m/s)
+		m_idmParams.v0 = 0.5f;       // 期望速度 (m/s)
 		m_idmParams.T = 1.0f;         // 期望时间间隔 (s)
 		m_idmParams.s0 = 3.0f;        // 最小间距 (m)
 		m_idmParams.a = 8.0f;         // 最大加速度 (m/s²)
@@ -2668,7 +2668,7 @@ namespace Echo
 		m_idmParams.noiseLevel = 0.1f;
 
 		// 设置ACC默认参数
-		m_accParams.v0 = 10.0f;
+		m_accParams.v0 = 0.5f;
 		m_accParams.T = 1.0f;
 		m_accParams.s0 = 3.0f;
 		m_accParams.a = 8.0f;
@@ -3602,6 +3602,29 @@ namespace Echo
 		}
 	}
 
+	void Traffic::buildDebugRoadCenterlines(float stepMeters, const Vector4& color)
+	{
+		m_debugRoadLines.clear();
+		m_debugRoadLines.reserve(m_allRoads.size());
+		for (Road* r : m_allRoads)
+		{
+			if (!r) continue;
+			std::vector<Vector3> verts;
+			float L = r->getRoadLength();
+			if (L <= 0.0f) continue;
+			float s = 0.0f;
+			const float step = std::max(0.1f, stepMeters);
+			while (s <= L)
+			{
+				verts.push_back(r->getPositionAtDistance(s));
+				s += step;
+			}
+			if (verts.size() < 2) continue;
+			m_debugRoadLines.emplace_back(std::make_unique<VegTestRender>(verts, color, VegTestRender::Model::Line));
+		}
+
+	}
+
 	void Traffic::assignPathToVehicle(Vehicle* vehicle, int pathIndex)
 	{
 		if (!vehicle || pathIndex < 0 || pathIndex >= m_allPaths.size()) return;
@@ -3743,19 +3766,26 @@ namespace Echo
 				}
 			}
 
-			// 设置初始 s：逆向车辆应该从道路末端(138端)开始，正向若从目标离开则从接近 mLens 开始，否则从 0 开始
-			float roadLength = startRoad->getRoadLength();
-			if (needReverseOnFirstRoad) {
-				// 逆向车辆应该从道路的138端开始，而不是137端
-				vehicle->s = std::max(0.0f, roadLength - 1e-4f);
-				LogManager::instance()->logMessage(
-					"[BWD_INIT_POS] Vehicle " + std::to_string(vehicle->id) +
-					" set to s=" + std::to_string(vehicle->s) +
-					" on Road[" + std::to_string(startRoad->getRoadId()) + "] length=" + std::to_string(roadLength));
-			}
-			else {
-				if (shareAtTgt) vehicle->s = std::max(0.0f, roadLength - 1e-4f);
-				else vehicle->s = 0.0f;
+			// 设置初始 s：若未预置，则按方向给出合理起点；若已预置，仅钳制到合法范围
+			{
+				float roadLength = startRoad->getRoadLength();
+				bool hasPreset = (vehicle->s > 0.0f);
+				if (needReverseOnFirstRoad) {
+					if (!hasPreset) {
+						vehicle->s = std::max(0.0f, roadLength - 1e-4f); // 逆向默认从目标端(138端)开始
+					}
+					else {
+						vehicle->s = std::max(0.0f, std::min(vehicle->s, std::max(0.0f, roadLength - 1e-4f)));
+					}
+				}
+				else {
+					if (!hasPreset) {
+						vehicle->s = shareAtTgt ? std::max(0.0f, roadLength - 1e-4f) : 0.0f;
+					}
+					else {
+						vehicle->s = std::max(0.0f, std::min(vehicle->s, std::max(0.0f, roadLength - 1e-4f)));
+					}
+				}
 			}
 
 			// 在第一条道路上设置每路粒度的反向行驶标记
@@ -3897,14 +3927,8 @@ namespace Echo
 
 			for (int v = 0; v < vehicleCount && vehicleIndex < static_cast<int>(m_Vehicles.size()); ++v, ++vehicleIndex) {
 				Vehicle* vehicle = m_Vehicles[vehicleIndex];
-				float vehiclePosition = v * minGap;
-				// 初始投放位置不得超过起始道路长度，避免一开始就被夹到末端造成"瞬移到终点"观感
-				float startLen = startRoad->getRoadLength();
-				if (startLen > 0.0f) {
-					vehiclePosition = std::max(0.0f, std::min(vehiclePosition, std::max(0.0f, startLen - 1e-4f)));
-				}
-				vehicle->s = vehiclePosition;
 
+				// 先为车辆分配路径（正/逆向）
 				if (vehicle->laneDirection == Vehicle::LaneDirection::Forward) {
 					assignPathToVehicle(vehicle, static_cast<int>(pathIdx));
 				}
@@ -3912,9 +3936,31 @@ namespace Echo
 					assignBackwardPathToVehicle(vehicle, static_cast<int>(pathIdx));
 				}
 
+				// 使用车辆当前路径首段的道路长度进行分布（逆向即反转路径首段）
+				Road* placementRoad = getRoadById(vehicle->getCurrentRoadId());
+				float startLen = placementRoad ? placementRoad->getRoadLength() : startRoad->getRoadLength();
+
+				float vehiclePosition = 0.0f;
+				if (vehicle->laneDirection == Vehicle::LaneDirection::Forward) {
+					vehiclePosition = v * minGap;
+					if (startLen > 0.0f) vehiclePosition = std::min(vehiclePosition, std::max(0.0f, startLen - 1e-4f));
+				}
+				else {
+					vehiclePosition = std::max(0.0f, startLen - v * minGap - 1e-4f);
+				}
+				vehicle->s = std::max(0.0f, vehiclePosition);
+
+				// 确保加入到当前首段道路
+				if (placementRoad) {
+					auto& cars = placementRoad->mCars;
+					if (std::find(cars.begin(), cars.end(), vehicle) == cars.end()) {
+						placementRoad->addCar(vehicle);
+					}
+				}
+
 				pathVehicleGroups[pathIdx].push_back(vehicle);
 				LogManager::instance()->logMessage("Vehicle[" + std::to_string(vehicle->id) + "] 分配到路径[" +
-					std::to_string(pathIdx) + "] (" + std::to_string(path.size()) + "段) 位置:" + std::to_string(vehiclePosition));
+					std::to_string(pathIdx) + "] (" + std::to_string(path.size()) + "段) 位置:" + std::to_string(vehicle->s));
 			}
 		}
 
@@ -4462,6 +4508,7 @@ namespace Echo
 
 
 		LogManager::instance()->logMessage("Highway road network creation completed. Total roads: " + std::to_string(m_allRoads.size()));
+		buildDebugRoadCenterlines(5.0f, VegTestRender::G);
 	}
 
 	//
