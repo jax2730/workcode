@@ -1171,14 +1171,7 @@ namespace Echo
 		{
 			addMultipleVehicles(10);
 			assignPathsToAllVehicles();
-			// 覆盖：让所有 20 辆车都使用路径索引 3（0-based）
-			for (Vehicle* v : m_Vehicles) {
-				if (v == nullptr) continue;
-				if (v->laneDirection == Vehicle::LaneDirection::Backward) {
-					assignBackwardPathToVehicle(v, 1);
-				}
 
-			}
 		}
 	}
 
@@ -1853,6 +1846,7 @@ namespace Echo
 						" bridgeLen=" + std::to_string(mLens - m_originalLengthBeforeExtension) +
 						" revOnRoad=" + std::string(isReversedOnRoad ? "Y" : "N") +
 						" s=" + std::to_string(effective_s) + "/" + std::to_string(mLens) +
+						" speed=" + std::to_string(car->speed) + " dir=(" + std::to_string(car->dir.x) + "," + std::to_string(car->dir.y) + ")" +
 						" CONFIRMING: vehicle is actively traversing bridge section");
 				}
 				// 在扩展区域时，effective_s 保持不变，绝对不做任何限制
@@ -3766,25 +3760,43 @@ namespace Echo
 				}
 			}
 
-			// 设置初始 s：若未预置，则按方向给出合理起点；若已预置，仅钳制到合法范围
+			// 设置初始 s：若从其它道路切换到起始道路，则按该起始道路上已存在的逆向车辆数量进行等距分布；否则仅钳制
 			{
 				float roadLength = startRoad->getRoadLength();
-				bool hasPreset = (vehicle->s > 0.0f);
-				if (needReverseOnFirstRoad) {
-					if (!hasPreset) {
-						vehicle->s = std::max(0.0f, roadLength - 1e-4f); // 逆向默认从目标端(138端)开始
+				bool switchingToStart = (currentRoadId != backwardPath[0]);
+				const float spawnGap = 80.0f; // 与批量分布一致
+				if (switchingToStart) {
+					int reversedCountOnStart = 0;
+					for (Vehicle* car : startRoad->mCars) {
+						if (car && car->laneDirection == Vehicle::LaneDirection::Backward) ++reversedCountOnStart;
+					}
+
+					LogManager::instance()->logMessage(
+						"[ASSIGN_BWD_SPACING] Vehicle " + std::to_string(vehicle->id) +
+						" on Road[" + std::to_string(backwardPath[0]) + "] reversedCount=" + std::to_string(reversedCountOnStart) +
+						" needReverse=" + std::string(needReverseOnFirstRoad ? "Y" : "N") +
+						" roadLen=" + std::to_string(roadLength));
+
+					if (needReverseOnFirstRoad) {
+						// 逆向车辆：第一辆紧贴末端，后续向前按80m间隔
+						if (reversedCountOnStart == 0) {
+							vehicle->s = roadLength - 1e-4f; // 第一辆紧贴末端
+						}
+						else {
+							float candidate = roadLength - static_cast<float>(reversedCountOnStart) * spawnGap;
+							vehicle->s = std::max(1.0f, candidate); // 至少保持1m保护带
+						}
 					}
 					else {
-						vehicle->s = std::max(0.0f, std::min(vehicle->s, std::max(0.0f, roadLength - 1e-4f)));
+						float candidate = static_cast<float>(reversedCountOnStart) * spawnGap;
+						vehicle->s = std::max(0.0f, std::min(candidate, std::max(0.0f, roadLength - 1e-4f)));
 					}
+
+					LogManager::instance()->logMessage(
+						"[ASSIGN_BWD_RESULT] Vehicle " + std::to_string(vehicle->id) + " final s=" + std::to_string(vehicle->s));
 				}
 				else {
-					if (!hasPreset) {
-						vehicle->s = shareAtTgt ? std::max(0.0f, roadLength - 1e-4f) : 0.0f;
-					}
-					else {
-						vehicle->s = std::max(0.0f, std::min(vehicle->s, std::max(0.0f, roadLength - 1e-4f)));
-					}
+					vehicle->s = std::max(0.0f, std::min(vehicle->s, std::max(0.0f, roadLength - 1e-4f)));
 				}
 			}
 
@@ -3865,6 +3877,9 @@ namespace Echo
 		// 智能车辆分配策略
 		const float minGap = 80.0f;
 		std::map<size_t, std::vector<Vehicle*>> pathVehicleGroups; // 每条路径分配的车辆
+		// 为解决多条路径共享同一条道路导致的“挤在一起”，在道路粒度上维护独立计数（按方向）
+		std::unordered_map<uint16, int> perRoadFwdIdx;
+		std::unordered_map<uint16, int> perRoadBwdIdx;
 
 		// 计算每条路径应该分配的车辆数量（基于路径长度权重，允许为0，避免强制给初始路径分配1辆）
 		std::vector<int> vehiclesPerPath(m_allPaths.size(), 0);
@@ -3909,6 +3924,15 @@ namespace Echo
 			}
 		}
 
+		// 若外部设置了强制路径索引，则覆盖上面的按长度分配，将所有车辆放到该路径
+		if (m_forcedPathIndex >= 0 && m_forcedPathIndex < static_cast<int>(m_allPaths.size()))
+		{
+			std::vector<int> forced(m_allPaths.size(), 0);
+			forced[static_cast<size_t>(m_forcedPathIndex)] = static_cast<int>(m_Vehicles.size());
+			vehiclesPerPath.swap(forced);
+			LogManager::instance()->logMessage("[FORCE_PATH] All vehicles forced to path index " + std::to_string(m_forcedPathIndex));
+		}
+
 		// 执行车辆分配（按 pathsByLength 的顺序，避免原始顺序偏置）
 		int vehicleIndex = 0;
 		for (size_t i = 0; i < pathsByLength.size(); ++i) {
@@ -3925,6 +3949,8 @@ namespace Echo
 				continue;
 			}
 
+			int fwdIdx = 0; // 正向车辆序号
+			int bwdIdx = 0; // 逆向车辆序号
 			for (int v = 0; v < vehicleCount && vehicleIndex < static_cast<int>(m_Vehicles.size()); ++v, ++vehicleIndex) {
 				Vehicle* vehicle = m_Vehicles[vehicleIndex];
 
@@ -3936,29 +3962,204 @@ namespace Echo
 					assignBackwardPathToVehicle(vehicle, static_cast<int>(pathIdx));
 				}
 
-				// 使用车辆当前路径首段的道路长度进行分布（逆向即反转路径首段）
-				Road* placementRoad = getRoadById(vehicle->getCurrentRoadId());
-				float startLen = placementRoad ? placementRoad->getRoadLength() : startRoad->getRoadLength();
-
-				float vehiclePosition = 0.0f;
+				// 按车辆实际行驶方向构建道路序列
+				std::vector<uint16> orderedRoadIds;
+				orderedRoadIds.reserve(path.size());
 				if (vehicle->laneDirection == Vehicle::LaneDirection::Forward) {
-					vehiclePosition = v * minGap;
-					if (startLen > 0.0f) vehiclePosition = std::min(vehiclePosition, std::max(0.0f, startLen - 1e-4f));
+					orderedRoadIds.assign(path.begin(), path.end());
 				}
 				else {
-					vehiclePosition = std::max(0.0f, startLen - v * minGap - 1e-4f);
+					orderedRoadIds.assign(path.rbegin(), path.rend());
 				}
-				vehicle->s = std::max(0.0f, vehiclePosition);
 
-				// 确保加入到当前首段道路
-				if (placementRoad) {
-					auto& cars = placementRoad->mCars;
-					if (std::find(cars.begin(), cars.end(), vehicle) == cars.end()) {
-						placementRoad->addCar(vehicle);
+				// 计算总长度与各段长度
+				std::vector<float> roadLens;
+				roadLens.reserve(orderedRoadIds.size());
+				float totalLen = 0.0f;
+				for (uint16 rid : orderedRoadIds) {
+					Road* r = getRoadById(rid);
+					float L = r ? r->getRoadLength() : 0.0f;
+					roadLens.push_back(L);
+					totalLen += std::max(0.0f, L);
+				}
+
+				// 目标沿路径距离（正/逆向分别等距，环绕放置），并设置保护带避免贴边堆叠
+				int& idxRef = (vehicle->laneDirection == Vehicle::LaneDirection::Forward) ? fwdIdx : bwdIdx;
+				float targetD = static_cast<float>(idxRef) * minGap;
+				++idxRef;
+				const float entryEps = 1.0f; // 1m 保护带
+
+				// 对于逆向车辆的智能分配策略
+				if (vehicle->laneDirection == Vehicle::LaneDirection::Backward) {
+					// 计算第一条道路的理论容量
+					Road* firstRoad = getRoadById(orderedRoadIds.empty() ? path[0] : orderedRoadIds[0]);
+					float firstRoadLen = firstRoad ? firstRoad->getRoadLength() : 180.0f;
+					int firstRoadMaxSlots = std::max(1, static_cast<int>(std::floor((firstRoadLen - 2.0f * entryEps) / minGap)));
+
+					// 如果车辆索引超过第一条道路容量，允许分配到第二条道路
+					if (idxRef > firstRoadMaxSlots && orderedRoadIds.size() >= 2) {
+						targetD = firstRoadLen; // 映射到第二条道路
+						LogManager::instance()->logMessage(
+							"[BWD_OVERFLOW_TO_SECOND] Vehicle " + std::to_string(vehicle->id) +
+							" overflow to second road, targetD=" + std::to_string(targetD) +
+							" firstRoadMaxSlots=" + std::to_string(firstRoadMaxSlots));
+					}
+					else {
+						targetD = 0.0f; // 强制选择第一条道路
+						LogManager::instance()->logMessage(
+							"[BWD_FORCE_FIRST_ROAD] Vehicle " + std::to_string(vehicle->id) +
+							" forced to first road, targetD=0, maxSlots=" + std::to_string(firstRoadMaxSlots));
+					}
+				}
+				else {
+					if (totalLen > entryEps) {
+						float usableTotal = std::max(entryEps, totalLen - entryEps);
+						targetD = std::fmod(targetD, usableTotal);
 					}
 				}
 
+				// 映射到具体道路与局部 s（先按路径选择道路，再按道路内计数做最终位置）
+				uint16 chosenRoadId = orderedRoadIds.empty() ? path[0] : orderedRoadIds[0];
+				float localS = 0.0f;
+
+				LogManager::instance()->logMessage(
+					"[ROAD_SELECTION] Vehicle " + std::to_string(vehicle->id) +
+					" laneDir=" + std::string(vehicle->laneDirection == Vehicle::LaneDirection::Backward ? "BWD" : "FWD") +
+					" targetD=" + std::to_string(targetD) + " totalLen=" + std::to_string(totalLen) +
+					" orderedRoads=" + std::to_string(orderedRoadIds.size()) +
+					" chosenRoad=" + std::to_string(chosenRoadId));
+				for (size_t ri = 0; ri < orderedRoadIds.size(); ++ri) {
+					float L = std::max(0.0f, roadLens[ri]);
+					float usable = std::max(0.0f, L - 2.0f * entryEps);
+					if (targetD <= usable || ri == orderedRoadIds.size() - 1) {
+						chosenRoadId = orderedRoadIds[ri];
+						// 基于道路的全局计数，确保同一路上所有来源的车辆仍保持 minGap
+						{
+							Road* rSel = getRoadById(chosenRoadId);
+							float rLen = rSel ? rSel->getRoadLength() : L;
+							float usableLen = std::max(0.0f, rLen - 2.0f * entryEps);
+							int maxSlots = std::max(1, static_cast<int>(std::floor(usableLen / minGap)));
+
+							LogManager::instance()->logMessage(
+								"[MAXSLOTS_CALC] Road[" + std::to_string(chosenRoadId) + "] " +
+								"rLen=" + std::to_string(rLen) + " usableLen=" + std::to_string(usableLen) +
+								" minGap=" + std::to_string(minGap) + " maxSlots=" + std::to_string(maxSlots));
+							if (vehicle->laneDirection == Vehicle::LaneDirection::Forward) {
+								int idx = perRoadFwdIdx[chosenRoadId]++;
+								int wrapped = idx % maxSlots;
+								localS = std::max(entryEps, std::min(entryEps + wrapped * minGap, rLen - entryEps));
+							}
+							else {
+								int idx = perRoadBwdIdx[chosenRoadId]++;
+
+								// 对于第二条道路上的逆向车辆，需要重新计算索引
+								// 因为这些车辆是从第一条道路溢出过来的
+								if (chosenRoadId != (orderedRoadIds.empty() ? path[0] : orderedRoadIds[0])) {
+									// 这是第二条道路，重置索引计数
+									Road* firstRoad = getRoadById(orderedRoadIds.empty() ? path[0] : orderedRoadIds[0]);
+									float firstRoadLen = firstRoad ? firstRoad->getRoadLength() : 180.0f;
+									int firstRoadMaxSlots = std::max(1, static_cast<int>(std::floor((firstRoadLen - 2.0f * entryEps) / minGap)));
+
+									// 计算在第二条道路上的相对索引（从第一条道路溢出的车辆数）
+									int relativeIdx = (idx - 1); // 从0开始计数第二条道路上的车辆
+									float fromEnd = static_cast<float>(relativeIdx) * minGap;
+
+									if (relativeIdx == 0) {
+										localS = rLen - 1e-4f; // 第一辆车紧贴第二条道路末端
+									}
+									else {
+										localS = std::max(entryEps, rLen - fromEnd);
+									}
+
+									LogManager::instance()->logMessage(
+										"[BWD_SPACING_SECOND] Vehicle " + std::to_string(vehicle->id) +
+										" on Road[" + std::to_string(chosenRoadId) + "] idx=" + std::to_string(idx) +
+										" relativeIdx=" + std::to_string(relativeIdx) + " fromEnd=" + std::to_string(fromEnd) +
+										" localS=" + std::to_string(localS) + " rLen=" + std::to_string(rLen));
+								}
+								else {
+									// 第一条道路的正常逻辑
+									float fromEnd = static_cast<float>(idx) * minGap;
+
+									if (idx == 0) {
+										localS = rLen - 1e-4f; // 第一辆车紧贴末端
+									}
+									else {
+										localS = std::max(entryEps, rLen - fromEnd);
+									}
+
+									// 确保不超出道路范围
+									localS = std::max(entryEps, std::min(localS, rLen - entryEps));
+
+									LogManager::instance()->logMessage(
+										"[BWD_SPACING] Vehicle " + std::to_string(vehicle->id) +
+										" on Road[" + std::to_string(chosenRoadId) + "] idx=" + std::to_string(idx) +
+										" fromEnd=" + std::to_string(fromEnd) + " localS=" + std::to_string(localS) +
+										" rLen=" + std::to_string(rLen) + " maxSlots=" + std::to_string(maxSlots));
+								}
+							}
+						}
+						break;
+					}
+					targetD -= usable;
+				}
+
+				// 将车辆移动到目标道路并设置 s
+				uint16 curId = vehicle->getCurrentRoadId();
+				Road* curRoad = getRoadById(curId);
+				Road* placementRoad = getRoadById(chosenRoadId);
+				if (placementRoad) {
+					if (curRoad && curRoad != placementRoad) {
+						auto& cars = curRoad->mCars;
+						auto it = std::find(cars.begin(), cars.end(), vehicle);
+						if (it != cars.end()) cars.erase(it);
+					}
+					auto& carsHere = placementRoad->mCars;
+					if (std::find(carsHere.begin(), carsHere.end(), vehicle) == carsHere.end()) {
+						placementRoad->addCar(vehicle);
+					}
+					// 对于逆向车辆，检查是否应该保留assignBackwardPathToVehicle中设置的位置
+					bool shouldPreservePosition = false;
+					if (vehicle->laneDirection == Vehicle::LaneDirection::Backward) {
+						// 检查车辆是否已经在正确的道路上且有合理位置
+						uint16 currentRoadId = vehicle->getCurrentRoadId();
+						if (currentRoadId == chosenRoadId) {
+							float currentS = vehicle->s;
+							float roadLen = placementRoad->getRoadLength();
+							// 如果已有合理位置（不是0且在道路范围内），则保留
+							if (currentS > 1e-3f && currentS <= roadLen) {
+								shouldPreservePosition = true;
+								LogManager::instance()->logMessage("[PRESERVE_BWD_POS] Vehicle " + std::to_string(vehicle->id) +
+									" keeping existing position s=" + std::to_string(currentS) + " on Road[" + std::to_string(chosenRoadId) + "]");
+							}
+						}
+					}
+
+					if (!shouldPreservePosition) {
+						vehicle->s = localS;
+						LogManager::instance()->logMessage("[SET_NEW_POS] Vehicle " + std::to_string(vehicle->id) +
+							" new position s=" + std::to_string(localS) + " on Road[" + std::to_string(chosenRoadId) + "]");
+					}
+					// 将当前路径索引推进到对应道路
+					if (vehicle->hasPath()) {
+						int guard = static_cast<int>(orderedRoadIds.size()) + 2;
+						while (vehicle->getCurrentRoadId() != chosenRoadId && guard-- > 0) {
+							vehicle->moveToNextRoad();
+						}
+					}
+					setReverseTravel(placementRoad->getRoadId(), vehicle->id, vehicle->laneDirection == Vehicle::LaneDirection::Backward);
+				}
+
 				pathVehicleGroups[pathIdx].push_back(vehicle);
+
+				// 验证最终位置
+				LogManager::instance()->logMessage(
+					"[FINAL_ASSIGNMENT] Vehicle " + std::to_string(vehicle->id) +
+					" road=" + std::to_string(vehicle->getCurrentRoadId()) +
+					" s=" + std::to_string(vehicle->s) +
+					" laneDir=" + std::string(vehicle->laneDirection == Vehicle::LaneDirection::Backward ? "BWD" : "FWD") +
+					" pathIdx=" + std::to_string(pathIdx));
+
 				LogManager::instance()->logMessage("Vehicle[" + std::to_string(vehicle->id) + "] 分配到路径[" +
 					std::to_string(pathIdx) + "] (" + std::to_string(path.size()) + "段) 位置:" + std::to_string(vehicle->s));
 			}
@@ -4508,7 +4709,7 @@ namespace Echo
 
 
 		LogManager::instance()->logMessage("Highway road network creation completed. Total roads: " + std::to_string(m_allRoads.size()));
-		buildDebugRoadCenterlines(5.0f, VegTestRender::G);
+		//buildDebugRoadCenterlines(5.0f, VegTestRender::G);
 	}
 
 	//

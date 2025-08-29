@@ -303,6 +303,11 @@ namespace Echo
 		void assignPathToVehicle(Vehicle* vehicle, int pathIndex);
 		void assignBackwardPathToVehicle(Vehicle* vehicle, int pathIndex); // 为逆向车辆分配反向路径
 		void assignPathsToAllVehicles();
+
+		void setForcePahtIndex(int idx) { m_forcedPathIndex = idx; }
+
+
+
 		Road* getRoadById(uint16 roadId);  // 根据道路ID查找道路对象
 		// 根据节点对(fromNode -> toNode)获取桥接折线（若存在）。
 		bool getBridgePolyline(uint16 fromNode, uint16 toNode, std::vector<Vector3>& outPolyline) const;
@@ -391,5 +396,10 @@ namespace Echo
 			// 桥接坐标映射：节点对(from,to) -> 折线坐标
 			std::map<std::pair<uint16, uint16>, std::vector<Vector3>> m_bridgeCoordinates;
 			std::vector<std::unique_ptr<VegTestRender>> m_debugRoadLines;
+
+
+
+			int m_forcedPathIndex = 1;
+
 	};
 }
