@@ -606,9 +606,10 @@ namespace Echo
 					LogManager::instance()->logMessage("[BRIDGE] No polyline for direct T→S (" + std::to_string(fromNode) + "->" + std::to_string(nextSrc) + ") and insufficient coordinate data");
 					// 下一道路没有坐标，不让第一辆车直接跳过
 					if (!m_isCurrentlyExtended) {
-						LogManager::instance()->logMessage("[BRIDGE_FIRST_FALLBACK] First vehicle attempting minimal extension");
-						return false; // 只有这种情况才真正无法扩展
+						LogManager::instance()->logMessage("[BRIDGE_FIRST_FALLBACK] First vehicle unable to extend - allowing direct transfer");
+						return false; // 允许车辆转移而不是卡住
 					}
+					LogManager::instance()->logMessage("[BRIDGE_FALLBACK_GENERAL] Bridge extension failed - allowing transfer");
 					return false;
 				}
 			}
@@ -673,9 +674,10 @@ namespace Echo
 					LogManager::instance()->logMessage("[BRIDGE] No polyline for direct T→T (" + std::to_string(fromNode) + "->" + std::to_string(nextTgt) + ") and insufficient coordinate data");
 					// 下一道路没有坐标，不让第一辆车直接跳过
 					if (!m_isCurrentlyExtended) {
-						LogManager::instance()->logMessage("[BRIDGE_FIRST_FALLBACK_TT] First vehicle attempting minimal extension");
-						return false; // 只有这种情况才真正无法扩展
+						LogManager::instance()->logMessage("[BRIDGE_FIRST_FALLBACK_TT] First vehicle unable to extend - allowing direct transfer");
+						return false; // 允许车辆转移而不是卡住
 					}
+					LogManager::instance()->logMessage("[BRIDGE_FALLBACK_GENERAL_TT] Bridge extension failed - allowing transfer");
 					return false;
 				}
 			}
@@ -750,7 +752,9 @@ namespace Echo
 					bool wouldSynthesizeReverse = (!reversedOnThisRoad && fromNode == curTgt && nextSrc == curSrc);
 					if (wouldSynthesizeReverse) {
 						LogManager::instance()->logMessage("[BRIDGE_SYNTHESIZE_REJECT] Reject synthesize exit(target)→next(source=current source) while forward-physical; keep continuity");
-						return false;
+						// ❗ 修复：不应该直接返回false，应该允许车辆转移
+						LogManager::instance()->logMessage("[BRIDGE_FALLBACK_TRANSFER] Vehicle " + std::to_string(vehicle->id) + " will be allowed to transfer directly due to bridge synthesis rejection");
+						return false; // 允许正常转移流程处理
 					}
 
 					// 合成连接：根据物理方向优先选择目标端（逆向）或起点（正向）
@@ -1691,12 +1695,27 @@ namespace Echo
 								continue;
 							}
 						}
+						// 检查是否已经等待太久，如果是则强制转移避免死锁
+						static std::map<int, int> vehicleWaitFrames; // 记录每辆车等待的帧数
+						vehicleWaitFrames[car->id]++;
+
+						const int MAX_WAIT_FRAMES = 60; // 最多等待60帧（约1秒）
+						if (vehicleWaitFrames[car->id] >= MAX_WAIT_FRAMES) {
+							LogManager::instance()->logMessage(
+								"[TRANSFER_FORCE_AFTER_WAIT] Vehicle " + std::to_string(car->id) +
+								" waited " + std::to_string(vehicleWaitFrames[car->id]) +
+								" frames, forcing transfer to prevent deadlock");
+							vehicleWaitFrames[car->id] = 0; // 重置计数
+							vehiclesToTransfer.push_back(car);
+							continue;
+						}
+
 						// 否则：本帧不转移，停在离开端，下一帧重试扩展，避免直接跳过桥
 						float holdS = std::max(0.0f, mLens - 1e-4f);
 						car->s = std::min(car->s, holdS);
 						LogManager::instance()->logMessage(
 							"[TRANSFER_DEFERRED_LEADER_WAIT] Road[" + std::to_string(getRoadId()) + "] hold Vehicle " + std::to_string(car->id) +
-							" at exit to retry bridge next frame");
+							" at exit to retry bridge next frame (attempt " + std::to_string(vehicleWaitFrames[car->id]) + "/" + std::to_string(MAX_WAIT_FRAMES) + ")");
 						continue; // 不转移，等待下一帧再尝试 tryExtend
 					}
 					// 已扩展（被其它车创建）但此车仍到端：允许进入转移流程
@@ -2823,20 +2842,20 @@ namespace Echo
 		}
 
 		// 添加逆向车辆（同样先创建，稍后在 assignPathsToAllVehicles 中分配反向路径）
-		for (int i = 0; i < backwardVehicles; ++i) {
-			float vehicleSpeed = baseSpeed + (rand() % 5 - 2) * 0.5f;
-			vehicleSpeed = std::max(1.0f, vehicleSpeed);
-			Vehicle* newVehicle = new Vehicle(vehicleSpeed, Vehicle::LaneDirection::Backward);
-			newVehicle->id = m_Vehicles.size() + 1;
-			// 逆向车辆使用负车道偏移（左侧车道）
-			newVehicle->laneOffset = laneOffset + (rand() % 3 - 1) * 0.3f;
-			// 临时设置位置，稍后会在反向路径分配时设置到起始道路末端
-			newVehicle->s = 0.0f;
-			auto carFollowingModel = createModelForVehicle(Vehicle::VehicleType::Car);
-			newVehicle->setCarFollowingModel(std::move(carFollowingModel));
-			newVehicle->setDriverVariation(m_driverVariationCoeff);
-			m_Vehicles.push_back(newVehicle);
-		}
+		//for (int i = 0; i < backwardVehicles; ++i) {
+		//	float vehicleSpeed = baseSpeed + (rand() % 5 - 2) * 0.5f;
+		//	vehicleSpeed = std::max(1.0f, vehicleSpeed);
+		//	Vehicle* newVehicle = new Vehicle(vehicleSpeed, Vehicle::LaneDirection::Backward);
+		//	newVehicle->id = m_Vehicles.size() + 1;
+		//	// 逆向车辆使用负车道偏移（左侧车道）
+		//	newVehicle->laneOffset = laneOffset + (rand() % 3 - 1) * 0.3f;
+		//	// 临时设置位置，稍后会在反向路径分配时设置到起始道路末端
+		//	newVehicle->s = 0.0f;
+		//	auto carFollowingModel = createModelForVehicle(Vehicle::VehicleType::Car);
+		//	newVehicle->setCarFollowingModel(std::move(carFollowingModel));
+		//	newVehicle->setDriverVariation(m_driverVariationCoeff);
+		//	m_Vehicles.push_back(newVehicle);
+		//}
 
 		LogManager::instance()->logMessage("Traffic: Added " + std::to_string(numVehicles) +
 			" vehicles (FWD=" + std::to_string(forwardVehicles) + ", BWD=" + std::to_string(backwardVehicles) + ")" +
