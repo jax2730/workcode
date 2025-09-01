@@ -441,25 +441,33 @@ namespace Echo
 
 		// 基于拓扑决定首选离开端：优先在与下一道路相连的一侧离开
 		bool preferExitAtTarget = false;
-		if (curTgt == nextSrc || curTgt == nextTgt) {
+		bool hasAdjAtTgt = (curTgt == nextSrc || curTgt == nextTgt);
+		bool hasAdjAtSrc = (curSrc == nextSrc || curSrc == nextTgt);
+		if (hasAdjAtTgt) {
 			preferExitAtTarget = true;
 		}
-		else if (curSrc == nextSrc || curSrc == nextTgt) {
+		else if (hasAdjAtSrc) {
 			preferExitAtTarget = false;
 		}
 		uint16 requiredExit = preferExitAtTarget ? curTgt : curSrc;
 
-		// 逆向车辆优先按物理更近端选择离开端，避免拓扑偏好导致"永远不近/错端尝试"
+		// 逆向车辆：优先按邻接确定离开端；仅在无邻接时按“就近端”兜底
 		if (reversedOnThisRoad)
 		{
-			float distToTarget = std::max(0.0f, vehicle->s);
-			float distToSource = std::max(0.0f, mLens - vehicle->s);
-			requiredExit = (distToSource <= distToTarget ? curSrc : curTgt);
-			LogManager::instance()->logMessage(
-				"[BWD_EXIT_SELECT] s=" + std::to_string(vehicle->s) + "/" + std::to_string(mLens) +
-				" dSrc=" + std::to_string(distToSource) +
-				" dTgt=" + std::to_string(distToTarget) +
-				" requiredExit=" + std::to_string(requiredExit));
+			if (hasAdjAtSrc || hasAdjAtTgt) {
+				requiredExit = preferExitAtTarget ? curTgt : curSrc;
+				LogManager::instance()->logMessage(
+					"[BWD_EXIT_ADJ] using adjacency exit node=" + std::to_string(requiredExit) +
+					" (curSrc=" + std::to_string(curSrc) + ", curTgt=" + std::to_string(curTgt) + ", nextSrc=" + std::to_string(nextSrc) + ", nextTgt=" + std::to_string(nextTgt) + ")");
+			}
+			else {
+				float distToTarget = std::max(0.0f, vehicle->s);
+				float distToSource = std::max(0.0f, mLens - vehicle->s);
+				requiredExit = (distToSource <= distToTarget ? curSrc : curTgt);
+				LogManager::instance()->logMessage(
+					"[BWD_EXIT_PROX] no adjacency; pick nearest exit node=" + std::to_string(requiredExit) +
+					" dSrc=" + std::to_string(distToSource) + " dTgt=" + std::to_string(distToTarget));
+			}
 		}
 
 		LogManager::instance()->logMessage(
@@ -2842,20 +2850,20 @@ namespace Echo
 		}
 
 		// 添加逆向车辆（同样先创建，稍后在 assignPathsToAllVehicles 中分配反向路径）
-		//for (int i = 0; i < backwardVehicles; ++i) {
-		//	float vehicleSpeed = baseSpeed + (rand() % 5 - 2) * 0.5f;
-		//	vehicleSpeed = std::max(1.0f, vehicleSpeed);
-		//	Vehicle* newVehicle = new Vehicle(vehicleSpeed, Vehicle::LaneDirection::Backward);
-		//	newVehicle->id = m_Vehicles.size() + 1;
-		//	// 逆向车辆使用负车道偏移（左侧车道）
-		//	newVehicle->laneOffset = laneOffset + (rand() % 3 - 1) * 0.3f;
-		//	// 临时设置位置，稍后会在反向路径分配时设置到起始道路末端
-		//	newVehicle->s = 0.0f;
-		//	auto carFollowingModel = createModelForVehicle(Vehicle::VehicleType::Car);
-		//	newVehicle->setCarFollowingModel(std::move(carFollowingModel));
-		//	newVehicle->setDriverVariation(m_driverVariationCoeff);
-		//	m_Vehicles.push_back(newVehicle);
-		//}
+		for (int i = 0; i < backwardVehicles; ++i) {
+			float vehicleSpeed = baseSpeed + (rand() % 5 - 2) * 0.5f;
+			vehicleSpeed = std::max(1.0f, vehicleSpeed);
+			Vehicle* newVehicle = new Vehicle(vehicleSpeed, Vehicle::LaneDirection::Backward);
+			newVehicle->id = m_Vehicles.size() + 1;
+			// 逆向车辆使用负车道偏移（左侧车道）
+			newVehicle->laneOffset = laneOffset + (rand() % 3 - 1) * 0.3f;
+			// 临时设置位置，稍后会在反向路径分配时设置到起始道路末端
+			newVehicle->s = 0.0f;
+			auto carFollowingModel = createModelForVehicle(Vehicle::VehicleType::Car);
+			newVehicle->setCarFollowingModel(std::move(carFollowingModel));
+			newVehicle->setDriverVariation(m_driverVariationCoeff);
+			m_Vehicles.push_back(newVehicle);
+		}
 
 		LogManager::instance()->logMessage("Traffic: Added " + std::to_string(numVehicles) +
 			" vehicles (FWD=" + std::to_string(forwardVehicles) + ", BWD=" + std::to_string(backwardVehicles) + ")" +
@@ -3797,13 +3805,14 @@ namespace Echo
 						" roadLen=" + std::to_string(roadLength));
 
 					if (needReverseOnFirstRoad) {
-						// 逆向车辆：第一辆紧贴末端，后续向前按80m间隔
+						// 逆向车辆：评估位置使用 renderS = mLens - s。
+						// 若要物理上从道路的目标端出发，应从 s≈0 开始，使 renderS≈mLens。
 						if (reversedCountOnStart == 0) {
-							vehicle->s = roadLength - 1e-4f; // 第一辆紧贴末端
+							vehicle->s = std::max(1e-4f, 0.0f);
 						}
 						else {
-							float candidate = roadLength - static_cast<float>(reversedCountOnStart) * spawnGap;
-							vehicle->s = std::max(1.0f, candidate); // 至少保持1m保护带
+							float candidate = static_cast<float>(reversedCountOnStart) * spawnGap + 1e-4f;
+							vehicle->s = std::min(std::max(1e-4f, candidate), std::max(1e-4f, roadLength - 1e-4f));
 						}
 					}
 					else {
