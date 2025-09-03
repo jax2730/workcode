@@ -23,7 +23,7 @@ namespace Echo
 	class SphericalTerrain;
 	class VegTestRender;
 	struct vector4;
-	
+
 	//_geometry
 	struct JsonRoadNode {
 		uint16 id;
@@ -298,10 +298,18 @@ namespace Echo
 		// 车辆管理
 		void addMultipleVehicles(int numVehicles);  // 添加多个车辆
 		void setVehicleDensity(float vehiclesPerKm);  // 设置车辆密度
+
+		//车流密度管理
+		void iniRegularVehicles();
+
+		// 时间间隔控制的车辆生成
+		void setVehicleSpawnInterval(float intervalMs) { m_vehicleSpawnInterval = intervalMs; }
+		void updateVehicleSpawning(float deltaTime);
+
 		// 路径管理
 		void generateAllPaths();
 		void assignPathToVehicle(Vehicle* vehicle, int pathIndex);
-		void assignBackwardPathToVehicle(Vehicle* vehicle, int pathIndex); // 为逆向车辆分配反向路径
+		void assignBackwardPathToVehicle(Vehicle* vehicle, int pathIndex, std::unordered_map<uint16, int>& batchBackwardCount); // 为逆向车辆分配反向路径
 		void assignPathsToAllVehicles();
 
 		void setForcePahtIndex(int idx) { m_forcedPathIndex = idx; }
@@ -335,7 +343,7 @@ namespace Echo
 
 			void buildDebugRoadCenterlines(float stepMeters, const Vector4& color);
 
-		
+
 			HighwayConnectData parseHighwayConnectData(const std::string& jsonFilePath);
 			HighwayGraphData parseHighwayGraphData(const std::string& jsonFilePath);
 			void createRoadNetworkFromHighwayData(const HighwayConnectData& connectData, const HighwayGraphData& graphData);
@@ -397,7 +405,11 @@ namespace Echo
 			std::map<std::pair<uint16, uint16>, std::vector<Vector3>> m_bridgeCoordinates;
 			std::vector<std::unique_ptr<VegTestRender>> m_debugRoadLines;
 
-
+			// 时间间隔控制车辆生成
+			float m_vehicleSpawnInterval = 10000.0f; // 生成间隔 (毫秒)
+			float m_spawnAccumulator = 0.0f;        // 时间累积器
+			int m_pendingVehicleCount = 0;          // 待生成车辆数
+			int m_maxVehicleCount = 10;             // 最大车辆数
 
 			int m_forcedPathIndex = 1;
 
