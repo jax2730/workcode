@@ -95,7 +95,6 @@ namespace Echo
 	class Vehicle;
 	class Road {
 	public:
-		//Road(const JsonRoadLink& linkData, const JsonRoadNode& sourceNode, const JsonRoadNode& targetNode);
 		Road(const HighwayLink& linkData, const HighwayNode& sourceNode, const HighwayNode& targetNode, const std::vector<Vector3>& coordinates);
 		void addCar(Vehicle* car);
 		void update(float deltaTime);
@@ -153,7 +152,7 @@ namespace Echo
 		bool m_isHighwayRoad = false;
 		// 记录已按目标节点做过的桥接扩展，避免重复追加
 		std::set<uint16> m_appendedConnections;
-		// 🔧 记录真实的连接类型
+		// 记录连接类型
 		std::set<uint16> m_extendedToSourceNodes;  // 记录扩展到源点的节点
 		std::set<uint16> m_extendedToTargetNodes;  // 记录扩展到目标点的节点
 		// 每辆车上一次 s 值（用于检测折返/闪现）
@@ -161,16 +160,16 @@ namespace Echo
 		// 车辆卡滞帧计数（用于检测长期不前进的卡住状态）
 		std::unordered_map<int, int> m_stallFrames;
 
-		// 🔧 扩展状态跟踪，防止位置重置
+		// 扩展状态跟踪，防止位置重置
 		bool m_isCurrentlyExtended = false;
 		float m_originalLengthBeforeExtension = 0.0f;
 		// 最近一次扩展的形态与长度（用于位置评估与诊断）
 		bool m_lastExtensionWasPrefix = false;
 		float m_lastAddedLength = 0.0f;
-		// 🔧 扩展期间的下一道路锁定：第一次扩展决定后，所有车辆按照同一下一道路转移
+		//  扩展期间的下一道路锁定：第一次扩展决定后，所有车辆按照同一下一道路转移
 		uint16 m_lockedNextRoadIdDuringExtension = 0;
 		uint16 m_lockedChosenToNode = 0;
-		// 🔧 多车一致化：按到达顺序排队转移，防止后续车辆抢先触发转移导致“跳段”
+		//  多车一致化：按到达顺序排队转移，防止后续车辆抢先触发转移导致“跳段”
 		// 移除排队字段
 
 		Road* m_nextRoad = nullptr;
