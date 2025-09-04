@@ -1,0 +1,5 @@
+﻿  main.cpp
+E:\C++pandan\workcode\tools\main.cpp(281,35): warning C4838: 从“int”转换到“UINT”需要收缩转换
+E:\C++pandan\workcode\tools\main.cpp(281,45): warning C4838: 从“int”转换到“UINT”需要收缩转换
+E:\C++pandan\workcode\tools\main.cpp(282,53): warning C4838: 从“int”转换到“UINT”需要收缩转换
+  ImGuiDemo.vcxproj -> E:\C++pandan\workcode\tools\build\Debug\ImGuiDemo.exe
