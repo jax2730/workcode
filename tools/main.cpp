@@ -20,21 +20,34 @@ static ID3D11ShaderResourceView* g_pBackgroundTexture = nullptr;
 static int g_BackgroundWidth = 0;
 static int g_BackgroundHeight = 0;
 
+// Zoom and pan state
+static float g_Zoom = 1.0f;
+static ImVec2 g_Pan = ImVec2(0, 0);
+
+// Grid selection state
+static const int GRID_WIDTH = 129;  // 2048/16 = 128, use 129 for proper coverage
+static const int GRID_HEIGHT = 85;  // 1381/16.24 ¡Ö 85, making square tiles
+static bool g_GridSelection[GRID_WIDTH * GRID_HEIGHT] = { false };
+
 // Forward declarations of helper functions
 bool CreateDeviceD3D(HWND hWnd);
 void CleanupDeviceD3D();
 void CreateRenderTarget();
 void CleanupRenderTarget();
 bool LoadTextureFromFile(const char* filename, ID3D11ShaderResourceView** out_srv, int* out_width, int* out_height);
+void HandleInputs();
+ImVec2 GetImageSize();
+ImVec2 GetImagePos();
+void ApplyPanBoundaries();
+void RenderGrid();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 
 void RenderButton()
 {
-    ImGui::SetNextWindowPos(ImVec2(0, 0));
-    ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
-    ImGui::Begin("ButtonOverlay", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-        ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings);
+    ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(140, 100), ImGuiCond_FirstUseEver);
+    ImGui::Begin("ButtonOverlay", nullptr, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoResize);
 
     ImGui::Button("Gen", ImVec2(120, 40));
     ImGui::Button("Reset", ImVec2(120, 40));
@@ -47,23 +60,177 @@ void RenderTileSelectView()
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
     ImGui::Begin("Background", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoBackground);
+        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoInputs);
 
     if (g_pBackgroundTexture) {
-        ImGui::GetWindowDrawList()->AddImage((ImTextureID)g_pBackgroundTexture, ImVec2(0, 0), ImGui::GetIO().DisplaySize);
+        ImVec2 image_size = GetImageSize();
+        ImVec2 image_pos = GetImagePos();
+
+        // Render the image
+        ImGui::GetWindowDrawList()->AddImage(
+            (ImTextureID)g_pBackgroundTexture,
+            image_pos,
+            ImVec2(image_pos.x + image_size.x, image_pos.y + image_size.y)
+        );
+
+        // Render grid overlay
+        RenderGrid();
     }
 
     ImGui::End();
 }
 
+// Calculate current image dimensions and position
+ImVec2 GetImageSize()
+{
+    ImGuiIO& io = ImGui::GetIO();
+    // Since window matches image resolution, scale should be 1:1 at base zoom
+    return ImVec2((float)g_BackgroundWidth * g_Zoom, (float)g_BackgroundHeight * g_Zoom);
+}
+
+ImVec2 GetImagePos()
+{
+    ImGuiIO& io = ImGui::GetIO();
+    ImVec2 image_size = GetImageSize();
+    return ImVec2(
+        (io.DisplaySize.x - image_size.x) * 0.5f + g_Pan.x,
+        (io.DisplaySize.y - image_size.y) * 0.5f + g_Pan.y
+    );
+}
+
+// Apply pan boundary limits to keep image covering entire window
+void ApplyPanBoundaries()
+{
+    ImGuiIO& io = ImGui::GetIO();
+    ImVec2 image_size = GetImageSize();
+
+    // Pan limits: image must always cover window completely
+    float max_pan_x = (image_size.x - io.DisplaySize.x) * 0.5f;
+    float max_pan_y = (image_size.y - io.DisplaySize.y) * 0.5f;
+
+    g_Pan.x = (g_Pan.x > max_pan_x) ? max_pan_x : (g_Pan.x < -max_pan_x) ? -max_pan_x : g_Pan.x;
+    g_Pan.y = (g_Pan.y > max_pan_y) ? max_pan_y : (g_Pan.y < -max_pan_y) ? -max_pan_y : g_Pan.y;
+}
+
+// Render grid overlay and handle selection
+void RenderGrid()
+{
+    ImGuiIO& io = ImGui::GetIO();
+    ImVec2 image_size = GetImageSize();
+    ImVec2 image_pos = GetImagePos();
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+    float cell_width = image_size.x / GRID_WIDTH;
+    float cell_height = image_size.y / GRID_HEIGHT;
+
+    // Handle grid selection
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.WantCaptureMouse) {
+        ImVec2 mouse_rel = ImVec2(io.MousePos.x - image_pos.x, io.MousePos.y - image_pos.y);
+        if (mouse_rel.x >= 0 && mouse_rel.x <= image_size.x && mouse_rel.y >= 0 && mouse_rel.y <= image_size.y) {
+            int grid_x = (int)(mouse_rel.x / cell_width);
+            int grid_y = (int)(mouse_rel.y / cell_height);
+            if (grid_x >= 0 && grid_x < GRID_WIDTH && grid_y >= 0 && grid_y < GRID_HEIGHT) {
+                g_GridSelection[grid_y * GRID_WIDTH + grid_x] = !g_GridSelection[grid_y * GRID_WIDTH + grid_x];
+            }
+        }
+    }
+
+    // Draw grid lines
+    ImU32 grid_color = IM_COL32(200, 200, 200, 80); // Light gray with transparency
+
+    // Draw vertical lines
+    for (int x = 0; x <= GRID_WIDTH; x++) {
+        float line_x = image_pos.x + x * cell_width;
+        draw_list->AddLine(
+            ImVec2(line_x, image_pos.y),
+            ImVec2(line_x, image_pos.y + image_size.y),
+            grid_color,
+            1.0f
+        );
+    }
+
+    // Draw horizontal lines
+    for (int y = 0; y <= GRID_HEIGHT; y++) {
+        float line_y = image_pos.y + y * cell_height;
+        draw_list->AddLine(
+            ImVec2(image_pos.x, line_y),
+            ImVec2(image_pos.x + image_size.x, line_y),
+            grid_color,
+            1.0f
+        );
+    }
+
+    // Render selected cells
+    for (int y = 0; y < GRID_HEIGHT; y++) {
+        for (int x = 0; x < GRID_WIDTH; x++) {
+            if (g_GridSelection[y * GRID_WIDTH + x]) {
+                ImVec2 cell_pos = ImVec2(image_pos.x + x * cell_width, image_pos.y + y * cell_height);
+                draw_list->AddRectFilled(cell_pos,
+                    ImVec2(cell_pos.x + cell_width, cell_pos.y + cell_height),
+                    IM_COL32(255, 255, 0, 120));
+            }
+        }
+    }
+}
+
+void HandleInputs()
+{
+    ImGuiIO& io = ImGui::GetIO();
+    static bool is_dragging = false;
+    static ImVec2 drag_start_pos, drag_start_pan;
+
+    if (!io.WantCaptureMouse) {
+        // Mouse wheel zoom
+        if (io.MouseWheel != 0.0f) {
+            float old_zoom = g_Zoom;
+            g_Zoom += io.MouseWheel * 0.1f;
+            g_Zoom = (g_Zoom < 1.0f) ? 1.0f : (g_Zoom > 4.0f) ? 4.0f : g_Zoom;
+
+            // Zoom towards mouse position
+            float zoom_ratio = g_Zoom / old_zoom;
+
+            // Calculate mouse offset from image center and adjust pan
+            ImVec2 image_center = ImVec2(io.DisplaySize.x * 0.5f + g_Pan.x, io.DisplaySize.y * 0.5f + g_Pan.y);
+            ImVec2 mouse_offset = ImVec2(io.MousePos.x - image_center.x, io.MousePos.y - image_center.y);
+            g_Pan.x += mouse_offset.x * (1.0f - zoom_ratio);
+            g_Pan.y += mouse_offset.y * (1.0f - zoom_ratio);
+
+            ApplyPanBoundaries();
+        }
+
+        // Right mouse button for panning/dragging
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+            is_dragging = true;
+            drag_start_pos = io.MousePos;
+            drag_start_pan = g_Pan;
+        }
+
+        if (is_dragging && ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+            ImVec2 drag_delta = ImVec2(io.MousePos.x - drag_start_pos.x, io.MousePos.y - drag_start_pos.y);
+            g_Pan.x = drag_start_pan.x + drag_delta.x;
+            g_Pan.y = drag_start_pan.y + drag_delta.y;
+            ApplyPanBoundaries();
+        }
+
+        if (ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
+            is_dragging = false;
+        }
+
+        // Left mouse button is handled by grid selection in RenderGrid()
+    }
+    else {
+        is_dragging = false;
+    }
+}
+
 // Main code
 int main(int, char**)
 {
-    // Create application window
+    // Create application window - match image resolution
     //ImGui_ImplWin32_EnableDpiAwareness();
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"ImGui Example", nullptr };
     ::RegisterClassExW(&wc);
-    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Dear ImGui DirectX11 Example", WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, nullptr, nullptr, wc.hInstance, nullptr);
+    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Dear ImGui DirectX11 Example", WS_OVERLAPPEDWINDOW, 100, 100, 2048, 1381, nullptr, nullptr, wc.hInstance, nullptr);
 
     // Initialize Direct3D
     if (!CreateDeviceD3D(hwnd))
@@ -158,6 +325,9 @@ int main(int, char**)
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
+        // Handle input for zoom and pan
+        HandleInputs();
+
         // Render background first, then buttons
         RenderTileSelectView();
         RenderButton();
@@ -247,7 +417,6 @@ void CleanupRenderTarget()
 bool LoadTextureFromFile(const char* filename, ID3D11ShaderResourceView** out_srv, int* out_width, int* out_height)
 {
     FILE* file = fopen(filename, "rb");
-
     if (!file) return false;
 
     unsigned char header[54];
@@ -278,8 +447,8 @@ bool LoadTextureFromFile(const char* filename, ID3D11ShaderResourceView** out_sr
     delete[] bmp_data;
 
     // Create D3D texture
-    D3D11_TEXTURE2D_DESC desc = { width, abs(height), 1, 1, DXGI_FORMAT_R8G8B8A8_UNORM, {1, 0}, D3D11_USAGE_DEFAULT, D3D11_BIND_SHADER_RESOURCE };
-    D3D11_SUBRESOURCE_DATA sub = { rgba_data, width * 4, 0 };
+    D3D11_TEXTURE2D_DESC desc = { (UINT)width, (UINT)abs(height), 1, 1, DXGI_FORMAT_R8G8B8A8_UNORM, {1, 0}, D3D11_USAGE_DEFAULT, D3D11_BIND_SHADER_RESOURCE };
+    D3D11_SUBRESOURCE_DATA sub = { rgba_data, (UINT)(width * 4), 0 };
 
     ID3D11Texture2D* tex = nullptr;
     g_pd3dDevice->CreateTexture2D(&desc, &sub, &tex);
