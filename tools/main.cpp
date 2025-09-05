@@ -6,7 +6,8 @@
 #include <tchar.h>
 #include <wincodec.h>
 #include <cstdio>
-
+#include <string>
+#include <sstream>  
 // Data
 static ID3D11Device* g_pd3dDevice = nullptr;
 static ID3D11DeviceContext* g_pd3dDeviceContext = nullptr;
@@ -15,21 +16,24 @@ static bool                     g_SwapChainOccluded = false;
 static UINT                     g_ResizeWidth = 0, g_ResizeHeight = 0;
 static ID3D11RenderTargetView* g_mainRenderTargetView = nullptr;
 
-// Background image data
+// 背景图数据
 static ID3D11ShaderResourceView* g_pBackgroundTexture = nullptr;
 static int g_BackgroundWidth = 0;
 static int g_BackgroundHeight = 0;
 
-// Zoom and pan state
+//缩放数据
 static float g_Zoom = 1.0f;
 static ImVec2 g_Pan = ImVec2(0, 0);
 
-// Grid selection state
-static const int GRID_WIDTH = 129;  // 2048/16 = 128, use 129 for proper coverage
-static const int GRID_HEIGHT = 85;  // 1381/16.24 ≈ 85, making square tiles
+
+static const int GRID_WIDTH = 129;  // 2048/16 = 128, use 129 
+static const int GRID_HEIGHT = 85;  // 1381/16.24 ≈ 85
 static bool g_GridSelection[GRID_WIDTH * GRID_HEIGHT] = { false };
 
-// Forward declarations of helper functions
+
+static std::string g_SelectedCoordsInfo = ""; // 选中数据  
+
+
 bool CreateDeviceD3D(HWND hWnd);
 void CleanupDeviceD3D();
 void CreateRenderTarget();
@@ -46,11 +50,49 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 void RenderButton()
 {
     ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(140, 100), ImGuiCond_FirstUseEver);
-    ImGui::Begin("ButtonOverlay", nullptr, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoResize);
+    ImGui::SetNextWindowSize(ImVec2(300, 400), ImGuiCond_FirstUseEver);
+    ImGui::Begin("ButtonOverlay", nullptr);
 
-    ImGui::Button("Gen", ImVec2(120, 40));
-    ImGui::Button("Reset", ImVec2(120, 40));
+    // Gen button -生成坐标信息
+    if (ImGui::Button("Gen", ImVec2(120, 40))) {
+        std::ostringstream oss;
+        oss << "Selected Coordinates:\n";
+
+        int count = 0;
+        for (int y = 0; y < GRID_HEIGHT; y++) {
+            for (int x = 0; x < GRID_WIDTH; x++) {
+                if (g_GridSelection[y * GRID_WIDTH + x]) {
+                    oss << "Grid[" << x << "," << y << "]\n";
+                    count++;
+                }
+            }
+        }
+
+        if (count == 0) {
+            oss << "No tiles selected";
+        }
+        else {
+            oss << "Total: " << count << " tiles";
+        }
+
+        g_SelectedCoordsInfo = oss.str();
+    }
+
+    // Reset button - 重置选中以及清楚信息
+    if (ImGui::Button("Reset", ImVec2(120, 40))) {
+        
+        for (int i = 0; i < GRID_WIDTH * GRID_HEIGHT; i++) {
+            g_GridSelection[i] = false;
+        }
+       
+        g_SelectedCoordsInfo = "";
+    }
+
+    //显示
+    if (!g_SelectedCoordsInfo.empty()) {
+        ImGui::Separator();
+        ImGui::TextWrapped("%s", g_SelectedCoordsInfo.c_str());
+    }
 
     ImGui::End();
 }
@@ -66,25 +108,25 @@ void RenderTileSelectView()
         ImVec2 image_size = GetImageSize();
         ImVec2 image_pos = GetImagePos();
 
-        // Render the image
+        // 渲染图片
         ImGui::GetWindowDrawList()->AddImage(
             (ImTextureID)g_pBackgroundTexture,
             image_pos,
             ImVec2(image_pos.x + image_size.x, image_pos.y + image_size.y)
         );
 
-        // Render grid overlay
+        
         RenderGrid();
     }
 
     ImGui::End();
 }
 
-// Calculate current image dimensions and position
+// 计算图片位置 -转化
 ImVec2 GetImageSize()
 {
     ImGuiIO& io = ImGui::GetIO();
-    // Since window matches image resolution, scale should be 1:1 at base zoom
+    // scale 1:1
     return ImVec2((float)g_BackgroundWidth * g_Zoom, (float)g_BackgroundHeight * g_Zoom);
 }
 
@@ -98,13 +140,13 @@ ImVec2 GetImagePos()
     );
 }
 
-// Apply pan boundary limits to keep image covering entire window
+//限制图片被拖出窗口外，让图片完整覆盖整个窗口
 void ApplyPanBoundaries()
 {
     ImGuiIO& io = ImGui::GetIO();
     ImVec2 image_size = GetImageSize();
 
-    // Pan limits: image must always cover window completely
+    
     float max_pan_x = (image_size.x - io.DisplaySize.x) * 0.5f;
     float max_pan_y = (image_size.y - io.DisplaySize.y) * 0.5f;
 
@@ -112,7 +154,7 @@ void ApplyPanBoundaries()
     g_Pan.y = (g_Pan.y > max_pan_y) ? max_pan_y : (g_Pan.y < -max_pan_y) ? -max_pan_y : g_Pan.y;
 }
 
-// Render grid overlay and handle selection
+// 网格线， 网格选择
 void RenderGrid()
 {
     ImGuiIO& io = ImGui::GetIO();
@@ -123,7 +165,7 @@ void RenderGrid()
     float cell_width = image_size.x / GRID_WIDTH;
     float cell_height = image_size.y / GRID_HEIGHT;
 
-    // Handle grid selection
+    // 选择
     if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.WantCaptureMouse) {
         ImVec2 mouse_rel = ImVec2(io.MousePos.x - image_pos.x, io.MousePos.y - image_pos.y);
         if (mouse_rel.x >= 0 && mouse_rel.x <= image_size.x && mouse_rel.y >= 0 && mouse_rel.y <= image_size.y) {
@@ -135,10 +177,10 @@ void RenderGrid()
         }
     }
 
-    // Draw grid lines
-    ImU32 grid_color = IM_COL32(200, 200, 200, 80); // Light gray with transparency
+    // 画线
+    ImU32 grid_color = IM_COL32(200, 200, 200, 80); 
 
-    // Draw vertical lines
+   
     for (int x = 0; x <= GRID_WIDTH; x++) {
         float line_x = image_pos.x + x * cell_width;
         draw_list->AddLine(
@@ -149,7 +191,7 @@ void RenderGrid()
         );
     }
 
-    // Draw horizontal lines
+    
     for (int y = 0; y <= GRID_HEIGHT; y++) {
         float line_y = image_pos.y + y * cell_height;
         draw_list->AddLine(
@@ -160,7 +202,7 @@ void RenderGrid()
         );
     }
 
-    // Render selected cells
+    // 
     for (int y = 0; y < GRID_HEIGHT; y++) {
         for (int x = 0; x < GRID_WIDTH; x++) {
             if (g_GridSelection[y * GRID_WIDTH + x]) {
