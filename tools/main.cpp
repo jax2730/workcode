@@ -78,6 +78,8 @@ void RenderButton()
         g_SelectedCoordsInfo = oss.str();
     }
 
+   
+
     // Reset button - 重置选中以及清楚信息
     if (ImGui::Button("Reset", ImVec2(120, 40))) {
         
@@ -86,6 +88,15 @@ void RenderButton()
         }
        
         g_SelectedCoordsInfo = "";
+    }
+
+    if (ImGui::Button("Save", ImVec2(120, 40)))
+    {
+
+    }
+    if (ImGui::Button("Load", ImVec2(120, 40)))
+    {
+
     }
 
     //显示
