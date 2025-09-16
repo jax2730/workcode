@@ -25,6 +25,9 @@
     <ClCompile Include="E:\C++pandan\workcode\tools\imgui\backends\imgui_impl_win32.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="G:\Echo_SU_Develop\Tools\xxsjMaptools\WindowTool.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="E:\C++pandan\workcode\tools\CMakeLists.txt" />
@@ -33,5 +36,10 @@
     <Filter Include="Source Files">
       <UniqueIdentifier>{7F6AFD26-F8CD-3751-AEDC-ABE356CDEDAA}</UniqueIdentifier>
     </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="G:\Echo_SU_Develop\Tools\xxsjMaptools\WIndowTool.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
