@@ -14,9 +14,12 @@
 #include "EchoPlanetRoadResource.h"
 #include "EchoPhysXManager.h"
 #include "EchoRoadManager.h"
+#include "EchoVoxelTerrainComponent.h"
+
 #include"EchoMeshMgr.h"
 #include "EchoStringConverter.h"
 #include"EchoImage.h"
+
 namespace 
 {
 	const Echo::Vector3 VEC3_NAN(std::numeric_limits<float>::quiet_NaN());
@@ -63,6 +66,8 @@ namespace Echo {
 	EDITOR_REFLECT_MEMBER_UPDATE(m_CloudAmbientFactor, "CloudAmbientFactor", EditorUI_DRAG, nullptr, reflect::Info_SHOW_ALL)
 	EDITOR_REFLECT_MEMBER_UPDATE(m_CloudNoiseOffsetScale, "CloudNoiseOffsetScale", EditorUI_DRAG, nullptr, reflect::Info_SHOW_ALL)
 	EDITOR_REFLECT_MEMBER_UPDATE(m_CloudTexture, "CloudTexture", EditorUI_DRAG, nullptr, reflect::Info_SHOW_ALL)
+
+	EDITOR_REFLECT_MEMBER_UPDATE(m_EnableVoxel, "EnableVoxel", EditorUI_DRAG, nullptr, reflect::Info_SHOW_ALL)
 
 		//////////////////////////////////////
 	EDITOR_REFLECT_MEMBER_UPDATE(mCloudProperty.EnableVolumetricCloud, "EnableVolumetricCloud", EditorUI_DRAG, nullptr, reflect::Info_SHOW_ALL)
@@ -115,6 +120,8 @@ namespace Echo {
 			m_fCloudNoiseOffsetScale = pInfo->GetCloudNoiseOffsetScale();
 			m_strCloudTexture = pInfo->GetCloudTexture();
 			mCloudProperty = pInfo->mCloudProperty;
+
+			m_EnableVoxel = pInfo->GetEnableVoxel();
 		}
 		SetNotifiedUpdate(true);
 		RegisterPhysicsTerrain();
@@ -222,6 +229,7 @@ namespace Echo {
             }
 			//RoadManager::instance()->updatePlanetBuildingMaskCache(m_pSphericalTerrain, true);
         }
+		CreateVoxel();
             
             /*
 
@@ -273,6 +281,7 @@ namespace Echo {
 
 	void SphericalTerrainComponent::OnDestroy()
 	{
+		DestroyVoxel();
 		ClearPlanetRoadCache();
 
 		SetIsUsePhysics(false);
@@ -793,6 +802,7 @@ namespace Echo {
 	}
 	void SphericalTerrainComponent::DestroyTerrain() {
 		if (m_pSphericalTerrain == nullptr) return;
+		DestroyVoxel();
 		ClearPlanetRoadCache();
 		m_pSphericalTerrain->removeLoadListener((SphericalTerrain::LoadListener*)this);
 		
@@ -814,6 +824,33 @@ namespace Echo {
 	bool SphericalTerrainComponent::getIsNearby(const Vector3& worldPos) {
 		return getWorldPosition().squaredDistance(worldPos) < m_NearEarthHeightSqr;
 	}
+
+	void SphericalTerrainComponent::CreateVoxel()
+	{
+		DestroyVoxel();
+		if (!m_EnableVoxel) return;
+		if (!m_pSphericalTerrain || m_pSphericalTerrain->m_terrainData.isNull()) return;
+
+		m_VoxelComponent = getActor()->addComponent(VoxelTerrainComponent::mType, m_nComName + "_Voxel", weak_from_this());
+		auto voxelCom    = m_VoxelComponent.getDynamicCastWeakPtr<VoxelTerrainComponent>();
+		voxelCom->setVisible(getRealVisibleState());
+		voxelCom->SetIsUsePhysics(GetIsUsePhysics());
+		voxelCom->SetTerrain(m_pSphericalTerrain);
+		voxelCom->ChangeTerrain();
+
+		SetIsUsePhysics(false);
+	}
+
+	void SphericalTerrainComponent::DestroyVoxel()
+	{
+		if (m_VoxelComponent.expired()) return;
+
+		const auto usePhy = m_VoxelComponent.getDynamicCastWeakPtr<VoxelTerrainComponent>()->GetIsUsePhysics();
+		SetIsUsePhysics(usePhy);
+		getActor()->delComponent(m_VoxelComponent);
+		m_VoxelComponent.reset();
+	}
+
 	bool SphericalTerrainComponent::IsCanPhysics() {
 		return m_pSphericalTerrain != nullptr && m_pSphericalTerrain->isCreateFinish();
 	}
@@ -1469,18 +1506,22 @@ namespace Echo {
 			*/
 			pScheduler->ExportGenObjects(allObjects);
 
-			// 热力图参数（球面经纬投影，避免 SceneHeatMap 的平面投影）
-			const int hm_width = 2048;   // 经度方向（0~360）
-			const int hm_height = 1024;  // 纬度方向（0~180）
-			// 归一化与阈值
-			const float TriUnit = 1000.f;
-			float maxTri = 45000.f;
-			float minTri = 20000.f;
-			std::vector<float> heatmap(hm_width * hm_height, 0.f);
-			float hm_maxTri = 0.f;
-			const float invTwoPi = 1.0f / (2.0f * ECHO_PI);
-			const float invPi = 1.0f / ECHO_PI;
+			// 重新采用 cube-map 6 面的网格统计，每面单独输出贴图
+			const int faceW = 1024;
+			const int faceH = 1024;
+			const float TriUnit = 1000.f;  // 三角面缩放系数
 			const float planetRadius = pSphericalTerrain->getRadius();
+			const float faceAngSpan = ECHO_PI * 0.5f; // 每个面约 90 度
+			// 6 面热量缓存与最大值
+			std::array<std::vector<float>, 6> heatFaces{
+				std::vector<float>(faceW * faceH, 0.f),
+				std::vector<float>(faceW * faceH, 0.f),
+				std::vector<float>(faceW * faceH, 0.f),
+				std::vector<float>(faceW * faceH, 0.f),
+				std::vector<float>(faceW * faceH, 0.f),
+				std::vector<float>(faceW * faceH, 0.f)
+			};
+			std::array<float, 6> faceMax{};
 
 			// 遍历所有导出的对象
 			int validMeshCount = 0;
@@ -1506,8 +1547,8 @@ namespace Echo {
 					const AxisAlignedBox& meshBound = sourceMesh->getAABB();//模型局部包围盒
 					uint32 triangleCount = sourceMesh->getTriangleCount();//模型三角面
 
-					// 调试辅助：确保可命中并观察 triangleCount 的实际值
-					volatile uint32 __dbgTriangleCount = triangleCount; // 可在此行打断点
+					
+					volatile uint32 __dbgTriangleCount = triangleCount; 
 					if (triangleCount == 0u)
 					{
 						LogManager::instance()->logMessage("--warning-- triangleCount==0 for " + meshName.toString());
@@ -1532,36 +1573,39 @@ namespace Echo {
 						++validMeshCount;
 						totalTriangles += triangleCount;
 
-						// 球面投影到经纬图（按实例中心近似，支持简单覆盖半径）
-						Vector3 centerLs = (worldAabb.getMaximum() + worldAabb.getMinimum()) * 0.5f; // 世界中心
-						Vector3 dir = centerLs.normalisedCopy();
-						float u = (atan2f(dir.z, dir.x) + ECHO_PI) * invTwoPi; // [0,1)
-						float v = 0.5f - asinf(dir.y) * invPi;               // [0,1]
-						int cx = Math::Clamp(int(u * (hm_width - 1) + 0.5f), 0, hm_width - 1);
-						int cy = Math::Clamp(int(v * (hm_height - 1) + 0.5f), 0, hm_height - 1);
-						// 估计覆盖像素半径：由包围盒半径换算角半径，再换算到像素
+						// 1) 世界→局部→单位球
+						Vector3 centerWs = (worldAabb.getMaximum() + worldAabb.getMinimum()) * 0.5f;
+						Vector3 centerLs = pSphericalTerrain->ToLocalSpace((DVector3)centerWs);
+						centerLs.normalise();
+						// 2) 球→cube面及局部坐标
+						SphericalTerrainQuadTreeNode::Face face;
+						Vector2 xy;
+						SphericalTerrainQuadTreeNode::MapToCube(centerLs, face, xy); // xy in [-1,1]
+						Vector2 uvLocal = xy * 0.5f + 0.5f; // [0,1]
+						int cx = Math::Clamp(int(uvLocal.x * (faceW - 1) + 0.5f), 0, faceW - 1);
+						int cy = Math::Clamp(int(uvLocal.y * (faceH - 1) + 0.5f), 0, faceH - 1);
+						// 3) 用 AABB 尺寸估算角半径并换算到当前面的像素半径
 						Vector3 half = (worldAabb.getMaximum() - worldAabb.getMinimum()) * 0.5f;
 						float linRadius = half.length();
-						float angRadius = Math::Clamp(linRadius / std::max(planetRadius, 1e-3f), 0.f, ECHO_PI);
-						// 保底覆盖半径，避免热量呈现稀疏像素点
-						int rx = std::max(2, int(angRadius * hm_width * invTwoPi + 0.5f));
-						int ry = std::max(2, int(angRadius * hm_height * invPi + 0.5f));
-						int xStart = Math::Clamp(cx - rx, 0, hm_width - 1);
-						int xEnd = Math::Clamp(cx + rx, 0, hm_width - 1);
-						int yStart = Math::Clamp(cy - ry, 0, hm_height - 1);
-						int yEnd = Math::Clamp(cy + ry, 0, hm_height - 1);
+						float angRadius = Math::Clamp(linRadius / std::max(planetRadius, 1e-3f), 0.f, faceAngSpan);
+						int rx = std::max(2, int(angRadius * (float)faceW / faceAngSpan + 0.5f));
+						int ry = std::max(2, int(angRadius * (float)faceH / faceAngSpan + 0.5f));
+						int xStart = Math::Clamp(cx - rx, 0, faceW - 1);
+						int xEnd = Math::Clamp(cx + rx, 0, faceW - 1);
+						int yStart = Math::Clamp(cy - ry, 0, faceH - 1);
+						int yEnd = Math::Clamp(cy + ry, 0, faceH - 1);
 						for (int y = yStart; y <= yEnd; ++y)
 						{
 							for (int x = xStart; x <= xEnd; ++x)
 							{
-								int idx = y * hm_width + x;
+								int idx = y * faceW + x;
 								float add = float(triangleCount) / TriUnit;
-								heatmap[idx] += add;
-								hm_maxTri = std::max(hm_maxTri, heatmap[idx]);
+								heatFaces[face][idx] += add;
+								faceMax[face] = std::max(faceMax[face], heatFaces[face][idx]);
 							}
 						}
 
-						// 这里可以保存或使用 id, meshName, worldAabb, triangleCount
+					
 					}
 				}
 				catch (...) {
@@ -1569,58 +1613,10 @@ namespace Echo {
 				}
 			}
 
-			// 输出 PNG（与 SceneHeatMap.OutPutPNG 类似）
+			
 			{
-				Image hmapImg;
-				hmapImg.setHeight(hm_height);
-				hmapImg.setWidth(hm_width);
-				hmapImg.setFormat(PixelFormat::PF_R8G8B8);
-				hmapImg.allocMemory();
-				ColorValue color;
-				for (int z = 0; z < hm_height; ++z)
-				{
-					for (int x = 0; x < hm_width; ++x)
-					{
-						float v = heatmap[z * hm_width + x];
-						float t = hm_maxTri > 0.f ? Math::Clamp(v / hm_maxTri, 0.f, 1.f) : 0.f;
-						// 轻微 gamma 以增强低值可见度
-						t = Math::Pow(t, 0.6f);
-						// 连续热力色带：蓝->青->绿->黄->红
-						if (t < 0.25f)
-						{
-							float k = t / 0.25f;            // 0..1
-							color.r = 0.f;
-							color.g = 0.5f * k;
-							color.b = 1.f;
-						}
-						else if (t < 0.5f)
-						{
-							float k = (t - 0.25f) / 0.25f;  // 0..1
-							color.r = 0.f;
-							color.g = 0.5f + 0.5f * k;
-							color.b = 1.f - k;
-						}
-						else if (t < 0.75f)
-						{
-							float k = (t - 0.5f) / 0.25f;   // 0..1
-							color.r = k;
-							color.g = 1.f;
-							color.b = 0.f;
-						}
-						else
-						{
-							float k = (t - 0.75f) / 0.25f;  // 0..1
-							color.r = 1.f;
-							color.g = 1.f - k;
-							color.b = 0.f;
-						}
-						hmapImg.setColourAt(color, x, z, 0);
-					}
-				}
-				// 文件名：从传入 terrainPath 派生目标 PNG 的绝对路径
 				std::string selPath = terrainPath.c_str();
 				std::replace(selPath.begin(), selPath.end(), '\\', '/');
-				// 若传入为相对路径，则补全为资源根目录下的绝对路径
 				bool isAbsolute = (selPath.size() > 1 && (selPath[1] == ':' || selPath[0] == '/'));
 				if (!isAbsolute)
 				{
@@ -1634,23 +1630,40 @@ namespace Echo {
 				std::string base = selPath;
 				if (slash != std::string::npos) base = selPath.substr(slash + 1);
 				if (dot != std::string::npos && dot > slash) base = selPath.substr(slash + 1, dot - slash - 1);
-				std::string outFile = dir + "/" + base + ".heatmap.png";
 
-				// 保存并记录日志
-				hmapImg.save(outFile);
-				LogManager::instance()->logMessage("--info-- heatmap saved: " + outFile);
-				hmapImg.freeMemory();
+				for (int face = 0; face < 6; ++face)
+				{
+					Image img;
+					img.setHeight(faceH);
+					img.setWidth(faceW);
+					img.setFormat(PixelFormat::PF_R8G8B8);
+					img.allocMemory();
+					ColorValue color;
+					float maxV = std::max(faceMax[face], 1e-6f);
+					for (int y = 0; y < faceH; ++y)
+					{
+						for (int x = 0; x < faceW; ++x)
+						{
+							float v = heatFaces[face][y * faceW + x];
+							float t = Math::Clamp(v / maxV, 0.f, 1.f);
+							t = Math::Pow(t, 0.6f);
+							if (t < 0.25f) { float k = t / 0.25f; color =ColorValue { 0, 0.5f * k, 1, 1 }; }
+							else if (t < 0.5f) { float k = (t - 0.25f) / 0.25f; color = ColorValue{ 0, 0.5f + 0.5f * k, 1 - k, 1 }; }
+							else if (t < 0.75f) { float k = (t - 0.5f) / 0.25f; color = ColorValue{ k, 1, 0, 1 }; }
+							else { float k = (t - 0.75f) / 0.25f; color = ColorValue{ 1, 1 - k, 0, 1 }; }
+							img.setColourAt(color, x, y, 0);
+						}
+					}
+					static const char* faceName[6] = { "posx","negx","posy","negy","posz","negz" };
+					std::string outFile = dir + "/" + base + ".heatmap_" + faceName[face] + ".png";
+					img.save(outFile);
+					img.freeMemory();
+				}
 			}
 		}
 		pPlanetManager->destroySphericalTerrain(pSphericalTerrain);
 		return true;
 	}
-	bool SphericalTerrainComponent::test(const String& test)
-	{
-		return false;
-	}
-
-
 
 	//NOTE: selected region will be highlight display.
     void SphericalTerrainComponent::setSelectedRegion(int regionID)
@@ -2210,6 +2223,27 @@ namespace Echo {
 			m_pSphericalTerrain->setMsExtinFactor(mCloudProperty.getMsExtinFactor());
 			m_pSphericalTerrain->setMsPhaseFactor(mCloudProperty.getMsPhaseFactor());
 		}
+	}
+
+	void SphericalTerrainComponent::setEnableVoxel(const bool val)
+	{
+		if (!m_pSphericalTerrain || m_pSphericalTerrain->m_terrainData.isNull() || m_EnableVoxel == val) return;
+
+		m_EnableVoxel = val;
+		if (val)
+		{
+			CreateVoxel();
+		}
+		else
+		{
+			DestroyVoxel();
+		}
+	}
+
+	bool SphericalTerrainComponent::getEnableVoxel()
+	{
+		if (!m_pSphericalTerrain) return false;
+		return m_EnableVoxel;
 	}
 
 	void SphericalTerrainComponent::BuildPlanetRoad(bool sync)
