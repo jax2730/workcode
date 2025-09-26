@@ -426,7 +426,41 @@ namespace Echo
 		
 		static bool ExportPCGObjectsBounds(const String& terrainPath);
 
+		// Heatmap export settings (editor helper)
+		enum HeatmapColorMode {
+			HEATMAP_RGB = 0,        // 默认彩虹色（蓝->绿->黄->红）
+			HEATMAP_SINGLE_COLOR    // 单色渐变（浅->深）
+		};
+		
+		static void SetHeatmapDesiredCellLen(float lenWs);
+		static float GetHeatmapDesiredCellLen();
+		
+		static void SetHeatmapColorMode(HeatmapColorMode mode);
+		static HeatmapColorMode GetHeatmapColorMode();
+		
+		static void SetHeatmapBaseColor(const ColorValue& color);
+		static ColorValue GetHeatmapBaseColor();
+		
+		// 手动阈值设置
+		static void SetUseManualThresholds(bool enable);
+		static bool GetUseManualThresholds();
+		static void SetManualMaxThreshold(float maxValue);
+		static float GetManualMaxThreshold();
+		static void SetManualMinThreshold(float minValue);
+		static float GetManualMinThreshold();
+		
+		// 根据设置计算热力图颜色
+		static ColorValue CalculateHeatmapColor(float rawValue, float autoMaxValue);
+
 		static bool test(const String& test);
+
+	private:
+		static float s_HeatmapDesiredCellLenWs;
+		static HeatmapColorMode s_HeatmapColorMode;
+		static ColorValue s_HeatmapBaseColor;
+		static bool s_UseManualThresholds;
+		static float s_ManualMaxThreshold;
+		static float s_ManualMinThreshold;
 
 	public:
 		class _EchoComponentExport RoadListener : public PlanetRoadListener
@@ -478,6 +512,7 @@ namespace Echo
 		_DECLCOMINFO_PARAM_END()
 	public:
 		VolumetricCloudProperty			mCloudProperty;
+    private:
 	};
 
 	DEFINECOMFACTORY(SphericalTerrainComponent,ALL_MOVEABLE)

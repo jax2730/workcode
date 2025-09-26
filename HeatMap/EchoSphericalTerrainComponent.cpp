@@ -1467,37 +1467,55 @@ namespace Echo {
 			/*
 					Name : .mesh路径
 					std::tuple<Vector3, Quaternion, Vector3, uint64> : 位置/旋转/缩放/ID
-					
+
 			*/
 			pScheduler->ExportGenObjects(allObjects);
 
-			// 重新采用 cube-map 6 面的网格统计，每面单独输出贴图
-			const int faceW = 1024;
-			const int faceH = 1024;
-			const float TriUnit = 1000.f;  // 三角面缩放系数
+			// 采用“面→网格→像素”的统计：先把一个面划分为若干网格单元(cell)，
+			// 每个 cell 累加落入该单元的对象三角面数量；最终再把 cell 映射到贴图像素。
+            // 网格与贴图分辨率根据星球半径与期望的“单格实际长度”动态生成。
+            const float desiredCellLenWs = std::max(1.0f, SphericalTerrainComponent::GetHeatmapDesiredCellLen());   // 期望的每格在世界空间的边长（米/单位），可由UI设置
+			const float faceAngSpan = ECHO_PI * 0.5f; // 每个面张角约 90°
 			const float planetRadius = pSphericalTerrain->getRadius();
-			const float faceAngSpan = ECHO_PI * 0.5f; // 每个面约 90 度
-			// 6 面热量缓存与最大值
-			std::array<std::vector<float>, 6> heatFaces{
-				std::vector<float>(faceW * faceH, 0.f),
-				std::vector<float>(faceW * faceH, 0.f),
-				std::vector<float>(faceW * faceH, 0.f),
-				std::vector<float>(faceW * faceH, 0.f),
-				std::vector<float>(faceW * faceH, 0.f),
-				std::vector<float>(faceW * faceH, 0.f)
+
+            int gridW = 64;
+            int gridH = 64;
+            if (pSphericalTerrain->isSphere())
+            {
+                // 面宽对应的弧长 = R * 90°
+                const float faceArcLen = planetRadius * faceAngSpan; // 单位：世界长度
+                // 根据期望长度得到格子数量（允许细粒度变化，不强制较大的最小值）
+                const float cellLen = std::max(1.0f, desiredCellLenWs);
+                const float gridF   = faceArcLen / cellLen;    // 可能为小数
+                gridW = Math::Clamp((int)std::round(gridF), 2, 8192);
+                gridH = gridW; // 维持方形格子
+            }
+			// 贴图大小：默认 1 像素 = 1 格，保证纹理与网格一一对应（也可改为每格多像素）
+			const int faceW = gridW;
+			const int faceH = gridH;
+			const float TriUnit = 1000.f;            // 三角面缩放系数，避免数值过大
+
+			// 6 面“网格热量”与每面的最大值（用于归一化）
+			std::array<std::vector<float>, 6> gridFaces{
+				std::vector<float>(gridW * gridH, 0.f),
+				std::vector<float>(gridW * gridH, 0.f),
+				std::vector<float>(gridW * gridH, 0.f),
+				std::vector<float>(gridW * gridH, 0.f),
+				std::vector<float>(gridW * gridH, 0.f),
+				std::vector<float>(gridW * gridH, 0.f)
 			};
 			std::array<float, 6> faceMax{};
 
 			// 遍历所有导出的对象
 			int validMeshCount = 0;
 			uint64 totalTriangles = 0;
-			
+
 			for (auto& kv : allObjects)
 			{
 				const Name& meshName = kv.first; // .mesh路径
 				try {
 					MeshPtr meshptr = MeshMgr::instance()->load(meshName);
-					
+
 					if (meshptr.isNull()) continue;
 
 					// 特殊处理：若为虚拟网格（VirMesh），切换到真实网格再取包围盒与三角面数
@@ -1511,7 +1529,7 @@ namespace Echo {
 
 					const AxisAlignedBox& meshBound = sourceMesh->getAABB();//模型局部包围盒
 					uint32 triangleCount = sourceMesh->getTriangleCount();//模型三角面
-			
+
 					// 调试辅助：确保可命中并观察 triangleCount 的实际值
 					volatile uint32 __dbgTriangleCount = triangleCount; // 可在此行打断点
 					if (triangleCount == 0u)
@@ -1538,37 +1556,42 @@ namespace Echo {
 						++validMeshCount;
 						totalTriangles += triangleCount;
 
-					// 1) 世界→局部→单位球
-					Vector3 centerWs = (worldAabb.getMaximum() + worldAabb.getMinimum()) * 0.5f;
-					Vector3 centerLs = pSphericalTerrain->ToLocalSpace((DVector3)centerWs);
-					centerLs.normalise();
-					// 2) 球→cube面及局部坐标
-					SphericalTerrainQuadTreeNode::Face face;
-					Vector2 xy;
-					SphericalTerrainQuadTreeNode::MapToCube(centerLs, face, xy); // xy in [-1,1]
-					Vector2 uvLocal = xy * 0.5f + 0.5f; // [0,1]
-					int cx = Math::Clamp(int(uvLocal.x * (faceW - 1) + 0.5f), 0, faceW - 1);
-					int cy = Math::Clamp(int(uvLocal.y * (faceH - 1) + 0.5f), 0, faceH - 1);
-					// 3) 用 AABB 尺寸估算角半径并换算到当前面的像素半径
-					Vector3 half = (worldAabb.getMaximum() - worldAabb.getMinimum()) * 0.5f;
-					float linRadius = half.length();
-					float angRadius = Math::Clamp(linRadius / std::max(planetRadius, 1e-3f), 0.f, faceAngSpan);
-					int rx = std::max(2, int(angRadius * (float)faceW / faceAngSpan + 0.5f));
-					int ry = std::max(2, int(angRadius * (float)faceH / faceAngSpan + 0.5f));
-					int xStart = Math::Clamp(cx - rx, 0, faceW - 1);
-					int xEnd   = Math::Clamp(cx + rx, 0, faceW - 1);
-					int yStart = Math::Clamp(cy - ry, 0, faceH - 1);
-					int yEnd   = Math::Clamp(cy + ry, 0, faceH - 1);
-					for (int y = yStart; y <= yEnd; ++y)
-					{
-						for (int x = xStart; x <= xEnd; ++x)
+						// 1) 世界→局部→单位球
+						Vector3 centerWs = (worldAabb.getMaximum() + worldAabb.getMinimum()) * 0.5f;
+						Vector3 centerLs = pSphericalTerrain->ToLocalSpace((DVector3)centerWs);
+						centerLs.normalise();
+						// 2) 球→cube面及局部坐标
+						SphericalTerrainQuadTreeNode::Face face;
+						Vector2 xy;
+						SphericalTerrainQuadTreeNode::MapToCube(centerLs, face, xy); // xy in [-1,1]
+						Vector2 uvLocal = xy * 0.5f + 0.5f; // [0,1]
+						// 3) 选择网格 cell
+						int gcx = Math::Clamp(int(uvLocal.x * (gridW - 1) + 0.5f), 0, gridW - 1);
+						int gcy = Math::Clamp(int(uvLocal.y * (gridH - 1) + 0.5f), 0, gridH - 1);
+
+						// 4) 估算覆盖半径（按角半径换算到 cell 单位），并把三角面均匀摊入覆盖到的 cell 中
+						Vector3 half = (worldAabb.getMaximum() - worldAabb.getMinimum()) * 0.5f;
+						float linRadius = half.length();
+						float angRadius = Math::Clamp(linRadius / std::max(planetRadius, 1e-3f), 0.f, faceAngSpan);
+						int crx = std::max(0, int(angRadius * (float)gridW / faceAngSpan + 0.5f));
+						int cry = std::max(0, int(angRadius * (float)gridH / faceAngSpan + 0.5f));
+						int gxStart = Math::Clamp(gcx - crx, 0, gridW - 1);
+						int gxEnd = Math::Clamp(gcx + crx, 0, gridW - 1);
+						int gyStart = Math::Clamp(gcy - cry, 0, gridH - 1);
+						int gyEnd = Math::Clamp(gcy + cry, 0, gridH - 1);
+						const int coverW = gxEnd - gxStart + 1;
+						const int coverH = gyEnd - gyStart + 1;
+						const int coverN = std::max(1, coverW * coverH);
+						const float addShare = (float(triangleCount) / TriUnit) / float(coverN);
+						for (int gy = gyStart; gy <= gyEnd; ++gy)
 						{
-							int idx = y * faceW + x;
-							float add = float(triangleCount) / TriUnit;
-							heatFaces[face][idx] += add;
-							faceMax[face] = std::max(faceMax[face], heatFaces[face][idx]);
+							for (int gx = gxStart; gx <= gxEnd; ++gx)
+							{
+								int gidx = gy * gridW + gx;
+								gridFaces[face][gidx] += addShare;
+								faceMax[face] = std::max(faceMax[face], gridFaces[face][gidx]);
+							}
 						}
-					}
 
 						// 这里可以保存或使用 id, meshName, worldAabb, triangleCount
 					}
@@ -1578,11 +1601,11 @@ namespace Echo {
 				}
 			}
 
-			// 输出 6 张面贴图
+			// 输出 6 张面贴图（将网格热量映射到像素）
 			{
 				std::string selPath = terrainPath.c_str();
 				std::replace(selPath.begin(), selPath.end(), '\\', '/');
-				bool isAbsolute = (selPath.size() > 1 && (selPath[1] == ':' || selPath[0] == '/' ));
+				bool isAbsolute = (selPath.size() > 1 && (selPath[1] == ':' || selPath[0] == '/'));
 				if (!isAbsolute)
 				{
 					std::string root = Root::instance()->getRootResourcePath();
@@ -1590,13 +1613,13 @@ namespace Echo {
 					if (!root.empty() && root.back() == '/') selPath = root + selPath; else selPath = root + '/' + selPath;
 				}
 				size_t slash = selPath.find_last_of('/');
-				size_t dot   = selPath.find_last_of('.');
+				size_t dot = selPath.find_last_of('.');
 				std::string dir = (slash != std::string::npos) ? selPath.substr(0, slash) : std::string(".");
 				std::string base = selPath;
 				if (slash != std::string::npos) base = selPath.substr(slash + 1);
-				if (dot   != std::string::npos && dot > slash) base = selPath.substr(slash + 1, dot - slash - 1);
+				if (dot != std::string::npos && dot > slash) base = selPath.substr(slash + 1, dot - slash - 1);
 
-				for (int face = 0; face < 6; ++face)
+                for (int face = 0; face < 6; ++face)
 				{
 					Image img;
 					img.setHeight(faceH);
@@ -1609,26 +1632,196 @@ namespace Echo {
 					{
 						for (int x = 0; x < faceW; ++x)
 						{
-							float v = heatFaces[face][y * faceW + x];
-							float t = Math::Clamp(v / maxV, 0.f, 1.f);
-							t = Math::Pow(t, 0.6f);
-						if (t < 0.25f) { float k = t/0.25f; color = ColorValue(0.f, 0.5f*k, 1.f, 1.f); }
-						else if (t < 0.5f) { float k = (t-0.25f)/0.25f; color = ColorValue(0.f, 0.5f+0.5f*k, 1.f-k, 1.f); }
-						else if (t < 0.75f) { float k = (t-0.5f)/0.25f; color = ColorValue(k, 1.f, 0.f, 1.f); }
-						else { float k = (t-0.75f)/0.25f; color = ColorValue(1.f, 1.f-k, 0.f, 1.f); }
+							// 取该像素对应的网格 cell 值
+							int gx = (int)((float)x / (float)faceW * (float)gridW);
+							int gy = (int)((float)y / (float)faceH * (float)gridH);
+							gx = Math::Clamp(gx, 0, gridW - 1);
+							gy = Math::Clamp(gy, 0, gridH - 1);
+							float v = gridFaces[face][gy * gridW + gx];
+							color = CalculateHeatmapColor(v, maxV);
 							img.setColourAt(color, x, y, 0);
 						}
 					}
-					static const char* faceName[6] = {"posx","negx","posy","negy","posz","negz"};
+					static const char* faceName[6] = { "posx","negx","posy","negy","posz","negz" };
 					std::string outFile = dir + "/" + base + ".heatmap_" + faceName[face] + ".png";
 					img.save(outFile);
 					img.freeMemory();
+
+                    // 生成高分辨率版本，便于肉眼检查与更平滑的贴图显示
+                    const int upscale = 8; // 每格扩展到 upscale×upscale 像素
+                    const int hiW = faceW * upscale;
+                    const int hiH = faceH * upscale;
+                    Image hi;
+                    hi.setHeight(hiH);
+                    hi.setWidth(hiW);
+                    hi.setFormat(PixelFormat::PF_R8G8B8);
+                    hi.allocMemory();
+                    float maxV2 = std::max(faceMax[face], 1e-6f);
+                    for (int gy = 0; gy < gridH; ++gy)
+                    {
+                        for (int gx = 0; gx < gridW; ++gx)
+                        {
+                            float v = gridFaces[face][gy * gridW + gx];
+                            ColorValue c = CalculateHeatmapColor(v, maxV2);
+                            int x0 = gx * upscale, x1 = x0 + upscale - 1;
+                            int y0 = gy * upscale, y1 = y0 + upscale - 1;
+                            for (int py = y0; py <= y1; ++py)
+                                for (int px = x0; px <= x1; ++px)
+                                    hi.setColourAt(c, px, py, 0);
+                        }
+                    }
+                    std::string outFileHi = dir + "/" + base + ".heatmap_hi_" + faceName[face] + ".png";
+                    hi.save(outFileHi);
+                    hi.freeMemory();
 				}
 			}
-			}
-			pPlanetManager->destroySphericalTerrain(pSphericalTerrain);
-			return true;
+		}
+		pPlanetManager->destroySphericalTerrain(pSphericalTerrain);
+		return true;
 	}
+
+    // -------------------- Editor helper (heatmap settings) --------------------
+    float SphericalTerrainComponent::s_HeatmapDesiredCellLenWs = 500.0f;
+    SphericalTerrainComponent::HeatmapColorMode SphericalTerrainComponent::s_HeatmapColorMode = SphericalTerrainComponent::HeatmapColorMode::HEATMAP_RGB;
+    ColorValue SphericalTerrainComponent::s_HeatmapBaseColor = ColorValue(1.0f, 0.0f, 0.0f, 1.0f); // 默认红色
+    bool SphericalTerrainComponent::s_UseManualThresholds = false;
+    float SphericalTerrainComponent::s_ManualMaxThreshold = 12000.0f;
+    float SphericalTerrainComponent::s_ManualMinThreshold = 200.0f;
+
+    void SphericalTerrainComponent::SetHeatmapDesiredCellLen(float lenWs)
+    {
+        // Clamp to a sensible range to avoid pathological allocations
+        float clamped = Math::Clamp(lenWs, 1.0f, 100000.0f);
+        SphericalTerrainComponent::s_HeatmapDesiredCellLenWs = clamped;
+    }
+
+    float SphericalTerrainComponent::GetHeatmapDesiredCellLen()
+    {
+        return SphericalTerrainComponent::s_HeatmapDesiredCellLenWs;
+    }
+
+    void SphericalTerrainComponent::SetHeatmapColorMode(HeatmapColorMode mode)
+    {
+        SphericalTerrainComponent::s_HeatmapColorMode = mode;
+    }
+
+    SphericalTerrainComponent::HeatmapColorMode SphericalTerrainComponent::GetHeatmapColorMode()
+    {
+        return SphericalTerrainComponent::s_HeatmapColorMode;
+    }
+
+    void SphericalTerrainComponent::SetHeatmapBaseColor(const ColorValue& color)
+    {
+        SphericalTerrainComponent::s_HeatmapBaseColor = color;
+    }
+
+    ColorValue SphericalTerrainComponent::GetHeatmapBaseColor()
+    {
+        return SphericalTerrainComponent::s_HeatmapBaseColor;
+    }
+
+    void SphericalTerrainComponent::SetUseManualThresholds(bool enable)
+    {
+        SphericalTerrainComponent::s_UseManualThresholds = enable;
+    }
+
+    bool SphericalTerrainComponent::GetUseManualThresholds()
+    {
+        return SphericalTerrainComponent::s_UseManualThresholds;
+    }
+
+    void SphericalTerrainComponent::SetManualMaxThreshold(float maxValue)
+    {
+        SphericalTerrainComponent::s_ManualMaxThreshold = Math::Clamp(maxValue, 1.0f, 1000000.0f);
+    }
+
+    float SphericalTerrainComponent::GetManualMaxThreshold()
+    {
+        return SphericalTerrainComponent::s_ManualMaxThreshold;
+    }
+
+    void SphericalTerrainComponent::SetManualMinThreshold(float minValue)
+    {
+        SphericalTerrainComponent::s_ManualMinThreshold = Math::Clamp(minValue, 0.0f, 100000.0f);
+    }
+
+    float SphericalTerrainComponent::GetManualMinThreshold()
+    {
+        return SphericalTerrainComponent::s_ManualMinThreshold;
+    }
+
+    ColorValue SphericalTerrainComponent::CalculateHeatmapColor(float rawValue, float autoMaxValue)
+    {
+        // 根据设置决定使用手动阈值还是自动阈值
+        float maxThreshold, minThreshold;
+        if (s_UseManualThresholds)
+        {
+            maxThreshold = s_ManualMaxThreshold;
+            minThreshold = s_ManualMinThreshold;
+        }
+        else
+        {
+            maxThreshold = std::max(autoMaxValue, 1e-6f);
+            minThreshold = 0.0f;
+        }
+        
+        // 确保阈值合理
+        if (maxThreshold <= minThreshold)
+        {
+            maxThreshold = minThreshold + 1.0f;
+        }
+        
+        // 计算标准化的强度值
+        float intensity;
+        if (rawValue <= minThreshold)
+        {
+            intensity = 0.0f; // 低于下限，显示为最低强度（可能全黑）
+        }
+        else if (rawValue >= maxThreshold)
+        {
+            intensity = 1.0f; // 超过上限，显示为最高强度
+        }
+        else
+        {
+            intensity = (rawValue - minThreshold) / (maxThreshold - minThreshold);
+        }
+        
+        // Gamma校正，使变化更平滑
+        float t = Math::Pow(Math::Clamp(intensity, 0.f, 1.f), 0.6f);
+        
+        if (s_HeatmapColorMode == HeatmapColorMode::HEATMAP_RGB)
+        {
+            // RGB模式：蓝->绿->黄->红的彩虹渐变
+            if (t < 0.25f) {
+                float k = t / 0.25f;
+                return ColorValue(0.f, 0.5f * k, 1.f, 1.f);
+            }
+            else if (t < 0.5f) {
+                float k = (t - 0.25f) / 0.25f;
+                return ColorValue(0.f, 0.5f + 0.5f * k, 1.f - k, 1.f);
+            }
+            else if (t < 0.75f) {
+                float k = (t - 0.5f) / 0.25f;
+                return ColorValue(k, 1.f, 0.f, 1.f);
+            }
+            else {
+                float k = (t - 0.75f) / 0.25f;
+                return ColorValue(1.f, 1.f - k, 0.f, 1.f);
+            }
+        }
+        else // HeatmapColorMode::HEATMAP_SINGLE_COLOR
+        {
+            // 单色模式：基础颜色按强度变化
+            if (intensity <= 0.0f)
+            {
+                return ColorValue(0.f, 0.f, 0.f, 1.f); // 全黑
+            }
+            
+            ColorValue base = s_HeatmapBaseColor;
+            return ColorValue(base.r * t, base.g * t, base.b * t, 1.f);
+        }
+    }
+
 	bool SphericalTerrainComponent::test(const String& test)
 	{
 		return false;
