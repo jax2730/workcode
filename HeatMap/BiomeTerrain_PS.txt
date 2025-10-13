@@ -123,7 +123,7 @@
         #define BiomeDisplayMode_TextureTillingNoise 19
         #define BiomeDisplayMode_RegionSDF 20
         #define BiomeDisplayMode_GeometryHeatmap 21
-        
+
         float4 U_PSCustom11;
         int4 U_PSCustom9[70];
         int4 U_PSCustom12[70];
@@ -139,7 +139,7 @@
 
     float4 U_LightPower;
 
-    float4 U_PSCustom1[2];
+    float4 U_PSCustom1[6];
     float4 U_PSCustom2[4];   // custom uv tilling
     float4 U_PSCustom3[16];  // custom color 
     float4 U_PSCustom5;      // weatherCoverColorThreshold
@@ -388,7 +388,7 @@ PS_OUTPUT main(PS_INPUT IN)
         }
         else if(BiomeDisplayMode == BiomeDisplayMode_GeometryHeatmap)
         {
-            // 采用与 RegionIndex 相同的定位方法，保证与 CPU 侧 MapToCube 一致
+            
             int2 heatRes = 0;
             S_Diffuse.GetDimensions(heatRes.x, heatRes.y);
         #ifdef PROCEDURAL_SPHERE
@@ -600,9 +600,22 @@ PS_OUTPUT main(PS_INPUT IN)
         // triplanar projection
         float2 projectedUV[3] = {
             float2(localN.x > 0.f ? -localP.z :  localP.z, -localP.y) * BiomeTextureTilling, // projection along x axis
-            uv,                                                                              // prpjection along y axis
+            uv,                                                                              // projection along y axis
             float2(localN.z > 0.f ?  localP.x : -localP.x, -localP.y) * BiomeTextureTilling  // projection along z axis
         };
+
+        // Calculate dFdx/dFdy of projected UVs
+		float2 projectedUV_dx[3] = {
+			ddx(float2(localN.x > 0.f ? -localP.z :  localP.z, -localP.y)) * BiomeTextureTilling,
+			ddx(uv),
+			ddx(float2(localN.z > 0.f ?  localP.x : -localP.x, -localP.y)) * BiomeTextureTilling
+		};
+
+		float2 projectedUV_dy[3] = {
+			ddy(float2(localN.x > 0.f ? -localP.z :  localP.z, -localP.y)) * BiomeTextureTilling,
+			ddy(uv),
+			ddy(float2(localN.z > 0.f ? -localP.x :  localP.x, -localP.y)) * BiomeTextureTilling
+		};
 
         float3 weights = ComputeTriplanarSampleWeight(localN, 0.5, 3);
         BilinearSample bilinearSample = BilinearProjection(weights);
@@ -624,7 +637,7 @@ PS_OUTPUT main(PS_INPUT IN)
         continuousCoord = clamp(continuousCoord, 0, indexSize - 1);
 
         MaterialSample matSample = SelectMaterial(
-            continuousCoord, 
+            continuousCoord + offset, 
             aroundIDMapCoord, 
             aroundID, 
             U_PSCustom2, 
@@ -636,8 +649,25 @@ PS_OUTPUT main(PS_INPUT IN)
         // sample & blend textures
         // note first blend samples from two projections, then blend samples from two materials
         //---------------------------------------------------------------------------------------------------
+            float2 dx_prj0 = projectedUV_dx[bilinearSample.projectionIndex[0]];
+            float2 dy_prj0 = projectedUV_dy[bilinearSample.projectionIndex[0]];
+            float2 dx_prj1 = projectedUV_dx[bilinearSample.projectionIndex[1]];
+            float2 dy_prj1 = projectedUV_dy[bilinearSample.projectionIndex[1]];
+
+            // 根据材质索引获取到对应的tile开关，用于控制贴图平铺效果（随机 or 普通）
+            int mat_Index1 = matSample.matIndex[0] / 4;
+            int componentIndex1 = matSample.matIndex[0] % 4;
+            int mat_Index2 = matSample.matIndex[1] / 4;
+            int componentIndex2 = matSample.matIndex[1] % 4;
+            // 获取控制tile开关的值
+            int tileSwitch1 = (int)(U_PSCustom1[clamp(2 + mat_Index1, 0, 5)][componentIndex1]);
+            int tileSwitch2 = (int)(U_PSCustom1[clamp(2 + mat_Index2, 0, 5)][componentIndex2]);
+
             float2 UV_mat0_prj0 = 
                 matSample.customUVTilling[0] * projectedUV[bilinearSample.projectionIndex[0]];
+                
+            float2 scaledDx_prj00 = matSample.customUVTilling[0] * dx_prj0;
+            float2 scaledDy_prj00 = matSample.customUVTilling[0] * dy_prj0;
             
             // TextureSample mat0_prj0 = TextureBombingCheap(
             //     S_Custom,
@@ -653,7 +683,10 @@ PS_OUTPUT main(PS_INPUT IN)
                 S_CustomSamplerState,
                 S_Custom3,
                 S_Custom3SamplerState,
-                float3(UV_mat0_prj0, matSample.matIndex[0]));
+                float3(UV_mat0_prj0, matSample.matIndex[0]),
+				scaledDx_prj00,  // Uniform dx & dy
+				scaledDy_prj00,
+                tileSwitch1);
 
             // extract data from tex-sample
             float3 Albedo = mat0_prj0.map0Sample.xyz;
@@ -670,7 +703,8 @@ PS_OUTPUT main(PS_INPUT IN)
             {
                 float2 UV_mat0_prj1 = 
                     matSample.customUVTilling[0] * projectedUV[bilinearSample.projectionIndex[1]];
-
+                float2 scaledDx_prj01 = matSample.customUVTilling[0] * dx_prj1;
+                float2 scaledDy_prj01 = matSample.customUVTilling[0] * dy_prj1;
                 // TextureSample mat0_prj1 = TextureBombingCheap(
                 // S_Custom,
                 // S_CustomSamplerState,
@@ -678,14 +712,17 @@ PS_OUTPUT main(PS_INPUT IN)
                 // S_Custom3SamplerState,
                 // S_Custom7,
                 // S_Custom7SamplerState,
-                // float3(UV_mat0_prj1, matSample.matIndex[0]));
+                // float3(UV_mat0_prj1, matSample.matIndex[0])，
 
                 TextureSample mat0_prj1 = SampleNoTile(
                     S_Custom,
                     S_CustomSamplerState,
                     S_Custom3,
                     S_Custom3SamplerState,
-                    float3(UV_mat0_prj1, matSample.matIndex[0]));
+                    float3(UV_mat0_prj1, matSample.matIndex[0]),
+                    scaledDx_prj01,  // Uniform dx & dy
+				    scaledDy_prj01,
+                    tileSwitch1);
 
                 // extract data from tex-sample
                 float3 mat0_prj1_Albedo = mat0_prj1.map0Sample.xyz;
@@ -736,7 +773,8 @@ PS_OUTPUT main(PS_INPUT IN)
             {
                 float2 UV_mat1_prj0 =
                     matSample.customUVTilling[1] * projectedUV[bilinearSample.projectionIndex[0]];
-
+                float2 scaledDx_prj10 = matSample.customUVTilling[1] * dx_prj0;
+                float2 scaledDy_prj10 = matSample.customUVTilling[1] * dy_prj0;
                 // TextureSample mat1_prj0 = TextureBombingCheap(
                 // S_Custom,
                 // S_CustomSamplerState,
@@ -751,7 +789,10 @@ PS_OUTPUT main(PS_INPUT IN)
                     S_CustomSamplerState,
                     S_Custom3,
                     S_Custom3SamplerState,
-                    float3(UV_mat1_prj0, matSample.matIndex[1]));
+                    float3(UV_mat1_prj0, matSample.matIndex[1]),
+				    scaledDx_prj10,  // Uniform dx & dy
+				    scaledDy_prj10,
+                    tileSwitch2);
 
                 // extract data from tex-sample
                 float3 mat1_Albedo = mat1_prj0.map0Sample.xyz;
@@ -768,7 +809,8 @@ PS_OUTPUT main(PS_INPUT IN)
                 {
                     float2 UV_mat1_prj1 = 
                         matSample.customUVTilling[1] * projectedUV[bilinearSample.projectionIndex[1]];
-
+                    float2 scaledDx_prj11 = matSample.customUVTilling[1] * dx_prj1;
+                    float2 scaledDy_prj11 = matSample.customUVTilling[1] * dy_prj1;
                     // TextureSample mat1_prj1 = TextureBombingCheap(
                     // S_Custom,
                     // S_CustomSamplerState,
@@ -783,7 +825,10 @@ PS_OUTPUT main(PS_INPUT IN)
                         S_CustomSamplerState,
                         S_Custom3,
                         S_Custom3SamplerState,
-                        float3(UV_mat1_prj1, matSample.matIndex[1]));
+                        float3(UV_mat1_prj1, matSample.matIndex[1]),
+				        scaledDx_prj11,  // Uniform dx & dy
+				        scaledDy_prj11,
+                        tileSwitch2);
                     
                     // extract data from tex-sample
                     float3 mat1_prj1_Albedo = mat1_prj1.map0Sample.xyz;
@@ -974,21 +1019,24 @@ PS_OUTPUT main(PS_INPUT IN)
                                             baseMapFinal, 
                                             mixMapFinal.x, 
                                             mixMapFinal.y, 
-                                            mixMapFinal.z, 
+                                            1.f, 
                                             0.f,
                                             0.f, 
                                             U_GlobalEnvironmentCubeMipMapLevels.x, 
                                             S_GlobalEnvironmentCubeMap,
                                             S_GlobalEnvironmentCubeMapSamplerState);
+
         envColor += CalculateDiffuseEnvColor(half3(N),
                                              half3(baseMapFinal), 
                                              half(mixMapFinal.x), 
-                                             half(mixMapFinal.z), 
+                                             1.h, 
                                              half4x4(U_PBR_RMatrix),
                                              half4x4(U_PBR_GMatrix), 
                                              half4x4(U_PBR_BMatrix), 0.h);
+
         envColor *= U_PBR_Environment_Explosure.x;
         color.rgb += envColor * ambientColor;
+        color *= mixMapFinal.z;
 
         // emission
         color.rgb += emissionFinal;	
