@@ -5,6 +5,9 @@
 #include "EchoRenderSystem.h"
 #include "EchoWorldSystem.h"
 #include "EchoWorldManager.h"
+#include "EchoTODManager.h"
+#include "EchoProtocolComponent.h"
+#include "FairyGUI.h"
 #include "EchoSystemConfigFile.h"
 #include "EchoShadowmapManager.h"
 #include "EchoAutoObjectManager.h"
@@ -29,15 +32,10 @@
 #include "EchoSphericalTerrainComponent.h"
 #include "EchoNPCController.h"
 #include "EchoMiniMap.h"
-
-#include "EchoTODManager.h"
-#include "EchoProtocolComponent.h"
-#include "FairyGUI.h"
-
 #if ECHO_PLATFORM == ECHO_PLATFORM_WIN32
-	#ifdef ECHO_EDITOR
+#ifdef ECHO_EDITOR
 #include "EchoEditorRoot.h"
-	#endif
+#endif
 #include "EchoShaderContentManager.h"
 #endif
 
@@ -63,24 +61,52 @@ extern void DetachNativeThreadFMOD();
 
 using namespace Echo;
 
-Echo::Root*				g_pEchoRoot2 = nullptr;
-Echo::SceneManager*		g_pMainSceneManager = nullptr;
-Echo::Camera*			g_pMainCamera = nullptr;
-Echo::WorldManager*		g_pWorldManager = nullptr;
-RobotObjManager*		g_pRobotObjManager = nullptr;
-PlayerObjManager*       g_pPlayerObjManager = nullptr;
-ComponentSystem*		g_pComponentSystem = nullptr;
-Echo::MiniMapManager*	g_pMiniMapManager = nullptr;
+Echo::Root* g_pEchoRoot2 = nullptr;
+Echo::SceneManager* g_pMainSceneManager = nullptr;
+Echo::Camera* g_pMainCamera = nullptr;
+Echo::WorldManager* g_pWorldManager = nullptr;
+RobotObjManager* g_pRobotObjManager = nullptr;
+PlayerObjManager* g_pPlayerObjManager = nullptr;
+ComponentSystem* g_pComponentSystem = nullptr;
+Echo::MiniMapManager* g_pMiniMapManager = nullptr;
 
 #if ECHO_PLATFORM == ECHO_PLATFORM_WIN32
-	#ifdef ECHO_EDITOR
-		EditorRoot*				g_pEditorRoot = nullptr;
-    #endif
+#ifdef ECHO_EDITOR
+EditorRoot* g_pEditorRoot = nullptr;
+#endif
 #endif
 
 static whframecontrol		g_wfc;
 static SceneHeatMap heat_map;
 static bool fReinit = false;
+static bool g_showTodTimeHud = false;
+static echofgui::GObject* g_todTimeUI = nullptr;
+static echofgui::GObject* g_todTimeText = nullptr;
+
+static void EnsureTodUI()
+{
+	if (!g_todTimeUI)
+	{
+		echofgui::UIPackage::addPackage("fgui/bytes/chinese_minimap");
+		g_todTimeUI = echofgui::UIPackage::createObject("chinese_minimap", "text");
+		if (g_todTimeUI)
+		{
+			echofgui::GRoot::defaultRoot()->addChild(g_todTimeUI);
+			g_todTimeUI->setPosition(20.0f, 20.0f, 0.0f);
+			g_todTimeText = g_todTimeUI->as<echofgui::GComponent>()->getChild("n0");
+		}
+	}
+}
+
+static void DestroyTodUI()
+{
+	if (g_todTimeUI)
+	{
+		if (g_todTimeUI->getParent()) g_todTimeUI->getParent()->removeChild(g_todTimeUI);
+		g_todTimeUI = nullptr;
+		g_todTimeText = nullptr;
+	}
+}
 
 #define WFC_FPS	30
 
@@ -106,11 +132,11 @@ namespace
 					Echo::Vector3(390000.f, 4000.f, 370000.f),
 					Echo::Quaternion(0.f, 0.f, 0.f,1.0f)
 					)),
-        std::make_pair(std::string("karst1"),
-                    std::make_tuple(
-                    Echo::Vector3(70569.0f, 400.0f, -19027.0f),
-                    Echo::Quaternion(0.f, 0.f, 0.f,1.0f)
-                    )),
+		std::make_pair(std::string("karst1"),
+					std::make_tuple(
+					Echo::Vector3(70569.0f, 400.0f, -19027.0f),
+					Echo::Quaternion(0.f, 0.f, 0.f,1.0f)
+					)),
 		std::make_pair(std::string("karst2"),
 					std::make_tuple(
 					Echo::Vector3(128746.914668f, 2000.0f, -18458.449817f),
@@ -235,8 +261,8 @@ applogic::applogic()
 {
 	GetAsyncApp()->PostToEngine([]() {
 		Echo::MaterialCompileManager::instance()->setLoadingCallback(onShaderCompilationProgress);
-		Echo::MaterialCompileManager::instance()->startCompile();
-	});
+	Echo::MaterialCompileManager::instance()->startCompile();
+		});
 
 	g_mainXml.clear();
 
@@ -268,18 +294,18 @@ void applogic::OnTickEnd()
 
 
 static std::unique_ptr<AsyncApp> g_appview;
-AsyncApp * GetAsyncApp()
+AsyncApp* GetAsyncApp()
 {
 	return g_appview.get();
 }
 
-AsyncAppBase *getAppBase()
+AsyncAppBase* getAppBase()
 {
 	return g_appview.get();
 }
 
 
-AsyncApp::AsyncApp(const char* _assetPath, const char* _dataPath, const Echo::ECHO_GRAPHIC_PARAM*pGraphicParam, Echo::uint32 renderMode, bool bClientMode, Echo::uint32 width, Echo::uint32 height)
+AsyncApp::AsyncApp(const char* _assetPath, const char* _dataPath, const Echo::ECHO_GRAPHIC_PARAM* pGraphicParam, Echo::uint32 renderMode, bool bClientMode, Echo::uint32 width, Echo::uint32 height)
 	: m_width(width)
 	, m_height(height)
 {
@@ -291,7 +317,7 @@ AsyncApp::AsyncApp(const char* _assetPath, const char* _dataPath, const Echo::EC
 		{
 			std::string sLogFileName = "Echo.log";
 
-			Echo::IArchive * pArchive = Echo::GetArchivePack();
+			Echo::IArchive* pArchive = Echo::GetArchivePack();
 
 #ifndef _WIN32
 			sLogFileName.insert(0, _dataPath);
@@ -303,7 +329,7 @@ AsyncApp::AsyncApp(const char* _assetPath, const char* _dataPath, const Echo::EC
 			if (!bClientMode)
 				mode = Root::eRM_Editor;
 
-			Echo::GetEchoEngine()->init(_assetPath, pArchive, mode, sLogFileName, bForceUseGxRender,false,true);
+			Echo::GetEchoEngine()->init(_assetPath, pArchive, mode, sLogFileName, bForceUseGxRender, false, true);
 #if ECHO_PLATFORM == ECHO_PLATFORM_WIN32 //TODO: Fix Shader Path Error on iOS Platform
 			Echo::GetEchoEngine()->setShaderPath(_assetPath, _dataPath);
 #endif
@@ -324,7 +350,7 @@ AsyncApp::AsyncApp(const char* _assetPath, const char* _dataPath, const Echo::EC
 			g_pPlayerObjManager = new PlayerObjManager();
 			g_pPlayerObjManager->SetSceneManager(g_pMainSceneManager);
 			g_pMiniMapManager = new MiniMapManager(g_pMainSceneManager, g_pWorldManager);
-			Echo::BellSystem * pBellSystem = Echo::BellSystem::instance();
+			Echo::BellSystem* pBellSystem = Echo::BellSystem::instance();
 			if (NULL != pBellSystem)
 			{
 				if (pBellSystem->initialise("bank/Master.bank", "bank/Master.strings.bank"))
@@ -338,38 +364,38 @@ AsyncApp::AsyncApp(const char* _assetPath, const char* _dataPath, const Echo::EC
 
 			GetEchoEngine()->ChangeWorld(mainWorld);
 			loadNewLevel(g_InitLevel);
-            Echo::ConsoleCommand *pConsole = Echo::ConsoleCommand::instance();
-            if(pConsole){
+			Echo::ConsoleCommand* pConsole = Echo::ConsoleCommand::instance();
+			if (pConsole) {
 				//karst场景的前置命令
 				//if (g_InitLevel.compare("karst") == 0 || g_InitLevel.compare("karst1") == 0) {
 #if ECHO_PLATFORM == ECHO_PLATFORM_ANDROID
-                    //视频配置
-                    CmdLineArg dlvCommand("dlv", "0", eCLAT_Normal);
-                    pConsole->executeCommand(dlvCommand);
-                    CmdLineArg lvCommand("lv", "0", eCLAT_Normal);
-                    pConsole->executeCommand(lvCommand);
-                    //渲染分辨率降低
-                    CmdLineArg tsCommand("ts", "0.5", eCLAT_Normal);
-                    pConsole->executeCommand(tsCommand);
-                    //远裁剪距离增加
-                    CmdLineArg farCommand("farclip", "100000", eCLAT_Normal);
-                    pConsole->executeCommand(farCommand);
-                    //page加载范围增加
-                    CmdLineArg viewrange("viewrange", "10000", eCLAT_Normal);
-                    pConsole->executeCommand(viewrange);
+					//视频配置
+				CmdLineArg dlvCommand("dlv", "0", eCLAT_Normal);
+				pConsole->executeCommand(dlvCommand);
+				CmdLineArg lvCommand("lv", "0", eCLAT_Normal);
+				pConsole->executeCommand(lvCommand);
+				//渲染分辨率降低
+				CmdLineArg tsCommand("ts", "0.5", eCLAT_Normal);
+				pConsole->executeCommand(tsCommand);
+				//远裁剪距离增加
+				CmdLineArg farCommand("farclip", "100000", eCLAT_Normal);
+				pConsole->executeCommand(farCommand);
+				//page加载范围增加
+				CmdLineArg viewrange("viewrange", "10000", eCLAT_Normal);
+				pConsole->executeCommand(viewrange);
 #endif
-                    //tod时间固定在中午
-                    /*CmdLineArg todCommand("todspeed", "0 0.5", eCLAT_Normal);
-                    pConsole->executeCommand(todCommand);*/
-                    //进入npc相机模式
-					//new EchoNPCController(g_pMainCamera);
-					new EchoSphericalController(g_pMainCamera);
-                    //assao
-                    CmdLineArg ssaoCommand("ssao", "2 8 1 1 3 3", eCLAT_Normal);
-                    pConsole->executeCommand(ssaoCommand);
+				//tod时间固定在中午
+				/*CmdLineArg todCommand("todspeed", "0 0.5", eCLAT_Normal);
+				pConsole->executeCommand(todCommand);*/
+				//进入npc相机模式
+				//new EchoNPCController(g_pMainCamera);
+				new EchoSphericalController(g_pMainCamera);
+				//assao
+				CmdLineArg ssaoCommand("ssao", "2 8 1 1 3 3", eCLAT_Normal);
+				pConsole->executeCommand(ssaoCommand);
 
 				//}
-            }
+			}
 			EchoPhysicsManager::instance()->EditorPlay();
 
 			heat_map.setPath(_dataPath);
@@ -430,7 +456,7 @@ void AsyncApp::onResize(Echo::uint32 w, Echo::uint32 h, Echo::uint32 safeAreaLef
 	{
 		g_appview->PostToLogic([w, h]() {
 			g_pEchoRoot2->getRenderSystem()->resizeWindow(w, h);
-		});
+			});
 	}
 }
 
@@ -458,7 +484,7 @@ void AsyncApp::onPause()
 	{
 		g_appview->PostToLogic([]() {
 			Echo::GetEchoEngine()->stopRendering();
-		});
+			});
 	}
 }
 
@@ -472,7 +498,7 @@ void AsyncApp::onResume()
 	{
 		g_appview->PostToLogic([]() {
 			Echo::GetEchoEngine()->resumeRendering();
-		});
+			});
 	}
 }
 
@@ -536,9 +562,9 @@ void AsyncApp::setFPS(float _fps)
 {
 	GetAsyncApp()->PostToLogic([_fps]() {
 		g_wfc.SetFR(_fps);
-		g_wfc.Reset();
+	g_wfc.Reset();
 
-	});
+		});
 }
 
 
@@ -571,12 +597,12 @@ void AsyncApp::OnTick(float dt)
 		Echo::GravityAreaManager::instance()->update(pos);
 		if (EchoSphericalController::Alive())
 		{
-			if(g_pMiniMapManager)
+			if (g_pMiniMapManager)
 				g_pMiniMapManager->UpdatePlayerPosition(EchoSphericalController::instance()->GetCharlPosition());
 		}
 		else
 		{
-			if(g_pMiniMapManager)
+			if (g_pMiniMapManager)
 				g_pMiniMapManager->UpdatePlayerPosition(pos);
 		}
 		g_pWorldManager->updateRolePos(pos);
@@ -591,8 +617,24 @@ void AsyncApp::OnTick(float dt)
 		g_pRobotObjManager->Tick(g_pMainCamera->getPosition());
 
 		g_pPlayerObjManager->Tick();
-		if(g_pMiniMapManager)
+		if (g_pMiniMapManager)
 			g_pMiniMapManager->Tick();
+		// 常驻 TOD 时间 HUD 刷新（FGUI）
+		if (g_showTodTimeHud && g_todTimeText)
+		{
+			Echo::TODManager* mgr = Echo::TODSystem::instance()->GetManager(Echo::WorldSystem::instance()->GetActiveWorld());
+			if (mgr)
+			{
+				double tnow = mgr->calculateCurTodTime();
+				int totalSec = (int)(tnow * 24.0 * 3600.0);
+				int hh = (totalSec / 3600) % 24;
+				int mm = (totalSec % 3600) / 60;
+				int ss = totalSec % 60;
+				char tbuf[16];
+				snprintf(tbuf, sizeof(tbuf), "%02d:%02d:%02d", hh, mm, ss);
+				g_todTimeText->setText(tbuf);
+			}
+		}
 	}
 	else
 	{
@@ -606,7 +648,7 @@ void AsyncApp::onFrameEnd()
 {
 	if (Echo::ECHO_THREAD_MT1 == m_uEngineRenderMode)
 	{
-		return ;
+		return;
 	}
 }
 
@@ -649,221 +691,7 @@ void AsyncApp::commandParse(const std::string& command)
 	if (Echo::ECHO_THREAD_MT1 == m_uEngineRenderMode)
 	{
 		g_appview->PostToLogic([command]() {
-			Echo::ConsoleCommand *pConsole = Echo::ConsoleCommand::instance();
-			if (!pConsole)
-			{
-				return;
-			}
-
-			Echo::LogManager::instance()->logMessage(command);
-
-			pConsole->executeCommand(command);
-
-			const Echo::CmdLineArg * btest = pConsole->findArg("btest", Echo::eCLAT_Normal, true);
-			if (btest != nullptr)
-			{
-				Echo::vector<Echo::String>::type params = Echo::StringUtil::split(btest->getValue(), "\t ");
-				if (params.empty())
-					return;
-
-				if (params[0] == "i")
-				{
-					if (params.size() > 1)
-					{
-						int build_num = Echo::StringConverter::parseInt(params[1], 0);
-						if (0 == build_num)
-							return;
-						BuildingTest::instance().init(g_pMainCamera->getPosition(), build_num);
-					}
-				}
-				else if (params[0] == "c") {
-					BuildingTest::instance().clear();
-				}
-				else if (params[0] == "f") {
-					if (params.size() > 1)
-						BuildingTest::instance().setTestFlags(params[1].c_str());
-				}
-				return;
-			}
-
-			const Echo::CmdLineArg * heat = pConsole->findArg("heat", Echo::eCLAT_Normal, true);
-			if (heat != nullptr)
-			{
-
-				const char * cmd = heat->getValue();
-				heat_map.setup();
-				heat_map.parsecommand(cmd);
-				heat_map.generate(g_pWorldManager);
-				return;
-			}
-/*
-			const Echo::CmdLineArg * c3DUI = pConsole->findArg("c3DUI", Echo::eCLAT_Normal, true);
-			if (c3DUI != nullptr)
-			{
-
-				const char * cmd = c3DUI->getValue();
-				Echo::CameraControl::instance()->create3DUIComponentTest(cmd);
-				return;
-			}
-
-			const Echo::CmdLineArg * d3DUI = pConsole->findArg("d3DUI", Echo::eCLAT_Normal, true);
-			if (d3DUI != nullptr)
-			{
-
-				const char * cmd = d3DUI->getValue();
-				Echo::CameraControl::instance()->delete3DUIComponentTest(cmd);
-				return;
-			}
-
-			const Echo::CmdLineArg * dALL3DUI = pConsole->findArg("dALL3DUI", Echo::eCLAT_Normal, true);
-			if (dALL3DUI != nullptr)
-			{
-				Echo::CameraControl::instance()->deleteAll3DUIComponentTest();
-				return;
-			}
-*/
-			const Echo::CmdLineArg * rtest = pConsole->findArg("rtest", Echo::eCLAT_Normal, true);
-			if (rtest != nullptr)
-			{
-				const Echo::uint32 id = rtest->getUIValue();
-				if (id == 0xFFFFFFFF)
-				{
-					PlayerObjManager::instance()->Destroy();
-					g_pWorldManager->stopPlayingCameraPath();
-				}
-				else
-				{
-					if (id == 88888888)
-					{
-						Echo::Vector3 posi = g_pMainCamera->getPosition();
-						posi.x = posi.x + 20;
-						posi.y = g_pWorldManager->getHeightAtWorldPosition(posi);
-						PlayerObjManager::instance()->CreatePlayerObject(posi);
-					}
-					g_pWorldManager->startPlayingCameraPath(id, 3);
-				}
-
-				return;
-			}
-
-			const Echo::CmdLineArg * fpsArg = pConsole->findArg("fps", Echo::eCLAT_Normal, true);
-			if (fpsArg)
-			{
-				g_wfc.SetFR(fpsArg->getFValue());
-				g_wfc.Reset();
-				return;
-			}
-
-
-			const Echo::CmdLineArg* todtime = pConsole->findArg("todtime", Echo::eCLAT_Normal, true);
-			if (todtime)
-			{
-				Echo::TODManager* mgr = Echo::TODSystem::instance()->GetManager(Echo::WorldSystem::instance()->GetActiveWorld());
-				if (!mgr) { return; }
-				bool hasParam = false; int passed = 0;
-				{
-					const char* val = todtime->getValue();
-					if (val && val[0] != '\0') { hasParam = true; passed = Echo::StringConverter::parseInt(val, 0); }
-
-				}
-				if (hasParam) {
-					mgr->setTimePassed(passed);
-					if (g_pMiniMapManager) g_pMiniMapManager->SetShowTodTimeHud(true);
-				}
-				else { if (g_pMiniMapManager) g_pMiniMapManager->ToggleTodTimeHud(); }
-				return;
-			}
-
-
-			const Echo::CmdLineArg * nl = pConsole->findArg("nl", Echo::eCLAT_Normal, true);
-			if (nl != nullptr)
-			{
-				if (strlen(nl->getValue()) > 0)
-				{
-					loadNewLevel(nl->getValue());
-				}
-				else
-				{
-					const Echo::String & curLevel = g_pWorldManager->getLevelName();
-					auto it = g_LevelMap.find(curLevel);
-					if (it != g_LevelMap.end()) {
-						++it;
-					}
-					if (it == g_LevelMap.end()) {
-						it = g_LevelMap.begin();
-					}
-					loadNewLevel(it->first);
-				}
-				return;
-			}
-
-			const Echo::CmdLineArg * cs = pConsole->findArg("cs", Echo::eCLAT_Normal, true);
-			if (cs != nullptr)
-			{
-				Echo::CameraControl::instance()->setMoveSpeed(cs->getFValue());
-				return;
-			}
-			{
-				float D_value{ 0.0f };
-				if (EchoNPCController::Alive() || EchoSphericalController::Alive()) {
-					D_value = 5.0f;
-				}
-				else {
-					D_value = 100.0f;
-				}
-				const Echo::CmdLineArg* csUp = pConsole->findArg("csUp", Echo::eCLAT_Normal, true);
-				if (csUp != nullptr) {
-					float camSpeed{ Echo::CameraControl::instance()->getMoveSpeed() };
-					Echo::CameraControl::instance()->setMoveSpeed(camSpeed + D_value);
-					return;
-				}
-				const Echo::CmdLineArg* csDown = pConsole->findArg("csDown", Echo::eCLAT_Normal, true);
-				if (csDown != nullptr) {
-					float camSpeed{ Echo::CameraControl::instance()->getMoveSpeed() };
-					Echo::CameraControl::instance()->setMoveSpeed(
-						((camSpeed - D_value) < 0) ? 1.0f : (camSpeed - D_value));
-					return;
-				}
-			}
-
-			const Echo::CmdLineArg * cr = pConsole->findArg("cr", Echo::eCLAT_Normal, true);
-			if (cr != nullptr)
-			{
-				Echo::Vector3 posi = g_pMainCamera->getPosition();
-				g_pRobotObjManager->CreateTestRobotObject(posi, cr->getIValue());
-				return;
-			}
-			const Echo::CmdLineArg* showmap = pConsole->findArg("showmap", Echo::eCLAT_Normal, true);
-			if (showmap!=nullptr)
-			{
-				g_pMiniMapManager->SetShowMap(!g_pMiniMapManager->GetShowMap());
-			}
-			const Echo::CmdLineArg* showcityname = pConsole->findArg("showcityname", Echo::eCLAT_Normal, true);
-			if (showcityname != nullptr)
-			{
-				g_pMiniMapManager->SetShowCityName(!g_pMiniMapManager->GetShowCityName());
-			}
-			const Echo::CmdLineArg* changemapsize = pConsole->findArg("changemapsize", Echo::eCLAT_Normal, true);
-			if (changemapsize != nullptr)
-			{
-				g_pMiniMapManager->SetShowFullMap(!g_pMiniMapManager->GetShowFullMap());
-			}
-			const Echo::CmdLineArg* showsceneui = pConsole->findArg("showsceneui", Echo::eCLAT_Normal, true);
-			if (showsceneui != nullptr)
-			{
-				g_pMiniMapManager->SetShowSceneUI(!g_pMiniMapManager->GetShowSceneUI());
-			}
-			const Echo::CmdLineArg* sceneuidis = pConsole->findArg("sceneuidis", Echo::eCLAT_Normal, true);
-			if (sceneuidis != nullptr)
-			{
-				float dis = sceneuidis->getFValue();
-				g_pMiniMapManager->SetSceneUIRenderDistance(dis);
-			}
-		});
-	}
-	else
-	{
-		Echo::ConsoleCommand *pConsole = Echo::ConsoleCommand::instance();
+			Echo::ConsoleCommand* pConsole = Echo::ConsoleCommand::instance();
 		if (!pConsole)
 		{
 			return;
@@ -873,43 +701,269 @@ void AsyncApp::commandParse(const std::string& command)
 
 		pConsole->executeCommand(command);
 
-		const Echo::CmdLineArg * heat = pConsole->findArg("heat", Echo::eCLAT_Normal, true);
+		const Echo::CmdLineArg* btest = pConsole->findArg("btest", Echo::eCLAT_Normal, true);
+		if (btest != nullptr)
+		{
+			Echo::vector<Echo::String>::type params = Echo::StringUtil::split(btest->getValue(), "\t ");
+			if (params.empty())
+				return;
+
+			if (params[0] == "i")
+			{
+				if (params.size() > 1)
+				{
+					int build_num = Echo::StringConverter::parseInt(params[1], 0);
+					if (0 == build_num)
+						return;
+					BuildingTest::instance().init(g_pMainCamera->getPosition(), build_num);
+				}
+			}
+			else if (params[0] == "c") {
+				BuildingTest::instance().clear();
+			}
+			else if (params[0] == "f") {
+				if (params.size() > 1)
+					BuildingTest::instance().setTestFlags(params[1].c_str());
+			}
+			return;
+		}
+
+		const Echo::CmdLineArg* heat = pConsole->findArg("heat", Echo::eCLAT_Normal, true);
 		if (heat != nullptr)
 		{
 
-			const char * cmd = heat->getValue();
+			const char* cmd = heat->getValue();
 			heat_map.setup();
 			heat_map.parsecommand(cmd);
 			heat_map.generate(g_pWorldManager);
 			return;
 		}
-/*
-		const Echo::CmdLineArg * c3DUI = pConsole->findArg("c3DUI", Echo::eCLAT_Normal, true);
-		if (c3DUI != nullptr)
-		{
+		/*
+					const Echo::CmdLineArg * c3DUI = pConsole->findArg("c3DUI", Echo::eCLAT_Normal, true);
+					if (c3DUI != nullptr)
+					{
 
-			const char * cmd = c3DUI->getValue();
-			Echo::CameraControl::instance()->create3DUIComponentTest(cmd);
+						const char * cmd = c3DUI->getValue();
+						Echo::CameraControl::instance()->create3DUIComponentTest(cmd);
+						return;
+					}
+
+					const Echo::CmdLineArg * d3DUI = pConsole->findArg("d3DUI", Echo::eCLAT_Normal, true);
+					if (d3DUI != nullptr)
+					{
+
+						const char * cmd = d3DUI->getValue();
+						Echo::CameraControl::instance()->delete3DUIComponentTest(cmd);
+						return;
+					}
+
+					const Echo::CmdLineArg * dALL3DUI = pConsole->findArg("dALL3DUI", Echo::eCLAT_Normal, true);
+					if (dALL3DUI != nullptr)
+					{
+						Echo::CameraControl::instance()->deleteAll3DUIComponentTest();
+						return;
+					}
+		*/
+		const Echo::CmdLineArg* rtest = pConsole->findArg("rtest", Echo::eCLAT_Normal, true);
+		if (rtest != nullptr)
+		{
+			const Echo::uint32 id = rtest->getUIValue();
+			if (id == 0xFFFFFFFF)
+			{
+				PlayerObjManager::instance()->Destroy();
+				g_pWorldManager->stopPlayingCameraPath();
+			}
+			else
+			{
+				if (id == 88888888)
+				{
+					Echo::Vector3 posi = g_pMainCamera->getPosition();
+					posi.x = posi.x + 20;
+					posi.y = g_pWorldManager->getHeightAtWorldPosition(posi);
+					PlayerObjManager::instance()->CreatePlayerObject(posi);
+				}
+				g_pWorldManager->startPlayingCameraPath(id, 3);
+			}
+
 			return;
 		}
 
-		const Echo::CmdLineArg * d3DUI = pConsole->findArg("d3DUI", Echo::eCLAT_Normal, true);
-		if (d3DUI != nullptr)
+		const Echo::CmdLineArg* fpsArg = pConsole->findArg("fps", Echo::eCLAT_Normal, true);
+		if (fpsArg)
 		{
-
-			const char * cmd = d3DUI->getValue();
-			Echo::CameraControl::instance()->delete3DUIComponentTest(cmd);
+			g_wfc.SetFR(fpsArg->getFValue());
+			g_wfc.Reset();
 			return;
 		}
 
-		const Echo::CmdLineArg * dALL3DUI = pConsole->findArg("dALL3DUI", Echo::eCLAT_Normal, true);
-		if (dALL3DUI != nullptr)
+		const Echo::CmdLineArg* todtime = pConsole->findArg("todtime", Echo::eCLAT_Normal, true);
+		if (todtime)
 		{
-			Echo::CameraControl::instance()->deleteAll3DUIComponentTest();
+			Echo::TODManager* mgr = Echo::TODSystem::instance()->GetManager(Echo::WorldSystem::instance()->GetActiveWorld());
+			if (!mgr) { return; }
+			bool hasParam = false; int passed = 0;
+			{
+				Echo::vector<Echo::String>::type toks = Echo::StringUtil::split(command, "\t ");
+				for (size_t i = 0; i < toks.size(); ++i) if (toks[i] == "todtime") {
+					if (i + 1 < toks.size() && !toks[i + 1].empty()) { hasParam = true; passed = Echo::StringConverter::parseInt(toks[i + 1], 0); }
+					break;
+				}
+			}
+			if (hasParam) { mgr->setTimePassed(passed); g_showTodTimeHud = true; EnsureTodUI(); }
+			else
+			{
+				g_showTodTimeHud = !g_showTodTimeHud;
+				if (!g_showTodTimeHud) { DestroyTodUI(); return; }
+				EnsureTodUI();
+			}
+			if (g_todTimeText)
+			{
+				double tnow = mgr->calculateCurTodTime();
+				int totalSec = (int)(tnow * 24.0 * 3600.0);
+				int hh = (totalSec / 3600) % 24;
+				int mm = (totalSec % 3600) / 60;
+				int ss = totalSec % 60;
+				char tbuf[16];
+				snprintf(tbuf, sizeof(tbuf), "%02d:%02d:%02d", hh, mm, ss);
+				g_todTimeText->setText(tbuf);
+			}
 			return;
 		}
-*/
-		const Echo::CmdLineArg * rtest = pConsole->findArg("rtest", Echo::eCLAT_Normal, true);
+		const Echo::CmdLineArg* nl = pConsole->findArg("nl", Echo::eCLAT_Normal, true);
+		if (nl != nullptr)
+		{
+			if (strlen(nl->getValue()) > 0)
+			{
+				loadNewLevel(nl->getValue());
+			}
+			else
+			{
+				const Echo::String& curLevel = g_pWorldManager->getLevelName();
+				auto it = g_LevelMap.find(curLevel);
+				if (it != g_LevelMap.end()) {
+					++it;
+				}
+				if (it == g_LevelMap.end()) {
+					it = g_LevelMap.begin();
+				}
+				loadNewLevel(it->first);
+			}
+			return;
+		}
+
+		const Echo::CmdLineArg* cs = pConsole->findArg("cs", Echo::eCLAT_Normal, true);
+		if (cs != nullptr)
+		{
+			Echo::CameraControl::instance()->setMoveSpeed(cs->getFValue());
+			return;
+		}
+		{
+			float D_value{ 0.0f };
+			if (EchoNPCController::Alive() || EchoSphericalController::Alive()) {
+				D_value = 5.0f;
+			}
+			else {
+				D_value = 100.0f;
+			}
+			const Echo::CmdLineArg* csUp = pConsole->findArg("csUp", Echo::eCLAT_Normal, true);
+			if (csUp != nullptr) {
+				float camSpeed{ Echo::CameraControl::instance()->getMoveSpeed() };
+				Echo::CameraControl::instance()->setMoveSpeed(camSpeed + D_value);
+				return;
+			}
+			const Echo::CmdLineArg* csDown = pConsole->findArg("csDown", Echo::eCLAT_Normal, true);
+			if (csDown != nullptr) {
+				float camSpeed{ Echo::CameraControl::instance()->getMoveSpeed() };
+				Echo::CameraControl::instance()->setMoveSpeed(
+					((camSpeed - D_value) < 0) ? 1.0f : (camSpeed - D_value));
+				return;
+			}
+		}
+
+		const Echo::CmdLineArg* cr = pConsole->findArg("cr", Echo::eCLAT_Normal, true);
+		if (cr != nullptr)
+		{
+			Echo::Vector3 posi = g_pMainCamera->getPosition();
+			g_pRobotObjManager->CreateTestRobotObject(posi, cr->getIValue());
+			return;
+		}
+		const Echo::CmdLineArg* showmap = pConsole->findArg("showmap", Echo::eCLAT_Normal, true);
+		if (showmap != nullptr)
+		{
+			g_pMiniMapManager->SetShowMap(!g_pMiniMapManager->GetShowMap());
+		}
+		const Echo::CmdLineArg* showcityname = pConsole->findArg("showcityname", Echo::eCLAT_Normal, true);
+		if (showcityname != nullptr)
+		{
+			g_pMiniMapManager->SetShowCityName(!g_pMiniMapManager->GetShowCityName());
+		}
+		const Echo::CmdLineArg* changemapsize = pConsole->findArg("changemapsize", Echo::eCLAT_Normal, true);
+		if (changemapsize != nullptr)
+		{
+			g_pMiniMapManager->SetShowFullMap(!g_pMiniMapManager->GetShowFullMap());
+		}
+		const Echo::CmdLineArg* showsceneui = pConsole->findArg("showsceneui", Echo::eCLAT_Normal, true);
+		if (showsceneui != nullptr)
+		{
+			g_pMiniMapManager->SetShowSceneUI(!g_pMiniMapManager->GetShowSceneUI());
+		}
+		const Echo::CmdLineArg* sceneuidis = pConsole->findArg("sceneuidis", Echo::eCLAT_Normal, true);
+		if (sceneuidis != nullptr)
+		{
+			float dis = sceneuidis->getFValue();
+			g_pMiniMapManager->SetSceneUIRenderDistance(dis);
+		}
+			});
+	}
+	else
+	{
+		Echo::ConsoleCommand* pConsole = Echo::ConsoleCommand::instance();
+		if (!pConsole)
+		{
+			return;
+		}
+
+		Echo::LogManager::instance()->logMessage(command);
+
+		pConsole->executeCommand(command);
+
+		const Echo::CmdLineArg* heat = pConsole->findArg("heat", Echo::eCLAT_Normal, true);
+		if (heat != nullptr)
+		{
+
+			const char* cmd = heat->getValue();
+			heat_map.setup();
+			heat_map.parsecommand(cmd);
+			heat_map.generate(g_pWorldManager);
+			return;
+		}
+		/*
+				const Echo::CmdLineArg * c3DUI = pConsole->findArg("c3DUI", Echo::eCLAT_Normal, true);
+				if (c3DUI != nullptr)
+				{
+
+					const char * cmd = c3DUI->getValue();
+					Echo::CameraControl::instance()->create3DUIComponentTest(cmd);
+					return;
+				}
+
+				const Echo::CmdLineArg * d3DUI = pConsole->findArg("d3DUI", Echo::eCLAT_Normal, true);
+				if (d3DUI != nullptr)
+				{
+
+					const char * cmd = d3DUI->getValue();
+					Echo::CameraControl::instance()->delete3DUIComponentTest(cmd);
+					return;
+				}
+
+				const Echo::CmdLineArg * dALL3DUI = pConsole->findArg("dALL3DUI", Echo::eCLAT_Normal, true);
+				if (dALL3DUI != nullptr)
+				{
+					Echo::CameraControl::instance()->deleteAll3DUIComponentTest();
+					return;
+				}
+		*/
+		const Echo::CmdLineArg* rtest = pConsole->findArg("rtest", Echo::eCLAT_Normal, true);
 		if (rtest != nullptr)
 		{
 			const Echo::uint32 id = rtest->getUIValue();
@@ -932,12 +986,13 @@ void AsyncApp::commandParse(const std::string& command)
 			return;
 		}
 
-		const Echo::CmdLineArg * fpsArg = pConsole->findArg("fps", Echo::eCLAT_Normal, true);
+		const Echo::CmdLineArg* fpsArg = pConsole->findArg("fps", Echo::eCLAT_Normal, true);
 		if (fpsArg)
 		{
 			setFPS(fpsArg->getFValue());
 			return;
 		}
+
 
 		const Echo::CmdLineArg* todtime = pConsole->findArg("todtime", Echo::eCLAT_Normal, true);
 		if (todtime)
@@ -945,26 +1000,40 @@ void AsyncApp::commandParse(const std::string& command)
 			Echo::TODManager* mgr = Echo::TODSystem::instance()->GetManager(Echo::WorldSystem::instance()->GetActiveWorld());
 			if (!mgr) { return; }
 			bool hasParam = false; int passed = 0;
-			const char* val = todtime->getValue();
-			if (val && val[0] != '\0')
 			{
-				hasParam = true;
-				passed = Echo::StringConverter::parseInt(val, 0);
+				Echo::vector<Echo::String>::type toks = Echo::StringUtil::split(command, "\t ");
+				for (size_t i = 0; i < toks.size(); ++i) if (toks[i] == "todtime") {
+					if (i + 1 < toks.size() && !toks[i + 1].empty()) { hasParam = true; passed = Echo::StringConverter::parseInt(toks[i + 1], 0); }
+					break;
+				}
 			}
-
-			if (hasParam)
+			if (hasParam) { mgr->setTimePassed(passed); g_showTodTimeHud = true; EnsureTodUI(); }
+			else
 			{
-				mgr->setTimePassed(passed);
-				if (g_pMiniMapManager) g_pMiniMapManager->SetShowTodTimeHud(true);
+				g_showTodTimeHud = !g_showTodTimeHud;
+				if (!g_showTodTimeHud)
+				{
+					DestroyTodUI();
+					return;
+				}
+				EnsureTodUI();
 			}
-			else { if (g_pMiniMapManager) g_pMiniMapManager->ToggleTodTimeHud(); }
+			// 初次触发也立即显示一次（强制刷新TOD以立刻反映偏移或当前状态）
+			mgr->updateData(0.0, true);
+			if (g_todTimeText)
+			{
+				int totalSec = (int)(mgr->getCurrentTime() * 24.0 * 3600.0);
+				int hh = (totalSec / 3600) % 24;
+				int mm = (totalSec % 3600) / 60;
+				int ss = totalSec % 60;
+				char tbuf[16];
+				snprintf(tbuf, sizeof(tbuf), "%02d:%02d:%02d", hh, mm, ss);
+				g_todTimeText->setText(tbuf);
+			}
 			return;
 		}
 
-
-
-
-		const Echo::CmdLineArg * nl = pConsole->findArg("nl", Echo::eCLAT_Normal, true);
+		const Echo::CmdLineArg* nl = pConsole->findArg("nl", Echo::eCLAT_Normal, true);
 		if (nl != nullptr)
 		{
 			if (strlen(nl->getValue()) > 0)
@@ -973,7 +1042,7 @@ void AsyncApp::commandParse(const std::string& command)
 			}
 			else
 			{
-				const Echo::String & curLevel = g_pWorldManager->getLevelName();
+				const Echo::String& curLevel = g_pWorldManager->getLevelName();
 				auto it = g_LevelMap.find(curLevel);
 				if (it != g_LevelMap.end()) {
 					++it;
@@ -986,33 +1055,34 @@ void AsyncApp::commandParse(const std::string& command)
 			return;
 		}
 
-		const Echo::CmdLineArg * cs = pConsole->findArg("cs", Echo::eCLAT_Normal, true);
+		const Echo::CmdLineArg* cs = pConsole->findArg("cs", Echo::eCLAT_Normal, true);
 		if (cs != nullptr)
 		{
 			Echo::CameraControl::instance()->setMoveSpeed(cs->getFValue());
 			return;
 		}
-        {
-            float D_value{0.0f};
-            if (EchoNPCController::Alive() || EchoSphericalController::Alive()) {
-                D_value = 5.0f;
-            } else {
-                D_value = 100.0f;
-            }
-            const Echo::CmdLineArg *csUp = pConsole->findArg("csUp", Echo::eCLAT_Normal, true);
-            if (csUp != nullptr) {
-                float camSpeed{Echo::CameraControl::instance()->getMoveSpeed()};
-                Echo::CameraControl::instance()->setMoveSpeed(camSpeed + D_value);
-                return;
-            }
-            const Echo::CmdLineArg *csDown = pConsole->findArg("csDown", Echo::eCLAT_Normal, true);
-            if (csDown != nullptr) {
-                float camSpeed{Echo::CameraControl::instance()->getMoveSpeed()};
-                Echo::CameraControl::instance()->setMoveSpeed(
-                        ((camSpeed - D_value) < 0) ? 1.0f : (camSpeed - D_value));
-                return;
-            }
-        }
+		{
+			float D_value{ 0.0f };
+			if (EchoNPCController::Alive() || EchoSphericalController::Alive()) {
+				D_value = 5.0f;
+			}
+			else {
+				D_value = 100.0f;
+			}
+			const Echo::CmdLineArg* csUp = pConsole->findArg("csUp", Echo::eCLAT_Normal, true);
+			if (csUp != nullptr) {
+				float camSpeed{ Echo::CameraControl::instance()->getMoveSpeed() };
+				Echo::CameraControl::instance()->setMoveSpeed(camSpeed + D_value);
+				return;
+			}
+			const Echo::CmdLineArg* csDown = pConsole->findArg("csDown", Echo::eCLAT_Normal, true);
+			if (csDown != nullptr) {
+				float camSpeed{ Echo::CameraControl::instance()->getMoveSpeed() };
+				Echo::CameraControl::instance()->setMoveSpeed(
+					((camSpeed - D_value) < 0) ? 1.0f : (camSpeed - D_value));
+				return;
+			}
+		}
 
 		const Echo::CmdLineArg* createCCTArg = pConsole->findArg("testcct", eCLAT_Normal, true);
 		if (createCCTArg)
@@ -1182,28 +1252,28 @@ void AsyncApp::commandParse(const std::string& command)
 		const Echo::CmdLineArg* createTransmitPosArg = pConsole->findArg("transmit", eCLAT_Normal, true);
 		if (createTransmitPosArg)
 		{
-            vector<String>::type vec = StringUtil::split(createTransmitPosArg->getValue(), ",");
+			vector<String>::type vec = StringUtil::split(createTransmitPosArg->getValue(), ",");
 			float x{}, y{}, z{};
-            if (vec.size() == 3) {
-                x = StringConverter::parseFloat(vec[0]);
+			if (vec.size() == 3) {
+				x = StringConverter::parseFloat(vec[0]);
 				y = StringConverter::parseFloat(vec[1]);
-                z = StringConverter::parseFloat(vec[2]);
-                if (EchoNPCController::Alive()) {
-                    EchoNPCController::instance()->setRolePosition(x, z);
-                }
-				else if (EchoSphericalController::Alive()) {
-					EchoSphericalController::instance()->SetCharlPosition(Vector3{x, y, z});
+				z = StringConverter::parseFloat(vec[2]);
+				if (EchoNPCController::Alive()) {
+					EchoNPCController::instance()->setRolePosition(x, z);
 				}
-                else{
-                    SceneManager* mainSceneManager = Root::instance()->getMainSceneManager();
-                    if (mainSceneManager)
-                    {
-                        Camera *pCamera = mainSceneManager->getMainCamera();
-                        if (pCamera)
-                            pCamera->setPosition(DVector3{x, y, z});
-                    }
-                }
-            }
+				else if (EchoSphericalController::Alive()) {
+					EchoSphericalController::instance()->SetCharlPosition(Vector3{ x, y, z });
+				}
+				else {
+					SceneManager* mainSceneManager = Root::instance()->getMainSceneManager();
+					if (mainSceneManager)
+					{
+						Camera* pCamera = mainSceneManager->getMainCamera();
+						if (pCamera)
+							pCamera->setPosition(DVector3{ x, y, z });
+					}
+				}
+			}
 		}
 		const Echo::CmdLineArg* testMulArg = pConsole->findArg("testMul", eCLAT_Normal, true);
 		if (testMulArg)
@@ -1314,7 +1384,7 @@ void AsyncApp::commandParse(const std::string& command)
 			}
 		}
 	}
-	
+
 }
 
 void AsyncApp::onMouseMove(const Echo::Vector2& point)
@@ -1323,12 +1393,12 @@ void AsyncApp::onMouseMove(const Echo::Vector2& point)
 	{
 		g_appview->PostToLogic([point]() {
 			auto protocolMgr = ProtocolComponentSystem::instance();
-			struct MouseInfo
-			{
-				float x, y;
-			};
-			MouseInfo mouse = { point.x, point.y };
-			protocolMgr->callProtocolFunc(Echo::Name("fguiOnMouseLeftMove"), &mouse, 0); }
+		struct MouseInfo
+		{
+			float x, y;
+		};
+		MouseInfo mouse = { point.x, point.y };
+		protocolMgr->callProtocolFunc(Echo::Name("fguiOnMouseLeftMove"), &mouse, 0); }
 		);
 	}
 	else
@@ -1349,12 +1419,12 @@ void AsyncApp::onMouseLeftDown(const Echo::Vector2& point)
 	{
 		g_appview->PostToLogic([point]() {
 			auto protocolMgr = ProtocolComponentSystem::instance();
-			struct MouseInfo
-			{
-				float x, y;
-			};
-			MouseInfo mouse = { point.x, point.y };
-			protocolMgr->callProtocolFunc(Echo::Name("fguiOnMouseLeftDown"), &mouse, 0); }
+		struct MouseInfo
+		{
+			float x, y;
+		};
+		MouseInfo mouse = { point.x, point.y };
+		protocolMgr->callProtocolFunc(Echo::Name("fguiOnMouseLeftDown"), &mouse, 0); }
 		);
 	}
 	else
@@ -1377,12 +1447,12 @@ void AsyncApp::onMouseLeftUp(const Echo::Vector2& point)
 	{
 		g_appview->PostToLogic([point]() {
 			auto protocolMgr = ProtocolComponentSystem::instance();
-			struct MouseInfo
-			{
-				float x, y;
-			};
-			MouseInfo mouse = { point.x, point.y };
-			protocolMgr->callProtocolFunc(Echo::Name("fguiOnMouseLeftUp"), &mouse, 0); }
+		struct MouseInfo
+		{
+			float x, y;
+		};
+		MouseInfo mouse = { point.x, point.y };
+		protocolMgr->callProtocolFunc(Echo::Name("fguiOnMouseLeftUp"), &mouse, 0); }
 		);
 	}
 	else
@@ -1407,12 +1477,12 @@ void AsyncApp::OnInputText(char16_t c)
 		g_appview->PostToLogic([c]()
 			{
 				auto protocolMgr = ProtocolComponentSystem::instance();
-				struct KeyInfo
-				{
-					char16_t key;
-				};
-				KeyInfo keyInfo = { c };
-				protocolMgr->callProtocolFunc(Echo::Name("fguiOnKeyDown"), &keyInfo, 0);
+		struct KeyInfo
+		{
+			char16_t key;
+		};
+		KeyInfo keyInfo = { c };
+		protocolMgr->callProtocolFunc(Echo::Name("fguiOnKeyDown"), &keyInfo, 0);
 			}
 		);
 	}
@@ -1434,20 +1504,20 @@ void AsyncApp::cameraMove(int type, int val)
 {
 	if (Echo::ECHO_THREAD_MT1 == m_uEngineRenderMode)
 	{
-		g_appview->PostToLogic([type,val]() {
+		g_appview->PostToLogic([type, val]() {
 			if (EchoSphericalController::Alive()) {
 				EchoSphericalController::instance()->update(0, (float)type, (float)val);
 				return;
 			}
-			if (EchoNPCController::Alive()) {
-				EchoNPCController::instance()->update(0, (float)type, (float)val);
-				return;
-			}
-			if (!Echo::EchoFlyingController::isCreated)
+		if (EchoNPCController::Alive()) {
+			EchoNPCController::instance()->update(0, (float)type, (float)val);
+			return;
+		}
+		if (!Echo::EchoFlyingController::isCreated)
 			CameraControl::instance()->setMoveDir(type, val);
-			else
-				Echo::EchoFlyingController::instance()->updateFlyCCT(0, (float)type, (float)val);
-		});
+		else
+			Echo::EchoFlyingController::instance()->updateFlyCCT(0, (float)type, (float)val);
+			});
 	}
 	else
 	{
@@ -1481,15 +1551,15 @@ void AsyncApp::cameraTurn(float x, float y)
 				EchoSphericalController::instance()->update(1, x, y);
 				return;
 			}
-			if (EchoNPCController::Alive()) {
-				EchoNPCController::instance()->update(1, x, y);
-				return;
-			}
-			if (!Echo::EchoFlyingController::isCreated)
-				CameraControl::instance()->cameraTurn(x * CAMERA_TURN_SCALE, y * CAMERA_TURN_SCALE);
-			else
-				Echo::EchoFlyingController::instance()->updateFlyCCT(1, x * CAMERA_TURN_SCALE, y * CAMERA_TURN_SCALE);
-		});
+		if (EchoNPCController::Alive()) {
+			EchoNPCController::instance()->update(1, x, y);
+			return;
+		}
+		if (!Echo::EchoFlyingController::isCreated)
+			CameraControl::instance()->cameraTurn(x * CAMERA_TURN_SCALE, y * CAMERA_TURN_SCALE);
+		else
+			Echo::EchoFlyingController::instance()->updateFlyCCT(1, x * CAMERA_TURN_SCALE, y * CAMERA_TURN_SCALE);
+			});
 	}
 	else
 	{
@@ -1517,12 +1587,12 @@ void AsyncApp::cameraDisChg(int val)
 				EchoSphericalController::instance()->update(2, 0, (float)val);
 				return;
 			}
-			if (EchoNPCController::Alive()) {
-				EchoNPCController::instance()->update(2, 0, (float)val);
-				return;
-			}
-			Echo::CameraControl::instance()->cameraDisChg(val);
-		});
+		if (EchoNPCController::Alive()) {
+			EchoNPCController::instance()->update(2, 0, (float)val);
+			return;
+		}
+		Echo::CameraControl::instance()->cameraDisChg(val);
+			});
 	}
 	else
 	{
@@ -1548,13 +1618,13 @@ void AsyncApp::setMoveDir(float x, float y)
 				EchoSphericalController::instance()->update(0, 1.0f, y);
 				return;
 			}
-			if (EchoNPCController::Alive()) {
-				EchoNPCController::instance()->update(0, 0.0f, x);
-				EchoNPCController::instance()->update(0, 1.0f, y);
-				return;
-			}
-			Echo::CameraControl::instance()->setMoveDir(x, y);
-		});
+		if (EchoNPCController::Alive()) {
+			EchoNPCController::instance()->update(0, 0.0f, x);
+			EchoNPCController::instance()->update(0, 1.0f, y);
+			return;
+		}
+		Echo::CameraControl::instance()->setMoveDir(x, y);
+			});
 	}
 	else
 	{
@@ -1581,12 +1651,12 @@ void AsyncApp::setTurnDir(float x, float y)
 				EchoSphericalController::instance()->update(1, x, y);
 				return;
 			}
-			if (EchoNPCController::Alive()) {
-				EchoNPCController::instance()->update(1, x, y);
-				return;
-			}
-			Echo::CameraControl::instance()->setTurnDir(x, y);
-		});
+		if (EchoNPCController::Alive()) {
+			EchoNPCController::instance()->update(1, x, y);
+			return;
+		}
+		Echo::CameraControl::instance()->setTurnDir(x, y);
+			});
 	}
 	else
 	{
@@ -1608,11 +1678,11 @@ void AsyncApp::incCameraSpeed()
 	{
 		g_appview->PostToLogic([]() {
 			float fSpeed = Echo::CameraControl::instance()->getMoveSpeed();
-			fSpeed *= 1.1f;
-			if (fSpeed < 0.01f)
-				fSpeed = 0.01f;
-			Echo::CameraControl::instance()->setMoveSpeed(fSpeed);
-		});
+		fSpeed *= 1.1f;
+		if (fSpeed < 0.01f)
+			fSpeed = 0.01f;
+		Echo::CameraControl::instance()->setMoveSpeed(fSpeed);
+			});
 	}
 	else
 	{
@@ -1630,11 +1700,11 @@ void AsyncApp::decCameraSpeed()
 	{
 		g_appview->PostToLogic([]() {
 			float fSpeed = Echo::CameraControl::instance()->getMoveSpeed();
-			fSpeed /= 1.1f;
-			if (fSpeed < 0.01f)
-				fSpeed = 0.01f;
-			Echo::CameraControl::instance()->setMoveSpeed(fSpeed);
-		});
+		fSpeed /= 1.1f;
+		if (fSpeed < 0.01f)
+			fSpeed = 0.01f;
+		Echo::CameraControl::instance()->setMoveSpeed(fSpeed);
+			});
 	}
 	else
 	{
@@ -1652,7 +1722,7 @@ void AsyncApp::attack()
 	{
 		g_appview->PostToLogic([]() {
 			Echo::CameraControl::instance()->attack();
-		});
+			});
 	}
 	else
 	{
@@ -1674,7 +1744,7 @@ void AsyncApp::switchPlayMode()
 				Echo::CameraControl::instance()->SetPlayMode(Echo::MODE_PLAY);
 				Echo::CameraControl::instance()->AttachCamera();
 			}
-		});
+			});
 	}
 	else
 	{
@@ -1696,8 +1766,8 @@ void AsyncApp::createRobotObject()
 	{
 		g_appview->PostToLogic([]() {
 			Echo::Vector3 posi = g_pMainCamera->getPosition();
-			RobotObjManager::instance()->CreateRobotObject(posi);
-		});
+		RobotObjManager::instance()->CreateRobotObject(posi);
+			});
 	}
 	else
 	{
@@ -1721,7 +1791,7 @@ int AsyncApp::getFps()
 	{
 		g_appview->PostToLogic([]() {
 			result = g_pEchoRoot2->GetFps();
-		});
+			});
 	}
 	else
 	{
@@ -1738,7 +1808,7 @@ int AsyncApp::getDrawCall()
 	{
 		g_appview->PostToLogic([]() {
 			result = g_pEchoRoot2->getDrawCount();
-		});
+			});
 	}
 	else
 	{
@@ -1755,7 +1825,7 @@ int AsyncApp::getTriangleCnt()
 	{
 		g_appview->PostToLogic([]() {
 			result = g_pEchoRoot2->getTriangleCount();
-		});
+			});
 	}
 	else
 	{
@@ -1772,21 +1842,21 @@ std::string AsyncApp::getCameraPosition()
 	{
 		g_appview->PostToLogic([]() {
 			if (g_pMainCamera != nullptr) {
-				const Echo::Vector3 & pos = g_pMainCamera->getPosition();
+				const Echo::Vector3& pos = g_pMainCamera->getPosition();
 				char szBuf[64] = { '\0' };
 				snprintf(szBuf, sizeof(szBuf) - 1, "%.2f %.2f %.2f",
-						pos.x, pos.y, pos.z);
+					pos.x, pos.y, pos.z);
 				result = szBuf;
 			}
-		});
+			});
 	}
 	else
 	{
 		if (g_pMainCamera != nullptr) {
-			const Echo::Vector3 & pos = g_pMainCamera->getPosition();
+			const Echo::Vector3& pos = g_pMainCamera->getPosition();
 			char szBuf[64] = { '\0' };
 			snprintf(szBuf, sizeof(szBuf) - 1, "%.2f %.2f %.2f",
-					pos.x, pos.y, pos.z);
+				pos.x, pos.y, pos.z);
 			result = szBuf;
 		}
 	}
@@ -1801,21 +1871,21 @@ std::string AsyncApp::getCameraOrientation()
 	{
 		g_appview->PostToLogic([]() {
 			if (g_pMainCamera != nullptr) {
-				const Echo::Quaternion & ori = g_pMainCamera->getOrientation();
+				const Echo::Quaternion& ori = g_pMainCamera->getOrientation();
 				char szBuf[64] = { '\0' };
 				snprintf(szBuf, sizeof(szBuf) - 1, "%f %f %f %f",
-						ori.w, ori.x, ori.y, ori.z);
+					ori.w, ori.x, ori.y, ori.z);
 				result = szBuf;
 			}
-		});
+			});
 	}
 	else
 	{
 		if (g_pMainCamera != nullptr) {
-			const Echo::Quaternion & ori = g_pMainCamera->getOrientation();
+			const Echo::Quaternion& ori = g_pMainCamera->getOrientation();
 			char szBuf[64] = { '\0' };
 			snprintf(szBuf, sizeof(szBuf) - 1, "%f %f %f %f",
-					ori.w, ori.x, ori.y, ori.z);
+				ori.w, ori.x, ori.y, ori.z);
 			result = szBuf;
 		}
 	}
@@ -1833,7 +1903,7 @@ std::string AsyncApp::getResMemUsageStr()
 			{
 				result = g_pWorldManager->getResMemUsage(g_pWorldManager->isDrawResMemUsageDetail());
 			}
-		});
+			});
 	}
 	else
 	{
@@ -1866,7 +1936,7 @@ void AsyncApp::loadSenceByName(const std::string& name) {
 	{
 		g_appview->PostToLogic([name]() {
 			Echo::GetEchoEngine()->loadNewLevel(name);
-		});
+			});
 	}
 	else
 	{
@@ -1894,7 +1964,7 @@ void SetRunTest(const bool isRunTest) {
 	g_runTest = isRunTest;
 }
 
-bool loadNewLevel(const std::string & szLevelName)
+bool loadNewLevel(const std::string& szLevelName)
 {
 	//if (g_pWorldManager->isLevelLoaded())
 	//{
@@ -1905,7 +1975,7 @@ bool loadNewLevel(const std::string & szLevelName)
 	bool b = Echo::GetEchoEngine()->loadNewLevel(szLevelName);
 	g_pWorldManager->setSceneSeamlessEnable(false);
 
-	const auto & it = g_LevelMap.find(szLevelName);
+	const auto& it = g_LevelMap.find(szLevelName);
 	if (it != g_LevelMap.end())
 	{
 		g_pMainCamera->setPosition(std::get<0>(it->second));
@@ -1918,7 +1988,7 @@ bool loadNewLevel(const std::string & szLevelName)
 class GameLogic
 {
 public:
-	GameLogic(const char* _assetPath, const char* _dataPath,const Echo::ECHO_GRAPHIC_PARAM*pGraphicParam, Echo::uint32 renderMode, bool bClientMode, Echo::uint32 width, Echo::uint32 height);
+	GameLogic(const char* _assetPath, const char* _dataPath, const Echo::ECHO_GRAPHIC_PARAM* pGraphicParam, Echo::uint32 renderMode, bool bClientMode, Echo::uint32 width, Echo::uint32 height);
 	~GameLogic();
 	void PreTick();
 	void OnTick(float _delta_s);
@@ -1928,12 +1998,12 @@ public:
 
 private:
 	unsigned int    m_uEngineRenderMode;
-	CmnLogic*       m_curLogic;
+	CmnLogic* m_curLogic;
 	Echo::uint32        m_width;
 	Echo::uint32        m_height;
 };
 
-GameLogic::GameLogic(const char* _assetPath, const char* _dataPath, const Echo::ECHO_GRAPHIC_PARAM*pGraphicParam, Echo::uint32 renderMode, bool bClientMode, Echo::uint32 width, Echo::uint32 height)
+GameLogic::GameLogic(const char* _assetPath, const char* _dataPath, const Echo::ECHO_GRAPHIC_PARAM* pGraphicParam, Echo::uint32 renderMode, bool bClientMode, Echo::uint32 width, Echo::uint32 height)
 	: m_uEngineRenderMode(renderMode)
 	, m_curLogic(nullptr)
 	, m_width(width)
@@ -1945,7 +2015,7 @@ GameLogic::GameLogic(const char* _assetPath, const char* _dataPath, const Echo::
 		{
 			std::string sLogFileName = "Echo.log";
 
-			Echo::IArchive * pArchive = Echo::GetArchivePack();
+			Echo::IArchive* pArchive = Echo::GetArchivePack();
 
 #ifndef _WIN32
 			sLogFileName.insert(0, _dataPath);
@@ -1980,12 +2050,11 @@ GameLogic::GameLogic(const char* _assetPath, const char* _dataPath, const Echo::
 			g_pPlayerObjManager = new PlayerObjManager();
 			g_pPlayerObjManager->SetSceneManager(g_pMainSceneManager);
 
-
 #ifdef __ANDROID__
 			AttachNativeThreadFMOD();
 #endif
 
-			Echo::BellSystem * pBellSystem = Echo::BellSystem::instance();
+			Echo::BellSystem* pBellSystem = Echo::BellSystem::instance();
 			if (NULL != pBellSystem)
 			{
 				if (pBellSystem->initialise("Bank/Master.bank", "Bank/Master.strings.bank"))
@@ -2083,7 +2152,7 @@ void GameLogic::OnTick(float dt)
 			Echo::TriggerAreaManager::instance()->update(pos, g_pMainCamera->getDerivedOrientation(), g_pMainCamera->getDerivedPosition());
 			Echo::GravityAreaManager::instance()->update(pos);
 
-			if(g_pWorldManager)
+			if (g_pWorldManager)
 				g_pWorldManager->updateRolePos(pos);
 			Echo::GetEchoEngine()->preRenderOneFrame();
 			if (EchoSphericalController::Alive()) {
@@ -2171,7 +2240,7 @@ void GameLogic::ReleaseEditorRoot()
 
 unsigned int GetEngineRenderMode()
 {
-	Echo::IArchive * pArchive = Echo::GetArchivePack();
+	Echo::IArchive* pArchive = Echo::GetArchivePack();
 
 	Echo::SystemConfigFile cfg(pArchive);
 	cfg.load("echo/EchoEngine.cfg");
@@ -2184,7 +2253,7 @@ unsigned int GetEngineRenderMode()
 #elif defined(__APPLE__)
 	sPlatform = "IOS";
 #elif defined(__OHOS__)
-    sPlatform = "Harmony";
+	sPlatform = "Harmony";
 #endif
 
 	const Echo::SettingsMultiMap* pSetMap = cfg.getSettingsMap(sPlatform);
@@ -2200,7 +2269,7 @@ unsigned int GetEngineRenderMode()
 	return Echo::ECHO_THREAD_ST;
 }
 //////////////////////////////////////////////////////////////////////////
-void InitAsyncApp(const char* _assetPath, const char* _dataPath, const Echo::ECHO_GRAPHIC_PARAM* pGraphicParam,bool bClientMode,Echo::uint32 width, Echo::uint32 height)
+void InitAsyncApp(const char* _assetPath, const char* _dataPath, const Echo::ECHO_GRAPHIC_PARAM* pGraphicParam, bool bClientMode, Echo::uint32 width, Echo::uint32 height)
 {
 	Echo::uint32 renderMode = GetEngineRenderMode();
 
