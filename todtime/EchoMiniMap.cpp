@@ -1216,18 +1216,20 @@ namespace Echo
 			return;
 
 		const Vector3& CameraWorldPos = mPlayerWorldPosition;
-		
+
 		if (!mTimeZeroRefPosInited)
 		{
-			mTimeZeroRefPos = CameraWorldPos;
+			//mTimeZeroRefPos = CameraWorldPos;
+			mTimeZeroRefPos = Vector3(-365472.0f, 9.64f, 432224.0f);
 			mTimeZeroRefPosInited = true;
 		}
 
-		
+
 		{
 			TODManager* todMgr = TODSystem::instance()->GetManager(WorldSystem::instance()->GetActiveWorld());
 			if (todMgr && mTerrainWidth > 1e-3f)
 			{
+
 
 				Vector3 refPos = mTimeZeroRefPos;
 
@@ -1237,7 +1239,7 @@ namespace Echo
 					int curZone = (int)std::floor((CameraWorldPos.x - mWorldOrigin.x) / zoneWidth);
 					int refZone = (int)std::floor((refPos.x - mWorldOrigin.x) / zoneWidth);
 					int rawDelta = curZone - refZone; // 可能超出[-24,24]
-					
+
 					rawDelta = (rawDelta % 24 + 24) % 24;
 					if (rawDelta > 12) rawDelta -= 24;
 					const int hourSec = 3600;
@@ -1272,7 +1274,25 @@ namespace Echo
 		//Vector3 CameraRotationVec3 = CameraRotation.ToEuler();
 
 		NotifyCameraVisible();
-
+		if (mShowTodtimeHud && mTodTimeText)
+		{
+			TODManager* mgr = TODSystem::instance()->GetManager(WorldSystem::instance()->GetActiveWorld());
+			if (mgr)
+			{
+				double tnow = mgr->calculateCurTodTime();
+				int totalSec = (int)(tnow * 24.0 * 3600.0);
+				if (totalSec < 0) totalSec = (int)(24 * 3600 + (totalSec % (24 * 3600)));
+				int hh = (totalSec / 3600) % 24;
+				int mm = (totalSec % 3600) / 60;
+				int ss = totalSec % 60;
+				char tbuf[16];
+				snprintf(tbuf, sizeof(tbuf), "%02d:%02d:%02d", hh, mm, ss);
+				mTodTimeText->setText(tbuf);
+				// 确保文本可见并置顶
+				mTodtimeUI.mObject->setVisible(true);
+				mTodtimeUI.mObject->setSortingOrder(100);
+			}
+		}
 		//CityUI* CurrentCityUI = nullptr;
 		//float CurrentMinDis = std::numeric_limits<float>::max();
 		//for (auto&& curCity : mCityMap)
@@ -1308,9 +1328,9 @@ namespace Echo
 		}
 		//if (CurrentCityUI)
 		//{
-		//	
+		//
 		//	//AreaBlockInfo* CurrentAreaBlockInfo = mPageManager->CheckCamera(CameraWorldPos);
-		//	
+		//
 		//	uint32 CheckAreaID = 0;
 		//	static echofgui::GObject* CurrCheckUI = nullptr;
 		//	for (auto&& areaTex : mAreaTexs)
@@ -1324,7 +1344,7 @@ namespace Echo
 		//			//Vector2  CurIndex = (CameraPos2D - areaTex.mWorldOrigin) / 128;
 		//			int CurIndexx = std::min(1023, (int)std::ceil(areaIndex.x));
 		//			int CurIndexy = std::min(1023, (int)std::ceil(areaIndex.y));
-		//			
+		//
 		//			CheckAreaID = (uint32)areaTex.mAreaTexData[CurIndexx][CurIndexy];
 		//			isCheck = true;
 		//			areaTex.setVisible(true);
@@ -1546,6 +1566,47 @@ namespace Echo
 		{
 			sceneUI->setVisible(InVal);
 		}
+	}
+
+	void MiniMapManager::SetShowTodTimeHud(bool InVal) {
+		if (mShowTodtimeHud == InVal)
+			return;
+		mShowTodtimeHud = InVal;
+		if (mShowTodtimeHud)
+		{
+			// 确保资源包已加载
+			echofgui::UIPackage::addPackage("fgui/bytes/chinese_minimap");
+			if (!mTodtimeUI.mObject)
+			{
+				mTodtimeUI = CreateUIFromResource("chinese_minimap", "text");
+				if (mTodtimeUI.mObject)
+				{
+					
+					mTodtimeUI.mObject->setPosition(180.0f, 180.0f, 0.0f);
+					
+					mTodtimeUI.mObject->setTouchable(false);
+					mTodTimeText = mTodtimeUI.mObject->as<echofgui::GComponent>()->getChild("n0");
+					if (mTodTimeText)
+					{
+						
+						mTodTimeText->setScale(5.2f, 5.2f);
+					}
+				}
+			}
+			if (mTodtimeUI.mObject)
+				mTodtimeUI.mObject->setVisible(true);
+		}
+		else
+		{
+			if (mTodtimeUI.mObject)
+				mTodtimeUI.mObject->setVisible(false);
+		}
+	}
+
+
+	void MiniMapManager::ToggleTodTimeHud()
+	{
+		SetShowTodTimeHud(!mShowTodtimeHud);
 	}
 
 	Vector2 MiniMapManager::GetPosInMapByWorldPos(const Vector3& InPos)
