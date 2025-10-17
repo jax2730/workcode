@@ -1235,6 +1235,7 @@ namespace Echo
 
 				if (mTerrainWidth > 1e-6f)
 				{
+
 					const float zoneWidth = mTerrainWidth / 24.0f;
 					int curZone = (int)std::floor((CameraWorldPos.x - mWorldOrigin.x) / zoneWidth);
 					int refZone = (int)std::floor((refPos.x - mWorldOrigin.x) / zoneWidth);

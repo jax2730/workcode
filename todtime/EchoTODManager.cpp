@@ -404,7 +404,7 @@ namespace Echo
 		m_currentRealTotalTime += _getRealElapseTime(tempTime, timeElapsed * mTimeSpeed);
 		double sec = std::fmod(m_currentRealTotalTime + (double)mTimePassed + (double)mLocationTimeOffsetSeconds, (double)m_dwDayTime);
 		if (sec < 0) sec += m_dwDayTime;
-		double time = sec / m_dwDayTime;
+		double time = sec / m_dwDayTime; //时区 西走为后一天（明天）  东走为前一天（昨天）  
 
 		_updateMoonPhase(time); //月相要一直更新
 
@@ -888,6 +888,7 @@ namespace Echo
 	{
 		return mTimeElapsed;
 	}
+
 	void TODManager::setLocationTimeOffsetSeconds(int seconds)
 	{
 		mLocationTimeOffsetSeconds = seconds;
@@ -2340,6 +2341,7 @@ namespace Echo
 			if (sec < 0) sec += m_dwDayTime;
 			t = sec / m_dwDayTime;
 		}
+
 
 		double realElapsedtime = 0.0;
 		for (size_t i = 0, count = mTimeSpeedSlots.size(); i < count; i++)
