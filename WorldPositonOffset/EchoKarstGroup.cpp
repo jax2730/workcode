@@ -199,7 +199,7 @@ namespace Echo
 		catch (std::exception& e)
 		{
 			LogManager::instance()->logMessage(e.what());
-		}	
+		}
 	}
 
 	void KarstGroup::createVirtualPageTable()
@@ -267,25 +267,25 @@ namespace Echo
 
 			cJSON* rootNode = cJSON_CreateObject();
 			cJSON* blocksArray = cJSON_CreateArray();
-			
+
 			for (const auto& block : mKarstBlocks)
 			{
 				auto idx = EchoKarst::KeyPack(block.first);
 				cJSON* blockNode = cJSON_CreateObject();
-				
+
 				cJSON_AddNumberToObject(blockNode, "x", idx.x);
 				cJSON_AddNumberToObject(blockNode, "y", idx.y);
 				cJSON_AddNumberToObject(blockNode, "minH", block.second->minH);
 				cJSON_AddNumberToObject(blockNode, "maxH", block.second->maxH);
 				cJSON_AddBoolToObject(blockNode, "available", block.second->available);
-				
+
 				cJSON_AddItemToArray(blocksArray, blockNode);
 			}
-			
+
 			cJSON_AddItemToObject(rootNode, "blocks", blocksArray);
 			cJSON_AddNumberToObject(rootNode, "rowNum", mRowNum);
 			cJSON_AddNumberToObject(rootNode, "colNum", mColNum);
-			
+
 			char* jsonString = cJSON_Print(rootNode);
 			if (jsonString)
 			{
@@ -294,7 +294,7 @@ namespace Echo
 				free(jsonString);
 				LogManager::instance()->logMessage("Karst: Successfully saved block cache to " + jsonPath);
 			}
-			
+
 			cJSON_Delete(rootNode);
 		}
 		catch (std::exception& e)
@@ -313,36 +313,36 @@ namespace Echo
 				LogManager::instance()->logMessage("Karst: karst_block_cache.json not found, will generate new block info");
 				return false;
 			}
-			
+
 			auto dataSize = pDataStream->size();
 			if (dataSize == 0) {
 				LogManager::instance()->logMessage("Karst: karst_block_cache.json is empty");
 				return false;
 			}
-			
+
 			char* pData = new char[dataSize + 1];
 			memset(pData, 0, dataSize + 1);
 			pDataStream->read(pData, dataSize);
-			
+
 			cJSON* rootNode = cJSON_Parse(pData);
 			if (!rootNode) {
 				LogManager::instance()->logMessage("Karst: Failed to parse karst_block_cache.json");
 				delete[] pData;
 				return false;
 			}
-			
+
 			// 验证行列数是否匹配
 			uint32 cachedRowNum = 0, cachedColNum = 0;
 			ReadJSNode(rootNode, "rowNum", cachedRowNum);
 			ReadJSNode(rootNode, "colNum", cachedColNum);
-			
+
 			if (cachedRowNum != mRowNum || cachedColNum != mColNum) {
 				LogManager::instance()->logMessage("Karst: Cached block info dimensions don't match current terrain size, regenerating");
 				cJSON_Delete(rootNode);
 				delete[] pData;
 				return false;
 			}
-			
+
 			cJSON* blocksArray = cJSON_GetObjectItem(rootNode, "blocks");
 			if (!blocksArray) {
 				LogManager::instance()->logMessage("Karst: Invalid blocks array in cache file");
@@ -350,19 +350,19 @@ namespace Echo
 				delete[] pData;
 				return false;
 			}
-			
+
 			int blockCount = cJSON_GetArraySize(blocksArray);
 			int loadedCount = 0;
-			
+
 			for (int i = 0; i < blockCount; i++)
 			{
 				cJSON* blockNode = cJSON_GetArrayItem(blocksArray, i);
 				if (!blockNode) continue;
-				
+
 				uint32 x = 0, y = 0;
 				float minH = 0.0f, maxH = 0.0f;
 				bool available = false;
-				
+
 				if (ReadJSNode(blockNode, "x", x) &&
 					ReadJSNode(blockNode, "y", y) &&
 					ReadJSNode(blockNode, "minH", minH) &&
@@ -377,16 +377,16 @@ namespace Echo
 						block->available = available;
 						block->usable = false;
 						block->instance = nullptr;
-						
+
 						mKarstBlocks.insert(std::make_pair(EchoKarst::packIndex(x, y), block));
 						loadedCount++;
 					}
 				}
 			}
-			
+
 			cJSON_Delete(rootNode);
 			delete[] pData;
-			
+
 			LogManager::instance()->logMessage("Karst: Successfully loaded " + std::to_string(loadedCount) + " cached blocks from " + jsonPath);
 			return loadedCount > 0;
 		}
@@ -428,7 +428,7 @@ namespace Echo
 					}
 				}
 			}
-			
+
 			// 保存新生成的数据到缓存文件
 			saveKarstBlockInfo();
 		}
@@ -545,7 +545,7 @@ namespace Echo
 			mRequestDelay += Root::instance()->getTimeSinceLastFrame();
 		}
 
-		if (mAreaFogDirty){
+		if (mAreaFogDirty) {
 			Root::instance()->getRenderSystem()->updateBuffer(mAreaFogRcBuffer, mAreaFogBuffer.data(), mAreaFogBufferSize * sizeof(float), true);
 			mAreaFogDirty = false;
 		}
@@ -573,7 +573,7 @@ namespace Echo
 		bool useLight = (Root::instance()->getClusterForwardLightEnable() &&
 			Root::instance()->getClusterForwadLightLevel() != ClusteForwardLighting::CFL_Off);
 		bool useDpsm = useLight && mSceneManager->getPointShadowManager()->IsEnabled();
-		
+
 		if (pCamera == mSceneManager->getMainCamera()) {
 			mRenderables.clear();
 			for (uint32 i = 0; i < mOptions->mTreeDepth + 1; i++) {
@@ -634,7 +634,7 @@ namespace Echo
 							mPlaneMeshReqSet.insert(packKey);
 						}
 					}
-				}		
+				}
 			}
 			RenderQueueGroup* pqg = pQueue->getRenderQueueGroup(RenderQueue_Terrain);
 			if (mRenderType == KarstRenderType::VirtualTexture) {
@@ -704,11 +704,11 @@ namespace Echo
 						.renderQueue = pQueue,
 						.passMaskFlags = postMaskFlags
 					};
-					
+
 					for (auto it : mRenderables)
 					{
 						it->renderUpdate();
-						
+
 						postParams.renderable = it;
 						MaterialShaderPassManager::fastPostRenderable(postParams);
 					}
@@ -745,7 +745,7 @@ namespace Echo
 						.renderQueue = pQueue,
 						.passMaskFlags = postMaskFlags
 					};
-					
+
 
 					for (auto& render : mKarstRenders)
 					{
@@ -772,7 +772,7 @@ namespace Echo
 						.material = mMaterials->mNodeBaseMaterial.getV2(),
 						.renderQueue = pQueue
 					};
-					
+
 					for (auto it : mRenderables)
 					{
 						postParams.renderable = it;
@@ -787,7 +787,7 @@ namespace Echo
 	{
 		uint32 level = tileinfo.mipLevel;
 		int x = tileinfo.pageX * (1 << level) + tileinfo.px;
-		int y = tileinfo.pageY * (1 << level) + tileinfo.py ;
+		int y = tileinfo.pageY * (1 << level) + tileinfo.py;
 		uint64 index = EchoKarst::packIndex(std::min((uint32)std::max(x, 0), mRenderNodeRowNum - 1),
 			std::min((uint32)std::max(y, 0), mRenderNodeColNum - 1));
 
@@ -916,7 +916,7 @@ namespace Echo
 	}
 
 	KarstPage* KarstGroup::getKarstPage(uint32 pageX, uint32 pageY) const {
-		if(!mKarstBlocks.size())
+		if (!mKarstBlocks.size())
 			return nullptr;
 
 		if (auto it = mKarstBlocks.find(EchoKarst::packIndex(pageX, pageY)); it != mKarstBlocks.end()) {
@@ -941,7 +941,7 @@ namespace Echo
 
 	bool KarstGroup::getSurfaceID(const Vector2& pos, uint8& value)
 	{
-		if(!mActive)
+		if (!mActive)
 			return false;
 		return mRenderResource->getSurfaceID(pos, value);
 	}
@@ -1350,12 +1350,12 @@ namespace Echo
 	bool KarstGroup::canHandleResponse(const WorkQueue::Response* res, const WorkQueue* srcQ)
 	{
 		const LoadKarstResourceRequest* resReq = any_cast<LoadKarstResourceRequest*>(res->getRequest()->getData());
-		
+
 		return this == resReq->karstGroup && res->succeeded();
 	}
 
 	void KarstGroup::updateTileData(const KarstNodeResourceRequest* req)
-	{		
+	{
 		if (req->dataType == KarstResourceDataType::HeightNormalMap) {
 			if (int size = (int)req->pHeightData.size(); size) {
 				mDataResourcePool->updateTileData(KarstResouceHeightMapName, req->index, req->tileID, (void*)req->pHeightData.data(), size * sizeof(uint32));
@@ -1388,7 +1388,7 @@ namespace Echo
 			if (!req->getAborted()) {
 				LoadKarstResourceRequest* resReq = any_cast<LoadKarstResourceRequest*>(req->getData());
 				auto& requests = resReq->requests;
-				for (auto& request : requests){
+				for (auto& request : requests) {
 					auto karstPage = getKarstPage(request->pageX, request->pageY);
 					if (karstPage) {
 						updateTileData(request);

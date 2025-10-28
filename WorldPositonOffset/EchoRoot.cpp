@@ -82,7 +82,7 @@
 #include "EchoRoleMeshLoadManager.h"
 #ifdef __APPLE__
 #else
-	#include "EchoShaderClientManager.h"
+#include "EchoShaderClientManager.h"
 #endif
 
 #include "EchoMaterialManager.h"
@@ -201,7 +201,7 @@ namespace Echo {
 #define DEFAULT_FORCE_FIRST_PERSON_NEAR_CLIP_DISTANCE 0.001f
 #define DEFAULT_FORCE_SCENE_NEAR_CLIP_DISTANCE 0.1f
 	//-----------------------------------------------------------------------
-	Root::Root(const String & rootResPath, IArchive* pArchive, RuntimeMode mode /*= eRM_Client*/, const String& logFileName /*= "Echo.log"*/,
+	Root::Root(const String& rootResPath, IArchive* pArchive, RuntimeMode mode /*= eRM_Client*/, const String& logFileName /*= "Echo.log"*/,
 		bool bForceUseGxRender /*= false*/, bool bForceUseRcSingleThread/* = false*/)
 		: mRootResourcePath(rootResPath)
 		, mArchive(pArchive)
@@ -296,7 +296,7 @@ namespace Echo {
 		, m_enableGLDepthZeroToOne(false)
 		, m_depthFormat(ECHO_FMT_D24S8_PACKED)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		m_version = StringConverter::toString(ECHO_VERSION_MAJOR) + "." +
 			StringConverter::toString(ECHO_VERSION_MINOR) + "." +
@@ -319,7 +319,7 @@ EchoZoneScoped;
 #endif
 
 		// Create log manager and default log file if there is no log manager yet
-		if(LogManager::getSingletonPtr() == 0)
+		if (LogManager::getSingletonPtr() == 0)
 		{
 			mLogManager = new LogManager();
 			mLogManager->createLog(logFileName, true, true);
@@ -336,7 +336,7 @@ EchoZoneScoped;
 		if (!StringTable::instance()->loadTable("echo/EchoStringTable.cfg"))
 		{
 			LogManager::instance()->logMessage(LML_CRITICAL,
-					"String table load failed: echo/EchoStringTable.cfg.");
+				"String table load failed: echo/EchoStringTable.cfg.");
 		}
 
 		new IOCPController(); // init IO complete port controller
@@ -499,10 +499,10 @@ EchoZoneScoped;
 		//new ResLoadManager();
 
 		new SheetManager();
-//#if defined( __WIN32__ ) || defined( _WIN32 )
-		//new SqliteMgr();
-		//SqliteMgr::instance()->init("config/SqliteConfig.cfg", true);	//暂时移到componentsystem中初始化,如有需求在考虑
-//#endif
+		//#if defined( __WIN32__ ) || defined( _WIN32 )
+				//new SqliteMgr();
+				//SqliteMgr::instance()->init("config/SqliteConfig.cfg", true);	//暂时移到componentsystem中初始化,如有需求在考虑
+		//#endif
 		new ThreadPool();
 
 #if ECHO_NO_FREEIMAGE == 0
@@ -611,7 +611,7 @@ EchoZoneScoped;
 		SceneManagerMap::iterator itb, ite;
 		itb = mSceneManagerMap.begin();
 		ite = mSceneManagerMap.end();
-		for (;itb != ite; ++itb)
+		for (; itb != ite; ++itb)
 		{
 			delete itb->second;
 		}
@@ -687,9 +687,9 @@ EchoZoneScoped;
 		delete EntityBatchPageResManager::instance();
 		delete DataStreamManager::instance();
 		delete LandformResourceManager::instance();
-//#if defined( __WIN32__ ) || defined( _WIN32 )
-		//delete SqliteMgr::instance();
-//#endif
+		//#if defined( __WIN32__ ) || defined( _WIN32 )
+				//delete SqliteMgr::instance();
+		//#endif
 		delete SheetManager::instance();
 		delete ThreadPool::instance();
 
@@ -740,7 +740,7 @@ EchoZoneScoped;
 		{
 			if (ECHO_THREAD_ST != m_threadMode)
 			{
-				char * pCacheRootPath = (char*)m_context->pCacheRootPath;
+				char* pCacheRootPath = (char*)m_context->pCacheRootPath;
 				free(pCacheRootPath);
 			}
 
@@ -775,14 +775,14 @@ EchoZoneScoped;
 
 	const char* Root::GetVersion()
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		class VersionString
 		{
 		public:
 			VersionString()
 			{
-EchoZoneScoped;
+				EchoZoneScoped;
 
 				snprintf(mVersionStr, sizeof(mVersionStr), "%d.%d.%d(%s)",
 					ECHO_VERSION_MAJOR, ECHO_VERSION_MINOR, ECHO_VERSION_PATCH, ECHO_VERSION_NAME);
@@ -806,7 +806,7 @@ EchoZoneScoped;
 
 	void Root::OutEventMemInfo(DataStreamPtr& stream)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		if (mOutEventMemInfoFun == NULL)
 			return;
@@ -822,11 +822,11 @@ EchoZoneScoped;
 
 	void Root::setClusterForwardLightEnable(bool enable, ClusteForwardLighting::Level level)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		m_bEnableClusterForwardLight = enable;
 
-		if(m_bEnableClusterForwardLight == false)
+		if (m_bEnableClusterForwardLight == false)
 		{
 			// NOTE: Level parameter is ignored.
 			m_clusterLightLevel = ClusteForwardLighting::CFL_Off;
@@ -836,17 +836,17 @@ EchoZoneScoped;
 			m_clusterLightLevel = level;
 		}
 
-		for(auto mapIte : mSceneManagerMap)
+		for (auto mapIte : mSceneManagerMap)
 		{
 			SceneManager* sceneManager = mapIte.second;
-			ClusteForwardLighting *cfl = sceneManager->getClusterForwardLighting();
+			ClusteForwardLighting* cfl = sceneManager->getClusterForwardLighting();
 			cfl->setLevel(m_clusterLightLevel);
 		}
 	}
 
 	bool isUseHDRFormatFP16(std::string _vendor, std::string _renderer, std::string _model, std::string _cpu)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		bool ans = false;
 		//统一转为小写
@@ -861,7 +861,7 @@ EchoZoneScoped;
 			return false;
 
 		size_t nSize = pDataStream->size();
-		char *pData = new char[nSize + 1];
+		char* pData = new char[nSize + 1];
 		memset(pData, 0, nSize + 1);
 		pDataStream->read(pData, nSize);
 
@@ -937,7 +937,7 @@ EchoZoneScoped;
 
 	void Root::setRenderSystem(const ECHO_GRAPHIC_PARAM* pGraphicParam, const char* hookPath)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		if (m_bInitialise)
 			return;
@@ -1619,11 +1619,11 @@ EchoZoneScoped;
 					MaterialCompileManager::instance()->m_bCompileInfo = (StringConverter::parseUnsignedInt(it->second) != 0);
 				}
 
-                it = pSetMap->find("UseCompileInfoExt");
-                if (it != pSetMap->end())
-                {
-                    MaterialCompileManager::instance()->m_bCompileInfoExt = (StringConverter::parseUnsignedInt(it->second) != 0);
-                }
+				it = pSetMap->find("UseCompileInfoExt");
+				if (it != pSetMap->end())
+				{
+					MaterialCompileManager::instance()->m_bCompileInfoExt = (StringConverter::parseUnsignedInt(it->second) != 0);
+				}
 
 				it = pSetMap->find("RenderCompileInfo");
 				if (it != pSetMap->end())
@@ -2130,9 +2130,9 @@ EchoZoneScoped;
 		}
 	}
 
-	const String & Root::getRootResourcePath(const String & resType)
+	const String& Root::getRootResourcePath(const String& resType)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		if (resType.empty())
 			return ResourceFolderManager::instance()->GetDefaultRootPath();
@@ -2141,7 +2141,7 @@ EchoZoneScoped;
 
 	void Root::onOpenFloatExceptionCheck()
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 #ifdef _WIN32
 		if (m_checkFloatExceptionMask > 0)
@@ -2152,7 +2152,7 @@ EchoZoneScoped;
 
 			uint32 _mask = 0;
 
-			if(m_checkFloatExceptionMask & EM_INEXACT)
+			if (m_checkFloatExceptionMask & EM_INEXACT)
 				_mask |= EM_INEXACT;
 			if (m_checkFloatExceptionMask & EM_UNDERFLOW)
 				_mask |= EM_UNDERFLOW;
@@ -2177,7 +2177,7 @@ EchoZoneScoped;
 
 	void Root::onUnderClocking(int type)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 
 	}
@@ -2185,7 +2185,7 @@ EchoZoneScoped;
 	//-----------------------------------------------------------------------
 	RenderSystem* Root::getRenderSystem(void)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		// Gets the currently active renderer
 		return m_pRenderSystem;
@@ -2193,7 +2193,7 @@ EchoZoneScoped;
 	//-----------------------------------------------------------------------------
 	SceneManager* Root::createSceneManager(const Name& instanceName)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		// Check name not used
 		if (mSceneManagerMap.find(instanceName) != mSceneManagerMap.end())
@@ -2201,14 +2201,14 @@ EchoZoneScoped;
 			ECHO_EXCEPT(
 				Exception::ERR_DUPLICATE_ITEM,
 				"A camera with the name " + instanceName.toString() + " already exists",
-				"SceneManager::createSceneManager" );
+				"SceneManager::createSceneManager");
 		}
 
-		SceneManager *sm = new SceneManager(instanceName);
+		SceneManager* sm = new SceneManager(instanceName);
 		sm->_setDestinationRenderSystem(m_pRenderSystem);
 		mSceneManagerMap.insert(SceneManagerMap::value_type(instanceName, sm));
 
-		if(m_enable3DUISceneQueryCullTick)
+		if (m_enable3DUISceneQueryCullTick)
 		{
 			sm->addListener(efgui::FGUITickListener::instance());
 		}
@@ -2234,7 +2234,7 @@ EchoZoneScoped;
 	//-----------------------------------------------------------------------------
 	void Root::destroySceneManager(SceneManager* sm)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		if (sm == getActiveSceneManager())
 		{
@@ -2251,7 +2251,7 @@ EchoZoneScoped;
 	//-----------------------------------------------------------------------------
 	SceneManager* Root::getSceneManager(const Name& instanceName) const
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		SceneManagerMap::const_iterator ite = mSceneManagerMap.find(instanceName);
 		if (ite != mSceneManagerMap.end())
@@ -2264,7 +2264,7 @@ EchoZoneScoped;
 	//-----------------------------------------------------------------------------
 	bool Root::hasSceneManager(const Name& instanceName) const
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		SceneManagerMap::const_iterator iter = mSceneManagerMap.find(instanceName);
 		if (iter == mSceneManagerMap.end())
@@ -2278,14 +2278,14 @@ EchoZoneScoped;
 
 	Echo::SceneManager* Root::getMainSceneManager()
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		return getSceneManager(g_MainSceneManagerName);
 	}
 
 	Echo::SceneManager* Root::getUISceneManager()
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		return getSceneManager(g_UISceneManagerName);
 	}
@@ -2293,7 +2293,7 @@ EchoZoneScoped;
 	//=============================================================================
 	void Root::addFrameListener(FrameListener* listener)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		if (std::find(mFrameListeners.begin(), mFrameListeners.end(), listener) == mFrameListeners.end() ||
 			std::find(mRemovedFrameListeners.begin(), mRemovedFrameListeners.end(), listener) != mRemovedFrameListeners.end())
@@ -2306,7 +2306,7 @@ EchoZoneScoped;
 	//=============================================================================
 	void Root::removeFrameListener(FrameListener* listener)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		if (std::find(mFrameListeners.begin(), mFrameListeners.end(), listener) != mFrameListeners.end())
 		{
@@ -2357,13 +2357,13 @@ EchoZoneScoped;
 	//-----------------------------------------------------------------------
 	bool Root::_fireFrameStarted(FrameEvent& evt)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 #ifdef PRINT_TIME_INFO
 		uint64 frameStartTime0 = mTimer->getMicroseconds();
 #endif
 		// 先把要移除的Listener移除掉
-		for (size_t i=0; i<mRemovedFrameListeners.size(); ++i)
+		for (size_t i = 0; i < mRemovedFrameListeners.size(); ++i)
 		{
 			std::vector<FrameListener*>::iterator itFind = std::find(mFrameListeners.begin(), mFrameListeners.end(), mRemovedFrameListeners[i]);
 			if (itFind != mFrameListeners.end())
@@ -2372,7 +2372,7 @@ EchoZoneScoped;
 		mRemovedFrameListeners.clear();
 
 		// 真正地添加listener
-		for (size_t i=0; i<mAddedFrameListeners.size(); ++i)
+		for (size_t i = 0; i < mAddedFrameListeners.size(); ++i)
 		{
 			std::vector<FrameListener*>::const_iterator itFind = std::find(mFrameListeners.begin(), mFrameListeners.end(), mAddedFrameListeners[i]);
 			if (itFind == mFrameListeners.end())
@@ -2387,24 +2387,24 @@ EchoZoneScoped;
 #ifdef PRINT_TIME_INFO
 		uint64 frameStartTime1 = mTimer->getMicroseconds();
 #endif
-				//{
-		//	tthread::lock_guard<tthread::recursive_mutex> lock(mLock);
-		//	auto it = mDirtyNode.begin();
-		//	for (; it != mDirtyNode.end(); ++it)
-		//	{
-		//		//if (it->second)
-		//		//{
-		//		//	it->first->_updateAxisBox();
-		//		//}
-		//		(*it)->_update(true, false);
-		//		(*it)->setDirty(false);
-		//	}
-		//	mDirtyNode.clear();
-				//}
+		//{
+//	tthread::lock_guard<tthread::recursive_mutex> lock(mLock);
+//	auto it = mDirtyNode.begin();
+//	for (; it != mDirtyNode.end(); ++it)
+//	{
+//		//if (it->second)
+//		//{
+//		//	it->first->_updateAxisBox();
+//		//}
+//		(*it)->_update(true, false);
+//		(*it)->setDirty(false);
+//	}
+//	mDirtyNode.clear();
+		//}
 
 		OceanTickJobManager::instance()->Synchro();
 
-		for (size_t i=0; i<mFrameListeners.size(); ++i)
+		for (size_t i = 0; i < mFrameListeners.size(); ++i)
 		{
 			mFrameListeners[i]->frameStarted(evt);
 		}
@@ -2479,7 +2479,7 @@ EchoZoneScoped;
 	//-----------------------------------------------------------------------
 	bool Root::_fireFrameEnded(FrameEvent& evt)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 #ifdef PRINT_TIME_INFO
 		uint64 frameEndTime0 = mTimer->getMicroseconds();
@@ -2492,7 +2492,7 @@ EchoZoneScoped;
 #endif
 
 		// 先把要移除的Listener移除掉
-		for (size_t i=0; i<mRemovedFrameListeners.size(); ++i)
+		for (size_t i = 0; i < mRemovedFrameListeners.size(); ++i)
 		{
 			std::vector<FrameListener*>::const_iterator itFind = std::find(mFrameListeners.begin(), mFrameListeners.end(), mRemovedFrameListeners[i]);
 			if (itFind != mFrameListeners.end())
@@ -2502,7 +2502,7 @@ EchoZoneScoped;
 #ifdef PRINT_TIME_INFO
 		uint64 frameEndTime2 = mTimer->getMicroseconds();
 #endif
-		for (size_t i=0; i<mFrameListeners.size(); ++i)
+		for (size_t i = 0; i < mFrameListeners.size(); ++i)
 		{
 			mFrameListeners[i]->frameEnded(evt);
 		}
@@ -2531,9 +2531,9 @@ EchoZoneScoped;
 		if (time > 3000)
 		{
 			char msg[256] = { 0 };
-			sprintf(msg, "22222,%lld,%lld,%lld,%lld,%lld,%lld", time,frameEndTime1 - frameEndTime0,frameEndTime2 - frameEndTime1,\
+			sprintf(msg, "22222,%lld,%lld,%lld,%lld,%lld,%lld", time, frameEndTime1 - frameEndTime0, frameEndTime2 - frameEndTime1, \
 				frameEndTime3 - frameEndTime2, frameEndTime4 - frameEndTime3, frameEndTime5 - frameEndTime4);
-			LogManager::instance()->logMessage(msg,LML_CRITICAL);
+			LogManager::instance()->logMessage(msg, LML_CRITICAL);
 		}
 #endif
 
@@ -2558,7 +2558,7 @@ EchoZoneScoped;
 	//-----------------------------------------------------------------------
 	bool Root::_fireFrameStarted()
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		ProtocolComponentSystem::instance()->tick(TT_BeginFrame);
 		FrameEvent evt;
@@ -2568,7 +2568,7 @@ EchoZoneScoped;
 	//-----------------------------------------------------------------------
 	bool Root::_fireFrameEnded()
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		FrameEvent evt;
 		populateFrameEvent(FETT_ENDED, evt);
@@ -2592,7 +2592,7 @@ EchoZoneScoped;
 	//---------------------------------------------------------------------
 	void Root::populateFrameEvent(FrameEventTimeType type, FrameEvent& evtToUpdate)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		unsigned long now = mTimer->getMilliseconds();
 		evtToUpdate.timeElapsed = now / 1000.f;
@@ -2602,7 +2602,7 @@ EchoZoneScoped;
 	//-----------------------------------------------------------------------
 	float Root::calculateEventTime(unsigned long now, FrameEventTimeType type)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		// Calculate the average time passed between events of the given type
 		// during the last mFrameSmoothingTime seconds.
@@ -2610,7 +2610,7 @@ EchoZoneScoped;
 		EventTimesQueue& times = mEventTimes[type];
 		times.push_back(now);
 
-		if(times.size() == 1)
+		if (times.size() == 1)
 			return 0;
 
 		// Times up to mFrameSmoothingTime seconds old should be kept
@@ -2619,8 +2619,8 @@ EchoZoneScoped;
 
 		// Find the oldest time to keep
 		EventTimesQueue::iterator it = times.begin(),
-			end = times.end()-2; // We need at least two times
-		while(it != end)
+			end = times.end() - 2; // We need at least two times
+		while (it != end)
 		{
 			if (now - *it > discardThreshold)
 				++it;
@@ -2631,12 +2631,12 @@ EchoZoneScoped;
 		// Remove old times
 		times.erase(times.begin(), it);
 
-		return float(times.back() - times.front()) / ((times.size()-1) * 1000);
+		return float(times.back() - times.front()) / ((times.size() - 1) * 1000);
 	}
 	//-----------------------------------------------------------------------
 	void Root::startRendering(void)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		assert(m_pRenderSystem != 0);
 
@@ -2647,7 +2647,7 @@ EchoZoneScoped;
 		// or break out by calling queueEndRendering()
 		mQueuedEnd = false;
 
-		while( !mQueuedEnd )
+		while (!mQueuedEnd)
 		{
 			//Pump messages in all registered RenderWindow windows
 			WindowEventUtilities::messagePump();
@@ -2659,7 +2659,7 @@ EchoZoneScoped;
 
 	void Root::preRenderOneFrame(void)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 		ProfilerFrameData* currentFrameData = ProfilerInfoManager::instance()->GetCurrentFrameData();
 
 		if (m_bUseRenderCommand)
@@ -2682,7 +2682,7 @@ EchoZoneScoped;
 		m_bPreSyncSkeleton = true;
 	}
 
-		//-----------------------------------------------------------------------
+	//-----------------------------------------------------------------------
 	bool Root::renderOneFrame(void)
 	{
 		EchoZoneScoped;
@@ -2690,7 +2690,7 @@ EchoZoneScoped;
 
 
 		ProfilerFrameData* currentFrameData = ProfilerInfoManager::instance()->GetCurrentFrameData();
-		currentFrameData->renderOneFrameStatus.renderOneFrameStartTimePoint = time_point_cast<std::chrono::nanoseconds >(startUpdateTime).time_since_epoch().count();
+		currentFrameData->renderOneFrameStatus.renderOneFrameStartTimePoint = time_point_cast<std::chrono::nanoseconds>(startUpdateTime).time_since_epoch().count();
 
 		{
 			auto profileMgr = ProfilerInfoManager::instance();
@@ -2712,7 +2712,7 @@ EchoZoneScoped;
 
 		//std::chrono::time_point<std::chrono::steady_clock, std::chrono::nanoseconds> startFireFrameStartTimePoint = std::chrono::time_point_cast<std::chrono::nanoseconds>(std::chrono::steady_clock().now());
 
-		if(!_fireFrameStarted())
+		if (!_fireFrameStarted())
 			return false;
 
 		//RcContext* ctx = getRcContext();
@@ -2749,7 +2749,7 @@ EchoZoneScoped;
 		m_roleLodNum.resize(ROLE_LOD_LEVEL_CNT);
 		//m_particleRoleCount = 0;
 
-		if(!m_enable3DUISceneQueryCullTick)
+		if (!m_enable3DUISceneQueryCullTick)
 		{
 			//IMPORTANT(yanghang): Update transform of 3D UI system.
 			{
@@ -2871,7 +2871,7 @@ EchoZoneScoped;
 		//	SkeletonSyncManager::instance()->PrepareJob();
 		//}
 
-		if(m_enable3DUISceneQueryCullTick)
+		if (m_enable3DUISceneQueryCullTick)
 		{
 			//IMPORTANT(yanghang):Only need delay free 3DUI renderable object.
 			UIRenderSystem::instance()->delayFreeUIRenderable();
@@ -2897,7 +2897,7 @@ EchoZoneScoped;
 
 		mTimeSinceLastFrameClient = mTimeSinceLastFrame;
 
-		if(EchoProfilerManager::instance()->GetTotalTime() >= (milliseconds)m_bProtocolComFrameTimeInMilliSec)
+		if (EchoProfilerManager::instance()->GetTotalTime() >= (milliseconds)m_bProtocolComFrameTimeInMilliSec)
 			LogManager::instance()->logMessage(EchoProfilerManager::instance()->ToString());
 
 		auto endUpdateTime = std::chrono::steady_clock::now();
@@ -2940,12 +2940,26 @@ EchoZoneScoped;
 		high_res_time_point renderOneFrameEndTime = time_point_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now());
 		currentFrameData->renderOneFrameStatus.renderOneFrameEndTimePoint = renderOneFrameEndTime.time_since_epoch().count();
 		currentFrameData->renderOneFrameStatus.renderOneFrameDuration = currentFrameData->renderOneFrameStatus.renderOneFrameEndTimePoint
-																   - currentFrameData->renderOneFrameStatus.renderOneFrameStartTimePoint;
+			- currentFrameData->renderOneFrameStatus.renderOneFrameStartTimePoint;
 
 		if (mNewWorldOrigin != mWorldOrigin)
 		{
-			for (const auto & listener : mWorldOriginListeners ) {
+			// [CR DEBUG] Confirm listener callback triggered
+			char logMsg[512];
+			sprintf(logMsg, "[Root::Frame End] WorldOrigin changed! Old=(%.1f,%.1f,%.1f) New=(%.1f,%.1f,%.1f) ListenerCount=%d",
+				mWorldOrigin.x, mWorldOrigin.y, mWorldOrigin.z,
+				mNewWorldOrigin.x, mNewWorldOrigin.y, mNewWorldOrigin.z,
+				(int)mWorldOriginListeners.size());
+			LogManager::instance()->logMessage(logMsg);
+
+			for (const auto& listener : mWorldOriginListeners) {
+				sprintf(logMsg, "[Root::Frame End] Calling listener->worldOriginRebasing() listener=%p", listener);
+				LogManager::instance()->logMessage(logMsg);
+
 				listener->worldOriginRebasing(mNewWorldOrigin.x, mNewWorldOrigin.y, mNewWorldOrigin.z);
+
+				sprintf(logMsg, "[Root::Frame End] Listener callback completed! listener=%p", listener);
+				LogManager::instance()->logMessage(logMsg);
 			}
 			mWorldOrigin = mNewWorldOrigin;
 		}
@@ -3008,7 +3022,7 @@ EchoZoneScoped;
 
 		mTimeSinceLastFrameClient = timeSinceLastFrame;
 
-		if(!m_enable3DUISceneQueryCullTick)
+		if (!m_enable3DUISceneQueryCullTick)
 		{
 			//IMPORTANT(yanghang): Update transform of 3D UI system.
 			{
@@ -3111,7 +3125,7 @@ EchoZoneScoped;
 		//	SkeletonSyncManager::instance()->PrepareJob();
 		//}
 
-		if(m_enable3DUISceneQueryCullTick)
+		if (m_enable3DUISceneQueryCullTick)
 		{
 			//IMPORTANT(yanghang):Only need delay free 3DUI renderable object.
 			UIRenderSystem::instance()->delayFreeUIRenderable();
@@ -3171,8 +3185,22 @@ EchoZoneScoped;
 
 		if (mNewWorldOrigin != mWorldOrigin)
 		{
-			for (const auto & listener : mWorldOriginListeners ) {
+			// [CR DEBUG] Confirm listener callback triggered
+			char logMsg[512];
+			sprintf(logMsg, "[Root::Frame End] WorldOrigin changed! Old=(%.1f,%.1f,%.1f) New=(%.1f,%.1f,%.1f) ListenerCount=%d",
+				mWorldOrigin.x, mWorldOrigin.y, mWorldOrigin.z,
+				mNewWorldOrigin.x, mNewWorldOrigin.y, mNewWorldOrigin.z,
+				(int)mWorldOriginListeners.size());
+			LogManager::instance()->logMessage(logMsg);
+
+			for (const auto& listener : mWorldOriginListeners) {
+				sprintf(logMsg, "[Root::Frame End] Calling listener->worldOriginRebasing() listener=%p", listener);
+				LogManager::instance()->logMessage(logMsg);
+
 				listener->worldOriginRebasing(mNewWorldOrigin.x, mNewWorldOrigin.y, mNewWorldOrigin.z);
+
+				sprintf(logMsg, "[Root::Frame End] Listener callback completed! listener=%p", listener);
+				LogManager::instance()->logMessage(logMsg);
 			}
 			mWorldOrigin = mNewWorldOrigin;
 		}
@@ -3195,7 +3223,7 @@ EchoZoneScoped;
 
 	bool Root::renderMainThread(bool _bInited)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 		if (!m_bUseRenderCommand)
 			return false;
 
@@ -3207,7 +3235,7 @@ EchoZoneScoped;
 
 	void Root::postRenderOneFrame(void)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 		std::chrono::time_point<std::chrono::steady_clock, std::chrono::nanoseconds> postRenderOneFrameStart = std::chrono::time_point_cast<std::chrono::nanoseconds>(std::chrono::steady_clock().now());
 		if (m_bUseRenderCommand)
 		{
@@ -3267,7 +3295,7 @@ EchoZoneScoped;
 
 	void Root::setExpectFps(uint32 fps)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 
 		uint32 initExpectFps = DynamicVideoParamManager::instance()->getInitExpectFps();
@@ -3281,7 +3309,7 @@ EchoZoneScoped;
 
 	void Root::onHandleDynamicVideo(uint32 time)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		static uint32 count = 0;
 		static uint32 totalTime = 0;
@@ -3366,7 +3394,7 @@ EchoZoneScoped;
 
 	void Root::onCalculateAvgTime(uint32 time)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		static uint32 count = 0;
 		static uint32 totalTime = 0;
@@ -3389,9 +3417,9 @@ EchoZoneScoped;
 			mAvgTotalRenderTime = totalTime / 30;
 			mAvgSceneUpdateTime = updateTime / 30;
 			mAvgRenderMainTime = renderTime / 30;
-			mAvgWaitUpdateTime = waitUpdateTime /30;
-			mAvgWaitRenderTime = waitRenderTime /30;
-			mAvgSwapBufferTime = swapBufferTime /30;
+			mAvgWaitUpdateTime = waitUpdateTime / 30;
+			mAvgWaitRenderTime = waitRenderTime / 30;
+			mAvgSwapBufferTime = swapBufferTime / 30;
 
 			totalTime = 0;
 			updateTime = 0;
@@ -3405,14 +3433,14 @@ EchoZoneScoped;
 
 	void Root::stopRendering()
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		mWorkQueue->setPaused(true);
 	}
 
 	void Root::resumeRendering()
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 #ifdef __APPLE__
 		uint32 width, height;
@@ -3426,7 +3454,7 @@ EchoZoneScoped;
 	//-----------------------------------------------------------------------
 	void Root::convertColourValue(const ColorValue& colour, uint32* pDest)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		assert(m_pRenderSystem != 0);
 		m_pRenderSystem->convertColourValue(colour, pDest);
@@ -3436,29 +3464,29 @@ EchoZoneScoped;
 
 	void Root::onRecreateSurface(void* newWindow)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		m_context->pCustom = newWindow;
 		m_pRenderer->setNeedRecreateSurface();
 	}
 
-	RenderTarget* Root::createRenderWindow(const String &name, uint32 width, uint32 height,
-			bool fullScreen, const NameValuePairList *miscParams)
+	RenderTarget* Root::createRenderWindow(const String& name, uint32 width, uint32 height,
+		bool fullScreen, const NameValuePairList* miscParams)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		if (!m_pRenderSystem)
 		{
 			ECHO_EXCEPT(Exception::ERR_INVALID_STATE,
-			"Cannot create window - no render "
-			"system has been selected.", "Root::createRenderWindow");
+				"Cannot create window - no render "
+				"system has been selected.", "Root::createRenderWindow");
 		}
 
 		RenderTarget* ret;
 		ret = m_pRenderSystem->createRenderWindow(width, height, Root::instance()->getRcContext()->swapchainColorFormat, false);
 
 		// Initialisation for classes dependent on first window created
-		if(!mFirstTimePostWindowInit)
+		if (!mFirstTimePostWindowInit)
 		{
 			oneTimePostWindowInit();
 		}
@@ -3470,7 +3498,7 @@ EchoZoneScoped;
 	//-----------------------------------------------------------------------
 	void Root::oneTimePostWindowInit(void)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		if (!mFirstTimePostWindowInit)
 		{
@@ -3489,7 +3517,7 @@ EchoZoneScoped;
 
 	Echo::uint64 Root::getSystemTime()
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 #ifdef _WIN32
 		return ::GetTickCount64();
@@ -3507,16 +3535,16 @@ EchoZoneScoped;
 	//-----------------------------------------------------------------------
 	void Root::clearEventTimes(void)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		// Clear event times
-		for(int i=0; i<FETT_COUNT; ++i)
+		for (int i = 0; i < FETT_COUNT; ++i)
 			mEventTimes[i].clear();
 	}
 	//---------------------------------------------------------------------
 	void Root::setWorkQueue(WorkQueue* queue)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		if (mWorkQueue != queue)
 		{
@@ -3531,14 +3559,14 @@ EchoZoneScoped;
 
 	int Root::GetFps()
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		return mFps;
 	}
 
 	void Root::CalFps(uint32 timeFromLastFram)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		static uint32 timeEscape = 0;
 		static uint32  lastFramCount = 0;
@@ -3621,7 +3649,7 @@ EchoZoneScoped;
 #ifdef _WIN32
 	bool Root::CaseSensitive(const char* _szPath, const char* _szFile, const char* rootpath)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		bool val = false;
 		std::string respath = _szPath;
@@ -3678,7 +3706,7 @@ EchoZoneScoped;
 #endif
 	bool Root::TestResExist(const char* _szFile, bool atEngineDir, const char* _szfolder)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		assert(mArchive != 0);
 
@@ -3691,9 +3719,9 @@ EchoZoneScoped;
 		return mArchive->TestExist(_szFile, ResourceFolderManager::instance()->GetRootFolder(Name(_szfolder)).c_str());
 	}
 
-	DataStream * Root::GetFileDataStream(const char* _szFile, bool atEngineDir, const char* _szfolder)
+	DataStream* Root::GetFileDataStream(const char* _szFile, bool atEngineDir, const char* _szfolder)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		assert(mArchive != 0);
 
@@ -3707,9 +3735,9 @@ EchoZoneScoped;
 		return mArchive->GetFileDataStream(_szFile, ResourceFolderManager::instance()->GetRootFolder(Name(_szfolder)).c_str());
 	}
 
-	DataStream * Root::GetMemoryDataStream(const char* _szFile, bool atEngineDir, const char* _szfolder)
+	DataStream* Root::GetMemoryDataStream(const char* _szFile, bool atEngineDir, const char* _szfolder)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		assert(mArchive != 0);
 
@@ -3723,9 +3751,9 @@ EchoZoneScoped;
 		return mArchive->GetMemoryDataStream(_szFile, ResourceFolderManager::instance()->GetRootFolder(Name(_szfolder)).c_str());
 	}
 
-	DataStream * Root::CreateDataStream(const char* _szFile, const char* _szfolder)
+	DataStream* Root::CreateDataStream(const char* _szFile, const char* _szfolder)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		assert(mArchive != 0);
 
@@ -3737,7 +3765,7 @@ EchoZoneScoped;
 
 	bool Root::OutputCollectResListInfo(String fileName)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		if (fileName.empty())
 			fileName = "info/roleFolderFilterFile_2.txt";
@@ -3773,14 +3801,14 @@ EchoZoneScoped;
 
 	void Root::requestMultiIORequest(const MultiIORequest& request)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		assert(mArchive != 0);
 
 		if (m_bCollectResList)
 		{
 			std::map<Name, uint8>::const_iterator it, ite = request.fileNameMap.end();
-			for(it = request.fileNameMap.begin(); it != ite; ++it)
+			for (it = request.fileNameMap.begin(); it != ite; ++it)
 				m_collectedResSet.insert(it->first.toString());
 		}
 
@@ -3789,21 +3817,21 @@ EchoZoneScoped;
 
 	std::tuple<unsigned int, unsigned int> Root::getBuildingRenderInfo() const
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		return BatchManager::instance()->getBuildingRenderInfo();
 	}
 
 	void Root::setRenderGroupMask(uint32 mask)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		m_renderGroupMask = mask;
 	}
 
 	void Root::setFpsLimit(int _fpsLimit)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		if (_fpsLimit < 0 || _fpsLimit > 120)
 		{
@@ -3816,7 +3844,7 @@ EchoZoneScoped;
 
 	void Root::initConfig()
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 #ifdef ECHO_EDITOR
 		ErrorMessageGroupManager::instance()->registerBasicType();
 #endif // ECHO_EDITOR
@@ -3831,7 +3859,7 @@ EchoZoneScoped;
 
 	void Root::deinitConfig()
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 #ifdef ECHO_EDITOR
 		ErrorMessageGroupManager::instance()->unregisterBasicType();
 #endif // ECHO_EDITOR
@@ -3845,7 +3873,7 @@ EchoZoneScoped;
 
 	void Root::initSurfaceType()
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		SystemConfigFile cfg;
 		cfg.load("config/SurfaceType.cfg");
@@ -3865,9 +3893,9 @@ EchoZoneScoped;
 		}
 	}
 
-	void Root::captureScreen(const String &_filePath, uint32 _mode, uint32 _useCustomResMode, uint32 _customWidth /*= 1024*/, uint32 _customHeight /*= 1024*/, ECHO_CAPTURE_TYPE _type/* = ECHO_CAPTURE_COLOR*/)
+	void Root::captureScreen(const String& _filePath, uint32 _mode, uint32 _useCustomResMode, uint32 _customWidth /*= 1024*/, uint32 _customHeight /*= 1024*/, ECHO_CAPTURE_TYPE _type/* = ECHO_CAPTURE_COLOR*/)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		ECHO_DEVICE_CLASS deviceType = Root::instance()->getDeviceType();
 		if (_type == ECHO_CAPTURE_DEPTH && deviceType != ECHO_DEVICE_DX11)
@@ -3898,7 +3926,7 @@ EchoZoneScoped;
 
 	void Root::captureScreenAndGenerateTexture(const String& _filePath, uint32 _mode, CaptureScreenCallBackFun _callBackFun, uint32 _useCustomResMode, uint32 _customWidth /*= 1024*/, uint32 _customHeight /*= 1024*/, ECHO_CAPTURE_TYPE _type/* = ECHO_CAPTURE_COLOR*/)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		ECHO_DEVICE_CLASS deviceType = Root::instance()->getDeviceType();
 		if (_type == ECHO_CAPTURE_DEPTH && deviceType != ECHO_DEVICE_DX11)
@@ -3927,9 +3955,9 @@ EchoZoneScoped;
 		mCaptureScreenInfoList.push_back(pInfo);
 	}
 
-	void  Root::_onHandleCaptureScreen(RenderTarget* pRenderWindow ,bool _renderUI)
+	void  Root::_onHandleCaptureScreen(RenderTarget* pRenderWindow, bool _renderUI)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		if (mCaptureScreenInfoList.empty())
 			return;
@@ -3942,7 +3970,7 @@ EchoZoneScoped;
 
 		while (it != mCaptureScreenInfoList.end())
 		{
-			RcCaptureScreen & info = *it;
+			RcCaptureScreen& info = *it;
 			if (false == _renderUI && 0 == info.mode) //0 BackBuffer截屏带UI模式
 			{
 				++it;
@@ -3974,9 +4002,9 @@ EchoZoneScoped;
 		}
 	}
 
-	void Root::_saveRenderTargetContentsToFile(RcCaptureScreen * pInfo)
+	void Root::_saveRenderTargetContentsToFile(RcCaptureScreen* pInfo)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		unsigned int imageWidth = pInfo->realWidth;
 		unsigned int imageHeight = pInfo->realHeight;
@@ -4104,9 +4132,9 @@ EchoZoneScoped;
 		pImageData = nullptr; //在image里释放了
 	}
 
-	void Root::_onHandRenderTargetData(RcCaptureScreen * pInfo)
+	void Root::_onHandRenderTargetData(RcCaptureScreen* pInfo)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		unsigned int imageWidth = pInfo->realWidth;
 		unsigned int imageHeight = pInfo->realHeight;
@@ -4140,8 +4168,8 @@ EchoZoneScoped;
 
 			size_t rowSpan = imageWidth * pixelSize;
 
-			uint8 *pTempBuffer = (uint8*)malloc(rowSpan * imageHeight);
-			uint8 *ptr1 = (uint8*)pInfo->pData, *ptr2 = pTempBuffer + ((imageHeight - 1) * rowSpan);
+			uint8* pTempBuffer = (uint8*)malloc(rowSpan * imageHeight);
+			uint8* ptr1 = (uint8*)pInfo->pData, * ptr2 = pTempBuffer + ((imageHeight - 1) * rowSpan);
 
 			for (unsigned i = 0; i < imageHeight; i++)
 			{
@@ -4159,12 +4187,12 @@ EchoZoneScoped;
 	}
 
 
-	void Root::_onHandRenderCommandCallBack(unsigned int type, void* hwnd, void* pDevice, void * pContext)
+	void Root::_onHandRenderCommandCallBack(unsigned int type, void* hwnd, void* pDevice, void* pContext)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		RenderSystem* pRenderSystem = Root::instance()->getRenderSystem();
-		if(pRenderSystem)
+		if (pRenderSystem)
 		{
 			switch (type)
 			{
@@ -4191,7 +4219,7 @@ EchoZoneScoped;
 
 	void Root::SetViewScale(float xscale, float yscale)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		if (xscale < 0.0f || xscale > 1.0f)
 		{
@@ -4203,17 +4231,17 @@ EchoZoneScoped;
 			return;
 		}
 
-		for (uint32 i=0; i<RENDER_STRATEGY_CNT; i++)
+		for (uint32 i = 0; i < RENDER_STRATEGY_CNT; i++)
 		{
 			RenderStrategy* pRenderStrategy = m_pRenderSystem->getRenderStrategy(i);
-			if(pRenderStrategy)
+			if (pRenderStrategy)
 				pRenderStrategy->setMainViewPortRange(xscale, yscale);
 		}
 	}
 
 	void Root::addUpdateListener(UpdateListener* listener)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		if (NULL == listener)
 			return;
@@ -4222,14 +4250,14 @@ EchoZoneScoped;
 
 	void Root::removeUpdateListener(UpdateListener* listener)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		mUpdateListeners.erase(listener);
 	}
 
 	void Root::notifyUpdateListener()
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		//SkeletonSyncManager::instance()->PrepareJob();
 
@@ -4273,7 +4301,7 @@ EchoZoneScoped;
 
 	void Root::addWorldNode(WorldNode* pNode)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		if (NULL == pNode || pNode->getName().empty())
 		{
@@ -4284,7 +4312,7 @@ EchoZoneScoped;
 
 	void Root::removeWorldNode(WorldNode* pNode)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		if (NULL == pNode || pNode->getName().empty())
 		{
@@ -4351,10 +4379,10 @@ EchoZoneScoped;
 
 	Echo::WorldNode* Root::getWorldNode(const Name& name)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		auto it = m_mapWroldNodes.find(name);
-		if (it!=m_mapWroldNodes.end())
+		if (it != m_mapWroldNodes.end())
 		{
 			return it->second;
 		}
@@ -4366,11 +4394,11 @@ EchoZoneScoped;
 
 	uint64 Root::getWallTime()
 	{
-	  return mTimer->getMicroseconds();
+		return mTimer->getMicroseconds();
 	}
 	void Root::SystemSynchro()
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		//auto itb1 = mSceneManagerMap.begin();
 		//auto ite1 = mSceneManagerMap.end();
@@ -4426,7 +4454,7 @@ EchoZoneScoped;
 
 	void Root::SynchroSkeleton()
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		SkeletonSyncManager::instance()->SynchroSkeletonModify();
 		SkeletonSyncManager::instance()->Synchro();
@@ -4435,7 +4463,7 @@ EchoZoneScoped;
 
 	void Root::shutDown()
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		JobSystem::instance()->Shutdown();
 		auto itb = mSceneManagerMap.begin();
@@ -4475,11 +4503,11 @@ EchoZoneScoped;
 
 	void Root::setMultiCameraRendering(bool value)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
-		 m_bMultiCameraRendering = value;
-		 if (!value)
-			 return;
+		m_bMultiCameraRendering = value;
+		if (!value)
+			return;
 
 		SceneManager* pSceneManager = getMainSceneManager();
 		if (!pSceneManager)
@@ -4495,7 +4523,7 @@ EchoZoneScoped;
 #ifdef _WIN32
 	bool Root::defThreadCheck(unsigned int flags)
 	{
-EchoZoneScoped;
+		EchoZoneScoped;
 
 		DWORD dwCurThreadID = GetCurrentThreadId();
 		uint8 threadIndex = 0;
@@ -4518,7 +4546,7 @@ EchoZoneScoped;
 		if (!check)
 		{
 			char msg[256] = { 0 };
-			snprintf(msg,256, "Thread error,thread type:%d,%s", threadIndex, __FUNCTION__);
+			snprintf(msg, 256, "Thread error,thread type:%d,%s", threadIndex, __FUNCTION__);
 			LogManager::instance()->logMessage(msg, LML_CRITICAL);
 
 			int* p = 0;

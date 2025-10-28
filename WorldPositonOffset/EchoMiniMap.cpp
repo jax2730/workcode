@@ -51,7 +51,7 @@ namespace Echo
 		if (colorg >= 255)
 		{
 			static int tempk = 2;
-			colorb = Math::Min(255, 25+2 * tempk);
+			colorb = Math::Min(255, 25 + 2 * tempk);
 			++tempk;
 		}
 
@@ -66,15 +66,15 @@ namespace Echo
 		Vector2 vfMaxRange;
 		vfMaxRange.x = InRect.Start.x + InRect.Range.x;
 		vfMaxRange.y = InRect.Start.y + InRect.Range.y;
-		return   InRect.Start.x < InPos.x && vfMaxRange.x > InPos.x
-			&& InRect.Start.y < InPos.z && vfMaxRange.y > InPos.z;
+		return   InRect.Start.x < InPos.x&& vfMaxRange.x > InPos.x
+			&& InRect.Start.y < InPos.z&& vfMaxRange.y > InPos.z;
 	}
 
 	static bool CheckInRange(const Vector2& InMin, const Vector2& InMax, const Vector2& InPos)
 	{
-		
-		return   InMin.x < InPos.x && InMin.y < InPos.y
-			&& InMax.x > InPos.x && InMax.y > InPos.y;
+
+		return   InMin.x < InPos.x&& InMin.y < InPos.y
+			&& InMax.x > InPos.x&& InMax.y > InPos.y;
 	}
 
 	static Vector3 FguiVecToEchoVec(const echofgui::Vec3& InVec)
@@ -99,8 +99,8 @@ namespace Echo
 
 	static bool GenerateBlockID(const Vector3& InWorldPos, MiniMapManager::BlockID& OutID)
 	{
-		
-		int CurrentBlockX = (int)std::floor( InWorldPos.x / WORLD_BLOCK_SIZE);
+
+		int CurrentBlockX = (int)std::floor(InWorldPos.x / WORLD_BLOCK_SIZE);
 		int CurrentBlockY = (int)std::floor(InWorldPos.z / WORLD_BLOCK_SIZE);
 
 		if (CurrentBlockX > 32767 ||
@@ -326,7 +326,7 @@ namespace Echo
 			return;
 
 		echofgui::UIPackage::addPackage("fgui/bytes/chinese_minimap");
-		
+
 		DataStreamPtr pDataStream(Root::instance()->GetFileDataStream(InPath.c_str(), false, "txt"));
 		if (pDataStream.isNull() || pDataStream->size() == 0)
 		{
@@ -356,7 +356,7 @@ namespace Echo
 				TempCtUI.mMapPosition = GetPosInMapByWorldPos(TempCtUI.mWorldPosition);
 
 				TempCtUI.mCityUIObject = echofgui::UIPackage::createObject("chinese_minimap", "text");
-				
+
 				if (TempCtUI.mCityUIObject)
 				{
 					TempCtUI.mCityNameObject = TempCtUI.mCityUIObject->as<echofgui::GComponent>()->getChild("n0");
@@ -375,7 +375,7 @@ namespace Echo
 		}
 
 
-		
+
 	}
 
 	void MiniMapManager::LoadCityBuildingMap(const std::string& InPath)
@@ -403,20 +403,20 @@ namespace Echo
 		{
 			return;
 		}
-		
+
 		std::string TempBuildingTypeStr;
 
 		//这里创建的是小地图中显示的小色块
 		auto CreateMapBlock = [&](const Vector3& InPosition, const echofgui::Color32& InColor)
-			{
-				auto tempUI = echofgui::UIPackage::createObject("chinese_minimap", "block")->as<echofgui::GComponent>()->getChild("n0");
-				mMapUI.mObject->as<echofgui::GComponent>()->addChild(tempUI);
-				Vector2 MapPos = GetPosInMapByWorldPos(InPosition);// -Vector2(tempUI->getWidth(), tempUI->getHeight());
-				tempUI->setPosition(MapPos.x, MapPos.y);
-				tempUI->setWidth(4.0f);
-				tempUI->setHeight(4.0f);
-				tempUI->setColor(InColor);
-			};
+		{
+			auto tempUI = echofgui::UIPackage::createObject("chinese_minimap", "block")->as<echofgui::GComponent>()->getChild("n0");
+			mMapUI.mObject->as<echofgui::GComponent>()->addChild(tempUI);
+			Vector2 MapPos = GetPosInMapByWorldPos(InPosition);// -Vector2(tempUI->getWidth(), tempUI->getHeight());
+			tempUI->setPosition(MapPos.x, MapPos.y);
+			tempUI->setWidth(4.0f);
+			tempUI->setHeight(4.0f);
+			tempUI->setColor(InColor);
+		};
 
 		//这里只是读取场景中功能建筑的属性信息，并未实际创建对象，实际对象的创建是在NotifyCameraVisible()的时候根据当前相
 		// 机位置动态加载和卸载的，因为ui不支持异步，所以采用了分帧加载卸载，放在了帧末，可以在frameEnded()函数中找到相关代码。
@@ -442,7 +442,7 @@ namespace Echo
 					BlockInstance::BuildingInfo* TempInfo = new BlockInstance::BuildingInfo();
 					ReadJSNode(pBuilding, "name", TempInfo->mName);
 					ReadJSNode(pBuilding, "pos", TempInfo->mPosition);
-					
+
 					bool isRead = ReadJSNode(pBuilding, "bbox", TempInfo->mBound);
 					TempInfo->mWorldPosition = TempInfo->mPosition;
 					if (isRead)
@@ -480,9 +480,9 @@ namespace Echo
 						mWorldBlocks[CurrentBlockID].mBuildingInfos.emplace(TempInfo, nullptr);
 					}
 				}
-				
+
 			}
-			
+
 		}
 
 		if (!mPlaneManager)
@@ -498,14 +498,14 @@ namespace Echo
 				cJSON* ele = cJSON_GetArrayItem(dataNode, i);
 				bool isActive = false;
 				READJS(ele, isActive)
-				if (isActive)
-				{
-					int area = 1;
-					READJS(ele, area);
-					Vector3 pos;
-					ReadJSNode(ele, "pos", &pos.x, 3);
-					areaPosVec.push_back(std::pair(area, pos));
-				}
+					if (isActive)
+					{
+						int area = 1;
+						READJS(ele, area);
+						Vector3 pos;
+						ReadJSNode(ele, "pos", &pos.x, 3);
+						areaPosVec.push_back(std::pair(area, pos));
+					}
 			}
 
 			for (int i = 0, lastJ = i; i < areaPosVec.size(); ++i)
@@ -527,7 +527,7 @@ namespace Echo
 						mPlaneManager->addAirLine(ele.second, nextEle.second);
 						break;
 					}
-					
+
 				}
 			}
 
@@ -573,7 +573,7 @@ namespace Echo
 				std::vector<std::string> CityName = StringUtil::split(LineCity, ":");
 				if (CityName.size() != 2)
 					continue;
-				mAreaStrs.emplace(CityName[0].substr(0,6), CityName[1]);
+				mAreaStrs.emplace(CityName[0].substr(0, 6), CityName[1]);
 			}
 		}
 
@@ -593,7 +593,7 @@ namespace Echo
 			{
 				return;
 			}
-			
+
 			while (!pDataStream->eof())
 			{
 				int tempcount = std::stoi(pDataStream->getLine(true));
@@ -645,7 +645,7 @@ namespace Echo
 					//mAreaTexs[0].setVisible(false);
 				}
 			}
-		}		
+		}
 	}
 
 	void MiniMapManager::CreateCityUI(CityUI& InOutCity)
@@ -675,7 +675,7 @@ namespace Echo
 		mMapUICom = mMapUIActor->GetFirstComByType<Echo3DUIComponent>().getPointer();
 		if (mMapUICom == nullptr)
 			return false;
-		
+
 		mMapObject.mObject = mMapUICom->getGObject();
 		if (!mMapObject.mObject)
 			return false;
@@ -683,7 +683,7 @@ namespace Echo
 		{
 			mMapObject.mInitPos = FguiVecToEchoVec(mMapObject.mObject->getPosition());
 			mMapObject.mCurrentPos = mMapObject.mInitPos;
-			mMapObject.mInitSize = Vector3(mMapObject.mObject->getActualWidth() , mMapObject.mObject->getActualHeight() , 0.0f);
+			mMapObject.mInitSize = Vector3(mMapObject.mObject->getActualWidth(), mMapObject.mObject->getActualHeight(), 0.0f);
 			mMapObject.mCurrentSize = mMapObject.mInitSize;
 		}
 
@@ -813,13 +813,13 @@ namespace Echo
 			mElevationUI.mCurrentSize = mElevationUI.mInitSize;
 			mElevationUI.mObject->setSortingOrder(9);
 		}
-		
+
 
 		//current show city ui
 		{
 			mCurCityUI = CreateUIFromResource("chinese_minimap", "cityname");
 		}
-		
+
 		if (!mCurCityUI.mObject)
 			return false;
 
@@ -903,8 +903,8 @@ namespace Echo
 			mShowMapUI.mObject->setScale(ADAPTATION_SCALE_X, ADAPTATION_SCALE_Y);
 			mCurCityUI.mObject->setWidth(UWidth);
 			mCurCityUI.mObject->setHeight(UHeight);
-//#if ECHO_PLATFORM == ECHO_PLATFORM_ANDROID
-			//mShowMapUI.mObject->setVisible(false);
+			//#if ECHO_PLATFORM == ECHO_PLATFORM_ANDROID
+						//mShowMapUI.mObject->setVisible(false);
 			mChangeFullMapUI.mObject->setVisible(true);
 			//mCurPositionUI.mObject->setVisible(false);
 //#endif
@@ -965,7 +965,7 @@ namespace Echo
 
 				if (iter != mWorldBlocks.end())
 				{
-					if (iter->second.mState == BlockInstance::NONE )
+					if (iter->second.mState == BlockInstance::NONE)
 					{
 						//std::lock_guard<std::mutex> lock_range(mMtx);
 						mWaitLoadBlocks.insert(TempID);
@@ -1074,7 +1074,7 @@ namespace Echo
 	{
 		if (res->getRequest()->getAborted())
 		{
-			return ;
+			return;
 		}
 
 		EventType CurrentEventType = any_cast<EventType>(res->getData());
@@ -1108,7 +1108,7 @@ namespace Echo
 					iter->second.mState = BlockInstance::NONE;
 				}
 			}
-			
+
 			break;
 		default:
 			break;
@@ -1161,7 +1161,7 @@ namespace Echo
 			}
 		}
 
-		for (auto&& currentBlock  = mWaitUnloadBlocks.begin(); currentBlock != mWaitUnloadBlocks.end();)
+		for (auto&& currentBlock = mWaitUnloadBlocks.begin(); currentBlock != mWaitUnloadBlocks.end();)
 		{
 			auto iter = mWorldBlocks.find(*currentBlock);
 
@@ -1200,7 +1200,7 @@ namespace Echo
 
 	void MiniMapManager::AddMiniMapEventListener(int inEventType, const echofgui::EventCallback& callback)
 	{
-		if(mShowMapUI.mObject && !mbWorldMap)
+		if (mShowMapUI.mObject && !mbWorldMap)
 			mShowMapUI.mObject->addEventListener(inEventType, callback, echofgui::EventTag(mShowMapUI.mObject));
 	}
 
@@ -1282,7 +1282,7 @@ namespace Echo
 				todMgr->setLocationTimeOffsetSeconds(offsetSeconds);
 			}
 		}
-		
+
 		//auto CameraRotation = mSceneMgr->getMainCamera()->getDerivedOrientation().Inverse();
 		//Vector3 CameraRotationVec3 = CameraRotation.ToEuler();
 
@@ -1409,8 +1409,8 @@ namespace Echo
 
 			float uiWidth = RealWindowWidth * 1.0f;
 			float uiHeight = std::min(uiWidth / mapAspect, RealWindowHeight * 1.0f);
-			
-			Vector2 scaleFactor(uiWidth/mMapUI.mInitSize.x, uiHeight/mMapUI.mInitSize.y);
+
+			Vector2 scaleFactor(uiWidth / mMapUI.mInitSize.x, uiHeight / mMapUI.mInitSize.y);
 			PlayerPosInMap = (PlayerPosInMap - PlayerHalfSize) * scaleFactor;
 
 			mPlayerUI.mObject->setPosition(PlayerPosInMap.x, PlayerPosInMap.y);
@@ -1424,7 +1424,7 @@ namespace Echo
 			//移动地图
 			Vector2 MapMoveOffset = -PlayerPosInMap;
 			mMapUI.mObject->setPosition(MapMoveOffset.x, MapMoveOffset.y);
-			
+
 		}
 
 		if (mbShowCityName)
@@ -1437,7 +1437,7 @@ namespace Echo
 				curCity.mCityNameObject->setPosition(RealStartPosX + curCity.mMapPosition.x - PlayerPosInMap.x, RealStartPosY + curCity.mMapPosition.y - PlayerPosInMap.y + 30.0f);
 			}
 		}
-		
+
 		for (auto& line : mTrainLines)
 		{
 			line->update(Root::instance()->getTimeSinceLastFrame(), CameraWorldPos);
@@ -1577,7 +1577,7 @@ namespace Echo
 			}
 		}
 
-		
+
 	}
 
 	void MiniMapManager::SetShowSceneUI(bool InVal)
@@ -1610,8 +1610,8 @@ namespace Echo
 		PlayerLookAtXZ.Normalize();
 		static Vector3 ForwardVec = Vector3(0.0f, 0.0f, 1.0f);
 		Radian RotRadian = Math::ACos(PlayerLookAtXZ.dotProduct(ForwardVec));
-		if(PlayerLookAtXZ.x > 1e-6)
-			return Vector3(0.0f, 0.0f,  -RotRadian.valueDegrees());
+		if (PlayerLookAtXZ.x > 1e-6)
+			return Vector3(0.0f, 0.0f, -RotRadian.valueDegrees());
 		return Vector3(0.0f, 0.0f, RotRadian.valueDegrees());
 	}
 
@@ -1700,7 +1700,7 @@ namespace Echo
 		delete mController;
 		Root::instance()->removeFrameListener(this);
 	}
-	
+
 	void AirPlaneManager::tick(float dt)
 	{
 		static float durationTime = 0.0f;
@@ -1826,7 +1826,7 @@ namespace Echo
 
 	void AirPlane::reset(const Vector3& start, const Vector3& end)
 	{
-		
+
 		Vector3 dir = end - start;
 		dir.normalise();
 		mStartPos = start + dir * 50.0f;
@@ -1974,7 +1974,7 @@ namespace Echo
 				flushData();
 				mNeedFlush = false;
 			}
-			
+
 			float currTime = Root::instance()->getTimeElapsed();
 			int idx = 0;
 			float duration = currTime - mStartTime;
@@ -1985,7 +1985,7 @@ namespace Echo
 				process -= floorf(process);
 			}
 
-			
+
 			Vector3 offset = mStateData[idx + 1].first - mStateData[idx].first;
 			Vector3 pos = mStateData[idx].first + offset * process;
 
@@ -2000,7 +2000,7 @@ namespace Echo
 					if (!visible) return;
 				}
 			}
-		
+
 			mActor->setPosition(pos + Vector3(0.0f, 20.0f, 0.0f));
 			mActor->setRotation(mStateData[idx].second);
 		}
