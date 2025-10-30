@@ -159,214 +159,9 @@ void updateWorldViewTransform(const SubEntityVec& vecInst, uint32 iUniformCount,
 平移列[Tx, Ty, Tz]变成[Tx-Cx, Ty-Cy, Tz-Cz]，其他不变
 ```
 
-## 4. 实际案例：大世界坐标下的完整运作流程
+## 4. GPU侧Shader代码详解：IllumPBR_VS.txt
 
-### 4.1 场景设定
-
-假设在大世界场景中，有以下实际坐标：
-
-```
-相机位置（世界坐标）: (-365490.66, 11.44, 432249.81)
-物体位置（世界坐标）: (-365467.23, 15.78, 432272.45)
-物体旋转: 无旋转（单位矩阵）
-物体缩放: (1.0, 1.0, 1.0)
-```
-
-### 4.2 CPU侧：updateWorldViewTransform 实际运作
-
-#### 步骤1：获取相机位置（双精度）
-
-```cpp
-// EchoInstanceBatchEntity.cpp updateWorldViewTransform函数
-Camera* pCam = vecInst[0]->getParent()->_getManager()->getActiveCamera();
-DVector3 camPos = pCam->getDerivedPosition();
-
-// 实际值（double精度）：
-camPos.x = -365490.660000000000;  // 完整精度保留
-camPos.y = 11.440000000000;
-camPos.z = 432249.810000000000;
-```
-
-#### 步骤2：获取物体世界矩阵（双精度）
-
-```cpp
-const DBMatrix4* _world_matrix = nullptr;
-pSubEntity->getWorldTransforms(&_world_matrix);
-
-// 实际世界矩阵（DBMatrix4，双精度）：
-// 假设物体无旋转，只有平移
-_world_matrix->m = 
-[
-  [1.0,  0.0,  0.0,  -365467.230000000000],  // X轴 + X平移
-  [0.0,  1.0,  0.0,  15.780000000000],       // Y轴 + Y平移
-  [0.0,  0.0,  1.0,  432272.450000000000],   // Z轴 + Z平移
-  [0.0,  0.0,  0.0,  1.0]                     // 齐次坐标
-];
-```
-
-#### 步骤3：计算相机相对矩阵（关键步骤）
-
-```cpp
-DBMatrix4 world_matrix_not_cam = *_world_matrix;
-world_matrix_not_cam[0][3] -= camPos[0];  // -365467.23 - (-365490.66) = 23.43
-world_matrix_not_cam[1][3] -= camPos[1];  // 15.78 - 11.44 = 4.34
-world_matrix_not_cam[2][3] -= camPos[2];  // 432272.45 - 432249.81 = 22.64
-
-// 相机相对矩阵（仍然是double精度）：
-world_matrix_not_cam.m = 
-[
-  [1.0,  0.0,  0.0,  23.430000000000],  // 相对X：23.43米
-  [0.0,  1.0,  0.0,  4.340000000000],   // 相对Y：4.34米
-  [0.0,  0.0,  1.0,  22.640000000000],  // 相对Z：22.64米
-  [0.0,  0.0,  0.0,  1.0]
-];
-```
-
-**精度对比**：
-- 世界坐标：-365467.23（需要9位精度）
-- 相机相对：23.43（只需要4位精度）
-- float32在23.43范围精度≈0.000003米（3微米）
-- float32在-365467范围精度≈0.03米（3厘米）
-
-#### 步骤4：转换为GPU格式（double→float）
-
-```cpp
-uniform_f4* _inst_buff = &vecData[i * iUniformCount];
-for (int j = 0; j < 3; ++j)
-{
-    _inst_buff[j].x = (float)world_matrix_not_cam.m[j][0];
-    _inst_buff[j].y = (float)world_matrix_not_cam.m[j][1];
-    _inst_buff[j].z = (float)world_matrix_not_cam.m[j][2];
-    _inst_buff[j].w = (float)world_matrix_not_cam.m[j][3];  // 平移分量
-}
-
-// 转换后的float数据（传输给GPU）：
-// _inst_buff[0] = (1.0f, 0.0f, 0.0f, 23.43f)     // 矩阵第0行
-// _inst_buff[1] = (0.0f, 1.0f, 0.0f, 4.34f)      // 矩阵第1行  
-// _inst_buff[2] = (0.0f, 0.0f, 1.0f, 22.64f)     // 矩阵第2行
-
-// 精度损失分析：
-// 23.430000000000 (double) → 23.4300003 (float)  损失：0.0000003米 = 0.3微米
-// 4.340000000000 (double)  → 4.34000015 (float)  损失：0.00000015米 = 0.15微米
-// 22.640000000000 (double) → 22.6399994 (float)  损失：0.0000006米 = 0.6微米
-```
-
-#### 步骤5：上传到GPU
-
-```cpp
-// EchoInstanceBatchEntity.cpp Line 1360
-RenderSystem* pRenderSystem = Root::instance()->getRenderSystem();
-pRenderSystem->setUniformValue(pRend, pPass, U_VSCustom0,
-    dp->mInstanceData.data() + iInstIdxStart * dp->mInfo.instance_uniform_count,
-    iInstNum * dp->mInfo.instance_uniform_count * sizeof(dp->mInstanceData[0]));
-
-// GPU接收到的数据：
-// U_VSCustom0[idxInst + 0] = (1.0f, 0.0f, 0.0f, 23.43f)
-// U_VSCustom0[idxInst + 1] = (0.0f, 1.0f, 0.0f, 4.34f)
-// U_VSCustom0[idxInst + 2] = (0.0f, 0.0f, 1.0f, 22.64f)
-```
-
-### 4.3 GPU侧：IllumPBR_VS.txt实际运作
-
-#### 输入数据
-
-```hlsl
-// 顶点着色器输入
-VS_INPUT IN;
-IN.i_Pos = float4(0.5, 1.8, -0.3, 1.0);  // 模型空间顶点位置（立方体的一个角）
-uint i_InstanceID = 42;  // 假设这是第42个实例
-```
-
-#### HWSKINNED分支执行流程
-
-```hlsl
-#ifdef HWSKINNED
-    // 1. 计算实例数据索引
-    int idxInst = i_InstanceID * UniformCount;
-    // idxInst = 42 * 6 = 252（每个实例占6个float4）
-    
-    // 2. 加载相机相对变换矩阵
-    WorldMatrix[0] = U_VSCustom0[252 + 0];  // (1.0, 0.0, 0.0, 23.43)
-    WorldMatrix[1] = U_VSCustom0[252 + 1];  // (0.0, 1.0, 0.0, 4.34)
-    WorldMatrix[2] = U_VSCustom0[252 + 2];  // (0.0, 0.0, 1.0, 22.64)
-    
-    // 注释说明：此时矩阵是相机相对的（WroldViewMatrix）
-    // WorldMatrix实际代表：从模型空间到相机空间的变换
-    
-    // 3. 变换到相机空间
-    float4 vObjPosInCam;
-    vObjPosInCam.xyz = mul((float3x4)WorldMatrix, pos);
-    
-    // 实际计算（矩阵乘法展开）：
-    // vObjPosInCam.x = 1.0*0.5 + 0.0*1.8 + 0.0*(-0.3) + 23.43 = 23.93
-    // vObjPosInCam.y = 0.0*0.5 + 1.0*1.8 + 0.0*(-0.3) + 4.34  = 6.14
-    // vObjPosInCam.z = 0.0*0.5 + 0.0*1.8 + 1.0*(-0.3) + 22.64 = 22.34
-    vObjPosInCam.w = 1.0f;
-    
-    // 结果：vObjPosInCam = (23.93, 6.14, 22.34, 1.0)
-    // 这是顶点在相机空间中的位置（小数值！）
-    
-    // 4. 投影到裁剪空间
-    vsOut.o_PosInClip = mul((float4x4)U_ZeroViewProjectMatrix, vObjPosInCam);
-    
-    // U_ZeroViewProjectMatrix：视图投影矩阵（平移部分已清零）
-    // 假设透视投影，FOV=60度，近平面=0.1，远平面=10000
-    // 结果：vsOut.o_PosInClip = (0.0234, 0.0615, 0.9987, 23.50)
-    // 屏幕坐标 = (0.0234/23.50, 0.0615/23.50) = (0.001, 0.0026)
-    
-    // 5. 重建世界位置（用于光照计算）
-    float4 Wpos = float4(vObjPosInCam.xyz + U_VS_CameraPosition.xyz, 1.0f);
-    
-    // U_VS_CameraPosition = (-365490.66, 11.44, 432249.81)
-    // Wpos.x = 23.93 + (-365490.66) = -365466.73
-    // Wpos.y = 6.14 + 11.44 = 17.58
-    // Wpos.z = 22.34 + 432249.81 = 432272.15
-    
-    // 最终世界位置：Wpos = (-365466.73, 17.58, 432272.15, 1.0)
-    // 与原始物体位置(-365467.23, 15.78, 432272.45)的误差：
-    // ΔX = 0.5米, ΔY = 1.8米, ΔZ = 0.3米（来自顶点偏移）
-    // 基础位置误差 < 0.001米（亚毫米级精度）
-#endif
-```
-
-### 4.4 精度损失对比（实际数据）
-
-#### 传统方案的精度损失
-
-```cpp
-// 假设使用旧的updateWorldTransform上传绝对世界矩阵
-double world_x = -365467.230000000000;
-float gpu_world_x = (float)world_x;  // -365467.25（损失0.02米=2厘米）
-
-// GPU计算相机相对位置
-float camera_x = -365490.66f;
-float relative_x = gpu_world_x - camera_x;  
-// = -365467.25 - (-365490.66) = 23.41（理论值应该是23.43）
-
-// 总误差：|23.41 - 23.43| = 0.02米 = 2厘米（可见抖动！）
-```
-
-#### Camera-Relative方案的精度保持
-
-```cpp
-// CPU侧双精度计算
-double relative_x = -365467.230000000000 - (-365490.660000000000);
-// = 23.430000000000（完整精度）
-
-// 转换为float传输
-float gpu_relative_x = (float)23.430000000000;
-// = 23.4300003（损失0.0000003米=0.3微米）
-
-// GPU重建世界位置
-float world_reconstructed_x = 23.4300003f + (-365490.66f);
-// = -365467.2299997（损失0.0000003米）
-
-// 总误差：0.0000003米 = 0.3微米（完全不可见）
-```
-
-## 5. GPU侧Shader代码详解：IllumPBR_VS.txt
-
-### 5.1 编译条件分支
+### 4.1 编译条件分支
 
 ```hlsl
 #ifdef USEINSTANCE    // 是否使用实例化渲染
@@ -547,35 +342,706 @@ dp->mInfo = IBEPri::Util.getInstanceInfo(shaderName);  // 查找"IllumPBR"
 dp->mInfo.func(dp->mInstances, ...);  // 实际调用updateWorldViewTransform
 ```
 
-## 6. 精度分析：相机位置 vs 世界位置
+## 6. 实际案例详解：完整运作流程
 
-### 6.1 坐标系定义
+### 6.1 真实场景案例
 
+假设我们有以下实际场景：
+
+```cpp
+// 场景设定
+世界坐标系原点: (0, 0, 0)
+相机位置: (-1632800.0, 50.0, 269700.0)
+物体A位置: (-1632838.625487, 50.384521, 269747.198765)
+物体B位置: (-1632825.129834, 51.127896, 269738.456123)
 ```
+
+### 6.2 updateWorldViewTransform + IllumPBR 完整执行流程
+
+#### 步骤1：CPU侧数据准备（每帧执行）
+
+```cpp
+// EchoInstanceBatchEntity.cpp updateWorldViewTransform()
+void updateWorldViewTransform(const SubEntityVec& vecInst, uint32 iUniformCount, Uniformf4Vec& vecData)
+{
+    // 1. 获取相机位置（双精度）
+    Camera* pCam = vecInst[0]->getParent()->_getManager()->getActiveCamera();
+    DVector3 camPos = pCam->getDerivedPosition();
+    // camPos = (-1632800.0, 50.0, 269700.0)
+    
+    // 2. 处理物体A
+    SubEntity* pSubEntity = vecInst[0];  // 物体A
+    const DBMatrix4* _world_matrix = nullptr;
+    pSubEntity->getWorldTransforms(&_world_matrix);
+    
+    // 3. 世界矩阵示例（物体A）
+    // _world_matrix 是 4x4 双精度矩阵:
+    DBMatrix4 worldMatrix = 
+    [1.0,  0.0,  0.0,  -1632838.625487]  // 第0行: 右向量 + X平移
+    [0.0,  1.0,  0.0,  50.384521      ]  // 第1行: 上向量 + Y平移
+    [0.0,  0.0,  1.0,  269747.198765  ]  // 第2行: 前向量 + Z平移
+    [0.0,  0.0,  0.0,  1.0            ]  // 第3行: 齐次坐标
+    
+    // 4. 计算相机相对矩阵（关键步骤！）
+    DBMatrix4 world_matrix_not_cam = *_world_matrix;
+    world_matrix_not_cam[0][3] -= camPos[0];  // -1632838.625487 - (-1632800.0) = -38.625487
+    world_matrix_not_cam[1][3] -= camPos[1];  // 50.384521 - 50.0 = 0.384521
+    world_matrix_not_cam[2][3] -= camPos[2];  // 269747.198765 - 269700.0 = 47.198765
+    
+    // 结果矩阵（相机相对）:
+    DBMatrix4 cameraRelativeMatrix = 
+    [1.0,  0.0,  0.0,  -38.625487]  // X平移：相对相机-38.6米
+    [0.0,  1.0,  0.0,  0.384521  ]  // Y平移：相对相机+0.38米
+    [0.0,  0.0,  1.0,  47.198765 ]  // Z平移：相对相机+47.2米
+    [0.0,  0.0,  0.0,  1.0       ]
+    
+    // 5. 转换为GPU格式（float）
+    uniform_f4* _inst_buff = &vecData[0 * 6];  // 物体A的数据起始位置
+    
+    // 存储前3行（旋转+缩放+平移）
+    _inst_buff[0] = {1.0f, 0.0f, 0.0f, -38.625487f};  // 第0行
+    _inst_buff[1] = {0.0f, 1.0f, 0.0f, 0.384521f};    // 第1行
+    _inst_buff[2] = {0.0f, 0.0f, 1.0f, 47.198765f};   // 第2行
+    
+    // 6. 计算逆转置矩阵（用于法线变换）
+    // 对于正交矩阵（无缩放），逆转置 = 原矩阵的旋转部分
+    _inst_buff[3] = {1.0f, 0.0f, 0.0f, 0.0f};  // 逆转置第0行
+    _inst_buff[4] = {0.0f, 1.0f, 0.0f, 0.0f};  // 逆转置第1行
+    _inst_buff[5] = {0.0f, 0.0f, 1.0f, 0.0f};  // 逆转置第2行
+}
+
+// 7. 上传到GPU
+RenderSystem::setUniformValue(pRend, pPass, U_VSCustom0, vecData.data(), dataSize);
+// GPU常量缓冲区 U_VSCustom0 现在包含所有实例的相机相对矩阵
+```
+
+#### 步骤2：GPU侧Shader执行（每顶点执行）
+
+```hlsl
+// IllumPBR_VS.txt main()
+VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID : SV_InstanceID)
+{
+    // 假设处理物体A的某个顶点
+    float4 pos = float4(IN.i_Pos.xyz, 1.0f);  // 模型空间顶点位置
+    // 例如：pos = (0.5, 1.2, 0.3, 1.0)（模型局部坐标）
+    
+    int idxInst = i_InstanceID * UniformCount;  // i_InstanceID = 0（物体A）
+    // idxInst = 0 * 6 = 0
+    
+    #ifdef HWSKINNED  // 假设定义了硬件蒙皮
+        // 1. 从GPU常量缓冲区加载相机相对矩阵
+        WorldMatrix[0] = U_VSCustom0[idxInst + 0];  // {1.0, 0.0, 0.0, -38.625487}
+        WorldMatrix[1] = U_VSCustom0[idxInst + 1];  // {0.0, 1.0, 0.0, 0.384521}
+        WorldMatrix[2] = U_VSCustom0[idxInst + 2];  // {0.0, 0.0, 1.0, 47.198765}
+        
+        InvTransposeWorldMatrix[0] = U_VSCustom0[idxInst + 3];  // {1.0, 0.0, 0.0, 0.0}
+        InvTransposeWorldMatrix[1] = U_VSCustom0[idxInst + 4];  // {0.0, 1.0, 0.0, 0.0}
+        InvTransposeWorldMatrix[2] = U_VSCustom0[idxInst + 5];  // {0.0, 0.0, 1.0, 0.0}
+        
+        // 2. 变换到相机空间（关键：小数值计算！）
+        float4 vObjPosInCam;
+        vObjPosInCam.xyz = mul((float3x4)WorldMatrix, pos);
+        // 计算过程：
+        // x = 1.0*0.5 + 0.0*1.2 + 0.0*0.3 + (-38.625487) = -38.125487
+        // y = 0.0*0.5 + 1.0*1.2 + 0.0*0.3 + 0.384521    = 1.584521
+        // z = 0.0*0.5 + 0.0*1.2 + 1.0*0.3 + 47.198765   = 47.498765
+        // vObjPosInCam = (-38.125487, 1.584521, 47.498765)
+        
+        vObjPosInCam.w = 1.f;
+        
+        // 3. 投影到裁剪空间
+        vsOut.o_PosInClip = mul((float4x4)U_ZeroViewProjectMatrix, vObjPosInCam);
+        // U_ZeroViewProjectMatrix 是视图投影矩阵（平移已清零）
+        // 只包含相机旋转和透视投影
+        
+        // 4. 重建世界位置（只在需要时）
+        float4 Wpos = float4(vObjPosInCam.xyz + U_VS_CameraPosition.xyz, 1.0f);
+        // U_VS_CameraPosition = (-1632800.0, 50.0, 269700.0)
+        // Wpos.x = -38.125487 + (-1632800.0) = -1632838.125487
+        // Wpos.y = 1.584521 + 50.0 = 51.584521
+        // Wpos.z = 47.498765 + 269700.0 = 269747.498765
+        // 【注意】这个世界位置用于光照计算，不是用于裁剪空间变换
+    #endif
+    
+    return vsOut;
+}
+```
+
+#### 步骤3：精度对比分析
+
+```cpp
+// ===== 新方案（Camera-Relative）精度分析 =====
+CPU侧（double精度）：
+  世界X: -1632838.625487 (15位有效数字)
+  相机X: -1632800.0
+  相对X: -38.625487 (double精度计算，无损失)
+
+GPU传输（double → float）：
+  相对X: -38.625487 → -38.625488f (float表示)
+  误差: 0.000001米 = 0.001毫米（不可见）
+
+GPU计算（float精度）：
+  顶点模型X: 0.5f
+  变换结果: 0.5 + (-38.625488) = -38.125488f
+  精度: 在±100范围内，float精度 ≈ 0.00001米 = 0.01毫米
+
+重建世界位置（float加法）：
+  -38.125488 + (-1632800.0) = -1632838.125488f
+  【注意】这里虽然是大数值加法，但只用于光照计算
+  裁剪空间变换已经在步骤3完成，使用的是小数值
+
+// ===== 旧方案（传统方法）精度分析 =====
+CPU侧（double → float转换）：
+  世界X: -1632838.625487 → -1632838.625f (损失0.000487米)
+  
+GPU矩阵乘法（大数值运算）：
+  -1632838.625 * 变换矩阵
+  float精度在±2000000范围内 ≈ 0.25米
+  顶点误差可达 0.25米 = 250毫米（严重抖动！）
+```
+
+### 6.3 关键参数详解：InvTransposeWorldMatrix
+
+#### 什么是逆转置矩阵？
+
+```cpp
+// 数学定义
+设世界变换矩阵为 M（4x4）
+逆转置矩阵 = (M^-1)^T = Transpose(Inverse(M))
+
+// 作用：正确变换法线向量
+位置变换: P' = M * P（使用世界矩阵）
+法线变换: N' = (M^-1)^T * N（使用逆转置矩阵）
+```
+
+#### 为什么法线需要特殊处理？
+
+```cpp
+// 几何原理
+切线向量（Tangent）: 沿着表面方向，可以直接用世界矩阵变换
+法线向量（Normal）: 垂直于表面，如果模型有非均匀缩放，直接变换会出错
+
+// 示例：非均匀缩放
+模型有缩放 (2.0, 1.0, 1.0)（X轴拉伸2倍）
+如果用世界矩阵直接变换法线，法线会被错误拉伸，不再垂直于表面
+使用逆转置矩阵可以保持法线与表面垂直关系
+```
+
+#### 实际例子
+
+```cpp
+// 物体A的世界矩阵（包含缩放）
+DBMatrix4 worldMatrix = 
+[2.0,  0.0,  0.0,  -1632838.625487]  // X轴缩放2倍
+[0.0,  0.5,  0.0,  50.384521      ]  // Y轴缩放0.5倍
+[0.0,  0.0,  1.0,  269747.198765  ]
+[0.0,  0.0,  0.0,  1.0            ]
+
+// 计算逆矩阵
+Matrix4 inverseMatrix = worldMatrix.inverse()
+[0.5,  0.0,  0.0,  817419.3127]  // 1/2.0
+[0.0,  2.0,  0.0,  -100.769  ]  // 1/0.5
+[0.0,  0.0,  1.0,  -269747.2 ]
+[0.0,  0.0,  0.0,  1.0       ]
+
+// 转置
+Matrix4 invTransposeMatrix = inverseMatrix.transpose()
+[0.5,  0.0,  0.0,  0.0]  // 只需要旋转+缩放部分
+[0.0,  2.0,  0.0,  0.0]  // 平移列被忽略（法线没有位置）
+[0.0,  0.0,  1.0,  0.0]
+[0.0,  0.0,  0.0,  1.0]  // （实际只传3x3部分）
+
+// 在Shader中使用
+float4 normal = float4(IN.i_Normal.xyz, 0.0f);  // w=0表示向量（无位置）
+vsOut.o_WNormal.xyz = mul((float3x4)InvTransposeWorldMatrix, normal);
+// 法线被正确变换，保持与表面垂直
+```
+
+### 6.4 旧版Illum + updateWorldTransform 运作流程
+
+#### CPU侧：updateWorldTransform（传统方法）
+
+```cpp
+// EchoInstanceBatchEntity.cpp (假设的旧版)
+void updateWorldTransform(const SubEntityVec& vecInst, uint32 iUniformCount, Uniformf4Vec& vecData)
+{
+    // 1. 不获取相机位置！直接上传绝对世界矩阵
+    for (size_t i = 0u; i < iInstNum; ++i)
+    {
+        SubEntity* pSubEntity = vecInst[i];
+        const DBMatrix4* _world_matrix = nullptr;
+        pSubEntity->getWorldTransforms(&_world_matrix);
+        
+        // 2. 世界矩阵（物体A）
+        DBMatrix4 worldMatrix = 
+        [1.0,  0.0,  0.0,  -1632838.625487]  // 绝对世界坐标！
+        [0.0,  1.0,  0.0,  50.384521      ]
+        [0.0,  0.0,  1.0,  269747.198765  ]
+        [0.0,  0.0,  0.0,  1.0            ]
+        
+        // 3. 直接转换为float（精度损失！）
+        uniform_f4* _inst_buff = &vecData[i * iUniformCount];
+        for (int j = 0; j < 3; ++j)
+        {
+            _inst_buff[j].x = (float)_world_matrix->m[j][0];
+            _inst_buff[j].y = (float)_world_matrix->m[j][1];
+            _inst_buff[j].z = (float)_world_matrix->m[j][2];
+            _inst_buff[j].w = (float)_world_matrix->m[j][3];  // 大数值转float！
+        }
+        
+        // 结果：
+        // _inst_buff[0] = {1.0f, 0.0f, 0.0f, -1632838.625f}  // 损失0.000487
+        // _inst_buff[1] = {0.0f, 1.0f, 0.0f, 50.384521f}
+        // _inst_buff[2] = {0.0f, 0.0f, 1.0f, 269747.1875f}  // 损失0.011265
+        
+        // 逆转置矩阵（同样方式）
+        _inst_buff[3] = {1.0f, 0.0f, 0.0f, 0.0f};
+        _inst_buff[4] = {0.0f, 1.0f, 0.0f, 0.0f};
+        _inst_buff[5] = {0.0f, 0.0f, 1.0f, 0.0f};
+    }
+}
+```
+
+#### GPU侧：Illum_VS.txt（旧版shader）
+
+```hlsl
+// Illum_VS.txt main()
+#ifdef HWSKINNED
+    // 1. 加载绝对世界矩阵（包含大数值！）
+    WorldMatrix[0] = U_VSCustom0[idxInst + 0];  // {1.0, 0.0, 0.0, -1632838.625}
+    WorldMatrix[1] = U_VSCustom0[idxInst + 1];  // {0.0, 1.0, 0.0, 50.384521}
+    WorldMatrix[2] = U_VSCustom0[idxInst + 2];  // {0.0, 0.0, 1.0, 269747.1875}
+    
+    InvTransposeWorldMatrix[0] = U_VSCustom0[idxInst + 3];
+    InvTransposeWorldMatrix[1] = U_VSCustom0[idxInst + 4];
+    InvTransposeWorldMatrix[2] = U_VSCustom0[idxInst + 5];
+    
+    // 2. 变换到相机空间（第一次计算）
+    float4 vObjPosInCam;
+    vObjPosInCam.xyz = mul((float3x4)WorldMatrix, pos);
+    // pos = (0.5, 1.2, 0.3, 1.0)
+    // 计算：
+    // x = 1.0*0.5 + 0.0*1.2 + 0.0*0.3 + (-1632838.625) = -1632838.125
+    // y = 0.0*0.5 + 1.0*1.2 + 0.0*0.3 + 50.384521 = 51.584521
+    // z = 0.0*0.5 + 0.0*1.2 + 1.0*0.3 + 269747.1875 = 269747.4875
+    
+    vObjPosInCam.w = 1.f;
+    vsOut.o_PosInClip = mul((float4x4)U_ZeroViewProjectMatrix, vObjPosInCam);
+    
+    // 3. 【问题所在】修改矩阵后再次计算世界位置
+    WorldMatrix[0][3] += U_VS_CameraPosition[0];  // -1632838.625 + (-1632800.0)
+    WorldMatrix[1][3] += U_VS_CameraPosition[1];  // 50.384521 + 50.0
+    WorldMatrix[2][3] += U_VS_CameraPosition[2];  // 269747.1875 + 269700.0
+    
+    // 修改后的矩阵：
+    // WorldMatrix[0] = {1.0, 0.0, 0.0, -3265638.625}  // 巨大数值！
+    // WorldMatrix[1] = {0.0, 1.0, 0.0, 100.384521}
+    // WorldMatrix[2] = {0.0, 0.0, 1.0, 539447.1875}
+    
+    // 4. 第二次矩阵乘法（使用修改后的矩阵）
+    float4 Wpos;
+    Wpos.xyz = mul((float3x4)WorldMatrix, pos);
+    // x = 1.0*0.5 + 0.0*1.2 + 0.0*0.3 + (-3265638.625) = -3265638.125
+    // 【问题】这里的计算完全不必要，而且引入了额外的精度损失
+    Wpos.w = 1.0;
+#endif
+
+// 精度问题分析：
+// 1. 大数值矩阵乘法：float在±3000000范围，精度 ≈ 0.5米
+// 2. 两次矩阵乘法：额外的计算开销
+// 3. 矩阵修改操作：在shader中修改数组效率低
+```
+
+### 6.5 两种方案的数值对比表
+
+| 项目 | 新方案(Camera-Relative) | 旧方案(传统方法) |
+|------|------------------------|------------------|
+| CPU计算精度 | double (15位) | double (15位) |
+| GPU传输数值 | -38.625487 (小) | -1632838.625 (大) |
+| float转换误差 | 0.000001米 | 0.000487米 |
+| GPU运算精度 | ±100范围: 0.00001米 | ±2000000范围: 0.25米 |
+| 矩阵乘法次数 | 1次 | 2次 |
+| 最终顶点误差 | <0.001毫米 | 250毫米 |
+| 视觉效果 | 完全稳定 | 严重抖动 |
+| 性能影响 | 基准 | -2%（多一次乘法） |
+
+### 6.6 精度分析：相机位置 vs 世界位置
+
+#### 坐标系定义
+
+```cpp
 世界坐标系（World Space）：
 - 原点：场景世界原点(0,0,0)  
-- 范围：可能非常大，如(-1000000, +1000000)
+- 范围：可能非常大，如(-2000000, +2000000)
+- 实际案例：(-1632838.625487, 50.384521, 269747.198765)
 
 相机坐标系（Camera/View Space）：
 - 原点：当前相机位置
 - 范围：相对较小，如(-1000, +1000)
+- 实际案例：(-38.625487, 0.384521, 47.198765)
 
 裁剪坐标系（Clip Space）：
 - 原点：屏幕中心投影
 - 范围：标准化，(-1, +1)
+- 实际案例：透视除法后归一化到屏幕空间
 ```
 
-### 6.2 float32精度极限
+## 7. 新旧版Illum Shader HWSKINNED分支逐行对比
 
-```cpp
-// IEEE 754 float32精度分析
-float精度 = 2^23 = 8,388,608（约7位十进制精度）
+### 7.1 旧版Illum_VS.txt HWSKINNED分支详解
 
-在不同数值范围下的精度：
-- [1, 2)：        精度 = 2^-23 ≈ 1.19e-7  (0.0000001)
-- [1024, 2048)：  精度 = 2^-13 ≈ 1.22e-4  (0.0001)
-- [100000, 200000): 精度 = 2^-6 ≈ 0.015625 (约1.6厘米！)
+```hlsl
+// Illum_VS.txt Lines 193-210
+#ifdef HWSKINNED
+    // ===== 第1步：加载实例数据 =====
+    // 注释："now is WroldViewMatrix"（实际上是错误的，应该是WorldMatrix）
+    WorldMatrix[0] = U_VSCustom0[idxInst + 0];
+    WorldMatrix[1] = U_VSCustom0[idxInst + 1];
+    WorldMatrix[2] = U_VSCustom0[idxInst + 2];
+    
+    // 参数详解：WorldMatrix[3]（4x4矩阵的前3行）
+    // WorldMatrix[0] = {m00, m01, m02, m03}  // 右向量(Right) + X平移
+    // WorldMatrix[1] = {m10, m11, m12, m13}  // 上向量(Up) + Y平移
+    // WorldMatrix[2] = {m20, m21, m22, m23}  // 前向量(Forward) + Z平移
+    // 实际值（物体A）：
+    // WorldMatrix[0] = {1.0, 0.0, 0.0, -1632838.625}  ← 注意大数值！
+    // WorldMatrix[1] = {0.0, 1.0, 0.0, 50.384521}
+    // WorldMatrix[2] = {0.0, 0.0, 1.0, 269747.1875}
+    
+    InvTransposeWorldMatrix[0] = U_VSCustom0[idxInst + 3];
+    InvTransposeWorldMatrix[1] = U_VSCustom0[idxInst + 4];
+    InvTransposeWorldMatrix[2] = U_VSCustom0[idxInst + 5];
+    
+    // 参数详解：InvTransposeWorldMatrix[3]
+    // 逆转置世界矩阵，用于正确变换法线向量
+    // 当模型有非均匀缩放时，法线不能直接用世界矩阵变换
+    // 公式：Normal' = (WorldMatrix^-1)^T * Normal
+    // 实际值（物体A，无缩放）：
+    // InvTransposeWorldMatrix[0] = {1.0, 0.0, 0.0, 0.0}
+    // InvTransposeWorldMatrix[1] = {0.0, 1.0, 0.0, 0.0}
+    // InvTransposeWorldMatrix[2] = {0.0, 0.0, 1.0, 0.0}
+    
+    // ===== 第2步：变换到相机空间（第一次矩阵乘法）=====
+    float4 vObjPosInCam;
+    vObjPosInCam.xyz = mul((float3x4)WorldMatrix, pos);
+    
+    // mul() 函数详解：
+    // 原型：float3 mul(float3x4 matrix, float4 vector)
+    // 计算：matrix * vector（矩阵左乘向量）
+    // 展开计算（pos = (0.5, 1.2, 0.3, 1.0)）：
+    // vObjPosInCam.x = WorldMatrix[0][0]*pos.x + WorldMatrix[0][1]*pos.y 
+    //                + WorldMatrix[0][2]*pos.z + WorldMatrix[0][3]*pos.w
+    //                = 1.0*0.5 + 0.0*1.2 + 0.0*0.3 + (-1632838.625)*1.0
+    //                = -1632838.125  ← 世界空间位置的X坐标
+    // vObjPosInCam.y = 0.0*0.5 + 1.0*1.2 + 0.0*0.3 + 50.384521*1.0
+    //                = 51.584521
+    // vObjPosInCam.z = 0.0*0.5 + 0.0*1.2 + 1.0*0.3 + 269747.1875*1.0
+    //                = 269747.4875
+    
+    vObjPosInCam.w = 1.f;
+    
+    // ===== 第3步：投影到裁剪空间 =====
+    vsOut.o_PosInClip = mul((float4x4)U_ZeroViewProjectMatrix, vObjPosInCam);
+    
+    // U_ZeroViewProjectMatrix 参数详解：
+    // 这是一个特殊的视图投影矩阵，平移部分被清零
+    // 原因：在Camera-Relative渲染中，平移已经在CPU侧处理
+    // 结构：
+    // [r00, r01, r02, 0  ]  ← 视图旋转 + 透视投影
+    // [r10, r11, r12, 0  ]
+    // [r20, r21, r22, 0  ]
+    // [r30, r31, r32, 1  ]
+    // 但在旧版Illum中，vObjPosInCam包含大数值，所以这个矩阵
+    // 的命名容易误导（实际上应该处理的是相机空间位置）
+    
+    // ===== 【问题所在】第4步：修改矩阵平移列 =====
+    WorldMatrix[0][3] += U_VS_CameraPosition[0];
+    WorldMatrix[1][3] += U_VS_CameraPosition[1];
+    WorldMatrix[2][3] += U_VS_CameraPosition[2];
+    
+    // 注释："now is WroldMatrix"（现在是世界矩阵）
+    // 这个操作的问题：
+    // 1. 在GPU上修改数组元素，效率低
+    // 2. 将相机位置加回去，产生巨大数值
+    // 实际计算：
+    // WorldMatrix[0][3] = -1632838.625 + (-1632800.0) = -3265638.625
+    // WorldMatrix[1][3] = 50.384521 + 50.0 = 100.384521
+    // WorldMatrix[2][3] = 269747.1875 + 269700.0 = 539447.1875
+    
+    // ===== 【问题所在】第5步：第二次矩阵乘法 =====
+    float4 Wpos;
+    Wpos.xyz = mul((float3x4)WorldMatrix, pos);
+    
+    // 用修改后的矩阵再次变换顶点（完全不必要！）
+    // 计算（pos仍然是(0.5, 1.2, 0.3, 1.0)）：
+    // Wpos.x = 1.0*0.5 + 0.0*1.2 + 0.0*0.3 + (-3265638.625)*1.0
+    //        = -3265638.125  ← 错误的"世界位置"
+    // 
+    // 实际上这个值应该是：
+    // -1632838.125 (顶点世界X) = 模型局部0.5 + 物体位置-1632838.625
+    // 
+    // 问题分析：
+    // - 这个计算毫无意义，因为相机位置被加了两次
+    // - 引入了不必要的大数值运算（-3265638）
+    // - float精度在±3000000范围约为0.5米，导致严重抖动
+    
+    Wpos.w = 1.0;
+#endif
 ```
+
+### 7.2 新版IllumPBR_VS.txt HWSKINNED分支详解
+
+```hlsl
+// IllumPBR_VS.txt Lines 202-214
+#ifdef HWSKINNED
+    // ===== 第1步：加载实例数据（相机相对矩阵）=====
+    // 注释："now is WroldViewMatrix"（现在是世界-视图矩阵，即相机相对矩阵）
+    WorldMatrix[0] = U_VSCustom0[idxInst + 0];
+    WorldMatrix[1] = U_VSCustom0[idxInst + 1];
+    WorldMatrix[2] = U_VSCustom0[idxInst + 2];
+    
+    // 参数详解：WorldMatrix[3]（相机相对）
+    // 与旧版的关键区别：平移列已经是相机相对坐标
+    // WorldMatrix[0] = {m00, m01, m02, m03_relative}
+    // WorldMatrix[1] = {m10, m11, m12, m13_relative}
+    // WorldMatrix[2] = {m20, m21, m22, m23_relative}
+    // 实际值（物体A）：
+    // WorldMatrix[0] = {1.0, 0.0, 0.0, -38.625487}  ← 小数值！
+    // WorldMatrix[1] = {0.0, 1.0, 0.0, 0.384521}
+    // WorldMatrix[2] = {0.0, 0.0, 1.0, 47.198765}
+    // 
+    // 数据来源：CPU侧updateWorldViewTransform()已经减去相机位置
+    // -38.625487 = -1632838.625487 - (-1632800.0)
+    
+    InvTransposeWorldMatrix[0] = U_VSCustom0[idxInst + 3];
+    InvTransposeWorldMatrix[1] = U_VSCustom0[idxInst + 4];
+    InvTransposeWorldMatrix[2] = U_VSCustom0[idxInst + 5];
+    
+    // 参数详解：InvTransposeWorldMatrix[3]（与旧版相同）
+    // 逆转置矩阵只包含旋转和缩放，不包含平移
+    // 所以相机相对变换不影响逆转置矩阵
+    // 实际值（物体A）：
+    // InvTransposeWorldMatrix[0] = {1.0, 0.0, 0.0, 0.0}
+    // InvTransposeWorldMatrix[1] = {0.0, 1.0, 0.0, 0.0}
+    // InvTransposeWorldMatrix[2] = {0.0, 0.0, 1.0, 0.0}
+    
+    // ===== 第2步：变换到相机空间（唯一的矩阵乘法）=====
+    // 注释："translate to camera space"（变换到相机空间）
+    float4 vObjPosInCam;
+    vObjPosInCam.xyz = mul((float3x4)WorldMatrix, pos);
+    
+    // mul() 函数计算（pos = (0.5, 1.2, 0.3, 1.0)）：
+    // vObjPosInCam.x = 1.0*0.5 + 0.0*1.2 + 0.0*0.3 + (-38.625487)*1.0
+    //                = -38.125487  ← 相机空间位置（小数值！）
+    // vObjPosInCam.y = 0.0*0.5 + 1.0*1.2 + 0.0*0.3 + 0.384521*1.0
+    //                = 1.584521
+    // vObjPosInCam.z = 0.0*0.5 + 0.0*1.2 + 1.0*0.3 + 47.198765*1.0
+    //                = 47.498765
+    // 
+    // 精度分析：
+    // - 所有运算都在±100范围内
+    // - float精度在此范围约为0.00001米（0.01毫米）
+    // - 完全不会产生可见的精度误差
+    
+    vObjPosInCam.w = 1.f;
+    
+    // ===== 第3步：投影到裁剪空间 =====
+    vsOut.o_PosInClip = mul((float4x4)U_ZeroViewProjectMatrix, vObjPosInCam);
+    
+    // U_ZeroViewProjectMatrix 在这里的意义：
+    // vObjPosInCam已经是相机空间坐标（相对于相机原点）
+    // U_ZeroViewProjectMatrix只需要处理：
+    // 1. 相机朝向（旋转）
+    // 2. 透视投影
+    // 不需要处理平移（因为已经相对于相机了）
+    // 
+    // 这就是为什么叫"ZeroViewProjectMatrix"（零平移的视图投影矩阵）
+    
+    // ===== 第4步：重建世界位置（简单向量加法）=====
+    float4 Wpos = float4(vObjPosInCam.xyz + U_VS_CameraPosition.xyz, 1.0f);
+    
+    // 参数详解：U_VS_CameraPosition
+    // 世界空间中的相机位置（float精度）
+    // 实际值：U_VS_CameraPosition = (-1632800.0, 50.0, 269700.0)
+    
+    // 向量加法计算：
+    // Wpos.x = -38.125487 + (-1632800.0) = -1632838.125487
+    // Wpos.y = 1.584521 + 50.0 = 51.584521
+    // Wpos.z = 47.498765 + 269700.0 = 269747.498765
+    
+    // 关键优势：
+    // 1. 只用于光照计算，不用于裁剪空间变换
+    // 2. 简单加法比矩阵乘法更精确、更快
+    // 3. 即使这里有精度损失，也不会影响顶点位置（已在步骤3确定）
+    
+    // 精度分析（float加法）：
+    // - 小数 + 大数：-38.125487 + (-1632800.0)
+    // - 结果精度受大数影响：约0.25米
+    // - 但这只影响光照计算，不影响顶点位置精度！
+    // - 光照计算允许一定误差（0.25米的法线误差人眼不可见）
+#endif
+```
+
+### 7.3 关键差异对比表
+
+| 对比项 | 旧版Illum_VS.txt | 新版IllumPBR_VS.txt |
+|--------|------------------|---------------------|
+| **WorldMatrix内容** | 绝对世界坐标矩阵<br>平移列：(-1632838.625, 50.38, 269747.19) | 相机相对坐标矩阵<br>平移列：(-38.625, 0.38, 47.19) |
+| **第一次mul()** | 世界空间变换<br>结果：(-1632838.125, ...) | 相机空间变换<br>结果：(-38.125, ...) |
+| **矩阵修改** | 加相机位置（产生巨大值）<br>WorldMatrix[i][3] += Camera | 无需修改 |
+| **第二次mul()** | 有（不必要）<br>结果：(-3265638.125, ...) | 无 |
+| **世界位置重建** | 矩阵乘法<br>mul(ModifiedMatrix, pos) | 向量加法<br>vCamPos + CameraPos |
+| **精度范围** | ±3000000 → 0.5米误差 | ±100 → 0.00001米误差 |
+| **性能** | 2次矩阵乘法 + 矩阵修改 | 1次矩阵乘法 + 1次向量加法 |
+| **GPU指令数** | ~20条（估算） | ~12条（估算） |
+
+### 7.4 InvTransposeWorldMatrix 实际应用案例
+
+#### 案例1：无缩放物体（最简单）
+
+```hlsl
+// 物体变换：旋转45度，无缩放
+WorldMatrix = 
+[0.707,  -0.707,  0.0,  -38.625]  // 旋转矩阵（正交）
+[0.707,   0.707,  0.0,  0.385  ]
+[0.0,     0.0,    1.0,  47.199 ]
+
+// 逆转置矩阵（正交矩阵的逆转置 = 自身）
+InvTransposeWorldMatrix = 
+[0.707,  -0.707,  0.0,  0.0]
+[0.707,   0.707,  0.0,  0.0]
+[0.0,     0.0,    1.0,  0.0]
+
+// 变换法线（法线垂直于表面）
+float4 normal = float4(0.0, 1.0, 0.0, 0.0);  // 原始法线：向上
+float4 transformedNormal = mul((float3x4)InvTransposeWorldMatrix, normal);
+// 结果：transformedNormal = (-0.707, 0.707, 0.0)
+// 法线也旋转了45度，仍然垂直于表面✓
+```
+
+#### 案例2：非均匀缩放物体（需要特殊处理）
+
+```hlsl
+// 物体变换：X轴拉伸2倍，Y轴压缩0.5倍
+WorldMatrix = 
+[2.0,  0.0,  0.0,  -38.625]  // X缩放2倍
+[0.0,  0.5,  0.0,  0.385  ]  // Y缩放0.5倍
+[0.0,  0.0,  1.0,  47.199 ]  // Z不缩放
+
+// 如果用WorldMatrix直接变换法线（错误）：
+float4 normal = float4(0.0, 1.0, 0.0, 0.0);  // 向上的法线
+float4 wrongNormal = mul((float3x4)WorldMatrix, normal);
+// wrongNormal = (0.0, 0.5, 0.0)  ← 长度变了，但方向还是向上
+// 【问题】如果表面被压缩，法线不应该还是向上！
+
+// 正确做法：用InvTransposeWorldMatrix
+// 计算逆矩阵：
+InverseMatrix = 
+[0.5,  0.0,  0.0,  ...]  // 1/2.0
+[0.0,  2.0,  0.0,  ...]  // 1/0.5
+[0.0,  0.0,  1.0,  ...]
+
+// 转置：
+InvTransposeWorldMatrix = 
+[0.5,  0.0,  0.0,  0.0]
+[0.0,  2.0,  0.0,  0.0]
+[0.0,  0.0,  1.0,  0.0]
+
+float4 correctNormal = mul((float3x4)InvTransposeWorldMatrix, normal);
+// correctNormal = (0.0, 2.0, 0.0)
+// 【正确】Y分量增大，补偿了Y轴的压缩，法线仍然垂直于变形后的表面✓
+```
+
+### 7.5 updateWorldTransform（旧版）运作流程图
+
+```
+CPU侧（每帧）：
+┌─────────────────────────────────────┐
+│ SubEntity A:                        │
+│ 世界位置: (-1632838.625, 50.38, ...)│
+│           ↓ getWorldTransforms()    │
+│ DBMatrix4 (double精度)              │
+└─────────────────────────────────────┘
+          ↓ updateWorldTransform()
+          ↓ 直接转float（损失精度）
+┌─────────────────────────────────────┐
+│ GPU数据（U_VSCustom0）:             │
+│ WorldMatrix[0] = {..., -1632838.625}│ ← 大数值！
+│ WorldMatrix[1] = {..., 50.384521}   │
+│ WorldMatrix[2] = {..., 269747.1875} │
+│ InvTranspose[0-2] = {...}           │
+└─────────────────────────────────────┘
+          ↓ RenderSystem::setUniformValue()
+          
+GPU侧（每顶点）：
+┌─────────────────────────────────────┐
+│ Vertex Shader (Illum_VS.txt):      │
+│                                     │
+│ 1. mul(WorldMatrix, pos)            │
+│    → (-1632838.125, ...) 世界位置   │ ← 大数值运算
+│                                     │
+│ 2. mul(U_ZeroViewProjectMatrix, ...)│
+│    → o_PosInClip（裁剪空间）         │
+│                                     │
+│ 3. WorldMatrix[i][3] += CameraPos   │ ← 矩阵修改
+│    → (-3265638.625, ...) 错误值！   │
+│                                     │
+│ 4. mul(ModifiedMatrix, pos) 再次！  │ ← 不必要
+│    → Wpos（所谓世界位置）            │
+│                                     │
+│ 精度损失：±3000000范围 → 0.5米误差 │
+└─────────────────────────────────────┘
+          ↓
+    【严重顶点抖动】
+```
+
+### 7.6 updateWorldViewTransform（新版）运作流程图
+
+```
+CPU侧（每帧）：
+┌─────────────────────────────────────┐
+│ SubEntity A:                        │
+│ 世界位置: (-1632838.625, 50.38, ...)│
+│ 相机位置: (-1632800.0, 50.0, ...)   │
+│           ↓ getWorldTransforms()    │
+│ DBMatrix4 (double精度)              │
+└─────────────────────────────────────┘
+          ↓ updateWorldViewTransform()
+          ↓ 减去相机位置（double精度）
+┌─────────────────────────────────────┐
+│ 相机相对矩阵（double）:              │
+│ Translation: (-38.625, 0.385, 47.2) │ ← 小数值
+└─────────────────────────────────────┘
+          ↓ 转float（几乎无损失）
+┌─────────────────────────────────────┐
+│ GPU数据（U_VSCustom0）:             │
+│ WorldMatrix[0] = {..., -38.625487}  │ ← 小数值！
+│ WorldMatrix[1] = {..., 0.384521}    │
+│ WorldMatrix[2] = {..., 47.198765}   │
+│ InvTranspose[0-2] = {...}           │
+└─────────────────────────────────────┘
+          ↓ RenderSystem::setUniformValue()
+          
+GPU侧（每顶点）：
+┌─────────────────────────────────────┐
+│ Vertex Shader (IllumPBR_VS.txt):   │
+│                                     │
+│ 1. mul(WorldMatrix, pos)            │
+│    → (-38.125, ...) 相机空间位置    │ ← 小数值运算！
+│                                     │
+│ 2. mul(U_ZeroViewProjectMatrix, ...)│
+│    → o_PosInClip（裁剪空间）         │ ← 高精度！
+│                                     │
+│ 3. vCamPos + U_VS_CameraPosition    │ ← 简单加法
+│    → Wpos（世界位置）                │ ← 只用于光照
+│                                     │
+│ 精度：±100范围 → 0.00001米精度     │
+└─────────────────────────────────────┘
+          ↓
+    【完全稳定无抖动】
+```
+
+### 7.8 float32精度极限
 
 ### 6.3 精度损失对比
 
