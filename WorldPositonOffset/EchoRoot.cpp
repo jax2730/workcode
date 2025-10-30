@@ -2944,22 +2944,8 @@ namespace Echo {
 
 		if (mNewWorldOrigin != mWorldOrigin)
 		{
-			// [CR DEBUG] Confirm listener callback triggered
-			char logMsg[512];
-			sprintf(logMsg, "[Root::Frame End] WorldOrigin changed! Old=(%.1f,%.1f,%.1f) New=(%.1f,%.1f,%.1f) ListenerCount=%d",
-				mWorldOrigin.x, mWorldOrigin.y, mWorldOrigin.z,
-				mNewWorldOrigin.x, mNewWorldOrigin.y, mNewWorldOrigin.z,
-				(int)mWorldOriginListeners.size());
-			LogManager::instance()->logMessage(logMsg);
-
 			for (const auto& listener : mWorldOriginListeners) {
-				sprintf(logMsg, "[Root::Frame End] Calling listener->worldOriginRebasing() listener=%p", listener);
-				LogManager::instance()->logMessage(logMsg);
-
 				listener->worldOriginRebasing(mNewWorldOrigin.x, mNewWorldOrigin.y, mNewWorldOrigin.z);
-
-				sprintf(logMsg, "[Root::Frame End] Listener callback completed! listener=%p", listener);
-				LogManager::instance()->logMessage(logMsg);
 			}
 			mWorldOrigin = mNewWorldOrigin;
 		}
@@ -3185,22 +3171,8 @@ namespace Echo {
 
 		if (mNewWorldOrigin != mWorldOrigin)
 		{
-			// [CR DEBUG] Confirm listener callback triggered
-			char logMsg[512];
-			sprintf(logMsg, "[Root::Frame End] WorldOrigin changed! Old=(%.1f,%.1f,%.1f) New=(%.1f,%.1f,%.1f) ListenerCount=%d",
-				mWorldOrigin.x, mWorldOrigin.y, mWorldOrigin.z,
-				mNewWorldOrigin.x, mNewWorldOrigin.y, mNewWorldOrigin.z,
-				(int)mWorldOriginListeners.size());
-			LogManager::instance()->logMessage(logMsg);
-
 			for (const auto& listener : mWorldOriginListeners) {
-				sprintf(logMsg, "[Root::Frame End] Calling listener->worldOriginRebasing() listener=%p", listener);
-				LogManager::instance()->logMessage(logMsg);
-
 				listener->worldOriginRebasing(mNewWorldOrigin.x, mNewWorldOrigin.y, mNewWorldOrigin.z);
-
-				sprintf(logMsg, "[Root::Frame End] Listener callback completed! listener=%p", listener);
-				LogManager::instance()->logMessage(logMsg);
 			}
 			mWorldOrigin = mNewWorldOrigin;
 		}

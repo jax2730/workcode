@@ -124,8 +124,7 @@ VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID: SV_InstanceID)
 	vsOut.o_PosInClip.w = dot(vWVPMatrixC3, worldPos);
 	
 	vsOut.o_ViewDir = - vsOut.o_WorldPos.xyz;
-	// [CR] DO NOT add camera position - worldPos is already in camera-relative space
-	// vsOut.o_WorldPos += U_VS_CameraPosition.xyz;
+	vsOut.o_WorldPos += U_VS_CameraPosition.xyz;
 	float dist = length(vsOut.o_ViewDir);
 	float3 camToWorld = vsOut.o_ViewDir;
 
