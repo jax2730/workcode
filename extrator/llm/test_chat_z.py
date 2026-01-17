@@ -16,38 +16,43 @@ from langchain.docstore.document import Document
 template_tool_call="""
 **代理任务:**
 
-协助用户设置星球环境和地形，严格按照以下步骤提取参数并调用相应工具。
+协助用户设置星球环境和地形。用户输入的信息将被用来单独或同时调用环境设置工具和地形设置工具。
 
 **用户交互步骤：**
-1. 询问环境参数：
+1. 询问用户想进行外观环境设置还是地形设置，建议先进行外观设置再进行地形设置。
+
+2. 询问环境参数：
    - 温度范围（-50°C 至 50°C）。
    - 湿度范围（0% 至 100%）。
    - 外观颜色（中文颜色）。
-2. 询问地形设置需求：
-   - 是否需要设置地形类型（如山地、平原、沙漠等）。
-3. 输入处理逻辑：
-   - 若用户输入完整环境参数，提示确认后**调用环境设置工具**。
-   - 若用户选择设置地形，提示输入以下信息并**调用地形设置工具**：
+
+3. 询问用户是否需要进行地形设置，如果需要请询问每一个地形的参数：
      - 地形类型（中文名称）。
-     - 纬度（一个浮点数）。
-     - 经度（一个浮点数）。
-   - 同时包含环境和地形信息时，分别调用两个工具。
+     - 纬度值（-90°到90°）。
+     - 经度值（-180°到180°）。
+
+4. 输入处理逻辑：
+   - 若用户输入完整的环境参数，提示确认后**调用环境设置工具**。
+   - 若用户输入完整的地形信息，提示确认后**调用地形设置工具**。
+   - 如果用户同时输入环境和地形信息，分别调用两个工具。
    - 若用户输入超出规定范围的值，明确提示并要求重新输入。
    - 输入无关信息时，提醒用户并拒绝处理。
-4. 用户确认后执行：
+
+5. 用户确认后执行：
    - 调用工具并传入提取到的信息。
    - 输出简洁的工具反馈，等待用户新的输入。
 
 **工具调用规则：**
-1. 必须确保参数齐全再调用相关工具
+1. 必须确保参数齐全再调用相关工具。
 2. 环境设置工具：处理温度、湿度、颜色。
-3. 地形设置工具：处理地形类型及其经纬度，**整合所有的地形数据**再进行调用。
-4. 两工具可独立调用，但需根据用户输入分别执行。
+3. 地形设置工具：处理地形类型及其经纬度，用户确认不再添加新的地形后**整合所有的地形数据**再进行工具调用。
+4. 两工具可独立调用，具体根据用户输入进行调用。
 5. 若用户未提及地形，仅调用环境设置工具。
+6. 若用户未提及环境信息，仅调用地形设置工具。
 
 **注意事项:**
 1. 专注设定的六个参数：温度、湿度、颜色、地形类型、纬度、经度。
-2. 用户确认后，必须要自动调用工具。
+2. 用户确认后，必须自动调用工具。
 3. 不输出 JSON 数据或代码。
 4. 确保响应主题明确，不偏离任务目标。
 """
@@ -81,8 +86,8 @@ class TerrainType(BaseModel):
 
 class PlanetInfo(BaseModel):
     """环境配置信息"""
-    temperature: TemperatureRange = Field(default=None,description="环境整体温度范围")
-    humidity: HumidityRange = Field(default=None,description="环境整体湿度范围")
+    temperature: TemperatureRange = Field(default=None,description="环境整体最低温度与最高温度")
+    humidity: HumidityRange = Field(default=None,description="环境整体最低湿度与最高湿度")
     colors: list[str] = Field(default=[], description="星球外观颜色")
 
 class TerrainItem(BaseModel):
@@ -138,11 +143,7 @@ def createExtrator():
         prompt_model, 
         get_session_history,
         input_messages_key="new_history",
-        history_messages_key="history",
-        post_processors=[
-            lambda response: argumentParser.parse(response.content),  # 自动解析 PlanetInfo
-            lambda response: terrainParser.parse(response.content)   # 自动解析 TerrainInfo
-        ])
+        history_messages_key="history")
 
     return extractor
 
@@ -160,8 +161,6 @@ def info_chain(state, config):
             },
             config=config
         )
-    
-    print("response", response)
 
     
     return {"messages": [response]}
@@ -201,58 +200,108 @@ workflow.add_node("info", info_chain)
 
 @workflow.add_node
 def add_tool_message(state: State):
-    tool_calls = state['messages'][-1].response_metadata.get('message', {}).get('tool_calls', [])
+    tool_calls = state['messages'][-1].tool_calls
     print("当前节点-----------add_tool_message----------------")
-    tool_name = tool_calls[0].get('function', {}).get('name', {})
-    tool_args = tool_calls[0].get('function', {}).get('arguments', {})
-
-
-    if tool_name == "TerrainInfo":
-        content = "星球子地形环境设置完成"
-
-        return {
-            "messages": [
-                ToolMessage(
-                    content=content,
-                    tool_call_id=state["messages"][-1].tool_calls[0]["id"],
-                )
-            ]
-        }
-    elif tool_name == "PlanetInfo":
     
-        subRange, have_idx0 = set_env(tool_args)
-        print("have_idx0------------------", have_idx0)
-        if have_idx0:
-            # global vectorstore
-            # # todo:搜索时只根据不合法区域的温湿度来检索
-            # docs = vectorstore.similarity_search(tool_args, k=5)  # 查询最相关的 5 条记录
-            
-            # formatted_docs = [{"content": doc.page_content, "metadata": doc.metadata} for doc in docs]
-            user_message = (
-                "环境设置完成,但是在生成数据时部分区域地形不可用，建议更改颜色参数更加适配温湿度。\n"
-                "以下是根据您输入的上下文推荐的改进建议：\n"
-            )
-            # biome_names = [name for doc in formatted_docs for name in doc['metadata']['biome_name']]
-            # user_message += "推荐地形类型：\n" + ", ".join(set(biome_names)) + "\n" + "请确认是否要增加颜色,如果需要,输入新的颜色"
-            return {
-            "messages": [
-                ToolMessage(
-                    content=user_message,
-                    tool_call_id=state["messages"][-1].tool_calls[0]["id"],
-                )
-                ]
-            }
+    responses = []  # 用来存储处理后的所有消息
+    
+    for tool_call in tool_calls:
+        print("tool_call--------------------------", tool_call)
+        tool_name = tool_call.get('name', None)
+        tool_args = tool_call.get('args', {})
+        tool_id = tool_call.get('id', {})
 
-        content = "星球外观环境设置完成"
-
-        return {
-            "messages": [
+        if tool_name == "TerrainInfo":
+            content = "星球子地形环境设置完成"
+            responses.append(
                 ToolMessage(
                     content=content,
-                    tool_call_id=state["messages"][-1].tool_calls[0]["id"],
+                    tool_call_id = tool_id,
                 )
-            ]
-        }
+            )
+        
+        elif tool_name == "PlanetInfo":
+            subRange, have_idx0 = set_env(tool_args)
+            print("have_idx0------------------", have_idx0)
+            
+            if have_idx0:
+                user_message = (
+                    "环境设置完成,但是在生成数据时部分区域地形不可用，建议更改颜色参数更加适配温湿度。\n"
+                    "以下是根据您输入的上下文推荐的改进建议：\n"
+                )
+                responses.append(
+                    ToolMessage(
+                        content=user_message,
+                        tool_call_id = tool_id,
+                    )
+                )
+            else:
+                content = "星球外观环境设置完成"
+                responses.append(
+                    ToolMessage(
+                        content=content,
+                        tool_call_id = tool_id,
+                    )
+                )
+    
+    # 返回包含所有处理结果的消息列表
+    return {
+        "messages": responses
+    }
+# def add_tool_message(state: State):
+#     print("response-------", state['messages'][-1].response_metadata)
+#     tool_calls = state['messages'][-1].response_metadata.get('message', {}).get('tool_calls', [])
+#     print("当前节点-----------add_tool_message----------------")
+#     tool_name = tool_calls[0].get('function', {}).get('name', {})
+#     tool_args = tool_calls[0].get('function', {}).get('arguments', {})
+
+
+#     if tool_name == "TerrainInfo":
+#         content = "星球子地形环境设置完成"
+
+#         return {
+#             "messages": [
+#                 ToolMessage(
+#                     content=content,
+#                     tool_call_id=state["messages"][-1].tool_calls[0]["id"],
+#                 )
+#             ]
+#         }
+#     elif tool_name == "PlanetInfo":
+    
+#         subRange, have_idx0 = set_env(tool_args)
+#         print("have_idx0------------------", have_idx0)
+#         if have_idx0:
+#             # global vectorstore
+#             # # todo:搜索时只根据不合法区域的温湿度来检索
+#             # docs = vectorstore.similarity_search(tool_args, k=5)  # 查询最相关的 5 条记录
+            
+#             # formatted_docs = [{"content": doc.page_content, "metadata": doc.metadata} for doc in docs]
+#             user_message = (
+#                 "环境设置完成,但是在生成数据时部分区域地形不可用，建议更改颜色参数更加适配温湿度。\n"
+#                 "以下是根据您输入的上下文推荐的改进建议：\n"
+#             )
+#             # biome_names = [name for doc in formatted_docs for name in doc['metadata']['biome_name']]
+#             # user_message += "推荐地形类型：\n" + ", ".join(set(biome_names)) + "\n" + "请确认是否要增加颜色,如果需要,输入新的颜色"
+#             return {
+#             "messages": [
+#                 ToolMessage(
+#                     content=user_message,
+#                     tool_call_id=state["messages"][-1].tool_calls[0]["id"],
+#                 )
+#                 ]
+#             }
+
+#         content = "星球外观环境设置完成"
+
+#         return {
+#             "messages": [
+#                 ToolMessage(
+#                     content=content,
+#                     tool_call_id=state["messages"][-1].tool_calls[0]["id"],
+#                 )
+#             ]
+#         }
 
 
 
@@ -362,8 +411,12 @@ def chat(humanMsg:str, session_id:str):
 
         if name == "PlanetInfo":
             copied_subRange = subRange.copy()  
-            copied_subRange.pop("_last_operation", None)
-            copied_subRange.pop("_has_repeated_idx", None)
+            if "_last_operation" in copied_subRange:
+                copied_subRange.pop("_last_operation")
+            if "_has_repeated_idx" in copied_subRange:
+                copied_subRange.pop("_has_repeated_idx")
+            # copied_subRange.pop("_last_operation", None)
+            # copied_subRange.pop("_has_repeated_idx", None)
             if subRange["_has_repeated_idx"] == False:
                 subRange.clear()   
             result["data"] = copied_subRange
