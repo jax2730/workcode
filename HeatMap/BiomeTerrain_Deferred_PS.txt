@@ -1,0 +1,1029 @@
+// texture count d3d11 version:
+
+// name                                  texture usage       total count        
+//------------------------------------------------------------------- run time required
+// Material ID map                      |1                  |1
+// FBM noise texture                    |1                  |2
+// PBR albedo\normal 				    |2	                |4 
+// Environment cube map				    |1	                |5
+// Shadow map						    |1	                |6
+// Cluster point light				    |1	                |7     （还未实现，先统计一下
+// Point light shadow				    |1	                |8     （还未实现，先统计一下
+//------------------------------------------------------------------- editor 
+// Temperature							|1	                |13
+// Hudumidity							|1	                |14
+// RegionIndex                          |1                  |15
+// RegionProcess                        |1                  |16
+// logicIndex
+//-------------------------------------------------------------------
+
+
+
+#include <Common_Uniform_PS.inl>
+#include <EnvironmentLight_Function.inl>
+#include <TriPlanarMapping_Function_PS.inl>
+
+#include <Common_Function.inl>
+#include <Common_Function_PS.inl>
+#include <Common_ShadowFiltering.inl>
+
+#include <Light_Function_PS.inl>
+
+#include <LandformPBRLighting.inl>
+
+#include <Common_GBuffers.inl>
+
+#ifdef CLUSTER_POINT_LIGHT
+	#ifdef USE_DPSM
+		#undef USE_DPSM
+	#endif
+	#include "Shadow_Light_Function_PS.inl"
+#endif
+
+#include <CubeSphereMapping.inl>
+
+//input & output------------------------------------------------------------------------------------------
+    struct PS_INPUT
+    {
+        float4 i_Position	    : SV_POSITION;
+
+        float3 i_WorldNormal    : NORMAL0;
+        float3 i_WorldPos       : TEXCOORD0;
+
+        float2 i_TexCoord       : TEXCOORD1;    // tiled texcoord, used to sample texture
+        float2 i_MatIDUV        : TEXCOORD2;    // texcoord on  cube
+
+        float3 i_Tangent1       : TEXCOORD3;
+        float3 i_BiTangent1     : TEXCOORD4;
+        float3 i_Tangent2       : TEXCOORD5;
+        float3 i_BiTangent2     : TEXCOORD6;
+
+        float3 i_LocalPos       : TEXCOORD7;
+        float3 i_LocalNormal    : TEXCOORD8;
+
+        #ifdef _DEBUG_MODE_
+            float i_mode          : TEXCOORD9;
+        #endif
+
+        #ifdef USESHADOWMAP
+            float	i_ViewSpaceZ					: TEXCOORD10;
+            float4  i_LightSpacePos[SHADOWSPLITE]   : TEXCOORD11;//11 - 14
+        #endif
+
+        float4 i_Fog            : TEXCOORD15;
+        float3  i_ViewPos       : TEXCOORD16; // position in view space 
+    };
+
+    #define PS_OUTPUT GBuffers
+
+//input & output------------------------------------------------------------------------------------------
+
+//functions------------------------------------------------------------------------------------------
+    //计算在索引图上采样的纹素坐标
+    int3 computeTexLocation(float2 uv, int2 textureDimension)
+    {
+        float2 cst = uv * textureDimension;
+        float2 temp = clamp((cst), 0.f, textureDimension - 1);
+        return int3(temp, 0);
+    }
+
+    // #ifdef HAVEPOINTLIGHT
+    // 	float GetPointLightAttenuation(in float3 vDir, in float fInnerRadius, float fOuterRadius)
+    // 	{
+    // 		float fSqrLen = dot(vDir, vDir);
+    // 		float fSqrInnerRadius = fInnerRadius * fInnerRadius;
+    // 		float fSqrOuterRadius = fOuterRadius * fOuterRadius;
+    // 		float fAtten = 1.0 - saturate((fSqrLen - fSqrInnerRadius) / (fSqrOuterRadius - fSqrInnerRadius));
+    // 		return fAtten * fAtten;
+    // 	}
+    // #endif
+
+//functions------------------------------------------------------------------------------------------
+
+//uniforms-------------------------------------------------------------------------------------------
+
+    #ifdef _EDITOR_MODE_
+        #define BiomeDisplayMode_Full           0//show all height distail.
+        #define BiomeDisplayMode_Height         1//Show height mesh without nothing.
+        #define BiomeDisplayMode_Temperature    2//Show temeprature as color in real height map.
+        #define BiomeDisplayMode_Humidity       3//Show humidity as color in real height map.
+        #define BiomeDisplayMode_MaterialIndex  4//Show material index as color in real height map.
+        #define BiomeDisplayMode_Normal         5
+        #define BiomeDisplayMode_PBRParam       6
+        #define BiomeDisplayMode_LOD            7
+        #define BiomeDisplayMode_GeometryNormal 8
+        #define BiomeDisplayMode_RegionIndex    9
+
+        #define BiomeDisplayMode_Tile           10
+        #define BiomeDisplayMode_MaterialLevel  11
+        #define BiomeDisplayMode_BlendWeight    12
+        #define BiomeDisplayMode_NoisedUV       13
+        #define BiomeDisplayMode_RegionIndexOffline 14
+        #define BiomeDisplayMode_RegionIndexProcess 15
+        #define BiomeDisplayMode_SphericalVoronoiRegionIndex 16
+        #define BiomeDisplayMode_Manual         17
+        #define BiomeDisplayMode_LerpedUV       18
+        #define BiomeDisplayMode_TextureTillingNoise 19
+        #define BiomeDisplayMode_RegionSDF 20
+        #define BiomeDisplayMode_GeometryHeatmap 21
+
+        float4 U_PSCustom11;
+        int4 U_PSCustom9[70];
+        int4 U_PSCustom12[70];
+        float4 U_PSCustom14;
+        float4 U_PSCustom15;
+        //编辑器地形显示模式
+        float4 U_PSCustom0;
+        #define BiomeDisplayMode U_PSCustom0.x
+        float4 U_PSCustom4;
+        #define InvMinorRadius      U_PSCustom4.w
+        #define LocalTranslation    U_PSCustom4.xyz
+    #endif
+
+    float4 U_LightPower;
+
+    float4 U_PSCustom1[6];
+    float4 U_PSCustom2[4];   // custom uv tilling
+    float4 U_PSCustom3[16];  // custom color 
+    float4 U_PSCustom5;      // weatherCoverColorThreshold
+    float4 U_PSCustom6[4];   // custom normal strength
+    float4 U_PSCustom7[16];  // custom emissive color & emissive power
+    float4 U_PSCustom8[8];   // enable texture emissive & custom metallic
+    float4 U_PSCustom10;     // xy: RegionMap xy, zw: RegionMap uv offset
+    float4x4 U_PSCustom13;   // WorldToLocal Matrix
+    #define worldMatInv U_PSCustom13
+
+    #define BiomeTextureTilling     U_PSCustom1[0].x
+    #define BiomeNormalStrength     U_PSCustom1[0].y
+    #define BiomeWeightParamM       U_PSCustom1[0].z
+    #define BiomeWeightParamDelta   U_PSCustom1[0].w
+
+    #define DissolveStrength        U_PSCustom1[1].x
+
+    //environment lighting params
+    column_major float4x4 U_PBR_RMatrix;
+    column_major float4x4 U_PBR_GMatrix;
+    column_major float4x4 U_PBR_BMatrix;
+
+    float4 U_PBR_Environment_Explosure;
+    float4 U_GlobalEnvironmentCubeMipMapLevels;
+    float4 U_MaterialCustomParam1;
+//uniforms-------------------------------------------------------------------------------------------
+
+//textures-------------------------------------------------------------------------------------------
+     #ifdef _LOW_LOD_
+        #ifdef PROCEDURAL_SPHERE
+            // baked albedo, linear RGB + roughness in alpha
+            TextureCube S_CubeMapExt0;
+            SamplerState S_CubeMapExt0SamplerState;
+            TextureCube S_CubeMapExt1;
+            SamplerState S_CubeMapExt1SamplerState;
+            #define BakedAlbedo S_CubeMapExt0
+            #define LODTextureSampler S_CubeMapExt0SamplerState
+            #define BakedEmission S_CubeMapExt1
+            #define EmissionSampler S_CubeMapExt1SamplerState
+		#endif
+        #ifdef PROCEDURAL_TORUS
+            Texture2D S_Custom9;
+            SamplerState S_Custom9SamplerState;
+            Texture2D S_Custom;
+            SamplerState S_CustomSamplerState;
+            #define BakedAlbedo S_Custom9
+            #define LODTextureSampler S_Custom9SamplerState
+            #define BakedEmission S_Custom
+            #define EmissionSampler S_CustomSamplerState
+        #endif
+     #else
+        #ifdef _EDITOR_MODE_           
+            //temperature
+            Texture2D	S_Diffuse;
+            SamplerState S_DiffuseSamplerState;
+
+            //humidity
+            Texture2D	S_Specular;
+            SamplerState S_SpecularSamplerState;
+
+        	Texture2D<uint> S_Custom9;
+        	SamplerState S_Custom9SamplerState;
+        #endif
+
+            //material id
+            Texture2D<uint1> S_Custom5;  
+            SamplerState S_Custom5SamplerState;
+
+            //albedo
+            Texture2DArray	S_Custom;           
+            SamplerState S_CustomSamplerState;
+
+            //normal
+            Texture2DArray S_Custom3;           
+            SamplerState S_Custom3SamplerState;
+
+            //fbm
+            Texture2D S_Custom6;
+            SamplerState S_Custom6SamplerState;
+
+            // //noise
+            // Texture2D S_Custom7;
+            // SamplerState S_Custom7SamplerState;
+     #endif
+
+    static float4 s_lodColor[5] = {{0.5,0,0,1},
+                                   {0,0.5,0,1},
+                                   {0,0,0.5,1},
+                                   {0.5,0.5,0,1},
+                                   {0,0.5,0.5,1}};
+
+    //hdr environment map
+    TextureCube S_GlobalEnvironmentCubeMap;
+    SamplerState S_GlobalEnvironmentCubeMapSamplerState;
+//textures-------------------------------------------------------------------------------------------
+static float INV_TWO_PI = 0.5 / 3.14159265358979323846;
+static float TWO_PI = 6.2831855f;
+float2 MapToPlane(float3 pos)
+{
+    float toroidal = atan2(-pos.z, pos.x);
+    float poloidal = atan2(pos.y, sqrt(pos.x * pos.x + pos.z * pos.z) - 1.0f);
+    if (toroidal < 0) toroidal += TWO_PI;
+    if (poloidal < 0) poloidal += TWO_PI;
+    return float2( clamp(toroidal * INV_TWO_PI, 0.0f, 1.0f), clamp(poloidal * INV_TWO_PI, 0.0f, 1.0f));
+}
+#ifdef _EDITOR_MODE_
+int ToParentId(int Id)
+{
+    int RegionNum = U_PSCustom10.x * U_PSCustom10.y;
+#ifdef PROCEDURAL_SPHERE
+    RegionNum *= 6;
+#endif
+    if(Id == 255 && RegionNum != 256) return 255;
+    if(Id < 0 || Id >= RegionNum) return -1;
+    uint id = Id / 4;
+    uint offset = Id % 4;
+    int t = U_PSCustom12[id][offset];
+    if(t < 0) return -1;
+    return t;
+}
+#endif
+int2 ToSampleLoc(float4 Pos, float2 resolution)
+{
+    float2 uv;
+#ifdef PROCEDURAL_SPHERE
+    float4 LocalPos = mul(Pos, worldMatInv);
+    float3 pos = normalize(LocalPos.xyz);
+    uint face;
+    MapToCube(pos, face, uv);
+    uv = uv * 0.5f + 0.5f;
+    uv = lerp(0.5f / resolution, 1.0f - 0.5f / resolution, uv);
+#endif
+#ifdef PROCEDURAL_TORUS
+    uv = Pos.xy + U_PSCustom10.zw;
+    uv = frac(uv);
+#endif
+    uv *= resolution;
+    return int2(floor(uv));
+}
+float4 ToFourChannels(uint currentId)
+{
+    float4 color = 0.0;
+    uint2 xy = uint2((uint)U_PSCustom10.x, (uint)U_PSCustom10.y);
+#ifdef PROCEDURAL_SPHERE
+    uint x = currentId / (xy.x * xy.y);
+    uint y = currentId % (xy.x * xy.y);
+    color.x = float(x * 40);
+    color.y = float(y / xy.x * 40);
+    color.z = float(y % xy.x * 40);
+#endif
+#ifdef PROCEDURAL_TORUS
+    uint h = currentId % xy.x;
+    color.z = float((h * 10) % 256);
+    uint x = currentId / xy.x * 30;
+    uint y = (h > 12? h : 0) * 10;
+    color.x = float(x % 256);
+    color.y = float(y % 256);
+#endif
+    
+    color.w = 255.0f;
+    color /= 255.0f;
+    return color;
+}
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+    #if (!defined(_EDITOR_MODE_) && !defined(_LOW_LOD_))
+        if(U_PSCustom10.x > 0.0f)
+        {
+            int2 regionMapScale = 0;
+            S_Custom5.GetDimensions(regionMapScale.x, regionMapScale.y);
+            float4 Pos = 0;
+        #ifdef PROCEDURAL_SPHERE
+            Pos = float4(IN.i_WorldPos, 1.0f);
+        #endif
+        #ifdef PROCEDURAL_TORUS
+            Pos = float4(IN.i_MatIDUV.xy, 0.0f, 0.0f);
+        #endif
+            int2 coord = ToSampleLoc(Pos, regionMapScale);
+            int3 regionSampleLocation = int3(coord, 0);
+            uint regionIndex = S_Custom5.Load(regionSampleLocation).r;
+            int currentId = int(regionIndex);
+            psOut.sc = ToFourChannels(regionIndex);
+            return psOut;
+        }
+    #endif
+
+    float4x4 thresholdMatrix =
+    {  1.0 / 17.0,  9.0 / 17.0,  3.0 / 17.0, 11.0 / 17.0,
+        13.0 / 17.0,  5.0 / 17.0, 15.0 / 17.0,  7.0 / 17.0,
+        4.0 / 17.0, 12.0 / 17.0,  2.0 / 17.0, 10.0 / 17.0,
+        16.0 / 17.0,  8.0 / 17.0, 14.0 / 17.0,  6.0 / 17.0
+    };
+    float2 posInClip = IN.i_Position.xy;
+
+    posInClip.xy = posInClip.xy/U_MaterialCustomParam1.z;
+    
+    int xindex = fmod(posInClip.x, 4);
+    int yindex = fmod(posInClip.y, 4);
+    
+    float alpha_dissolve = thresholdMatrix[xindex][yindex];//* _RowAccess[yindex];
+        
+    if(alpha_dissolve < DissolveStrength)
+        discard;
+
+    //根据显示模式显示温度、湿度、id
+    #ifdef _EDITOR_MODE_
+        float temperatureTexValue = S_Diffuse.Sample(S_DiffuseSamplerState, IN.i_MatIDUV.xy).r;
+        float humidityTexValue = S_Specular.Sample(S_SpecularSamplerState, IN.i_MatIDUV.xy).r;
+
+        // int2 lutScale = 0;
+        // S_Custom2.GetDimensions(lutScale.x, lutScale.y);
+        // int3 lutSampleLocation = computeTexLocation(float2(humidityTexValue, temperatureTexValue), lutScale);
+        // int lutIndex = S_Custom2.Load(lutSampleLocation);
+
+        //支持各种显示模式
+        if(BiomeDisplayMode == BiomeDisplayMode_Height)
+        {
+        #ifdef PROCEDURAL_SPHERE
+            psOut.sc.rgb = saturate((length(IN.i_LocalPos.xyz + float3(0.0, 1.0, 0.0)) - 0.95) * 10.0);
+        #endif
+        #ifdef PROCEDURAL_TORUS
+            float3 torus = IN.i_LocalPos.xyz + LocalTranslation;
+            float3 axis = normalize(float3(torus.x, 0.0, torus.z));
+            psOut.sc.rgb = saturate((length(torus - axis) * InvMinorRadius - 0.8) * 2.5);
+        #endif
+            return psOut;
+        }
+        else if(BiomeDisplayMode == BiomeDisplayMode_Temperature)
+        {
+            float3 hot_color = float3(1, 0, 0);
+            float3 cold_color = float3(0, 0, 1);
+            float gradient_temp = ((int)(temperatureTexValue * 255)) / 255.0f;
+            float3 tempera_color = lerp(cold_color, hot_color, gradient_temp);
+            psOut.sc.rgb = tempera_color;
+            return psOut;
+        }
+        else if(BiomeDisplayMode == BiomeDisplayMode_Humidity)
+        {
+            const float3 dry_color = float3(193.0f/255.0f, 154.0f/255.0f, 107.0f/255.0f);
+            const float3 ocean_color = float3(48.0f/255.0f, 148.0f/255.0f, 103.0f/255.0f);
+            float gradient_hum = ((int)(humidityTexValue * 255))/255.0f;
+            float3 humidity_color = lerp(dry_color, ocean_color, gradient_hum);
+            psOut.sc.rgb = humidity_color;
+            return psOut;
+        }
+         else if(BiomeDisplayMode == BiomeDisplayMode_GeometryHeatmap)
+        {
+            
+            int2 heatRes = 0;
+            S_Diffuse.GetDimensions(heatRes.x, heatRes.y);
+        #ifdef PROCEDURAL_SPHERE
+            float4 Pos = float4(IN.i_WorldPos, 1.0f);
+        #endif
+        #ifdef PROCEDURAL_TORUS
+            float4 Pos = float4(IN.i_MatIDUV.xy, 0.0f, 0.0f);
+        #endif
+            int2 coord = ToSampleLoc(Pos, heatRes);
+            int3 loc = int3(coord, 0);
+            float3 heat = S_Diffuse.Load(loc).rgb;
+            psOut.sc.rgb = heat;
+            return psOut;
+        }
+        else if(BiomeDisplayMode == BiomeDisplayMode_MaterialIndex)
+        {
+            int2 IDMapSize = 0;
+            S_Custom5.GetDimensions(IDMapSize.x, IDMapSize.y);
+            int3 idMapSampleLocation = computeTexLocation(IN.i_MatIDUV.xy, IDMapSize);
+            int matID = S_Custom5.Load(idMapSampleLocation);
+            float c = (1.f / 16.f) * matID;
+            psOut.sc.rgb = c;
+            return psOut;
+        }
+       
+
+        else if(BiomeDisplayMode == BiomeDisplayMode_SphericalVoronoiRegionIndex || BiomeDisplayMode == BiomeDisplayMode_Manual)
+        {
+            int2 regionMapScale = 0;
+            S_Custom9.GetDimensions(regionMapScale.x, regionMapScale.y);
+            int RegionNum = U_PSCustom10.x * U_PSCustom10.y;
+        #ifdef PROCEDURAL_SPHERE
+            float4 Pos = float4(IN.i_WorldPos, 1.0f);
+            RegionNum *= 6;
+        #endif
+        #ifdef PROCEDURAL_TORUS
+            float4 Pos = float4(IN.i_MatIDUV.xy, 0.0f, 0.0f);
+        #endif
+            if(RegionNum == 0)
+            {
+                psOut.sc.xyz = float3(0.0f, 0.0f, 0.0f);
+                return psOut;
+            }
+            int2 coord = ToSampleLoc(Pos, regionMapScale);
+            int3 regionSampleLocation = int3(coord, 0);
+            uint regionIndex = S_Custom9.Load(regionSampleLocation);
+
+            if(BiomeDisplayMode == BiomeDisplayMode_Manual)
+            {
+                psOut.sc = ToFourChannels(regionIndex); 
+                return psOut;
+            }
+            bool isCoarseMode = U_PSCustom14.w > 0.0f;
+        #ifdef PROCEDURAL_TORUS
+            if(RegionNum == 256 && (regionIndex == 255 || regionIndex == 254)) // This might be center point, not a normal region id.
+            {
+                int num = 0;
+                for(int i = -1; i <= 1; ++i)
+                {
+                    for(int j = -1; j <= 1; ++j)
+                    {
+                        int2 coord2 = coord + int2(j, i);
+                        coord2 = coord2 % regionMapScale;
+                        
+                        int3 regionSampleLocation2 = int3(coord2, 0);
+                        uint id = S_Custom9.Load(regionSampleLocation2);
+                        if(id == regionIndex) num++;
+                    }
+                }
+                if(num==1)
+                {
+                    psOut.sc.xyz = isCoarseMode? float3(0.5f, 0.5f, 0.5f) : float3(1.0f, 1.0f, 1.0f);
+                    return psOut;
+                }
+            }
+        #endif
+            
+            bool isCenter = (regionIndex == 255);
+            bool isLegalIndex = regionIndex >= 0 && regionIndex < RegionNum;
+            float4 color = ToFourChannels(regionIndex);
+            if(isCoarseMode)
+            {
+                regionIndex = ToParentId(regionIndex);
+            }
+            
+            for(int i = -1; i <= 1; ++i)
+            {
+                for(int j = -1; j <= 1; ++j)
+                {
+                    int2 coord2 = coord + int2(j, i);
+        #ifdef PROCEDURAL_TORUS
+                    coord2 = coord2 % regionMapScale;
+        #endif            
+                    coord2 = clamp(coord2, int2(0,0), regionMapScale - int2(1, 1));
+                    int3 regionSampleLocation2 = int3(coord2, 0);
+                    uint id = S_Custom9.Load(regionSampleLocation2);
+                    if(isCoarseMode) id = ToParentId(id);
+                    if(id != regionIndex)
+                    {
+                        psOut.sc.xyz = isCoarseMode? float3(0.5f, 0.5f, 0.5f) : float3(1.0f, 1.0f, 1.0f);
+                        return psOut;
+                    }
+                }
+            }
+
+            psOut.sc = 0.5f * ToFourChannels(regionIndex) + 0.5f * color; 
+
+            int currentId = int(regionIndex);
+            int markedId = isCoarseMode? (int)U_PSCustom14.y:(int)U_PSCustom14.x;
+            if(markedId == currentId)
+            {
+                psOut.sc.xyz = float3(1.0f, 1.0f, 1.0f);
+            }
+
+            for(int i=0; i < (int)U_PSCustom14.z; ++i)
+            {
+                uint id = i / 4;
+                uint offset = i % 4;
+                if(regionIndex == U_PSCustom9[id][offset])
+                {
+                    int h = (int)floor(IN.i_LocalPos.y * 200.f);
+                    h = h % 2;
+                    psOut.sc.xyz = 0.9f * psOut.sc.xyz + 0.1f * (h? float3(1.0f, 1.0f, 1.0f) : float3(0.f, 0.f, 0.f));
+                }
+            }
+            return psOut;
+        }
+
+    #endif
+    //目前的材质混合方案：Gather获取温度和湿度在对应UV附近的四个像素。 //from ghost recon willed land
+    //分别计算出四个材质索引，采样这四个材质索引并双线性插值混合
+    //Gather获取的四个像素的顺序:
+    // +---+---+
+    // | 3 | 2 |
+    // +---+---+
+    // | 0 | 1 |
+    // +---+---+
+
+    float offset = 1.f / 512.f; //用于修复浮点数计算精度误差
+
+    float2 uv = IN.i_TexCoord;      // used to sample terrain textures
+    float2 biomeUV = IN.i_MatIDUV;  // used to sample matID 
+
+    float3 localP = IN.i_LocalPos.xyz;
+    float3 localN = IN.i_LocalNormal.xyz;
+
+    float3 N = IN.i_WorldNormal;
+    float3 V = normalize(U_PS_CameraPosition.xyz - IN.i_WorldPos.xyz);
+    float3 L = normalize(-U_MainLightDirection.xyz);
+
+    #ifdef _LOW_LOD_
+        float emissionMask = 1.f;
+
+        #ifdef PROCEDURAL_SPHERE
+            float4 sampledBaseMap = (BakedAlbedo.Sample(LODTextureSampler, localP));
+            float4 emission = (BakedEmission.Sample(EmissionSampler, localP));
+            emission.a *= 50.f;
+        #endif
+        #ifdef PROCEDURAL_TORUS
+            float4 sampledBaseMap = (BakedAlbedo.Sample(LODTextureSampler, uv));
+            float4 emission = (BakedEmission.Sample(EmissionSampler, uv));
+            emission.a *= 50.f;
+        #endif
+        float3 baseMapFinal = sampledBaseMap.rgb;
+        float3 mixMapFinal = float3(0.f, sampledBaseMap.a, 1.f);
+        emission.rgb *= baseMapFinal.rgb;
+        float3 emissionFinal = ComputeEmission(                
+            emission.xyz,
+            emissionMask,
+            U_LightPower.x,
+            emission.w,
+            emission.w,
+            0.f,
+            0.f
+        );
+    #else
+        int2 indexSize;
+        S_Custom5.GetDimensions(indexSize.x, indexSize.y);
+        float2 pixelSize = 1.f / indexSize;
+
+        //fbm固定tilling100次，目前是测试了几个让杨哥选了一个觉得稍微好点的
+	    float2 fbmUV = biomeUV * float2(1.0, float(indexSize.y) / indexSize.x) * 100.f;
+        float2 fbm = S_Custom6.Sample(S_Custom6SamplerState, fbmUV, 0).xy - 0.5;
+        biomeUV += fbm * pixelSize * 2.f;
+
+        float2 indexSt = biomeUV * indexSize - 0.5 + offset;
+        float2 dSt = frac(indexSt);
+
+        // use '?' to avoid normalize zero vector and get NaN
+        float epsilon = 1e-5f;
+        //normalize zero vector will get an Nan, perform dot to check if tangent or bitangent is zero
+        float3 tangent1 = dot(IN.i_Tangent1, IN.i_Tangent1) < epsilon ? 0.0f : normalize(IN.i_Tangent1);
+        float3 biTangent1 = dot(IN.i_BiTangent1, IN.i_BiTangent1) < epsilon ? 0.0f : normalize(IN.i_BiTangent1);
+        float3 tangent2 = dot(IN.i_Tangent2, IN.i_Tangent2) < epsilon ? 0.0f : normalize(IN.i_Tangent2);
+        float3 biTangent2 = dot(IN.i_BiTangent2, IN.i_BiTangent2) < epsilon ? 0.0f : normalize(IN.i_BiTangent2);
+        
+        //TBN of XY, YZ plane
+        column_major float3x3 TBN[2] = {
+            float3x3(
+                tangent1.x,         tangent1.y,         tangent1.z,
+                biTangent1.x,       biTangent1.y,       biTangent1.z,
+                N.x,                N.y,                N.z),
+            float3x3(            
+                tangent2.x,         tangent2.y,         tangent2.z,
+                biTangent2.x,       biTangent2.y,       biTangent2.z,
+                N.x,                N.y,                N.z)
+        };
+
+        float2 continuousCoord = biomeUV * indexSize;// 采样点所在纹素的连续坐标
+
+        // triplanar projection
+        float2 projectedUV[3] = {
+            float2(localN.x > 0.f ? -localP.z :  localP.z, -localP.y) * BiomeTextureTilling, // projection along x axis
+            uv,                                                                              // projection along y axis
+            float2(localN.z > 0.f ?  localP.x : -localP.x, -localP.y) * BiomeTextureTilling  // projection along z axis
+        };
+
+        // Calculate dFdx/dFdy of projected UVs
+		float2 projectedUV_dx[3] = {
+			ddx(float2(localN.x > 0.f ? -localP.z :  localP.z, -localP.y)) * BiomeTextureTilling,
+			ddx(uv),
+			ddx(float2(localN.z > 0.f ?  localP.x : -localP.x, -localP.y)) * BiomeTextureTilling
+		};
+
+		float2 projectedUV_dy[3] = {
+			ddy(float2(localN.x > 0.f ? -localP.z :  localP.z, -localP.y)) * BiomeTextureTilling,
+			ddy(uv),
+			ddy(float2(localN.z > 0.f ? localP.x :  -localP.x, -localP.y)) * BiomeTextureTilling
+		};
+
+        float3 weights = ComputeTriplanarSampleWeight(localN, 0.5, 3);
+        BilinearSample bilinearSample = BilinearProjection(weights);
+
+
+        int3 aroundIDMapCoord[4] = {
+            int3(clamp(floor(continuousCoord + float2(-0.5f + offset,  0.5f + offset)), 0, indexSize - 1), 0),  // 左下角
+            int3(clamp(floor(continuousCoord + float2( 0.5f + offset,  0.5f + offset)), 0, indexSize - 1), 0),  // 右下角
+            int3(clamp(floor(continuousCoord + float2( 0.5f + offset, -0.5f + offset)), 0, indexSize - 1), 0),  // 右上角
+            int3(clamp(floor(continuousCoord + float2(-0.5f + offset, -0.5f + offset)), 0, indexSize - 1), 0)   // 左上角
+        };
+
+        uint aroundID[4];
+        aroundID[0] = S_Custom5.Load(aroundIDMapCoord[0]).r;
+        aroundID[1] = S_Custom5.Load(aroundIDMapCoord[1]).r;
+        aroundID[2] = S_Custom5.Load(aroundIDMapCoord[2]).r;
+        aroundID[3] = S_Custom5.Load(aroundIDMapCoord[3]).r;
+
+        continuousCoord = clamp(continuousCoord, 0, indexSize - 1);
+
+        MaterialSample matSample = SelectMaterial(
+            continuousCoord + offset, 
+            aroundIDMapCoord, 
+            aroundID, 
+            U_PSCustom2, 
+            U_PSCustom6, 
+            U_PSCustom3,
+            U_PSCustom7,
+            U_PSCustom8);
+
+        // sample & blend textures
+        // note first blend samples from two projections, then blend samples from two materials
+        //---------------------------------------------------------------------------------------------------
+            float2 dx_prj0 = projectedUV_dx[bilinearSample.projectionIndex[0]];
+            float2 dy_prj0 = projectedUV_dy[bilinearSample.projectionIndex[0]];
+            float2 dx_prj1 = projectedUV_dx[bilinearSample.projectionIndex[1]];
+            float2 dy_prj1 = projectedUV_dy[bilinearSample.projectionIndex[1]];
+
+            float2 scaledDx_prj00 = matSample.customUVTilling[0] * dx_prj0;
+            float2 scaledDy_prj00 = matSample.customUVTilling[0] * dy_prj0;
+
+            // 根据材质索引获取到对应的tile开关，用于控制贴图平铺效果（随机 or 普通）
+            int mat_Index1 = matSample.matIndex[0] / 4;
+            int componentIndex1 = matSample.matIndex[0] % 4;
+            int mat_Index2 = matSample.matIndex[1] / 4;
+            int componentIndex2 = matSample.matIndex[1] % 4;
+            // 获取控制tile开关的值
+            int tileSwitch1 = (int)(U_PSCustom1[clamp(2 + mat_Index1, 0, 5)][componentIndex1]);
+            int tileSwitch2 = (int)(U_PSCustom1[clamp(2 + mat_Index2, 0, 5)][componentIndex2]);
+
+            float2 UV_mat0_prj0 = 
+                matSample.customUVTilling[0] * projectedUV[bilinearSample.projectionIndex[0]];
+            
+            // TextureSample mat0_prj0 = TextureBombingCheap(
+            //     S_Custom,
+            //     S_CustomSamplerState,
+            //     S_Custom3,
+            //     S_Custom3SamplerState,
+            //     S_Custom7,
+            //     S_Custom7SamplerState,
+            //     float3(UV_mat0_prj0, matSample.matIndex[0]));
+
+            TextureSample mat0_prj0 = SampleNoTile(
+                S_Custom,
+                S_CustomSamplerState,
+                S_Custom3,
+                S_Custom3SamplerState,
+                float3(UV_mat0_prj0, matSample.matIndex[0]),
+				scaledDx_prj00,  // Uniform dx & dy
+				scaledDy_prj00,
+                tileSwitch1);  
+
+            // extract data from tex-sample
+            float3 Albedo = mat0_prj0.map0Sample.xyz;
+            float3 Mix = float3(mat0_prj0.map1Sample.zw, mat0_prj0.map0Sample.w);
+            float3 Normal = UnpackNormal(mat0_prj0.map1Sample.xyz, matSample.customNormalStrength[0]);
+            Normal = mul(Normal, TBN[bilinearSample.tangentSpaceIndex[0]]);
+            float EmissionMask = 1.f;
+            float4 Emission = matSample.customEmission[0];
+            float3 EmissionOut = 0.f;
+
+            // if the second projection contributes to the final result
+            // sample materials from the second uv set and blend
+            if(bilinearSample.weight < (1.0 - 1e-5f))
+            {
+                float2 UV_mat0_prj1 = 
+                    matSample.customUVTilling[0] * projectedUV[bilinearSample.projectionIndex[1]];
+
+                float2 scaledDx_prj01 = matSample.customUVTilling[0] * dx_prj1;
+                float2 scaledDy_prj01 = matSample.customUVTilling[0] * dy_prj1;
+                // TextureSample mat0_prj1 = TextureBombingCheap(
+                // S_Custom,
+                // S_CustomSamplerState,
+                // S_Custom3,
+                // S_Custom3SamplerState,
+                // S_Custom7,
+                // S_Custom7SamplerState,
+                // float3(UV_mat0_prj1, matSample.matIndex[0]));
+
+                TextureSample mat0_prj1 = SampleNoTile(
+                    S_Custom,
+                    S_CustomSamplerState,
+                    S_Custom3,
+                    S_Custom3SamplerState,
+                    float3(UV_mat0_prj1, matSample.matIndex[0]),
+					scaledDx_prj01,
+					scaledDy_prj01,
+                    tileSwitch1);
+
+                // extract data from tex-sample
+                float3 mat0_prj1_Albedo = mat0_prj1.map0Sample.xyz;
+                float3 mat0_prj1_Mix = float3(mat0_prj1.map1Sample.zw, mat0_prj1.map0Sample.w);
+                float3 mat0_prj1_Normal = UnpackNormal(mat0_prj1.map1Sample.xyz,
+                     matSample.customNormalStrength[0]);
+                mat0_prj1_Normal = mul(mat0_prj1_Normal, TBN[bilinearSample.tangentSpaceIndex[1]]);
+                
+                // blend
+                Albedo  = lerp(mat0_prj1_Albedo,    Albedo, bilinearSample.weight);
+                Mix     = lerp(mat0_prj1_Mix,       Mix,    bilinearSample.weight);
+                Normal  = lerp(mat0_prj1_Normal,    Normal, bilinearSample.weight);
+            }
+            
+            // color tint of material0
+            Albedo *= matSample.customColor[0].xyz;
+
+            // compute emission for material0
+            {
+                Emission.xyz *= Albedo.xyz; // emission color = input emission color * baseMapColor
+                
+                // emission with texture mask
+                if(matSample.enableTextureEmissive[0] > 0.5f)
+                {
+                    EmissionMask = Mix.x;
+                    Mix.x = matSample.customMetallic[0];         
+                               
+                    // if use texture mask, only emit within 100m
+                    float distanceToCam = length(IN.i_ViewPos);
+                    float emissionRamp = saturate(distanceToCam * 0.01f);
+                    Emission.w = lerp(Emission.w, 0.f, emissionRamp);
+                }
+
+                // final emission of material0
+                EmissionOut = ComputeEmission(
+                    Emission.xyz,
+                    EmissionMask,
+                    U_LightPower.x,
+                    Emission.w,
+                    Emission.w,
+                    0.f,
+                    0.f
+                );
+            }
+
+            // near area contains at least two different materials, sample the second material and blend params
+            if(matSample.matIndex[0] != matSample.matIndex[1])
+            {
+                float2 UV_mat1_prj0 =
+                    matSample.customUVTilling[1] * projectedUV[bilinearSample.projectionIndex[0]];
+
+                float2 scaledDx_prj10 = matSample.customUVTilling[1] * dx_prj0;
+                float2 scaledDy_prj10 = matSample.customUVTilling[1] * dy_prj0;
+                // TextureSample mat1_prj0 = TextureBombingCheap(
+                // S_Custom,
+                // S_CustomSamplerState,
+                // S_Custom3,
+                // S_Custom3SamplerState,
+                // S_Custom7,
+                // S_Custom7SamplerState,
+                // float3(UV_mat1_prj0, matSample.matIndex[1]));
+
+                TextureSample mat1_prj0 = SampleNoTile(
+                    S_Custom,
+                    S_CustomSamplerState,
+                    S_Custom3,
+                    S_Custom3SamplerState,
+                    float3(UV_mat1_prj0, matSample.matIndex[1]),
+					scaledDx_prj10,
+					scaledDy_prj10,
+                    tileSwitch2); // tile switch
+
+                // extract data from tex-sample
+                float3 mat1_Albedo = mat1_prj0.map0Sample.xyz;
+                float3 mat1_Mix = float3(mat1_prj0.map1Sample.zw, mat1_prj0.map0Sample.w);
+                float3 mat1_Normal = UnpackNormal(mat1_prj0.map1Sample.xyz, matSample.customNormalStrength[1]);
+                mat1_Normal = mul(mat1_Normal, TBN[bilinearSample.tangentSpaceIndex[0]]);
+                float mat1_EmissionMask = 1.f;
+                float4 mat1_Emission = matSample.customEmission[1];
+                float3 mat1_EmissionOut = 0.f;
+
+                // if the second projection contributes to the final result
+                // sample materials from the second uv set and blend
+                if(bilinearSample.weight < (1.0 - 1e-5))
+                {
+                    float2 UV_mat1_prj1 = 
+                        matSample.customUVTilling[1] * projectedUV[bilinearSample.projectionIndex[1]];
+
+                    float2 scaledDx_prj11 = matSample.customUVTilling[1] * dx_prj1;
+                    float2 scaledDy_prj11 = matSample.customUVTilling[1] * dy_prj1;
+                    // TextureSample mat1_prj1 = TextureBombingCheap(
+                    // S_Custom,
+                    // S_CustomSamplerState,
+                    // S_Custom3,
+                    // S_Custom3SamplerState,
+                    // S_Custom7,
+                    // S_Custom7SamplerState,
+                    // float3(UV_mat1_prj1, matSample.matIndex[1]))
+                    
+                    TextureSample mat1_prj1 = SampleNoTile(
+                        S_Custom,
+                        S_CustomSamplerState,
+                        S_Custom3,
+                        S_Custom3SamplerState,
+                        float3(UV_mat1_prj1, matSample.matIndex[1]),
+						scaledDx_prj11,
+						scaledDy_prj11,
+                        tileSwitch2); // tile switch
+
+                    // extract data from tex-sample
+                    float3 mat1_prj1_Albedo = mat1_prj1.map0Sample.xyz;
+                    float3 mat1_prj1_Mix = float3(mat1_prj1.map1Sample.zw, mat1_prj1.map0Sample.w);
+                    float3 mat1_prj1_Normal = UnpackNormal(mat1_prj1.map1Sample.xyz, 
+                        matSample.customNormalStrength[1]);
+                    mat1_prj1_Normal = mul(mat1_prj1_Normal, TBN[bilinearSample.tangentSpaceIndex[1]]);
+                
+                    //blend
+                    mat1_Albedo = lerp(mat1_prj1_Albedo,    mat1_Albedo,    bilinearSample.weight);
+                    mat1_Mix    = lerp(mat1_prj1_Mix,       mat1_Mix,       bilinearSample.weight);
+                    mat1_Normal = lerp(mat1_prj1_Normal,    mat1_Normal,    bilinearSample.weight);
+                }
+
+                // color tint of material1
+                mat1_Albedo *= matSample.customColor[1].xyz;
+                
+                // compute emission for material 1
+                {
+                    mat1_Emission.xyz *= mat1_Albedo.xyz;
+
+                    if(matSample.enableTextureEmissive[1] > 0.5f)
+                    {
+                        mat1_EmissionMask = mat1_Mix.x;
+                        mat1_Mix.x = matSample.customMetallic[1];
+                    
+                        // if use texture mask, only emit within 100m
+                        float distanceToCam = length(IN.i_ViewPos);
+                        float emissionRamp = saturate(distanceToCam * 0.01f);
+                        mat1_Emission.w = lerp(mat1_Emission.w, 0.f, emissionRamp);
+                    }
+
+                    // final emission of material 1
+                    mat1_EmissionOut = ComputeEmission(
+                        mat1_Emission.xyz,
+                        mat1_EmissionMask,
+                        U_LightPower.x,
+                        mat1_Emission.w,
+                        mat1_Emission.w,
+                        0.f,
+                        0.f
+                    );
+                }
+
+                // blend mat0 and mat1
+                Albedo      = lerp(mat1_Albedo,      Albedo,      matSample.weight);
+                Mix         = lerp(mat1_Mix,         Mix,         matSample.weight);
+                Normal      = lerp(mat1_Normal,      Normal,      matSample.weight);
+                EmissionOut = lerp(mat1_EmissionOut, EmissionOut, matSample.weight);
+            }
+
+            float3 baseMapFinal = Albedo;
+            float3 mixMapFinal = Mix;
+            N = normalize(Normal);
+            float3 emissionFinal = EmissionOut.xyz;
+        //---------------------------------------------------------------------------------------------------
+    #endif
+    
+    // compute weather cover
+    {
+	    float customCoverRange = U_PSCustom5.x;
+        float customCoverScale = 0.8f;
+        half3 baseColor = half3(baseMapFinal);
+        half roughness = half(mixMapFinal.y);
+        half metallic = half(mixMapFinal.x);
+        half cosTheta = half(dot(N, normalize(U_PS_GravityDirection.xyz)));
+        float coverMask = 1.f;
+
+        ComputeWeatherCover(
+            U_WeatherParam0,
+            U_WeatherParam1,
+            float4(U_CoverColorParams.xyz, 0.f),
+            U_CoverColorRotation,
+            IN.i_WorldPos.xyz,
+            coverMask,
+            0.f,
+            cosTheta,
+            customCoverScale,
+            customCoverRange,
+            baseColor,
+            roughness,
+            metallic
+        );
+        
+        baseMapFinal = baseColor;
+        mixMapFinal.x = metallic;
+        mixMapFinal.y = roughness;
+    }
+    
+    #ifdef _EDITOR_MODE_
+	    if (BiomeDisplayMode == BiomeDisplayMode_GeometryNormal)
+	    {
+            N = normalize(IN.i_WorldNormal);
+	    }
+        else if(BiomeDisplayMode == BiomeDisplayMode_MaterialLevel)
+        {
+             float3 uvcolor0 = float3(abs((ComputeUVNoTile(projectedUV[0]))), 0.f);
+             float3 uvcolor1 = float3(abs((ComputeUVNoTile(projectedUV[1]))), 0.f);
+             float3 uvcolor2 = float3(abs((ComputeUVNoTile(projectedUV[2]))), 0.f);
+             baseMapFinal.xyz = uvcolor0 * weights.x + uvcolor1 * weights.y + uvcolor2 * weights.z;
+        }
+        //else if(BiomeDisplayMode == BiomeDisplayMode_BlendWeight)
+        //{
+
+        //    float3 uvcolor0 = float3(BombingUVCheapW(S_Custom7, S_Custom7SamplerState, projectedUV[0]), 0.f);
+        //    float3 uvcolor1 = float3(BombingUVCheapW(S_Custom7, S_Custom7SamplerState, projectedUV[1]), 0.f);
+        //    float3 uvcolor2 = float3(BombingUVCheapW(S_Custom7, S_Custom7SamplerState, projectedUV[2]), 0.f);
+        //    baseMapFinal.xyz = uvcolor0 * weights.x + uvcolor1 * weights.y + uvcolor2 * weights.z;
+        //}
+        //else if(BiomeDisplayMode == BiomeDisplayMode_NoisedUV)
+        //{
+        //     #ifdef _USE_HASED_SAMPLE_
+        //         baseMapFinal.xyz = float3(ComputeUVNoTile(finalUV), 0.f);
+        //     #else
+        //         float3 uvcolor0 = float3(frac(BombingUVCheapXY(S_Custom, S_CustomSamplerState, S_Custom7, S_Custom7SamplerState, float3(projectedUV[0],matSample.matIndex[0]))), 0.f);
+        //         float3 uvcolor1 = float3(frac(BombingUVCheapXY(S_Custom, S_CustomSamplerState, S_Custom7, S_Custom7SamplerState, float3(projectedUV[1],matSample.matIndex[0]))), 0.f);
+        //         float3 uvcolor2 = float3(frac(BombingUVCheapXY(S_Custom, S_CustomSamplerState, S_Custom7, S_Custom7SamplerState, float3(projectedUV[2],matSample.matIndex[0]))), 0.f);
+        //         baseMapFinal.xyz = uvcolor0 * weights.x + uvcolor1 * weights.y + uvcolor2 * weights.z;
+        //     #endif
+        //}
+        //else if(BiomeDisplayMode == BiomeDisplayMode_LerpedUV){
+        //     baseMapFinal = 
+        //         float3(frac(abs(projectedUV[0].xy)), 0.f) * weights.x +
+        //         float3(frac(abs(projectedUV[1].xy)), 0.f) * weights.y + 
+        //         float3(frac(abs(projectedUV[2].xy)), 0.f) * weights.z;
+        //}
+        //else if(BiomeDisplayMode == BiomeDisplayMode_TextureTillingNoise){
+        //     baseMapFinal = 
+        //         float3(BombingUVCheapOffset(S_Custom7, S_Custom7SamplerState, projectedUV[0].xy), 0.f) * weights.x +
+        //         float3(BombingUVCheapOffset(S_Custom7, S_Custom7SamplerState, projectedUV[1].xy), 0.f) * weights.y + 
+        //         float3(BombingUVCheapOffset(S_Custom7, S_Custom7SamplerState, projectedUV[2].xy), 0.f) * weights.z;
+        //}
+        else if(BiomeDisplayMode == BiomeDisplayMode_LOD)
+        {
+            int lod = (int)U_PSCustom0.y % 5;
+            baseMapFinal *= s_lodColor[lod];
+        }
+        else if(BiomeDisplayMode == BiomeDisplayMode_Tile)
+        {
+            baseMapFinal *= U_PSCustom15.xyz;
+        }
+    #ifdef _DEBUG_MODE_
+        if( IN.i_mode > 0.99f)
+        {
+            baseMapFinal *= float3(2.f, 2.f, 2.f);
+        }
+    #endif
+    #endif
+
+    //shading---------------------------------------------------------------------------------------------------
+    // #if defined(GBUFFER_PASS)
+        float shadowFactor = 1.0;
+        #ifdef USESHADOWMAP
+            shadowFactor = calcShadowFactor(IN.i_LightSpacePos, IN.i_ViewSpaceZ);
+            shadowFactor = min(shadowFactor, 1.0);
+        #endif
+
+        half3 encodedNormal = EncodeNormal(N);
+        uint useRoleMainLight = 0;
+        uint receiveShadow = 1;
+        #ifndef USESHADOWMAP
+            receiveShadow = 0;
+        #endif
+        
+        uint useEnvironmentMap = 1;
+        
+        uint usePointLight = 0;
+        #ifdef CLUSTER_POINT_LIGHT
+            usePointLight = 1;
+        #endif
+
+        half shadingModel = EncodeShadingModel(useRoleMainLight, receiveShadow, useEnvironmentMap, usePointLight, 1);
+
+        psOut.g0.xyz = pow(baseMapFinal, 1.0/2.2);
+        psOut.g0.w = 1.0; // 不透明
+
+        psOut.g1.xyz = encodedNormal;
+        psOut.g1.w = shadowFactor;
+
+        psOut.g2.x = mixMapFinal.x; // Metallic
+        psOut.g2.y = mixMapFinal.y; // Roughness
+        psOut.g2.z = mixMapFinal.z; // AO
+        psOut.g2.w = shadingModel;
+
+        psOut.sc.xyz = emissionFinal;
+        psOut.sc.w = 0.0;
+    // #endif // GBUFFER_PASS
+    return psOut;
+}
