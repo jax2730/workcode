@@ -1,0 +1,247 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+uniform vec4 	U_WorldViewProjectMatrix[4];
+
+uniform vec4 	U_VSGeneralRegister0;				// x: sway frequency, y: sway amplitude, z: shake frequency, w: shake amplitude
+
+uniform vec4 	U_VSGeneralRegister1;				// xyz:  Box half size
+uniform vec4 	U_VSGeneralRegister2;				// x: Penetrate Beg, y: Penetrate End
+uniform vec4 	U_VSGeneralRegister3;				// xyz:  Box center
+
+uniform vec4 	U_VSGeneralRegister4;				// x: fade start, y: 1 / fadedist, z: fade end; w: role push ratio	
+
+uniform vec4 	U_VSCustom0; 						// sphWorldPos;
+uniform vec4 	U_VSCustom1; 						// RoleCamSpaPos;	
+uniform vec4 	U_VSCustom2; 						// xy: VegBound MinY/MaxY, zw: scale base/scale range
+
+uniform vec4 	U_VSCustom3; 						// vegSpaToCam;
+
+uniform vec4 	U_VSCustom5; 						// uvPercent
+
+// Get a quaternion inverse
+vec4 quaternion_inverse(in vec4 quat)
+{
+	float fNorm = quat.x * quat.x + quat.y * quat.y + quat.z * quat.z + quat.w * quat.w;
+	float fInvNorm = 1.0f/fNorm;
+	return vec4( -quat.xyz * fInvNorm, quat.w * fInvNorm);
+}
+
+// Rotate a vector with quaternion
+vec3 quaternion_mul(in vec4 quat, in vec3 v)
+{
+	vec3 uv = cross(quat.xyz, v);
+	vec3 uuv = cross(quat.xyz, uv);
+	uv *= 2.f * quat.w;
+	uuv *= 2.f;
+	return v + uv + uuv;
+}
+
+// generate a triangle wave from a linear wave, range: 0~1
+float TriangleWave(float fValue)
+{
+	return abs(fract(fValue) * 2.0 - 1.0);
+}
+
+vec4 getQuatFormAngleAxis(float angle, vec3 axis)
+{
+	vec4 retQuat = vec4(0.f, 0.f, 0.f, 0.f);
+	float halfAngle = angle * 0.5f;
+	float fSin = sin(halfAngle);
+
+	retQuat.w = cos(halfAngle);
+	retQuat.x = fSin*axis.x;
+	retQuat.y = fSin*axis.y;
+	retQuat.z = fSin*axis.z;
+	return retQuat;
+}
+
+vec2 getUVIndexPercent(vec2 uv, float r, vec4 percent)
+{
+	r -= percent.x;
+	if (r < 0.f) return uv;
+
+	r -= percent.y;
+	if (r < 0.f) return vec2(uv.x + 0.5f, uv.y);
+	
+	r -= percent.z;
+	if (r < 0.f) return vec2(uv.x, uv.y + 0.5f);
+	
+	r -= percent.w;
+	if (r < 0.f) return vec2(uv.x + 0.5f, uv.y + 0.5f);
+
+	return uv;
+}
+
+//	VS_INPUT
+in vec3 POSITION0;
+in vec3 NORMAL0;
+in vec3 TANGENT0;
+in vec2 TEXCOORD0;
+in vec4 COLOR0;
+
+in vec4 POSITION1;								//	xyz: ins world pos, w: scale
+in vec4 NORMAL1;								//	rotate quaternion 
+
+//	VS_OUTPUT
+out vec4 o_PosInClip;
+out vec4 o_UV;									//	z: for camera spec pos; 
+out vec4 o_Fog;
+out vec4 o_WPos;								//	xyz: world pos
+out vec3 o_WNormal;
+
+#ifdef BUMP_MAP
+	out vec3 o_Tangent;
+	out vec3 o_Binormal;
+#endif
+
+out vec4 o_Diffuse;
+out vec4 o_FadeFac;								//	x: common, y: fade out, z: fade in, w: penetrate value
+
+#ifdef USESHADOWMAP
+#include <Common_ShadowProjection_VS.inl>
+	out vec4    	o_LightSpacePos[SHADOWSPLITE];
+#endif
+
+void main()
+{
+	//	Get vegetation base data	
+	//	----------------------------------------------------------
+	vec3 RolePushPos = U_VSCustom1.xyz;										//	role cam position
+	vec3 vVegRoot =  POSITION1.xyz;											
+
+	vec3 vMeshPos = POSITION0;												//	veg mesh space position
+	vec3 vMeshCenP= U_VSGeneralRegister3.xyz;								//	veg mesh center position in veg space		
+	vec3 vMeshNor = NORMAL0;												//	veg mesh space normal
+	vec4 vMeshQua = NORMAL1 * 2.f - 1.f;									//	veg rotate quaternion
+	float vMeshHeightFactor = (POSITION0.y - U_VSCustom2.x) / (U_VSCustom2.y - U_VSCustom2.x);
+	//	----------------------------------------------------------
+	o_Diffuse.xyz = COLOR0.xyz;
+	o_Diffuse.w = vMeshHeightFactor;
+
+	//	Veg mesh random rotate
+	vec4 rotateQuat = getQuatFormAngleAxis(POSITION1.w * 3.1415926, vec3(0.f, 1.f, 0.f));
+	vMeshPos = quaternion_mul(rotateQuat, vMeshPos);
+	vMeshNor  = quaternion_mul(rotateQuat, vMeshNor);
+	vMeshCenP = quaternion_mul(rotateQuat, vMeshCenP);
+
+	//	Add veg wind animation
+	//	----------------------------------------------------------
+#ifdef WIND_ANIMATION
+	vec4 vAnimParams = U_VSGeneralRegister0 * U_GlobalAnimationParams.yxwz;
+	vec2 vWaveBase = vec2(vAnimParams.x * U_VS_Time.x);
+	vWaveBase += vVegRoot.xz * vec2(0.1f, 0.2f);							//	each veg have diff wave form root pos
+	vec3 vWave = vWaveBase.xyy * vec3(1.125f, 0.975f, 0.397f);
+	vWave = sin(vWave);
+
+	// swaying
+	float swayFactor = vMeshHeightFactor;
+	float fSway = vAnimParams.y * swayFactor * swayFactor;
+
+	// Get scene wind dir
+	vec4 vQuaInv = quaternion_inverse(vMeshQua);
+	vec3 windMeshSpaceDir = quaternion_mul(vQuaInv, U_WindParams.xyz);
+
+	vec3 vOff = vec3(0.f, 0.f, 0.f);
+	vOff.xz += windMeshSpaceDir.xz * vWave.x * fSway;										
+	vOff.xz += (vec2(-windMeshSpaceDir.z, windMeshSpaceDir.x)) * vWave.y * vWave.z * fSway;	// perpendicular wind direction
+
+	// shaking
+	float fShakeFreq = vAnimParams.z * U_VS_Time.x;
+	fShakeFreq += dot(vMeshPos, vec3(2.0));	// phase
+	float fShakeAmp = vAnimParams.w * swayFactor * swayFactor;
+	vOff += normalize(vMeshNor + windMeshSpaceDir.xyz) * TriangleWave(fShakeFreq) * fShakeAmp;
+
+	// push by role
+	vec3 vRoleToVeg = vVegRoot +  U_VSCustom3.xyz - RolePushPos.xyz;
+	float fRoleToVegLen = length(vRoleToVeg);
+
+	vec3 RoleToVegMeshSpaceDir = quaternion_mul(vQuaInv, normalize(vRoleToVeg));	
+	RoleToVegMeshSpaceDir = normalize(RoleToVegMeshSpaceDir);
+	vec2 vegPushDir = RoleToVegMeshSpaceDir.xz;		// push direction
+
+	float fPushLen = clamp(U_VSGeneralRegister4.w - fRoleToVegLen, 0.0f, U_VSGeneralRegister4.w);
+	float fLenFactor = 1.0f - clamp(fPushLen / U_VSGeneralRegister4.w, 0.0f, 1.0f);
+	fLenFactor = min(fLenFactor * 5.0f, 1.0f);
+	vOff.xz += vegPushDir * vMeshPos.y * fPushLen * fLenFactor;
+
+	float fLen = length(vMeshPos);
+	vMeshPos += vOff;
+	vMeshPos = normalize(vMeshPos) * fLen;
+#endif
+	//	----------------------------------------------------------
+
+	//	Vegetation fade
+	//	----------------------------------------------------------
+	vec3 vCamToVeg = vVegRoot +  U_VSCustom3.xyz;
+	float fLenCV = length(vCamToVeg);	
+
+	//	limit show range
+	vMeshPos *= fLenCV > U_VSGeneralRegister4.z ? 0.f : 1.f;
+
+	float fFadeFar = (fLenCV - U_VSGeneralRegister4.x) * U_VSGeneralRegister4.y;
+	fFadeFar = clamp(fFadeFar, 0.f, 1.f);
+	o_FadeFac = vec4(1.f, fFadeFar, 1.f, 1.f);
+	//	----------------------------------------------------------
+
+	//	Mesh scale
+	float realScale = U_VSCustom2.z + U_VSCustom2.w * POSITION1.w;
+	vMeshPos *= realScale;
+	vMeshCenP *= realScale;
+
+	// rotate to mesh normalize
+	vMeshPos = quaternion_mul(vMeshQua, vMeshPos);
+	vMeshNor  = quaternion_mul(vMeshQua, vMeshNor);
+	vMeshCenP = quaternion_mul(vMeshQua, vMeshCenP);
+	o_WNormal = vMeshNor;
+
+	vec3 vMeshWorldPos = vMeshPos + vVegRoot + U_VSCustom0.xyz;
+	o_WPos.xyz = vMeshWorldPos;
+	o_WPos.w = 1.f;
+
+	vec4 vPosObj = vec4(vMeshPos + (vVegRoot + U_VSCustom3.xyz), 1.f);
+	o_PosInClip.x = dot(U_WorldViewProjectMatrix[0], vPosObj);
+	o_PosInClip.y = dot(U_WorldViewProjectMatrix[1], vPosObj);
+	o_PosInClip.z = dot(U_WorldViewProjectMatrix[2], vPosObj);
+	o_PosInClip.w = dot(U_WorldViewProjectMatrix[3], vPosObj);
+	gl_Position = o_PosInClip;
+
+	//	----------------------------------------------------------
+	o_UV.xy = getUVIndexPercent(TEXCOORD0.xy, POSITION1.w / 2.f + 0.5f, U_VSCustom5);
+	//	----------------------------------------------------------
+
+	//	Penetrate about
+	//	----------------------------------------------------------
+	float vegRealHalfSize = length(U_VSGeneralRegister1.xyz) * realScale;
+	vec3 camSpaceCenP = vVegRoot + vMeshCenP + U_VSCustom3.xyz;
+	float camDisToCenP = length(camSpaceCenP);
+	float disProportion = camDisToCenP / vegRealHalfSize;
+	o_FadeFac.w  = clamp((U_VSGeneralRegister2.y - disProportion) / (U_VSGeneralRegister2.y - U_VSGeneralRegister2.x), 0.0, 1.0);
+
+#ifdef BUMP_MAP
+	vec3 vMeshTangent = TANGENT0.xyz;
+	vMeshTangent  = quaternion_mul(rotateQuat, vMeshTangent);
+	vMeshTangent = quaternion_mul(vMeshQua, vMeshTangent);
+	vec3 vMeshBinormal = cross(vMeshTangent, vMeshNor);
+
+	o_Tangent = vMeshTangent;
+	o_Binormal = vMeshBinormal;
+#endif
+
+	//	Fog 
+	{
+		vec3 vCamToWorld = -(vMeshPos + (vVegRoot + U_VSCustom3.xyz));
+
+		vec3 camToWorldTemp = vCamToWorld;	
+		vCamToWorld.x = dot(U_VS_GravityRotationMatrix[0].xyz, camToWorldTemp);
+		vCamToWorld.y = dot(U_VS_GravityRotationMatrix[1].xyz, camToWorldTemp);
+		vCamToWorld.z = dot(U_VS_GravityRotationMatrix[2].xyz, camToWorldTemp);
+		
+		o_Fog = ComputeFogColor(vCamToWorld,U_FogParam.xy,U_FogParam.zw,U_FogRampParam,U_FogColorNear,U_FogColorFar);
+	}
+
+#ifdef USESHADOWMAP
+	ProjectToLightSpace(o_LightSpacePos, o_WPos.xyz);
+	o_UV.z = dot(U_MainCamViewMatrix, o_WPos);
+#endif
+}

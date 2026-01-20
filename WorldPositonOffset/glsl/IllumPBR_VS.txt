@@ -1,0 +1,544 @@
+
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+#ifdef USEGPUCULL
+#include <Common_GpuCull_CS.inl>
+#endif
+
+#ifdef USEGPUCULL
+	#undef USEINSTANCE
+	//#undef HWSKINNED
+	//#undef SHADOWPASS
+	//#undef VERTEX_EXCITATION
+	//#undef SoftNoColor
+	//#undef SOFTBOARD;
+	//#undef ALPHA_TEST
+	//#undef VERTEX_COLOR
+	//#undef USESHADOWMAP
+#endif
+
+#ifdef USEINSTANCE
+    #ifndef SKINNEDINSTANCE
+        #undef HWSKINNED
+    #endif
+#endif
+
+#ifdef USEGPUCULL
+// #ifdef CLUSTERDRAW
+	// layout(binding = 2) uniform UniformBlock_Private_VS
+	// {
+		// uint U_VSCustom0;
+	// };
+// #endif
+	//vertex
+	layout (binding = 21, std430) readonly buffer B_CSCustom0
+	{
+		VertexDataCombine B_CSCustom0_data[];
+	};
+#ifdef CLUSTERDRAW
+	//index
+	layout (binding = 23, std430) readonly buffer B_CSCustom1
+	{
+		uint B_CSCustom1_data[];
+	};
+#endif
+
+	//#define INSTANCE_DATA_SIZE 76u
+	//struct InstanceData
+	//{
+	//	float Transform[12]; 	//WorldMat
+	//	float InvTransform[12];	
+	//  float MVP[16]
+	//	float ObjectMirrored[4];
+	//	uint Flip;
+	//	uint BoundBox[3];
+	//	uint MeshID;
+	//	uint pipeline;
+	//	uint RenderGroup;
+	//};
+
+	layout (binding = 22, std430) readonly buffer B_CSCustom3
+	{
+		InstanceData B_CSCustom3_data[];
+		//InstanceData +
+		//vec4	U_WorldMatrix[3];
+		//vec4 	U_InvTransposeWorldMatrix[3];
+		//vec4  U_ObjectMirrored;
+	};
+
+	layout(location = 0) in uint 	POSITION0;
+	layout(location = 1) in uint 	POSITION1;
+
+#else
+	layout(binding = 2) uniform UniformBlock_Private_VS
+	{
+	#ifdef USEINSTANCE
+		#ifdef SKINNEDINSTANCE
+			vec4 	U_VSCustom0[InstanceCount * UniformCount];
+			ivec4 	U_VSCustom1[(InstanceCount+3) >> 2];// animationData [cpu data type is uint32 , need recalculate index ]
+		#else
+			vec4 	U_VSCustom0[InstanceCount * UniformCount];
+		#endif
+	#else
+		vec4	U_WorldViewProjectMatrix[4];
+		vec4	U_WorldMatrix[3];
+		vec4 	U_InvTransposeWorldMatrix[3];
+		vec4  U_ObjectMirrored;
+	#endif
+
+
+	#ifdef HWSKINNED
+		#ifndef SKINNEDINSTANCE
+			vec4	U_BoneMatrix[3 * Bone_Matrix_Max_Cnt];
+		#endif
+	#endif
+
+	#ifdef VERTEX_EXCITATION
+		vec4 U_VSGeneralRegister0;	//顶点扰动
+	#endif
+
+	#ifdef SoftNoColor
+		vec4  U_InvWorldMatrix[3];
+		vec4  U_VSGeneralRegister1;	//偏移大小
+		vec4  U_WorldScale;
+	#endif
+
+	#ifdef SOFTBOARD
+		vec4  U_VSGeneralRegister1;	//偏移大小
+		vec4  U_WorldScale;
+	#endif
+		vec4 	U_VSGeneralRegister7; 	//x ---boundingbox min.y (current entity box) local box
+										//y ---boundingbox max.y (current entity box)
+										//z ---boundingbox min.y (parent entity box)
+										//w ---boundingbox max.y (parent entity box)
+	};
+
+	layout(location = 0) in vec4 POSITION0;
+
+	#ifdef SHADOWPASS
+		#ifdef ALPHA_TEST
+			layout(location = 1) in vec2 TEXCOORD0;
+			layout(location = 0) out vec4 	o_UV;
+		#endif
+	#else
+		layout(location = 1) in vec4 TEXCOORD0;
+		layout(location = 2) in vec4 NORMAL0;
+		layout(location = 3) in vec4 TANGENT0;
+		#ifdef VERTEX_COLOR
+			layout(location = 4) in vec4 COLOR0;
+		#endif
+	#endif
+#endif
+#ifdef USEINSTANCE
+	#ifdef SKINNEDINSTANCE
+		layout(binding = 4) uniform sampler2D S_2DExt0;
+	#endif
+#endif
+#ifdef PARABOLOID_MAPPING
+	layout(location = 17) out float o_ClipDepth;
+#endif
+
+#ifndef SHADOWPASS
+	layout(location = 0) out vec4 	o_UV;
+	layout(location = 1) out vec4 	o_Fog;
+	layout(location = 2) out vec3 	o_WNormal;
+	layout(location = 3) out vec3 	o_Tangent;
+	layout(location = 4) out vec3 	o_Binormal;
+	layout(location = 5) out vec3 	o_EyeDir;
+	layout(location = 6) out vec3	o_WPos;
+	#ifdef VERTEX_COLOR
+		layout(location = 7) out vec4		o_Diffuse;
+	#endif
+	#ifdef SOFTBOARD
+		layout(location = 8) out vec4       o_ClipPos;
+	#endif
+	#ifdef USESHADOWMAP
+
+		layout(location = 9) out float		o_ViewSpaceZ;
+		layout(location = 10) out vec4    	o_LightSpacePos[SHADOWSPLITE];
+	#endif
+	layout(location = 15) out vec3	o_PosInModel;
+	layout(location = 18) out vec4  o_BoundBoxRange;
+	#ifdef USEGPUCULL_TEXARRAY
+		layout(location = 16) out ivec4		o_TexRange;
+	#endif
+#endif
+
+#ifdef HWSKINNED
+	layout(location = 5) in vec4	BLENDWEIGHT0;
+	layout(location = 6) in uvec4 BLENDINDICES0;
+#endif
+
+#define SPLICE(x,y) x##y
+#define BUFFE_DATA(x) SPLICE(x, _data)
+#define EOB(idx, bIdx, ele) BUFFE_DATA(SPLICE(B_CSCustom, idx))[bIdx].ele
+
+#ifdef SKINNEDINSTANCE
+	mat3x4 loadBoneMatrix (int animationData , int index)
+	{
+		mat3x4 rvt;
+		rvt[0] = texelFetch(S_2DExt0,ivec2(index*3 + 0, animationData),0 );
+		rvt[1] = texelFetch(S_2DExt0,ivec2(index*3 + 1, animationData),0 );
+		rvt[2] = texelFetch(S_2DExt0,ivec2(index*3 + 2, animationData),0 );
+		return rvt;
+	}
+#endif
+
+void main()
+{
+#ifdef USEGPUCULL
+	uint idx = POSITION0;
+#ifdef CLUSTERDRAW
+	uint indexOffset = idx * INDEX_COUNT_PER_CLUSTER + gl_VertexIndex;
+	uint vertexOffset = idx * VERTEX_COUNT_PER_CLUSTER;
+	idx = vertexOffset + B_CSCustom1_data[indexOffset];
+#endif
+	VertexDataCombine vertex;
+	vertex.pos0 = EOB(0, idx, pos0);//B_CSCustom0_data[idx].pos0;
+	vertex.pos1 = EOB(0, idx, pos1);//B_CSCustom0_data[idx].pos1;
+	vertex.uv = EOB(0, idx, uv);//B_CSCustom0_data[idx].uv;
+	vertex.nt0 = EOB(0, idx, nt0);
+	vertex.nt1 = EOB(0, idx, nt1);
+	vertex.nt2 = EOB(0, idx, nt2);
+	
+	vec4  i_Pos;
+	i_Pos.xy = unpackHalf2x16(vertex.pos0);
+	vec2 tmpV = unpackHalf2x16(vertex.pos1);
+	i_Pos.z = tmpV.x;
+	i_Pos.w = 1.0;
+	
+	uint instID = POSITION1;
+	
+	vec4 U_WorldMatrix[3];
+	U_WorldMatrix[0] = vec4(EOB(3, instID, Transform)[0], EOB(3, instID, Transform)[1], EOB(3, instID, Transform)[2], EOB(3, instID, Transform)[3]);
+	U_WorldMatrix[1] = vec4(EOB(3, instID, Transform)[4], EOB(3, instID, Transform)[5], EOB(3, instID, Transform)[6], EOB(3, instID, Transform)[7]);
+	U_WorldMatrix[2] = vec4(EOB(3, instID, Transform)[8], EOB(3, instID, Transform)[9], EOB(3, instID, Transform)[10], EOB(3, instID, Transform)[11]);
+	
+	vec4 U_InvTransposeWorldMatrix[3];
+	U_InvTransposeWorldMatrix[0] = vec4(EOB(3, instID, InvTransposeTransform)[0], EOB(3, instID, InvTransposeTransform)[1], EOB(3, instID, InvTransposeTransform)[2], EOB(3, instID, InvTransposeTransform)[3]);
+	U_InvTransposeWorldMatrix[1] = vec4(EOB(3, instID, InvTransposeTransform)[4], EOB(3, instID, InvTransposeTransform)[5], EOB(3, instID, InvTransposeTransform)[6], EOB(3, instID, InvTransposeTransform)[7]);
+	U_InvTransposeWorldMatrix[2] = vec4(EOB(3, instID, InvTransposeTransform)[8], EOB(3, instID, InvTransposeTransform)[9], EOB(3, instID, InvTransposeTransform)[10], EOB(3, instID, InvTransposeTransform)[11]);
+	
+	vec4 U_ObjectMirrored = vec4(0.0f, 0.0f, 0.0f, 1.0f);//vec4(EOB(3, instID, ObjectMirrored)[0], EOB(3, instID, ObjectMirrored)[1], EOB(3, instID, ObjectMirrored)[2], EOB(3, instID, ObjectMirrored)[3]);
+	uint flip = EOB(3, instID, Flip);
+	flip = (flip & 0x55u) + ((flip & 0xAAu) >> 1u);
+	flip = (flip & 0x33u) + ((flip & 0xCCu) >> 2u);
+	if((flip & 1u) == 1u)
+	{
+		U_ObjectMirrored.w = -1.0f;
+	}
+	#ifndef SHADOWPASS
+		vec4 TEXCOORD0 = vec4(unpackHalf2x16(vertex.uv).xy, 0.0f, 0.0f);
+		
+		vec2 Nxy = unpackHalf2x16(vertex.nt0).xy;
+		vec2 NzTx = unpackHalf2x16(vertex.nt1).xy;
+		vec2 Tyz = unpackHalf2x16(vertex.nt2).xy;
+		vec4 NORMAL0 = vec4(Nxy.x, Nxy.y, NzTx.x, 0.0f);
+
+		vec4 TANGENT0 = vec4(NzTx.y, Tyz.x, Tyz.y, tmpV.y);
+		
+		#ifdef USEGPUCULL_TEXARRAY
+			o_TexRange.x = int(EOB(3, instID, Begin));
+			o_TexRange.y = int(EOB(3, instID, Lens));
+		#endif
+		
+		vec4 	U_VSGeneralRegister7; //no data,just for compitation
+	#endif
+#else
+
+	vec4  i_Pos =  vec4(POSITION0.xyz, 1.0f);
+#endif
+	#ifndef SHADOWPASS
+		o_PosInModel = i_Pos.xyz;
+	#endif
+	vec4  o_PosInClip;
+	vec4 Wpos;
+	vec4 WorldMatrix[3];
+	vec4 InvTransposeWorldMatrix[3];
+	float fHandedness = 1.0f;
+	#ifdef USESHADOWMAP
+		vec4 wposView = vec4(0.0, 0.0, 0.0, 1.0);  // camera-relative position for shadow
+	#endif
+
+	#ifdef HWSKINNED
+		vec4	Weight		= BLENDWEIGHT0;
+		ivec4   Index		= ivec4(BLENDINDICES0.xyzw);
+
+		vec4 BoneMatC0	= vec4( 0.0 , 0.0 , 0.0 , 0.0 );
+		vec4 BoneMatC1	= vec4( 0.0 , 0.0 , 0.0 , 0.0 );
+		vec4 BoneMatC2	= vec4( 0.0 , 0.0 , 0.0 , 0.0 );
+        #ifdef SKINNEDINSTANCE
+			// recalculate index
+			ivec4 animationData4 = U_VSCustom1[gl_InstanceIndex >> 2];
+			int   animationData  = animationData4[gl_InstanceIndex & 3];
+			for (int i = 0 ; i < 4 ; ++ i)
+			{
+				mat3x4 res=loadBoneMatrix(animationData,Index[i]);
+				BoneMatC0 += Weight[i] * res[0];
+				BoneMatC1 += Weight[i] * res[1];
+				BoneMatC2 += Weight[i] * res[2];
+			}
+		#else
+		   	for(int i=0;i<4;++i)
+		   	{
+			    int idx = int(Index[i]);
+
+			    BoneMatC0	+=	U_BoneMatrix[idx*3+0]*Weight[i];
+			    BoneMatC1	+=	U_BoneMatrix[idx*3+1]*Weight[i];
+		 	    BoneMatC2	+=	U_BoneMatrix[idx*3+2]*Weight[i];
+		   	}
+		#endif
+	#endif
+
+#ifdef USEINSTANCE
+	int idxInst = gl_InstanceIndex * UniformCount;
+	WorldMatrix[0] = U_VSCustom0[idxInst + 0];
+	WorldMatrix[1] = U_VSCustom0[idxInst + 1];
+	WorldMatrix[2] = U_VSCustom0[idxInst + 2];
+	InvTransposeWorldMatrix[0] = U_VSCustom0[idxInst + 3];
+	InvTransposeWorldMatrix[1] = U_VSCustom0[idxInst + 4];
+	InvTransposeWorldMatrix[2] = U_VSCustom0[idxInst + 5];
+
+	#ifdef  HWSKINNED
+		i_Pos = vec4(dot(BoneMatC0,i_Pos),dot(BoneMatC1,i_Pos),dot(BoneMatC2,i_Pos),1.0f);
+	#endif
+	#ifndef SHADOWPASS
+		vec4 i_Normal =  vec4(NORMAL0.xyz, 0.0f);
+		#ifdef  HWSKINNED
+			i_Normal = vec4(dot(BoneMatC0,i_Normal),dot(BoneMatC1,i_Normal),dot(BoneMatC2,i_Normal),0.0f);
+		#endif
+		#ifdef VERTEX_EXCITATION
+			i_Pos.xyz += i_Normal.xyz * U_VSGeneralRegister0.x * sin(TEXCOORD0.x * U_VSGeneralRegister0.y * U_VS_Time.x + TEXCOORD0.y * U_VSGeneralRegister0.z * U_VS_Time.x);
+		#endif
+	#endif
+
+	vec4 vObjPosInCam;
+	vObjPosInCam.x = dot(WorldMatrix[0], i_Pos);
+	vObjPosInCam.y = dot(WorldMatrix[1], i_Pos);
+	vObjPosInCam.z = dot(WorldMatrix[2], i_Pos);
+	vObjPosInCam.w = 1.f;
+
+	#ifdef USESHADOWMAP
+		wposView = vObjPosInCam;  // Instance path: vObjPosInCam is already camera-relative
+	#endif
+
+	fHandedness = determinant(mat3(WorldMatrix[0].xyz, WorldMatrix[1].xyz, WorldMatrix[2].xyz));
+	fHandedness = fHandedness >= 0.f ? 1.0f : -1.0f;
+
+	// translate to camera space
+	
+
+	o_PosInClip.x = dot(U_ZeroViewProjectMatrix[0], vObjPosInCam);
+	o_PosInClip.y = dot(U_ZeroViewProjectMatrix[1], vObjPosInCam);
+	o_PosInClip.z = dot(U_ZeroViewProjectMatrix[2], vObjPosInCam);
+	o_PosInClip.w = dot(U_ZeroViewProjectMatrix[3], vObjPosInCam);
+
+	
+	Wpos.xyz = vObjPosInCam.xyz + U_VS_CameraPosition.xyz;
+	Wpos.w = 1.0;
+#else
+    #ifdef  HWSKINNED
+		i_Pos = vec4(dot(BoneMatC0,i_Pos),dot(BoneMatC1,i_Pos),dot(BoneMatC2,i_Pos),1.0f);
+	#endif
+
+	#ifndef SHADOWPASS
+		vec4 i_Normal =  vec4(NORMAL0.xyz, 0.0f);
+		#ifdef  HWSKINNED
+			i_Normal = vec4(dot(BoneMatC0,i_Normal),dot(BoneMatC1,i_Normal),dot(BoneMatC2,i_Normal),0.0f);
+		#endif
+		#ifdef VERTEX_EXCITATION
+			i_Pos.xyz += i_Normal.xyz * U_VSGeneralRegister0.x * sin(TEXCOORD0.x * U_VSGeneralRegister0.y * U_VS_Time.x + TEXCOORD0.y * U_VSGeneralRegister0.z * U_VS_Time.x);
+		#endif
+	#endif
+	
+	#ifdef USEGPUCULL
+		
+		WorldMatrix[0] = U_WorldMatrix[0];
+		WorldMatrix[1] = U_WorldMatrix[1];
+		WorldMatrix[2] = U_WorldMatrix[2];
+		
+		Wpos.x = dot(WorldMatrix[0], i_Pos);
+		Wpos.y = dot(WorldMatrix[1], i_Pos);
+		Wpos.z = dot(WorldMatrix[2], i_Pos);
+		Wpos.w = 1.0;
+		
+		// translate to camera space
+		vec4 vObjPosInCam = Wpos - U_VS_CameraPosition;
+		vObjPosInCam.w = 1.f;
+
+		#ifdef USESHADOWMAP
+			wposView = vObjPosInCam;  // GPUCULL path: vObjPosInCam is already camera-relative
+		#endif
+
+		mat4 matWVP;
+		matWVP[0] = U_ZeroViewProjectMatrix[0];
+		matWVP[1] = U_ZeroViewProjectMatrix[1];
+		matWVP[2] = U_ZeroViewProjectMatrix[2];
+		matWVP[3] = U_ZeroViewProjectMatrix[3];
+		o_PosInClip = vObjPosInCam * matWVP;
+	#else
+			
+		#ifndef SHADOWPASS
+			WorldMatrix[0] = U_WorldMatrix[0];
+			WorldMatrix[1] = U_WorldMatrix[1];
+			WorldMatrix[2] = U_WorldMatrix[2];
+			
+			Wpos.x = dot(WorldMatrix[0], i_Pos);
+			Wpos.y = dot(WorldMatrix[1], i_Pos);
+			Wpos.z = dot(WorldMatrix[2], i_Pos);
+			Wpos.w = 1.0;
+		#endif
+		o_PosInClip.x = dot(U_WorldViewProjectMatrix[0], i_Pos);
+		o_PosInClip.y = dot(U_WorldViewProjectMatrix[1], i_Pos);
+		o_PosInClip.z = dot(U_WorldViewProjectMatrix[2], i_Pos);
+		o_PosInClip.w = dot(U_WorldViewProjectMatrix[3], i_Pos);
+		
+		#ifdef USESHADOWMAP
+			// Non-instance path: use U_WorldMatrixBaseView for shadow stability
+			wposView.x = dot(U_WorldMatrixBaseView[0], i_Pos);
+			wposView.y = dot(U_WorldMatrixBaseView[1], i_Pos);
+			wposView.z = dot(U_WorldMatrixBaseView[2], i_Pos);
+			wposView.w = 1.0;
+		#endif
+	#endif
+
+	fHandedness = U_ObjectMirrored.w;
+#endif
+#ifdef PARABOLOID_MAPPING
+	o_ClipDepth = o_PosInClip.z;
+	ParaboloidMapping(o_PosInClip, U_ShadowLightDepthMulAdd.x, U_ShadowLightDepthMulAdd.z, U_ShadowLightDepthMulAdd.w);
+#endif
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		vec2 i_UV = TEXCOORD0.xy;
+		o_UV.xy = i_UV;
+	#endif
+	#ifndef PARABOLOID_MAPPING
+		//depthclamp
+		o_PosInClip.z = ClampToNearPlane(o_PosInClip.z);
+	#endif
+#else
+	vec4 i_UV		= TEXCOORD0;
+	#ifdef SOFTBOARD
+		o_ClipPos = o_PosInClip;
+		o_UV.z = U_VSGeneralRegister1.x * U_WorldScale.x;
+	#endif
+	
+	#ifndef USEINSTANCE
+		/*WorldMatrix[0] =U_WorldMatrix[0];
+		WorldMatrix[1] =U_WorldMatrix[1];
+		WorldMatrix[2] =U_WorldMatrix[2];*/
+
+		InvTransposeWorldMatrix[0] = U_InvTransposeWorldMatrix[0];
+		InvTransposeWorldMatrix[1] = U_InvTransposeWorldMatrix[1];
+		InvTransposeWorldMatrix[2] = U_InvTransposeWorldMatrix[2];
+
+		/*Wpos.x = dot(WorldMatrix[0], i_Pos);
+		Wpos.y = dot(WorldMatrix[1], i_Pos);
+		Wpos.z = dot(WorldMatrix[2], i_Pos);
+		Wpos.w = 1.0;*/
+	#endif
+	o_WPos = Wpos.xyz;
+    vec4	vCamPos				=	U_VS_CameraPosition;
+	#ifdef SoftNoColor
+		vec3 camtoposi = normalize(o_WPos.xyz - vCamPos.xyz);
+		vec3 viewDir = normalize(U_ViewDirection.xyz);
+		float temp = dot(camtoposi, viewDir);
+		temp = max(temp, 0.000001);
+		o_WPos.xyz += camtoposi * U_VSGeneralRegister1.x * U_WorldScale.x/ temp;
+		
+		vec4 tempLocalPosi = vec4(o_WPos, 1.0);
+		tempLocalPosi.x = dot(U_InvWorldMatrix[0], vec4(o_WPos, 1.0));
+		tempLocalPosi.y = dot(U_InvWorldMatrix[1], vec4(o_WPos, 1.0));
+		tempLocalPosi.z = dot(U_InvWorldMatrix[2], vec4(o_WPos, 1.0));
+		
+		o_PosInClip.x = dot(U_WorldViewProjectMatrix[0], tempLocalPosi);
+		o_PosInClip.y = dot(U_WorldViewProjectMatrix[1], tempLocalPosi);
+		o_PosInClip.z = dot(U_WorldViewProjectMatrix[2], tempLocalPosi);
+		o_PosInClip.w = dot(U_WorldViewProjectMatrix[3], tempLocalPosi);
+	#endif
+	
+	//vec4  i_Normal =  vec4(NORMAL0.xyz, 0.0f);
+	vec4  i_Tangent = vec4(TANGENT0.xyz, 0.0f);
+
+	#ifdef  HWSKINNED
+		//i_Normal = vec4(dot(BoneMatC0,i_Normal),dot(BoneMatC1,i_Normal),dot(BoneMatC2,i_Normal),0.0f);
+		i_Tangent = vec4(dot(BoneMatC0,i_Tangent),dot(BoneMatC1,i_Tangent),dot(BoneMatC2,i_Tangent),0.0f);
+	#endif
+
+	o_WNormal.x = dot(i_Normal.xyz, InvTransposeWorldMatrix[0].xyz);
+	o_WNormal.y = dot(i_Normal.xyz, InvTransposeWorldMatrix[1].xyz);
+	o_WNormal.z = dot(i_Normal.xyz, InvTransposeWorldMatrix[2].xyz);
+	o_WNormal = normalize(o_WNormal);
+
+	o_Tangent.x = dot(i_Tangent.xyz, WorldMatrix[0].xyz);
+	o_Tangent.y = dot(i_Tangent.xyz, WorldMatrix[1].xyz);
+	o_Tangent.z = dot(i_Tangent.xyz, WorldMatrix[2].xyz);
+	o_Tangent = normalize(o_Tangent);
+
+	o_Binormal.xyz = cross(o_Tangent.xyz, o_WNormal.xyz) * TANGENT0.w;
+	o_Binormal.xyz *= fHandedness;
+
+	o_UV.xy = i_UV.xy;
+
+	vec3 camToWorld =  vCamPos.xyz - Wpos.xyz;
+
+	o_EyeDir.xyz = camToWorld;
+
+	vec3 camToWorldTemp = camToWorld;
+	camToWorld.x = dot(U_VS_GravityRotationMatrix[0].xyz, camToWorldTemp);
+	camToWorld.y = dot(U_VS_GravityRotationMatrix[1].xyz, camToWorldTemp);
+	camToWorld.z = dot(U_VS_GravityRotationMatrix[2].xyz, camToWorldTemp);
+
+	o_Fog = ComputeFogColor(camToWorld,U_FogParam.xy,U_FogParam.zw,U_FogRampParam,U_FogColorNear,U_FogColorFar);
+
+#ifdef USESHADOWMAP
+		// wposView is already computed above (in USEINSTANCE or non-USEINSTANCE path)
+		
+		// 计算法线偏移 (仿照 GLES2 CalcShadowNormalBias)
+		float NdotL = max(0.0, dot(o_WNormal, -U_VS_MainLightDirection.xyz));
+		float bias = (1.0 - pow(NdotL, 5.0)) * 0.008;
+		vec4 biasedPos = wposView;
+		biasedPos.xyz += o_WNormal * bias;
+		
+		// 投影到各级联光空间 (仿照 GLES2 ProjectToLightSpaceView)
+		#if SHADOWSPLITE > 0
+		o_LightSpacePos[0].x = dot(U_LightVPMatrixView0[0], biasedPos);
+		o_LightSpacePos[0].y = dot(U_LightVPMatrixView0[1], biasedPos);
+		o_LightSpacePos[0].z = dot(U_LightVPMatrixView0[2], biasedPos);
+		o_LightSpacePos[0].xy = o_LightSpacePos[0].xy * 0.5 + 0.5;
+		#endif
+		#if SHADOWSPLITE > 1
+		o_LightSpacePos[1].x = dot(U_LightVPMatrixView1[0], biasedPos);
+		o_LightSpacePos[1].y = dot(U_LightVPMatrixView1[1], biasedPos);
+		o_LightSpacePos[1].z = dot(U_LightVPMatrixView1[2], biasedPos);
+		o_LightSpacePos[1].xy = o_LightSpacePos[1].xy * 0.5 + 0.5;
+		#endif
+		#if SHADOWSPLITE > 2
+		o_LightSpacePos[2].x = dot(U_LightVPMatrixView2[0], biasedPos);
+		o_LightSpacePos[2].y = dot(U_LightVPMatrixView2[1], biasedPos);
+		o_LightSpacePos[2].z = dot(U_LightVPMatrixView2[2], biasedPos);
+		o_LightSpacePos[2].xy = o_LightSpacePos[2].xy * 0.5 + 0.5;
+		#endif
+		#if SHADOWSPLITE > 3
+		o_LightSpacePos[3].x = dot(U_LightVPMatrixView3[0], biasedPos);
+		o_LightSpacePos[3].y = dot(U_LightVPMatrixView3[1], biasedPos);
+		o_LightSpacePos[3].z = dot(U_LightVPMatrixView3[2], biasedPos);
+		o_LightSpacePos[3].xy = o_LightSpacePos[3].xy * 0.5 + 0.5;
+		#endif
+		
+		// viewSpaceZ (仿照 GLES2，无负号)
+		o_ViewSpaceZ = dot(U_ViewMatrix[2].xyz, biasedPos.xyz);
+	#endif
+	#ifdef VERTEX_COLOR
+		o_Diffuse = COLOR0;
+	#endif
+#endif
+#ifndef SHADOWPASS
+	o_BoundBoxRange.x = U_VSGeneralRegister7.x;//dot(WorldMatrix[1], vec4(0.0f, U_VSGeneralRegister7.x, 0.0f, 1.0f));
+	o_BoundBoxRange.y = U_VSGeneralRegister7.y;//dot(WorldMatrix[1], vec4(0.0f, U_VSGeneralRegister7.y, 0.0f, 1.0f));
+	o_BoundBoxRange.z = U_VSGeneralRegister7.z;
+	o_BoundBoxRange.w = U_VSGeneralRegister7.w;
+#endif
+	gl_Position = o_PosInClip;
+}

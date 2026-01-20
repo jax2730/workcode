@@ -1,0 +1,176 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl> 
+#include <TriPlanarMapping_Function_VS.inl>
+
+//float4 U_WorldViewProjectMatrix[4];
+
+Texture2DArray<uint> S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+uniform int4 U_VSCustom0;
+
+struct VS_INPUT
+{
+	uint3  i_UV		: POSITION0;
+ 	float4 PatchInfo : POSITION1; 		//PatchInfo			xy: patch uv start, w:Patch size
+	float3 PatchPosition : POSITION2; 	//PatchPosition		xyz: patch world position
+	float4 TileInfo : TEXCOORD0;		//TileInfo			xy: tile uv start, zw: tile scale
+	float4 TexTileInfo : TEXCOORD1;		//TileInfo			xy: tile uv start, zw: tile scale
+	uint4  levelInfo	: BLENDINDICES0;
+};
+
+struct VS_OUTPUT
+{
+	float4	o_PosInClip	: SV_POSITION;
+	float3  o_WorldPos  : POSITION0;
+	float3  o_LocalPos  : POSITION1;
+
+	float3  o_Normal    : NORMAL0;
+	float3  o_Tangent1  : TANGENT0;
+	float3  o_BiTangent1: TANGENT1;
+	float3  o_Tangent2  : TANGENT2;
+	float3  o_BiTangent2: TANGENT3;
+
+	float2	o_UVBase	: TEXCOORD1;
+	float4	o_FogColor	: TEXCOORD2;
+	float	o_Blend		: TEXCOORD3;
+	float3	o_ViewDir	: TEXCOORD4;
+	float2  o_TexUV		: TEXCOORD5;
+	float2  o_GISTexUV	: TEXCOORD6;
+	uint4	o_levelInfo	: BLENDINDICES0;
+	uint4	o_VTSizeInfo: BLENDINDICES1;
+#ifdef USESHADOWMAP
+	float   o_ViewSpaceZ		            : TEXCOORD10;
+	float4  O_LightSpacePos[SHADOWSPLITE]   : TEXCOORD11;   //11 - 14 on pc
+#endif
+};
+
+const static float HEIGHTRANGE = 1690.0;
+const static float MINHEIGHT = -625.0;
+const static float3 EARTHCENTER = float3(0.0, -200000.0, 0.0);
+const static float3 RADIUS = 200000.0;
+
+float getHeight(uint val)
+{
+	return float(val >> 16) / 65535.0 * HEIGHTRANGE + MINHEIGHT;
+}
+
+float3 getNormal(uint val)
+{
+	float3 normal;
+	normal.x = float((val >> 8) & 0xff) / 255.0 * 2.0 - 1.0;
+	normal.z = float(val & 0xff) / 255.0 * 2.0 - 1.0;
+	normal.y = sqrt(1.0 - normal.x * normal.x - normal.z * normal.z);
+	return normal;
+}
+
+float3 remapPosition(float3 pos)
+{
+	float3 dir = normalize(pos - EARTHCENTER);
+	float height = pos.y;
+	return dir * (RADIUS + height) + EARTHCENTER;
+}
+
+VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID: SV_InstanceID)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	
+	float4 PatchInfo = IN.PatchInfo;
+	float3 PatchPosition = IN.PatchPosition;
+	float4 TileInfo = IN.TileInfo;
+	float4 TexTileInfo = IN.TexTileInfo;
+	uint level = IN.levelInfo.x;
+
+	float2 vUV = float2(IN.i_UV.xy) / (float)IN.i_UV.z;
+	float2 tUV = vUV / PatchInfo.w + PatchInfo.xy;
+	float2 tileUV = float2(IN.i_UV.xy) / (float)(IN.i_UV.z + 1) * TileInfo.zw + TileInfo.xy;
+
+	vsOut.o_UVBase = float2(IN.i_UV.xy) * 0.99 / (float)(IN.i_UV.z + 1) * TileInfo.zw + TileInfo.xy;
+
+	int4 coord = int4(floor(U_VSCustom0.x * tileUV.x), floor(U_VSCustom0.y * tileUV.y), level, 0);
+	uint val = S_2DExt0.Load(coord);
+	float height = getHeight(val);
+	float3 normal = getNormal(val);
+	vsOut.o_Normal = normal;
+	
+	float3 Tangent = float3(1.0,0.0,0.0);
+	float3 BiTangent = cross(normal, Tangent);
+	Tangent = cross(BiTangent, normal);
+	vsOut.o_Tangent1 = normalize(Tangent);
+	vsOut.o_BiTangent1 = normalize(BiTangent);
+	vsOut.o_Tangent2 = vsOut.o_Tangent1;
+	vsOut.o_BiTangent2 = vsOut.o_BiTangent1;
+
+	float2 texUV = float2(IN.i_UV.xy) / (float) (IN.i_UV.z + 1) * TexTileInfo.zw + TexTileInfo.xy;
+
+	float4 vObjPos = float4(
+		tUV.x * PatchInfo.z,
+		height,
+		tUV.y * PatchInfo.z,
+		1.0);
+	vsOut.o_LocalPos = vObjPos.xyz;
+	float4 worldPos = float4(vObjPos.xyz + (float3)PatchPosition.xyz, 1.0);
+	worldPos.xyz = remapPosition(worldPos.xyz);
+
+	float4 	vWVPMatrixC0 = U_ZeroViewProjectMatrix[0];
+	float4	vWVPMatrixC1 = U_ZeroViewProjectMatrix[1];
+	float4	vWVPMatrixC2 = U_ZeroViewProjectMatrix[2];
+	float4	vWVPMatrixC3 = U_ZeroViewProjectMatrix[3];
+
+	vsOut.o_WorldPos = worldPos;
+	vsOut.o_PosInClip.x = dot(vWVPMatrixC0, worldPos);
+	vsOut.o_PosInClip.y = dot(vWVPMatrixC1, worldPos);
+	vsOut.o_PosInClip.z = dot(vWVPMatrixC2, worldPos);
+	vsOut.o_PosInClip.w = dot(vWVPMatrixC3, worldPos);
+	
+	vsOut.o_ViewDir = - vsOut.o_WorldPos.xyz;
+	vsOut.o_WorldPos += U_VS_CameraPosition.xyz;
+	float dist = length(vsOut.o_ViewDir);
+	float3 camToWorld = vsOut.o_ViewDir;
+
+	float4x4 gravityRotatePosMatrix;	
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+	vsOut.o_FogColor = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+
+#ifdef USESHADOWMAP
+	float4 wpos = float4(vsOut.o_WorldPos,1.0f);
+	#if SHADOWSPLITE > 0
+		vsOut.O_LightSpacePos[0].x = dot(U_LightVPMatrix0[0], wpos);
+		vsOut.O_LightSpacePos[0].y = dot(U_LightVPMatrix0[1], wpos);
+		vsOut.O_LightSpacePos[0].z = dot(U_LightVPMatrix0[2], wpos);
+		vsOut.O_LightSpacePos[0].w = dot(U_LightVPMatrix0[3], wpos);
+	#endif
+	#if SHADOWSPLITE > 1	
+		vsOut.O_LightSpacePos[1].x = dot(U_LightVPMatrix1[0], wpos);
+		vsOut.O_LightSpacePos[1].y = dot(U_LightVPMatrix1[1], wpos);
+		vsOut.O_LightSpacePos[1].z = dot(U_LightVPMatrix1[2], wpos);
+		vsOut.O_LightSpacePos[1].w = dot(U_LightVPMatrix1[3], wpos);
+	#endif
+	#if SHADOWSPLITE > 2	
+		vsOut.O_LightSpacePos[2].x = dot(U_LightVPMatrix2[0], wpos);
+		vsOut.O_LightSpacePos[2].y = dot(U_LightVPMatrix2[1], wpos);
+		vsOut.O_LightSpacePos[2].z = dot(U_LightVPMatrix2[2], wpos);
+		vsOut.O_LightSpacePos[2].w = dot(U_LightVPMatrix2[3], wpos);
+	#endif	
+	#if SHADOWSPLITE > 3	
+		vsOut.O_LightSpacePos[3].x = dot(U_LightVPMatrix3[0], wpos);
+		vsOut.O_LightSpacePos[3].y = dot(U_LightVPMatrix3[1], wpos);
+		vsOut.O_LightSpacePos[3].z = dot(U_LightVPMatrix3[2], wpos);
+		vsOut.O_LightSpacePos[3].w = dot(U_LightVPMatrix3[3], wpos);
+	#endif			
+	vsOut.o_ViewSpaceZ = -dot(U_MainCamViewMatrix, float4(vsOut.o_WorldPos.xyz, 1.0f));
+#endif
+
+	vsOut.o_Blend = smoothstep(0.0, 10000, dist);
+	vsOut.o_ViewDir = normalize(vsOut.o_ViewDir);
+	vsOut.o_TexUV = tUV;
+	vsOut.o_GISTexUV = texUV;
+	vsOut.o_levelInfo = IN.levelInfo;
+	vsOut.o_VTSizeInfo = U_VSCustom0;
+	return vsOut;
+}

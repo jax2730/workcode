@@ -1,0 +1,336 @@
+
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+#ifdef USEINSTANCE
+    #ifndef SKINNEDINSTANCE
+        #undef HWSKINNED
+    #endif
+#endif
+
+#ifdef USEINSTANCE
+	#ifdef SKINNEDINSTANCE
+       	uniform sampler2D S_2DExt0;
+		uniform vec4 	U_VSCustom0[InstanceCount * UniformCount];
+		uniform ivec4 	U_VSCustom1[(InstanceCount+3) >> 2];// animationData [cpu data type is uint32 , need recalculate index ]
+	#else 
+	    uniform vec4 	U_VSCustom0[InstanceCount * UniformCount];
+	#endif
+#else
+	uniform vec4	U_WorldMatrix[3];
+	uniform vec4	U_InvTransposeWorldMatrix[3];
+	#ifdef BILLBOARD_LEAF
+		uniform vec4	U_WorldRotationMatrix[3];
+		uniform vec4	U_WorldViewProjectNoRotationMatrix[4];
+	#else
+		uniform vec4	U_WorldViewProjectMatrix[4];
+	#endif
+#endif
+
+#ifdef HWSKINNED
+	#ifndef SKINNEDINSTANCE
+		uniform vec4	U_BoneMatrix[3 * Bone_Matrix_Max_Cnt];
+    #endif
+#endif
+
+uniform vec4	U_WindParamsObjSpace;
+uniform vec4	U_VSGeneralRegister0;	// x: bend start height	
+uniform vec4	U_VSGeneralRegister1;	// x: sway amplitude, y: sway frequency, z: shake amplitude, w: shake frequency
+
+
+// generate a triangle wave from a linear wave, range: 0~1
+vec4 TriangleWave(vec4 x)
+{
+	return abs(fract(x) * 2.0 - 1.0);
+}
+
+vec4 SmoothCurve(vec4 x)
+{
+	return x * x * (3.0 - 2.0 * x);
+}
+
+// smooth a triangle wave, like a sin wave
+vec4 SmoothTriangleWave(vec4 x)
+{
+	return SmoothCurve(TriangleWave(x));
+}
+
+void _TrunkBending(inout vec3 vPos, in float fSwayStartHeight, in float fTime, in float fPhase, in vec4 vWindParams, in float fAmp, in float fFreq)
+{
+	float fBendScale = max(vPos.y - fSwayStartHeight, 0.f);
+	fBendScale = fBendScale * fBendScale * 0.001;
+	float fLength = length(vPos);
+	vec3 vNewPos = vPos;
+	float vWave = SmoothTriangleWave(vec4(fFreq * (fTime + fPhase), 0.0, 0.0, 0.0)).x;
+	vWave = vWave * 2.0 - 1.0;
+	vNewPos.xz += vWave * vWindParams.xz * vWindParams.w * fBendScale * fAmp;
+	vPos = normalize(vNewPos) * fLength;
+}
+
+void _LeafShaking(inout vec3 vPos, in float fTime, in vec4 vWindParams, in float fLeafAmp, in float fAmp, in float fFreq)
+{
+	vec2 vWavesIn = vec2(fTime + dot(vPos.xyz, vec3(1.f)));
+	vec4 vWaves = vWavesIn.xyxy * vec4(1.975, 0.793, 0.0, 0.0) * vec4(fFreq);
+	vWaves = TriangleWave(vWaves);
+	vPos.xz += vWaves.xy * vWindParams.xz * vWindParams.w * fLeafAmp * fAmp;
+}
+
+in vec3 POSITION0;	// xyz: leaf position
+#ifdef VERTEX_COLOR
+	in vec4 COLOR0;		// diffuse
+#endif
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		in vec2 TEXCOORD0;	// uv
+	#endif
+#else
+	in vec3 NORMAL0;	// xyz: leaf normal
+	in vec2 TEXCOORD0;	// uv
+#endif
+
+#ifdef	BILLBOARD_LEAF
+	in vec4 TEXCOORD1;	// xy: rotation, z: jitter, w: size for billboard leaf
+#endif
+
+#ifdef HWSKINNED
+	in vec4	BLENDWEIGHT0;
+	in vec4 BLENDINDICES0;
+#endif
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		out vec2 o_UV;
+	#endif
+#else
+	out vec3 o_Normal;
+	#ifdef VERTEX_COLOR
+		out vec3 o_Diffuse;
+	#endif
+	out vec2 o_UV;
+	out vec4 o_WorldPos;
+	out vec4 o_FogColor;
+#endif
+#ifdef PARABOLOID_MAPPING
+	out float o_ClipDepth;
+#endif
+
+#ifdef SKINNEDINSTANCE
+	mat3x4 loadBoneMatrix (int animationData , int index)
+	{
+		mat3x4 rvt;
+		rvt[0] = texelFetch(S_2DExt0,ivec2(index*3 + 0, animationData),0 );
+		rvt[1] = texelFetch(S_2DExt0,ivec2(index*3 + 1, animationData),0 );
+		rvt[2] = texelFetch(S_2DExt0,ivec2(index*3 + 2, animationData),0 );
+		return rvt;
+	}
+#endif
+
+void main(void)
+{
+	vec4 vObjPos = vec4(POSITION0, 1.f);
+#ifdef HWSKINNED
+	vec4	Weight		= BLENDWEIGHT0;
+	ivec4   Index		= ivec4(BLENDINDICES0.xyzw);
+	vec4 BoneMatC0 = vec4( 0.0 , 0.0 , 0.0 , 0.0 );
+	vec4 BoneMatC1 = vec4( 0.0 , 0.0 , 0.0 , 0.0 );
+	vec4 BoneMatC2 = vec4( 0.0 , 0.0 , 0.0 , 0.0 );
+	
+	#ifdef SKINNEDINSTANCE
+		// recalculate index
+		ivec4 animationData4 = U_VSCustom1[gl_InstanceID >> 2];
+		int   animationData  = animationData4[gl_InstanceID & 3];
+		for (int i = 0 ; i < 4 ; ++ i)
+		{
+			mat3x4 res=loadBoneMatrix(animationData,Index[i]);
+			BoneMatC0 += Weight[i] * res[0];
+			BoneMatC1 += Weight[i] * res[1];
+			BoneMatC2 += Weight[i] * res[2];
+		}
+	#else
+		for(int i=0;i<4;++i)
+		{
+			int idx = int(Index[i]);
+
+			BoneMatC0	+=	U_BoneMatrix[idx*3+0]*Weight[i];
+			BoneMatC1	+=	U_BoneMatrix[idx*3+1]*Weight[i];
+			BoneMatC2	+=	U_BoneMatrix[idx*3+2]*Weight[i];
+		}
+	#endif
+	vObjPos.xyz = vec3(dot(BoneMatC0, vObjPos), dot(BoneMatC1, vObjPos), dot(BoneMatC2, vObjPos));
+#endif
+	
+	mat3x4 matWorld;
+	mat4 matInvTransposeWorld;
+	mat4 matRotation;
+	mat4 matWVP;
+	vec4 vWindParamsObjSpace = vec4(1.f, 0.f, 0.f, 1.f);
+
+#ifdef USEINSTANCE
+	int idxInst = gl_InstanceID * UniformCount;
+
+	vec4 vPosition =    U_VSCustom0[idxInst + 0];
+	vec4 vScale =       U_VSCustom0[idxInst + 1];
+	vec4 vOrientation = U_VSCustom0[idxInst + 2];
+
+	#ifdef SKINNEDINSTANCE
+		vec3 vMVPosition = vPosition.xyz;
+		vPosition.x += U_VS_CameraPosition.x;
+		vPosition.y += U_VS_CameraPosition.y;
+		vPosition.z += U_VS_CameraPosition.z;
+
+		mat4 _matWorld = MakeTransform( vMVPosition.xyz, vScale.xyz, vOrientation);
+		matWorld[0] = _matWorld[0];
+		matWorld[1] = _matWorld[1];
+		matWorld[2] = _matWorld[2];
+		// translate to world space
+		matWorld[0][3] += U_VS_CameraPosition.x;
+		matWorld[1][3] += U_VS_CameraPosition.y;
+		matWorld[2][3] += U_VS_CameraPosition.z;
+	#else
+		vec3 vMVPosition = vPosition.xyz;
+		vMVPosition.x -= U_VS_CameraPosition.x;
+		vMVPosition.y -= U_VS_CameraPosition.y;
+		vMVPosition.z -= U_VS_CameraPosition.z;
+
+		mat4 _matWorld = MakeTransform( vPosition.xyz, vScale.xyz, vOrientation);
+		matWorld[0] = _matWorld[0];
+		matWorld[1] = _matWorld[1];
+		matWorld[2] = _matWorld[2];
+		// translate to camera space
+		_matWorld[0][3] -= U_VS_CameraPosition.x;
+		_matWorld[1][3] -= U_VS_CameraPosition.y;
+		_matWorld[2][3] -= U_VS_CameraPosition.z;
+	#endif
+
+	matRotation = MakeRotation(vOrientation);
+	#ifdef BILLBOARD_LEAF
+		// translate to camera space and discard rotation
+		_matWorld = MakeTransform(vMVPosition.xyz,
+				vScale.xyz, vec4(0.f, 0.f, 0.f, 1.f));
+
+		vWindParamsObjSpace = U_WindParams;
+	#else
+		// transform wind parameters from world space to object space
+		vWindParamsObjSpace = U_WindParams * transpose(matRotation);
+	#endif
+
+	matInvTransposeWorld = MakeInverseTransform(vPosition.xyz, vScale.xyz, vOrientation);
+	matInvTransposeWorld = transpose(matInvTransposeWorld);
+
+	matWVP[0] = U_ZeroViewProjectMatrix[0];
+	matWVP[1] = U_ZeroViewProjectMatrix[1];
+	matWVP[2] = U_ZeroViewProjectMatrix[2];
+	matWVP[3] = U_ZeroViewProjectMatrix[3];
+	matWVP = _matWorld * matWVP;
+
+#else
+	matWorld[0] = U_WorldMatrix[0];
+	matWorld[1] = U_WorldMatrix[1];
+	matWorld[2] = U_WorldMatrix[2];
+	
+	matInvTransposeWorld[0] = U_InvTransposeWorldMatrix[0];
+	matInvTransposeWorld[1] = U_InvTransposeWorldMatrix[1];
+	matInvTransposeWorld[2] = U_InvTransposeWorldMatrix[2];
+
+	#ifdef BILLBOARD_LEAF
+		matRotation[0] = U_WorldRotationMatrix[0];
+		matRotation[1] = U_WorldRotationMatrix[1];
+		matRotation[2] = U_WorldRotationMatrix[2];
+		matRotation[3] = vec4(0.f, 0.f, 0.f, 1.f);
+	
+		matWVP[0] = U_WorldViewProjectNoRotationMatrix[0];
+		matWVP[1] = U_WorldViewProjectNoRotationMatrix[1];
+		matWVP[2] = U_WorldViewProjectNoRotationMatrix[2];
+		matWVP[3] = U_WorldViewProjectNoRotationMatrix[3];
+
+		vWindParamsObjSpace = U_WindParams;
+	#else
+		matWVP[0] = U_WorldViewProjectMatrix[0];
+		matWVP[1] = U_WorldViewProjectMatrix[1];
+		matWVP[2] = U_WorldViewProjectMatrix[2];
+		matWVP[3] = U_WorldViewProjectMatrix[3];
+
+		vWindParamsObjSpace = U_WindParamsObjSpace;
+	#endif
+#endif
+
+#ifdef VERTEX_COLOR
+	vec4 i_Diffuse = COLOR0;
+#endif
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		vec2 i_UV = TEXCOORD0;
+	#endif
+#else
+	vec2 i_UV = TEXCOORD0;
+	vec3 i_Normal = NORMAL0;
+#endif
+
+#ifdef BILLBOARD_LEAF
+	vObjPos = vObjPos * matRotation;
+
+	vec4 i_Offset = TEXCOORD1;
+	vec3 vUnitOffset = U_ViewRightVector.xyz * i_Offset.xxx + 
+					   U_ViewUpVector.xyz * i_Offset.yyy + 
+					   U_ViewDirection.xyz * i_Offset.zzz;
+
+	vObjPos.xyz += vUnitOffset * i_Offset.www;
+#endif
+
+	float fBendPhase = matWorld[0][3] + matWorld[1][3] + matWorld[2][3];
+	_TrunkBending(vObjPos.xyz, U_VSGeneralRegister0.x, U_VS_Time.x, fBendPhase,
+			vWindParamsObjSpace, U_VSGeneralRegister1.x, U_VSGeneralRegister1.y);
+	
+	float fLeafAmp = 1.f;
+#ifdef VERTEX_COLOR
+	fLeafAmp = i_Diffuse.a;
+#endif
+	_LeafShaking(vObjPos.xyz, U_VS_Time.x, vWindParamsObjSpace,
+			fLeafAmp, U_VSGeneralRegister1.z, U_VSGeneralRegister1.w);
+
+	vec4 oPosInClip = vObjPos * matWVP;
+#ifdef PARABOLOID_MAPPING
+	o_ClipDepth = oPosInClip.z;
+	ParaboloidMapping(oPosInClip, U_ShadowLightDepthMulAdd.x, U_ShadowLightDepthMulAdd.z, U_ShadowLightDepthMulAdd.w);
+#endif
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		o_UV = i_UV;
+	#endif
+	#ifndef PARABOLOID_MAPPING
+		oPosInClip.z = ClampToNearPlane(oPosInClip.z);
+	#endif
+#else
+	#ifdef HWSKINNED
+		vec3 vNormalHWSkinned = vec3(dot(BoneMatC0.xyz, i_Normal),
+				                     dot(BoneMatC1.xyz, i_Normal),
+									 dot(BoneMatC2.xyz, i_Normal));
+		i_Normal.xyz = mix(i_Normal.xyz, vNormalHWSkinned, U_VSGeneralRegister0.y);
+	#endif
+	o_Normal.xyz = vec3(dot(i_Normal.xyz, matInvTransposeWorld[0].xyz),
+						dot(i_Normal.xyz, matInvTransposeWorld[1].xyz),
+						dot(i_Normal.xyz, matInvTransposeWorld[2].xyz));
+	
+	#ifdef VERTEX_COLOR
+		o_Diffuse.rgb = pow(i_Diffuse.rgb, vec3(2.2f, 2.2f, 2.2f));
+	#endif
+
+	o_UV = i_UV;
+
+	o_WorldPos.xyz = vec4(POSITION0, 1.f) * matWorld;
+	o_WorldPos.w = 1.f;
+
+	vec3 vCamToWPos = U_VS_CameraPosition.xyz - o_WorldPos.xyz;
+
+	vec3 camToWorldTemp = vCamToWPos;
+	vCamToWPos.x = dot(U_VS_GravityRotationMatrix[0].xyz, camToWorldTemp);
+	vCamToWPos.y = dot(U_VS_GravityRotationMatrix[1].xyz, camToWorldTemp);
+	vCamToWPos.z = dot(U_VS_GravityRotationMatrix[2].xyz, camToWorldTemp);
+	
+	o_FogColor = ComputeFogColor(vCamToWPos, U_FogParam.xy, U_FogParam.zw, U_FogRampParam,U_FogColorNear,U_FogColorFar);
+#endif
+
+	gl_Position = oPosInClip;	
+}
+

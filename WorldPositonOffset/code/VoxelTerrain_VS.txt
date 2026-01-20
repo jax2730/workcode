@@ -1,0 +1,137 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+#include <TriPlanarMapping_Function_VS.inl>
+
+
+uniform vec4 U_WorldRotationMatrix[3];
+uniform vec4 U_WorldViewProjectMatrix[4];
+uniform vec4 U_WorldMatrix[3];
+uniform vec4 U_InvTransposeWorldMatrix[3];
+
+in vec3 POSITION0;
+
+#ifndef SHADOWPASS
+in vec3 NORMAL0;
+in uvec2 TEXCOORD0; // Index
+in vec3 TEXCOORD1; // blend
+#endif
+
+
+out vec4 PosInClip;
+#ifndef SHADOWPASS
+// triplanar mapping needs
+    out vec3 LocalP;
+    out vec3 LocalN;
+    out vec3 WorldP;
+    out vec3 WorldN;
+
+    out vec3 Tangent1;
+    out vec3 BTangent1;
+    out vec3 Tangent2;
+    out vec3 BTangent2;
+
+    out flat uvec2 Index;
+    out vec3 Blend;
+
+    #ifdef USESHADOWMAP
+    out vec4 LightSpacePos[SHADOWSPLITE];
+    out float ViewSpaceZ;
+    #endif
+    #ifdef VOXELKARST
+    out vec4 VertexColor;
+    #endif
+#endif
+
+#ifdef PARABOLOID_MAPPING
+    out vec3 ClipDepth;
+#endif
+
+
+vec3 GetGISColor(uint color)
+{
+    float b = float(color >> 16 & 0xffu) / 255.0;
+    float g = float(color >> 8 & 0xffu) / 255.0;
+    float r = float(color & 0xffu) / 255.0;
+    return pow(vec3(r, g, b), vec3(2.2));
+}
+
+void main()
+{
+    vec4 pos = vec4(POSITION0.xyz, 1.0f);
+    
+    PosInClip.x = dot(U_WorldViewProjectMatrix[0], pos);
+    PosInClip.y = dot(U_WorldViewProjectMatrix[1], pos);
+    PosInClip.z = dot(U_WorldViewProjectMatrix[2], pos);
+    PosInClip.w = dot(U_WorldViewProjectMatrix[3], pos);
+
+    #ifdef PARABOLOID_MAPPING
+        ClipDepth = vec3(PosInClip.z);
+        ParaboloidMapping(PosInClip, U_ShadowLightDepthMulAdd.x, U_ShadowLightDepthMulAdd.z, U_ShadowLightDepthMulAdd.w);
+    #endif      
+
+    #ifdef SHADOWPASS
+        #ifndef PARAMBOLOID_MAPPING
+            PosInClip.z = clamp(PosInClip.z, -1.0f, 0.999f);
+        #endif
+    #else
+        WorldP.x = dot(U_WorldMatrix[0], pos);
+        WorldP.y = dot(U_WorldMatrix[1], pos);
+        WorldP.z = dot(U_WorldMatrix[2], pos);
+
+        vec4 n = vec4(normalize(NORMAL0), 0.f);
+        WorldN.x = dot(U_WorldRotationMatrix[0], n);
+        WorldN.y = dot(U_WorldRotationMatrix[1], n);
+        WorldN.z = dot(U_WorldRotationMatrix[2], n);    
+        #ifdef USESHADOWMAP
+ 		    vec4 wpos = vec4(WorldP, 1.0f);
+            vec3 wNormal = normalize(WorldN.xyz);
+			float xx = dot(wNormal.xyz, -U_VS_MainLightDirection.xyz);
+			xx = max(0.0, xx);
+			xx = pow(xx, 5.0f);
+			xx = 1.0 - xx;
+			wpos.xyz = wpos.xyz + wNormal.xyz * 0.008 * xx;
+			
+			#if SHADOWSPLITE > 0
+				LightSpacePos[0].x = dot(U_LightVPMatrix0[0], wpos);
+				LightSpacePos[0].y = dot(U_LightVPMatrix0[1], wpos);
+				LightSpacePos[0].z = dot(U_LightVPMatrix0[2], wpos);
+				LightSpacePos[0].w = dot(U_LightVPMatrix0[3], wpos);
+				LightSpacePos[0] = LightSpacePos[0] / LightSpacePos[0].w;
+				LightSpacePos[0].xyz = LightSpacePos[0].xyz * 0.5 + 0.5;
+			#endif // SHADOWSPLITE > 0
+			#if SHADOWSPLITE > 1	
+				LightSpacePos[1].x = dot(U_LightVPMatrix1[0], wpos);
+				LightSpacePos[1].y = dot(U_LightVPMatrix1[1], wpos);
+				LightSpacePos[1].z = dot(U_LightVPMatrix1[2], wpos);
+				LightSpacePos[1].w = dot(U_LightVPMatrix1[3], wpos);
+				LightSpacePos[1] = LightSpacePos[1] / LightSpacePos[1].w;
+				LightSpacePos[1].xyz = LightSpacePos[1].xyz * 0.5 + 0.5;
+			#endif // SHADOWSPLITE > 1
+			#if SHADOWSPLITE > 2	
+				LightSpacePos[2].x = dot(U_LightVPMatrix2[0], wpos);
+				LightSpacePos[2].y = dot(U_LightVPMatrix2[1], wpos);
+				LightSpacePos[2].z = dot(U_LightVPMatrix2[2], wpos);
+				LightSpacePos[2].w = dot(U_LightVPMatrix2[3], wpos);
+				LightSpacePos[2] = LightSpacePos[2] / LightSpacePos[2].w;
+				LightSpacePos[2].xyz = LightSpacePos[2].xyz * 0.5 + 0.5;
+			#endif // SHADOWSPLITE > 2			
+			ViewSpaceZ = dot(U_MainCamViewMatrix, wpos);
+        #endif // USESHADOWMAP
+
+        computeTangentSpaceVectors(
+        WorldN, 
+        Tangent1.xyz, 
+        BTangent1.xyz,
+        Tangent2.xyz,
+        BTangent2.xyz);
+
+        Blend = TEXCOORD1.xyz;
+        Index = TEXCOORD0;
+        LocalP = POSITION0;
+        LocalN = NORMAL0;
+        #ifdef VOXELKARST
+            VertexColor = vec4(GetGISColor(Index.y), 1.0);
+        #endif // VOXELKARST
+        gl_Position = PosInClip;
+    #endif // !SHADOWPASS
+}

@@ -1,0 +1,23 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source"
+		},
+		{
+			"path": "G:/Echo_SU_Develop/Shader/d3d11"
+		},
+		{
+			"path": "G:/Echo_SU_Develop/Shader/gles2"
+		},
+		{
+			"path": "G:/Echo_SU_Develop/Shader/vulkan"
+		},
+		{
+			"path": "G:/Echo_SU_Develop/EchoEngine/Code/Core/Include"
+		}
+	],
+	"settings": {}
+}

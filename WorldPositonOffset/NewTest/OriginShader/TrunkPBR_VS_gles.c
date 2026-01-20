@@ -1,0 +1,345 @@
+
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+#ifdef USEINSTANCE
+    #ifndef SKINNEDINSTANCE
+        #undef HWSKINNED
+    #endif
+#endif
+
+#ifdef USEINSTANCE
+	#ifdef SKINNEDINSTANCE
+       	uniform sampler2D S_2DExt0;
+		uniform vec4 	U_VSCustom0[InstanceCount * UniformCount];
+		uniform ivec4 	U_VSCustom1[(InstanceCount+3) >> 2];// animationData [cpu data type is uint32 , need recalculate index ]
+	#else 
+	    uniform vec4 	U_VSCustom0[InstanceCount * UniformCount];
+	#endif
+#else
+	uniform vec4	U_WorldViewProjectMatrix[4];
+	uniform vec4	U_WorldMatrix[3];
+	uniform vec4	U_InvTransposeWorldMatrix[3];
+	uniform vec4	U_WindParamsObjSpace;
+	uniform vec4  	U_ObjectMirrored;
+#endif
+
+
+#ifdef HWSKINNED
+	#ifndef SKINNEDINSTANCE
+		uniform vec4	U_BoneMatrix[3 * Bone_Matrix_Max_Cnt];
+    #endif
+#endif
+
+uniform vec4	U_VSGeneralRegister0;	// x: sway start height
+uniform vec4	U_VSGeneralRegister1;	// x: sway amplitude, y: sway frequency
+
+#ifdef SoftNoColor
+	uniform	vec4  U_InvWorldMatrix[3];
+	uniform	vec4  U_WorldScale;
+#endif
+#ifdef SOFTBOARD
+	uniform	vec4  U_WorldScale;
+#endif
+uniform vec4 	U_VSGeneralRegister7; 	//x ---boundingbox min.y (current entity box) local box
+										//y ---boundingbox max.y (current entity box)
+										//z ---boundingbox min.y (parent entity box)
+										//w ---boundingbox max.y (parent entity box)
+// 输入一个线性的波, 生成三角波, 范围在0~1
+vec4 TriangleWave(vec4 x)
+{
+	return abs(fract(x) * 2.0 - 1.0);
+}
+
+// 对一个三角波进行平滑, 近似为正弦波
+vec4 SmoothCurve(vec4 x)
+{
+	return x * x * (3.0 - 2.0 * x);
+}
+
+vec4 SmoothTriangleWave(vec4 x)
+{
+	return SmoothCurve(TriangleWave(x));
+}
+
+void _TrunkBending(inout vec3 vPos, in float fSwayStartHeight, in float fTime, in float fPhase, in vec4 vWindParams, in float fAmp, in float fFreq)
+{
+	float fBendScale = max(vPos.y - fSwayStartHeight, 0.f);
+	fBendScale = fBendScale * fBendScale * 0.001;
+	float fLength = length(vPos);
+	vec3 vNewPos = vPos;
+	float vWave = SmoothTriangleWave(vec4(fFreq * (fTime + fPhase), 0.0, 0.0, 0.0)).x;
+	vWave = vWave * 2.0 - 1.0;
+	vNewPos.xz += vWave * vWindParams.xz * vWindParams.w * fBendScale * fAmp;
+	vPos = normalize(vNewPos) * fLength;
+}
+
+in vec4 POSITION0;
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		in vec2 TEXCOORD0;
+	#endif
+#else
+	in vec4 NORMAL0;
+	in vec4 TEXCOORD0;
+	in vec4 TANGENT0;
+	#ifdef VERTEX_COLOR
+		in vec4	COLOR0;
+	#endif
+#endif
+
+#ifdef HWSKINNED
+	in vec4	BLENDWEIGHT0;
+	in vec4 BLENDINDICES0;
+#endif
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		out vec4	o_UV;
+	#endif
+#else
+	out vec4 	o_UV;
+	out vec4 	o_Fog;
+	out vec3 	o_WNormal;
+	out vec3 	o_Tangent;
+	out vec3 	o_Binormal;
+	out vec3	o_WPos;
+	out vec3	o_PosInModel;
+	out vec4    o_BoundBoxRange;
+	#ifdef USESHADOWMAP
+	#include <Common_ShadowProjection_VS.inl>
+		out vec4    	o_LightSpacePos[SHADOWSPLITE];
+		out float		o_ViewSpaceZ;
+	#endif
+	
+	#ifdef VERTEX_COLOR
+		out vec4 o_Diffuse;
+	#endif
+	
+	#ifdef SOFTBOARD
+	    out vec4    o_ClipPos;
+    #endif
+#endif
+#ifdef PARABOLOID_MAPPING
+	out float o_ClipDepth;
+#endif
+
+#ifdef SKINNEDINSTANCE
+	mat3x4 loadBoneMatrix (int animationData , int index)
+	{
+		mat3x4 rvt;
+		rvt[0] = texelFetch(S_2DExt0,ivec2(index*3 + 0, animationData),0 );
+		rvt[1] = texelFetch(S_2DExt0,ivec2(index*3 + 1, animationData),0 );
+		rvt[2] = texelFetch(S_2DExt0,ivec2(index*3 + 2, animationData),0 );
+		return rvt;
+	}
+#endif
+
+void main()
+{
+	vec4 vObjPos =  vec4(POSITION0.xyz, 1.0f);
+	#ifndef SHADOWPASS
+		o_PosInModel = vObjPos.xyz;
+	#endif
+	float fHandedness = 1.0;
+	vec4 o_PosInClip;
+	
+#ifdef HWSKINNED
+	vec4	Weight		= BLENDWEIGHT0;
+	ivec4   Index		= ivec4(BLENDINDICES0.xyzw);
+	vec4 BoneMatC0	= vec4( 0.0 , 0.0 , 0.0 , 0.0 );
+	vec4 BoneMatC1	= vec4( 0.0 , 0.0 , 0.0 , 0.0 );
+	vec4 BoneMatC2	= vec4( 0.0 , 0.0 , 0.0 , 0.0 );
+	
+	#ifdef SKINNEDINSTANCE
+		// recalculate index
+		ivec4 animationData4 = U_VSCustom1[gl_InstanceID >> 2];
+		int   animationData  = animationData4[gl_InstanceID & 3];
+		for (int i = 0 ; i < 4 ; ++ i)
+		{
+			mat3x4 res=loadBoneMatrix(animationData,Index[i]);
+			BoneMatC0 += Weight[i] * res[0];
+			BoneMatC1 += Weight[i] * res[1];
+			BoneMatC2 += Weight[i] * res[2];
+		}
+	#else
+		for(int i=0;i<4;++i)
+		{
+			int idx = int(Index[i]);
+
+			BoneMatC0	+=	U_BoneMatrix[idx*3+0]*Weight[i];
+			BoneMatC1	+=	U_BoneMatrix[idx*3+1]*Weight[i];
+			BoneMatC2	+=	U_BoneMatrix[idx*3+2]*Weight[i];
+		}
+	#endif
+	vObjPos.xyz = vec3(dot(BoneMatC0, vObjPos), dot(BoneMatC1, vObjPos), dot(BoneMatC2, vObjPos));
+#endif
+
+	mat3x4 matWorld;
+	mat4 matInvTransposeWorld;
+	mat4 matWVP;
+	vec4 vWindParamsObjSpace = vec4(1.f, 0.f, 0.f, 1.f);
+
+#ifdef USEINSTANCE
+	int idxInst = gl_InstanceID * UniformCount;
+	
+	vec4 vPosition =    U_VSCustom0[idxInst + 0];
+	vec4 vScale =       U_VSCustom0[idxInst + 1];
+	vec4 vOrientation = U_VSCustom0[idxInst + 2];
+
+
+	#ifdef SKINNEDINSTANCE
+		vec3 vMVPosition = vPosition.xyz;
+		vPosition.x += U_VS_CameraPosition.x;
+		vPosition.y += U_VS_CameraPosition.y;
+		vPosition.z += U_VS_CameraPosition.z;
+
+		mat4 _matWorld = MakeTransform( vMVPosition.xyz, vScale.xyz, vOrientation);
+		matWorld[0] = _matWorld[0];
+		matWorld[1] = _matWorld[1];
+		matWorld[2] = _matWorld[2];
+		// translate to world space
+		matWorld[0][3] += U_VS_CameraPosition.x;
+		matWorld[1][3] += U_VS_CameraPosition.y;
+		matWorld[2][3] += U_VS_CameraPosition.z;
+	#else
+		//vec3 vMVPosition = vPosition.xyz;
+		//vMVPosition.x -= U_VS_CameraPosition.x;
+		//vMVPosition.y -= U_VS_CameraPosition.y;
+		//vMVPosition.z -= U_VS_CameraPosition.z;
+
+		mat4 _matWorld = MakeTransform( vPosition.xyz, vScale.xyz, vOrientation);
+		matWorld[0] = _matWorld[0];
+		matWorld[1] = _matWorld[1];
+		matWorld[2] = _matWorld[2];
+		// translate to camera space
+		_matWorld[0][3] -= U_VS_CameraPosition.x;
+		_matWorld[1][3] -= U_VS_CameraPosition.y;
+		_matWorld[2][3] -= U_VS_CameraPosition.z;
+	#endif
+
+	matInvTransposeWorld = MakeInverseTransform(vPosition.xyz, vScale.xyz, vOrientation);
+	matInvTransposeWorld = transpose(matInvTransposeWorld);
+
+	matWVP[0] = U_ZeroViewProjectMatrix[0];
+	matWVP[1] = U_ZeroViewProjectMatrix[1];
+	matWVP[2] = U_ZeroViewProjectMatrix[2];
+	matWVP[3] = U_ZeroViewProjectMatrix[3];
+	matWVP = _matWorld * matWVP;
+
+	// transform wind parameters from world space to object space
+	mat4 matRotation = transpose(MakeRotation(vOrientation));
+	vWindParamsObjSpace = U_WindParams * matRotation;
+
+	fHandedness = determinant(mat3(matWorld[0].xyz, matWorld[1].xyz, matWorld[2].xyz));
+	fHandedness = fHandedness >= 0.0 ? 1.0 : -1.0;
+#else
+	matWorld[0] = U_WorldMatrix[0];
+	matWorld[1] = U_WorldMatrix[1];
+	matWorld[2] = U_WorldMatrix[2];
+
+	matInvTransposeWorld[0] = U_InvTransposeWorldMatrix[0];
+	matInvTransposeWorld[1] = U_InvTransposeWorldMatrix[1];
+	matInvTransposeWorld[2] = U_InvTransposeWorldMatrix[2];
+
+	matWVP[0] = U_WorldViewProjectMatrix[0];
+	matWVP[1] = U_WorldViewProjectMatrix[1];
+	matWVP[2] = U_WorldViewProjectMatrix[2];
+	matWVP[3] = U_WorldViewProjectMatrix[3];
+
+	vWindParamsObjSpace = U_WindParamsObjSpace;
+
+	fHandedness = U_ObjectMirrored.w;
+#endif
+	
+	float fBendPhase = matWorld[0][3] + matWorld[1][3] + matWorld[2][3];
+	_TrunkBending(vObjPos.xyz, U_VSGeneralRegister0.x, U_VS_Time.x, fBendPhase,
+			vWindParamsObjSpace, U_VSGeneralRegister1.x, U_VSGeneralRegister1.y);
+
+	o_PosInClip = vObjPos * matWVP;
+#ifdef PARABOLOID_MAPPING
+	o_ClipDepth = o_PosInClip.z;
+	ParaboloidMapping(o_PosInClip, U_ShadowLightDepthMulAdd.x, U_ShadowLightDepthMulAdd.z, U_ShadowLightDepthMulAdd.w);
+#endif
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		vec2 i_UV = TEXCOORD0.xy;
+		o_UV.xy = i_UV;
+	#endif
+	#ifndef PARABOLOID_MAPPING
+		o_PosInClip.z = ClampToNearPlane(o_PosInClip.z);
+	#endif
+#else
+	vec4 i_UV		= TEXCOORD0;		
+	
+	o_WPos.xyz = vObjPos * matWorld;
+	
+	#ifdef SOFTBOARD
+		o_ClipPos = o_PosInClip;
+		o_UV.z = U_WorldScale.x;
+	#endif
+	
+	vec4  i_Normal =  vec4(NORMAL0.xyz, 0.0f);
+	vec4  i_Tangent = vec4(TANGENT0.xyz, 0.0f);
+	
+	#ifdef HWSKINNED
+		i_Normal = vec4(dot(BoneMatC0, i_Normal), dot(BoneMatC1, i_Normal), dot(BoneMatC2, i_Normal), 0.0f);
+		i_Tangent = vec4(dot(BoneMatC0, i_Tangent), dot(BoneMatC1, i_Tangent), dot(BoneMatC2, i_Tangent), 0.0f);
+	#endif
+
+	o_WNormal.x = dot(i_Normal.xyz, matInvTransposeWorld[0].xyz);
+	o_WNormal.y = dot(i_Normal.xyz, matInvTransposeWorld[1].xyz);
+	o_WNormal.z = dot(i_Normal.xyz, matInvTransposeWorld[2].xyz);
+	o_WNormal = normalize(o_WNormal);
+
+	o_Tangent.xyz = normalize(i_Tangent * matWorld);
+	o_Binormal.xyz = cross(o_Tangent.xyz, o_WNormal.xyz) * TANGENT0.w;
+	o_Binormal.xyz *= fHandedness;	
+
+	o_UV.xy = i_UV.xy;
+		
+	vec3 camToWorld =  U_VS_CameraPosition.xyz - o_WPos.xyz;
+	#ifdef SoftNoColor
+		vec3 camtoposi = normalize(o_WPos.xyz - U_VS_CameraPosition.xyz);
+		vec3 viewDir = normalize(U_ViewDirection.xyz);
+		float temp = dot(camtoposi, viewDir);
+		temp = max(temp, 0.000001);
+		o_WPos.xyz += camtoposi * U_WorldScale.x/ temp;
+		
+		vec4 tempLocalPosi = vec4(o_WPos, 1.f);
+		tempLocalPosi.x = dot(U_InvWorldMatrix[0], vec4(o_WPos, 1.f));
+		tempLocalPosi.y = dot(U_InvWorldMatrix[1], vec4(o_WPos, 1.f));
+		tempLocalPosi.z = dot(U_InvWorldMatrix[2], vec4(o_WPos, 1.f));
+		
+		o_PosInClip.x = dot(U_WorldViewProjectMatrix[0], tempLocalPosi);
+		o_PosInClip.y = dot(U_WorldViewProjectMatrix[1], tempLocalPosi);
+		o_PosInClip.z = dot(U_WorldViewProjectMatrix[2], tempLocalPosi);
+		o_PosInClip.w = dot(U_WorldViewProjectMatrix[3], tempLocalPosi);
+	#endif
+	
+	#ifdef VERTEX_COLOR
+		o_Diffuse = COLOR0;
+	#endif
+
+	vec3 camToWorldTemp = camToWorld;	
+	camToWorld.x = dot(U_VS_GravityRotationMatrix[0].xyz, camToWorldTemp);
+	camToWorld.y = dot(U_VS_GravityRotationMatrix[1].xyz, camToWorldTemp);
+	camToWorld.z = dot(U_VS_GravityRotationMatrix[2].xyz, camToWorldTemp);
+				
+	o_Fog = ComputeFogColor(camToWorld,U_FogParam.xy,U_FogParam.zw,U_FogRampParam,U_FogColorNear,U_FogColorFar);
+	
+	#ifdef USESHADOWMAP
+		ProjectToLightSpace(o_LightSpacePos, o_WPos, o_WNormal);
+		o_ViewSpaceZ = dot(U_MainCamViewMatrix, vec4(o_WPos, 1.f));
+	#endif
+#endif
+#ifndef SHADOWPASS
+	o_BoundBoxRange.x = U_VSGeneralRegister7.x;//dot(matWorld[1], vec4(0.0f, U_VSGeneralRegister7.x, 0.0f, 1.0f));
+	o_BoundBoxRange.y = U_VSGeneralRegister7.y;//dot(matWorld[1], vec4(0.0f, U_VSGeneralRegister7.y, 0.0f, 1.0f));
+	o_BoundBoxRange.z = U_VSGeneralRegister7.z;
+	o_BoundBoxRange.w = U_VSGeneralRegister7.w;
+#endif
+	gl_Position = o_PosInClip;
+}
+

@@ -1,0 +1,144 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+#include <TriPlanarMapping_Function_VS.inl>
+
+layout(binding = 2) uniform UniformBlock_Private_VS
+{
+    vec4 U_WorldRotationMatrix[3];
+    vec4 U_WorldViewProjectMatrix[4];
+    vec4 U_WorldMatrix[3];
+    vec4 U_InvTransposeWorldMatrix[3];
+    #ifdef USESHADOWMAP
+	vec4	U_WorldMatrixBaseView[4];
+	#endif
+
+};
+
+
+layout(location = 0) in vec3 POSITION0;
+
+#ifndef SHADOWPASS
+    layout(location = 1) in vec3 NORMAL0;
+    layout(location = 2) in uvec2 TEXCOORD0; // Index
+    layout(location = 3) in vec3 TEXCOORD1; // blend
+#endif
+
+
+layout(location = 0) out vec4 PosInClip;
+
+#ifdef PARABOLOID_MAPPING
+    layout(location = 1) out vec3 ClipDepth;
+#endif
+
+#ifndef SHADOWPASS
+// triplanar mapping needs
+    layout(location = 2) out vec3 LocalP;
+    layout(location = 3) out vec3 LocalN;
+    layout(location = 4) out vec3 WorldP;
+    layout(location = 5) out vec3 WorldN;
+
+    layout(location = 6) out vec3 Tangent1;
+    layout(location = 7) out vec3 BTangent1;
+    layout(location = 8) out vec3 Tangent2;
+    layout(location = 9) out vec3 BTangent2;
+
+    layout(location = 10) out flat uvec2 Index;
+    layout(location = 11) out vec3 Blend;
+
+    #ifdef USESHADOWMAP
+        layout(location = 12) out float ViewSpaceZ;
+        layout(location = 13) out vec4 LightSpacePos[SHADOWSPLITE];
+    #endif
+#endif
+
+void main()
+{
+    vec4 pos = vec4(POSITION0.xyz, 1.0f);
+    
+    PosInClip.x = dot(U_WorldViewProjectMatrix[0], pos);
+    PosInClip.y = dot(U_WorldViewProjectMatrix[1], pos);
+    PosInClip.z = dot(U_WorldViewProjectMatrix[2], pos);
+    PosInClip.w = dot(U_WorldViewProjectMatrix[3], pos);
+
+    #ifdef PARABOLOID_MAPPING
+        ClipDepth = vec3(PosInClip.z);
+        ParaboloidMapping(PosInClip, U_ShadowLightDepthMulAdd.x, U_ShadowLightDepthMulAdd.z, U_ShadowLightDepthMulAdd.w);
+    #endif      
+
+    #ifdef SHADOWPASS
+        #ifndef PARAMBOLOID_MAPPING
+            PosInClip.z = ClampToNearPlane(PosInClip.z);
+        #endif
+    #else
+        WorldP.x = dot(U_WorldMatrix[0], pos);
+        WorldP.y = dot(U_WorldMatrix[1], pos);
+        WorldP.z = dot(U_WorldMatrix[2], pos);
+
+        vec4 n = vec4(normalize(NORMAL0), 0.f);
+        WorldN.x = dot(U_WorldRotationMatrix[0], n);
+        WorldN.y = dot(U_WorldRotationMatrix[1], n);
+        WorldN.z = dot(U_WorldRotationMatrix[2], n);    
+        #ifdef USESHADOWMAP
+<<<<<<< .mine
+
+        vec4 wposView = vec4(0.0, 0.0, 0.0, 1.0);
+        wposView.x = dot(U_WorldMatrixBaseView[0], pos);
+	    wposView.y = dot(U_WorldMatrixBaseView[1], pos);
+	    wposView.z = dot(U_WorldMatrixBaseView[2], pos);
+	    wposView.w = 1.0;
+        
+        float NdotL = max(0.0, dot(WorldN, -U_VS_MainLightDirection.xyz));
+		float bias = (1.0 - pow(NdotL, 5.0)) * 0.008;
+		vec4 biasedPos = wposView;
+		biasedPos.xyz += WorldN * bias;
+
+        #if SHADOWSPLITE > 0
+		LightSpacePos[0].x = dot(U_LightVPMatrixView0[0], biasedPos);
+		LightSpacePos[0].y = dot(U_LightVPMatrixView0[1], biasedPos);
+		LightSpacePos[0].z = dot(U_LightVPMatrixView0[2], biasedPos);
+		LightSpacePos[0].xy = LightSpacePos[0].xy * 0.5 + 0.5;
+		#endif
+		#if SHADOWSPLITE > 1
+		LightSpacePos[1].x = dot(U_LightVPMatrixView1[0], biasedPos);
+		LightSpacePos[1].y = dot(U_LightVPMatrixView1[1], biasedPos);
+		LightSpacePos[1].z = dot(U_LightVPMatrixView1[2], biasedPos);
+		LightSpacePos[1].xy = LightSpacePos[1].xy * 0.5 + 0.5;
+		#endif
+		#if SHADOWSPLITE > 2
+		LightSpacePos[2].x = dot(U_LightVPMatrixView2[0], biasedPos);
+		LightSpacePos[2].y = dot(U_LightVPMatrixView2[1], biasedPos);
+		LightSpacePos[2].z = dot(U_LightVPMatrixView2[2], biasedPos);
+		LightSpacePos[2].xy = LightSpacePos[2].xy * 0.5 + 0.5;
+		#endif
+		#if SHADOWSPLITE > 3
+		LightSpacePos[3].x = dot(U_LightVPMatrixView3[0], biasedPos);
+		LightSpacePos[3].y = dot(U_LightVPMatrixView3[1], biasedPos);
+		LightSpacePos[3].z = dot(U_LightVPMatrixView3[2], biasedPos);
+		LightSpacePos[3].xy = LightSpacePos[3].xy * 0.5 + 0.5;
+		#endif
+		
+		
+		ViewSpaceZ = dot(U_ViewMatrix[2].xyz, biasedPos.xyz);
+||||||| .r17641
+            ProjectToLightSpace(LightSpacePos, WorldP, WorldN);
+			ViewSpaceZ = dot(U_MainCamViewMatrix, vec4(WorldP, 1.0));
+=======
+            ProjectToLightSpace(LightSpacePos, WorldP, WorldN);
+			ViewSpaceZ = -dot(U_MainCamViewMatrix, vec4(WorldP, 1.0));
+>>>>>>> .r17690
+        #endif // USESHADOWMAP
+
+        computeTangentSpaceVectors(
+        WorldN, 
+        Tangent1.xyz, 
+        BTangent1.xyz,
+        Tangent2.xyz,
+        BTangent2.xyz);
+
+        Blend = TEXCOORD1.xyz;
+        Index = TEXCOORD0;
+        LocalP = POSITION0;
+        LocalN = NORMAL0;
+        gl_Position = PosInClip;
+    #endif // !SHADOWPASS
+}
