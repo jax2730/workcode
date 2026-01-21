@@ -1,0 +1,30 @@
+---
+description: 通用项目规则 - 语言和代码风格
+globs: 
+alwaysApply: true
+---
+
+# 通用规则
+
+## 语言设置
+- 始终使用简体中文回复
+- 代码注释使用中文
+- 技术术语可保留英文原文
+
+## 代码风格
+- 遵循项目现有的代码风格和约定
+- Python 代码遵循 PEP 8 规范
+- 使用类型注解提高代码可读性
+
+## 项目结构
+本项目包含以下主要模块：
+- `docs/` - LLM 和智能体相关文档
+- `skills/` - OpenSkills 技能集合（上下文工程专题）
+- `OllamaSpace/` - Ollama 和 LangChain 实验代码
+- `EchoComponent/` - C++ 组件
+- `X-XanaduWorld/` - Unreal Engine 项目
+
+## 工作流程
+1. 理解用户需求后，检查是否有相关 skill 可以辅助
+2. 复杂任务使用 todo 列表跟踪进度
+3. 代码修改前先阅读相关文件了解上下文

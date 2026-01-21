@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Ensure that the OPENAI_API_KEY environment variable is set
+if [ -z "$OPENAI_API_KEY" ]; then
+  echo "Error: OPENAI_API_KEY is not set."
+  exit 1
+fi
+
+# Make a request to the OpenAI API using curl
+curl https://api.openai.com/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -d '{
+     "model": "gpt-4o-mini",
+     "messages": [{"role": "user", "content": "Say this is a test!"}],
+     "temperature": 0.7
+   }'

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 玩家消息气泡 - 右对齐 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="right"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:maxWidth="320dp">
+
+        <!-- 玩家名称 -->
+        <TextView
+            android:id="@+id/player_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="right"
+            android:text="杨三儿"
+            android:textColor="#90EE90"
+            android:textSize="12sp"
+            android:paddingRight="8dp"
+            android:paddingBottom="2dp" />
+
+        <!-- 消息气泡 -->
+        <TextView
+            android:id="@+id/player_message"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bubble_player"
+            android:text="我有龙阳之好"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:padding="12dp"
+            android:lineSpacingExtra="2dp" />
+    </LinearLayout>
+</LinearLayout>

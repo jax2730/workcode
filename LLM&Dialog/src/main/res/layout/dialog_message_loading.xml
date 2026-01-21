@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- NPC 加载中消息布局 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="left"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:maxWidth="320dp">
+
+        <!-- 加载动画气泡 -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bubble_npc"
+            android:padding="12dp"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <!-- 三个点的加载动画 -->
+            <TextView
+                android:id="@+id/loading_dot1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="●"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:layout_marginRight="4dp"
+                android:alpha="0.3" />
+
+            <TextView
+                android:id="@+id/loading_dot2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="●"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:layout_marginRight="4dp"
+                android:alpha="0.3" />
+
+            <TextView
+                android:id="@+id/loading_dot3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="●"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:alpha="0.3" />
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>

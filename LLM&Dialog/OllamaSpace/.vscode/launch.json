@@ -1,0 +1,12 @@
+{
+    "configurations": [
+        {
+            "name": "Python Debugger: Python File",
+            "type": "debugpy",
+            "request": "launch",
+            // "program": "${file}",
+            "program": "${workspaceFolder}/SceneGenerator/main.py",
+            "args": ["./data/default.biomelibrary","./data/xingqiushili"]
+        }
+    ]
+}

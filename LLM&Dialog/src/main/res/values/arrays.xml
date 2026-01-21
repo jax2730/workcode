@@ -1,0 +1,414 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="countries">
+        <item>中国</item>
+        <item>美国</item>
+        <item>德国</item>
+        <item>日本</item>
+        <item>韩国</item>
+    </string-array>
+
+    <string-array name="china_provinces">
+        <item>浙江省</item>
+        <item>天津市</item>
+        <item>四川省</item>
+        <item>重庆市</item>
+        <item>上海市</item>
+        <item>山东省</item>
+        <item>江苏省</item>
+        <item>江西省</item>
+        <item>湖南省</item>
+        <item>湖北省</item>
+        <item>河南省</item>
+        <item>河北省</item>
+        <item>广东省</item>
+        <item>福建省</item>
+        <item>北京市</item>
+        <item>安徽省</item>
+    </string-array>
+
+    <string-array name="usa_states">
+        <item>阿拉巴马州</item>
+        <item>阿肯色州</item>
+        <item>加利福尼亚州</item>
+        <item>特拉华州</item>
+        <item>佛罗里达州</item>
+        <item>佐治亚州</item>
+        <item>肯塔基州</item>
+        <item>路易斯安那州</item>
+        <item>马里兰州</item>
+        <item>密西西比州</item>
+        <item>新泽西州</item>
+        <item>北卡罗来纳州</item>
+        <item>俄勒冈州</item>
+        <item>宾夕法尼亚州</item>
+        <item>南卡罗来纳州</item>
+        <item>田纳西州</item>
+        <item>纽约州</item>
+        <item>德克萨斯州</item>
+        <item>弗吉尼亚州</item>
+        <item>华盛顿州</item>
+        <item>西弗吉尼亚州</item>
+    </string-array>
+
+    <!-- USA counties per state (3 each) -->
+    <string-array name="usa_arkansas_counties">
+        <item>普拉斯基县</item>
+        <item>华盛顿县</item>
+        <item>本顿县</item>
+    </string-array>
+    <string-array name="usa_california_counties">
+        <item>洛杉矶县</item>
+        <item>圣迭戈县</item>
+        <item>橙县</item>
+    </string-array>
+    <string-array name="usa_delaware_counties">
+        <item>新城堡县</item>
+        <item>肯特县</item>
+        <item>萨塞克斯县</item>
+    </string-array>
+    <string-array name="usa_florida_counties">
+        <item>迈阿密-戴德县</item>
+        <item>布劳沃德县</item>
+        <item>棕榈滩县</item>
+    </string-array>
+    <string-array name="usa_georgia_counties">
+        <item>富尔顿县</item>
+        <item>迪卡尔布县</item>
+        <item>科布县</item>
+    </string-array>
+    <string-array name="usa_kentucky_counties">
+        <item>杰斐逊县</item>
+        <item>费耶特县</item>
+        <item>肯顿县</item>
+    </string-array>
+    <string-array name="usa_louisiana_counties">
+        <item>东巴吞鲁日县</item>
+        <item>奥尔良县</item>
+        <item>杰斐逊县</item>
+    </string-array>
+    <string-array name="usa_maryland_counties">
+        <item>蒙哥马利县</item>
+        <item>普林斯乔治县</item>
+        <item>巴尔的摩县</item>
+    </string-array>
+    <string-array name="usa_mississippi_counties">
+        <item>海因兹县</item>
+        <item>哈里森县</item>
+        <item>麦迪逊县</item>
+    </string-array>
+    <string-array name="usa_new_jersey_counties">
+        <item>伯根县</item>
+        <item>米德尔塞克斯县</item>
+        <item>埃塞克斯县</item>
+    </string-array>
+    <string-array name="usa_north_carolina_counties">
+        <item>梅克伦堡县</item>
+        <item>韦克县</item>
+        <item>吉尔福德县</item>
+    </string-array>
+    <string-array name="usa_oregon_counties">
+        <item>穆尔特诺玛县</item>
+        <item>华盛顿县</item>
+        <item>克拉克默斯县</item>
+    </string-array>
+    <string-array name="usa_pennsylvania_counties">
+        <item>费城县</item>
+        <item>阿勒格尼县</item>
+        <item>蒙哥马利县</item>
+    </string-array>
+    <string-array name="usa_south_carolina_counties">
+        <item>查尔斯顿县</item>
+        <item>格林维尔县</item>
+        <item>里奇兰县</item>
+    </string-array>
+    <string-array name="usa_tennessee_counties">
+        <item>谢尔比县</item>
+        <item>戴维森县</item>
+        <item>诺克斯县</item>
+    </string-array>
+    <string-array name="usa_new_york_counties">
+        <item>纽约县</item>
+        <item>金斯县</item>
+        <item>皇后县</item>
+    </string-array>
+    <string-array name="usa_texas_counties">
+        <item>哈里斯县</item>
+        <item>达拉斯县</item>
+        <item>贝克萨尔县</item>
+    </string-array>
+    <string-array name="usa_virginia_counties">
+        <item>费尔法克斯县</item>
+        <item>威廉王子县</item>
+        <item>弗吉尼亚海滩市</item>
+    </string-array>
+    <string-array name="usa_washington_counties">
+        <item>金县</item>
+        <item>皮尔斯县</item>
+        <item>斯诺霍米什县</item>
+    </string-array>
+    <string-array name="usa_west_virginia_counties">
+        <item>卡诺瓦县</item>
+        <item>莫农加利亚县</item>
+        <item>伯克利县</item>
+    </string-array>
+
+    <string-array name="deu_states">
+        <item>巴登-符腾堡州</item>
+        <item>巴伐利亚州</item>
+        <item>柏林州</item>
+        <item>黑森州</item>
+    </string-array>
+
+    <string-array name="deu_berlin_counties">
+        <item>米特区</item>
+        <item>夏洛滕堡-威尔默斯多夫区</item>
+        <item>潘科夫区</item>
+    </string-array>
+
+    <string-array name="jpn_prefectures">
+        <item>爱知县</item>
+    </string-array>
+
+    <string-array name="kor_regions">
+        <item>釜山广域市</item>
+    </string-array>
+
+    <!-- Counties / cities per selected state -->
+    <string-array name="usa_alabama_counties">
+        <item>杰斐逊县</item>
+        <item>鲍德温县</item>
+        <item>奥陶加县</item>
+    </string-array>
+
+    <string-array name="deu_baden_wuerttemberg_counties">
+        <item>斯图加特行政区</item>
+        <item>卡尔斯鲁厄行政区</item>
+        <item>弗赖堡行政区</item>
+    </string-array>
+
+    <string-array name="deu_bavaria_counties">
+        <item>上巴伐利亚行政区</item>
+        <item>中弗兰肯行政区</item>
+        <item>施瓦本行政区</item>
+    </string-array>
+
+    <string-array name="deu_hesse_counties">
+        <item>达姆施塔特行政区</item>
+        <item>吉森行政区</item>
+        <item>卡塞尔行政区</item>
+    </string-array>
+
+    <string-array name="jpn_aichi_cities">
+        <item>名古屋市</item>
+        <item>刈谷市</item>
+        <item>蒲郡市</item>
+    </string-array>
+
+    <string-array name="kor_busan_districts">
+        <item>海云台区</item>
+        <item>釜山镇区</item>
+        <item>影岛区</item>
+    </string-array>
+    <string-array name="positions">
+        <item>前往城市</item>
+        <item>浙江省</item>
+        <item>天津市</item>
+        <item>四川省</item>
+        <item>重庆市</item>
+        <item>上海市</item>
+        <item>山东省</item>
+        <item>江苏省</item>
+        <item>江西省</item>
+        <item>湖南省</item>
+        <item>湖北省</item>
+        <item>河南省</item>
+        <item>河北省</item>
+        <item>广东省</item>
+        <item>福建省</item>
+        <item>北京市</item>
+        <item>安徽省</item>
+
+        <!--America -->
+        <item>阿拉巴马州</item>
+        <item>阿肯色州</item>
+        <item>加利福尼亚州</item>
+        <item>特拉华州</item>
+        <item>佛罗里达州</item>
+        <item>佐治亚州</item>
+        <item>肯塔基州</item>
+        <item>路易斯安那州</item>
+        <item>马里兰州</item>
+        <item>密西西比州</item>
+        <item>新泽西州</item>
+        <item>北卡罗来纳州</item>
+        <item>俄勒冈州</item>
+        <item>宾夕法尼亚州</item>
+        <item>南卡罗来纳州</item>
+        <item>田纳西州</item>
+        <item>纽约州</item>
+        <item>德克萨斯州</item>
+        <item>弗吉尼亚州</item>
+        <item>华盛顿州</item>
+        <item>西弗吉尼亚州</item>
+        <!--Germany -->
+
+        <item>巴登-符腾堡州</item>
+        <item>巴伐利亚州</item>
+        <item>柏林州</item>
+        <item>黑森州</item>
+
+        <!--Japan -->
+        <item>爱知县</item>
+        <item>千叶县</item>
+        <item>福井县</item>
+        <item>福岛县</item>
+        <item>岐阜县</item>
+        <item>群马县</item>
+        <item>兵库县</item>
+        <item>茨城县</item>
+        <item>石川县</item>
+        <item>神奈川县</item>
+        <item>京都府</item>
+        <item>三重县</item>
+        <item>长野县</item>
+        <item>奈良县</item>
+        <item>新潟县</item>
+        <item>大阪府</item>
+        <item>埼玉县</item>
+        <item>滋贺县</item>
+        <item>静冈县</item>
+        <item>东京都</item>
+        <item>富山县</item>
+        <item>和歌山县</item>
+        <item>山梨县</item>
+
+        <item>釜山广域市</item>
+        <item>京畿道</item>
+        <item>仁川广域市</item>
+        <item>首尔特别市</item>
+
+    </string-array>
+    <string-array name="positions2">
+        <item>前往洞天</item>
+        <item>十大洞天-王屋山洞</item>
+        <item>十大洞天-委羽山洞</item>
+        <item>十大洞天-西城山洞</item>
+        <item>十大洞天-西玄山洞</item>
+        <item>十大洞天-青城山洞</item>
+        <item>十大洞天-赤城山洞</item>
+        <item>十大洞天-罗浮山洞</item>
+        <item>十大洞天-句曲山洞</item>
+        <item>十大洞天-林屋山洞</item>
+        <item>十大洞天-括苍山洞</item>
+        <item>三十六小洞天-霍桐山洞</item>
+        <item>三十六小洞天-东岳泰山洞</item>
+        <item>三十六小洞天-南岳衡山洞</item>
+        <item>三十六小洞天-西岳华山洞</item>
+        <item>三十六小洞天-北岳常山洞</item>
+        <item>三十六小洞天-中岳嵩山洞</item>
+        <item>三十六小洞天-峨眉山洞</item>
+        <item>三十六小洞天-庐山洞</item>
+        <item>三十六小洞天-四明山洞</item>
+        <item>三十六小洞天-会稽山洞</item>
+        <item>三十六小洞天-太白山洞</item>
+        <item>三十六小洞天-小沩山洞</item>
+        <item>三十六小洞天-鬼谷山洞</item>
+        <item>三十六小洞天-武夷山洞</item>
+        <item>三十六小洞天-玉笥山洞</item>
+        <item>三十六小洞天-华盖山洞</item>
+        <item>三十六小洞天-盖竹山洞</item>
+        <item>三十六小洞天-都峤山洞</item>
+        <item>三十六小洞天-白石山洞</item>
+        <item>三十六小洞天-岣漏山洞</item>
+        <item>三十六小洞天-九嶷山洞</item>
+        <item>三十六小洞天-洞阳山洞</item>
+        <item>三十六小洞天-幕阜山洞</item>
+        <item>三十六小洞天-大酉山洞</item>
+        <item>三十六小洞天-金庭山洞</item>
+        <item>三十六小洞天-麻姑山洞</item>
+        <item>三十六小洞天-仙都山洞</item>
+        <item>三十六小洞天-青田山洞</item>
+        <item>三十六小洞天-钟山洞</item>
+        <item>三十六小洞天-良常山洞</item>
+        <item>三十六小洞天-紫盖山洞</item>
+        <item>三十六小洞天-天目山洞</item>
+        <item>三十六小洞天-桃源山洞</item>
+        <item>三十六小洞天-金华山洞</item>
+    </string-array>
+    <string-array name="positions3">
+        <item>前往福地</item>
+        <item>七十二福地-地肺山</item>
+        <item>七十二福地-盖竹山</item>
+        <item>七十二福地-仙磕山</item>
+        <item>七十二福地-东仙源</item>
+        <item>七十二福地-西仙源</item>
+        <item>七十二福地-南田山</item>
+        <item>七十二福地-玉溜山</item>
+        <item>七十二福地-青屿山</item>
+        <item>七十二福地-郁木洞</item>
+        <item>七十二福地-丹霞山</item>
+        <item>七十二福地-君山</item>
+        <item>七十二福地-大若岩</item>
+        <item>七十二福地-焦源</item>
+        <item>七十二福地-灵墟</item>
+        <item>七十二福地-沃州</item>
+        <item>七十二福地-天姥岭</item>
+        <item>七十二福地-若耶溪</item>
+        <item>七十二福地-金庭山</item>
+        <item>七十二福地-清远山</item>
+        <item>七十二福地-安山</item>
+        <item>七十二福地-马岭山</item>
+        <item>七十二福地-鹅羊山</item>
+        <item>七十二福地-洞真墟</item>
+        <item>七十二福地-青玉坛</item>
+        <item>七十二福地-光天坛</item>
+        <item>七十二福地-洞灵源</item>
+        <item>七十二福地-洞宫山</item>
+        <item>七十二福地-陶山</item>
+        <item>七十二福地-皇井</item>
+        <item>七十二福地-烂柯山</item>
+        <item>七十二福地-勒溪</item>
+        <item>七十二福地-龙虎山</item>
+        <item>七十二福地-灵山</item>
+        <item>七十二福地-泉源</item>
+        <item>七十二福地-金精山</item>
+        <item>七十二福地-阁皂山</item>
+        <item>七十二福地-始丰山</item>
+        <item>七十二福地-逍遥山</item>
+        <item>七十二福地-东白源</item>
+        <item>七十二福地-钵池山</item>
+        <item>七十二福地-论山</item>
+        <item>七十二福地-毛公坛</item>
+        <item>七十二福地-鸡笼山</item>
+        <item>七十二福地-桐柏山</item>
+        <item>七十二福地-平都山</item>
+        <item>七十二福地-绿萝山</item>
+        <item>七十二福地-虎溪山</item>
+        <item>七十二福地-彰龙山</item>
+        <item>七十二福地-抱福山</item>
+        <item>七十二福地-大面山</item>
+        <item>七十二福地-元晨山</item>
+        <item>七十二福地-马蹄山</item>
+        <item>七十二福地-德山</item>
+        <item>七十二福地-高溪蓝水山</item>
+        <item>七十二福地-蓝水</item>
+        <item>七十二福地-玉峰</item>
+        <item>七十二福地-天柱山</item>
+        <item>七十二福地-商谷山</item>
+        <item>七十二福地-张公洞</item>
+        <item>七十二福地-司马梅山</item>
+        <item>七十二福地-长在山</item>
+        <item>七十二福地-中条山</item>
+        <item>七十二福地-茭湖鱼澄洞</item>
+        <item>七十二福地-绵竹山</item>
+        <item>七十二福地-泸水</item>
+        <item>七十二福地-甘山</item>
+        <item>七十二福地-汉山</item>
+        <item>七十二福地-金城山</item>
+        <item>七十二福地-云山</item>
+        <item>七十二福地-北邙山</item>
+        <item>七十二福地-卢山</item>
+        <item>七十二福地-东海山</item>
+    </string-array>
+</resources>

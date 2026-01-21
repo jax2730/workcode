@@ -1,0 +1,116 @@
+---
+description: OpenSkills 技能系统集成 - 提供专业能力和领域知识
+globs: 
+alwaysApply: true
+---
+
+# Skills System Integration
+
+<skills_system priority="1">
+
+## 技能使用方法
+
+当用户要求执行任务时，检查可用技能是否能帮助更有效地完成任务。
+
+### 调用方式
+```bash
+openskills read <skill-name>
+```
+
+技能内容将加载详细说明如何完成任务。
+
+### 使用注意事项
+- 仅使用已安装的技能
+- 不要调用已经加载到上下文中的技能
+- 每次技能调用都是无状态的
+
+---
+
+## 第一类：OpenSkills 安装的技能
+
+这些技能通过 `openskills read <name>` 调用：
+
+### 文档处理
+| 技能 | 描述 |
+|-----|------|
+| `docx` | Word 文档创建、编辑、批注、修订 |
+| `pdf` | PDF 提取、创建、合并、表单处理 |
+| `pptx` | PPT 演示文稿创建和编辑 |
+| `xlsx` | Excel 电子表格、公式、数据分析 |
+
+### 前端与设计
+| 技能 | 描述 |
+|-----|------|
+| `frontend-design` | 高质量前端界面设计，避免 AI 通用美学 |
+| `canvas-design` | 创建 PNG/PDF 视觉艺术作品 |
+| `web-artifacts-builder` | React/Tailwind/shadcn 复杂组件 |
+| `theme-factory` | 10种预设主题，可应用于各类制品 |
+| `brand-guidelines` | Anthropic 品牌色彩和排版 |
+
+### 开发工具
+| 技能 | 描述 |
+|-----|------|
+| `mcp-builder` | 创建 MCP 服务器（Python/Node） |
+| `webapp-testing` | Playwright Web 应用测试 |
+| `skill-creator` | 创建新技能的指南 |
+
+### 内容创作
+| 技能 | 描述 |
+|-----|------|
+| `doc-coauthoring` | 文档协作工作流 |
+| `internal-comms` | 内部沟通文档模板 |
+| `slack-gif-creator` | Slack 优化的 GIF 动画 |
+| `algorithmic-art` | p5.js 算法艺术（全局技能） |
+
+---
+
+## 第二类：Context Engineering 技能集
+
+这些技能位于 `skills/` 目录，可直接读取 `skills/<name>/SKILL.md`：
+
+### 上下文工程基础
+| 技能 | 路径 | 描述 |
+|-----|------|------|
+| 上下文基础 | `skills/context-fundamentals/SKILL.md` | 上下文窗口、注意力机制、渐进式披露 |
+| 上下文退化 | `skills/context-degradation/SKILL.md` | 理解性能下降原因和模式 |
+| 上下文压缩 | `skills/context-compression/SKILL.md` | 会话内存耗尽时的压缩策略 |
+| 上下文优化 | `skills/context-optimization/SKILL.md` | 压缩、掩码、缓存、分区技术 |
+
+### 智能体架构
+| 技能 | 路径 | 描述 |
+|-----|------|------|
+| 多智能体模式 | `skills/multi-agent-patterns/SKILL.md` | 监督者、群体、层级架构 |
+| 记忆系统 | `skills/memory-systems/SKILL.md` | 向量RAG、知识图谱、持久化 |
+| 文件系统上下文 | `skills/filesystem-context/SKILL.md` | 文件系统作为上下文存储 |
+| 托管智能体 | `skills/hosted-agents/SKILL.md` | 远程沙箱、会话持久化 |
+
+### 工具与评估
+| 技能 | 路径 | 描述 |
+|-----|------|------|
+| 工具设计 | `skills/tool-design/SKILL.md` | 有效的工具定义和接口 |
+| 评估框架 | `skills/evaluation/SKILL.md` | 智能体性能多维度评估 |
+| 高级评估 | `skills/advanced-evaluation/SKILL.md` | 偏差缓解、指标指南 |
+| 项目开发 | `skills/project-development/SKILL.md` | LLM项目开发方法论 |
+| BDI心智状态 | `skills/bdi-mental-states/SKILL.md` | 信念-愿望-意图本体论 |
+
+---
+
+## 使用示例
+
+### 示例1：创建 Word 文档
+```bash
+openskills read docx
+```
+
+### 示例2：设计多智能体系统
+直接读取：`skills/multi-agent-patterns/SKILL.md`
+
+### 示例3：优化上下文使用
+直接读取：`skills/context-optimization/SKILL.md`
+
+### 示例4：创建前端界面
+```bash
+openskills read frontend-design
+```
+
+</skills_system>

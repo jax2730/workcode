@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="joystick_background_width">100dp</dimen>
+    <dimen name="joystick_background_height">100dp</dimen>
+    <dimen name="joystick_background_marginLeft">10dp</dimen>
+    <dimen name="joystick_background_marginRight">10dp</dimen>
+	<dimen name="joystick_background_marginBottom">10dp</dimen>
+    <dimen name="joystick_button_width">32dp</dimen>
+    <dimen name="joystick_button_height">32dp</dimen>
+    <dimen name="joystick_button_margin">34dp</dimen>
+</resources>
