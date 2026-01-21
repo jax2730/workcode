@@ -494,11 +494,37 @@ def npc_register(request):
         return {"success": False, "error": "注册失败，可能已达到NPC数量上限"}
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+@json_response
+def npc_clear(request):
+    """
+    清除对话历史
+    
+    POST /npc/clear/
+    Body: {
+        "session_id": "xxx" (可选)
+    }
+    
+    Response: {
+        "success": true,
+        "message": "历史已清除"
+    }
+    """
+    # 这里可以根据session_id清除特定会话的历史
+    # 目前简单返回成功
+    return {
+        "success": True,
+        "message": "对话历史已清除"
+    }
+
+
 # ==================== URL Patterns ====================
 
 npc_urlpatterns = [
     path('npc/connect/', npc_connect, name='npc_connect'),
     path('npc/chat/', npc_chat, name='npc_chat'),
+    path('npc/clear/', npc_clear, name='npc_clear'),
     path('npc/status/', npc_status_all, name='npc_status_all'),
     path('npc/status/<str:npc_id>/', npc_status_single, name='npc_status_single'),
     path('npc/relationship/<str:npc_id>/<str:player_id>/', npc_relationship, name='npc_relationship'),

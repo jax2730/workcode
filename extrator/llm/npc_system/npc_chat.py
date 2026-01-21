@@ -190,7 +190,12 @@ class NPCChatCLI:
 ║  history        - 查看对话历史                              ║
 ║  clear          - 清除当前会话                              ║
 ║  export         - 导出对话到Excel                          ║
-║  stats          - 查看响应时间统计                          ║
+║  stats          - 查看简要响应时间统计                      ║
+║  perf           - 查看详细性能分析 (各模块耗时)             ║
+║  perf last      - 查看最近一次对话的性能分解                ║
+║  perf export    - 导出性能报告到JSON                       ║
+║  perf reset     - 重置性能统计                              ║
+║  perf on/off    - 开启/关闭详细性能追踪                     ║
 ║  reset_player   - 重置玩家ID (开始新档案)                   ║
 ║  help           - 显示此帮助                                ║
 ╚════════════════════════════════════════════════════════════╝
@@ -240,6 +245,9 @@ class NPCChatCLI:
         
         self.show_help()
         
+        # 性能追踪模式开关
+        perf_trace_mode = True  # 默认开启详细追踪
+        
         while True:
             try:
                 user_input = input(f"\n你: ").strip()
@@ -284,6 +292,27 @@ class NPCChatCLI:
             elif cmd == 'help':
                 self.show_help()
                 continue
+            # 性能命令
+            elif cmd == 'perf':
+                self.show_detailed_performance()
+                continue
+            elif cmd == 'perf last':
+                self.show_last_perf_trace()
+                continue
+            elif cmd == 'perf export':
+                self.export_performance_report()
+                continue
+            elif cmd == 'perf reset':
+                self.reset_performance_stats()
+                continue
+            elif cmd == 'perf on':
+                perf_trace_mode = True
+                print("✅ 详细性能追踪已开启")
+                continue
+            elif cmd == 'perf off':
+                perf_trace_mode = False
+                print("✅ 详细性能追踪已关闭 (仅记录总时间)")
+                continue
             
             # 正常对话
             print(f"\n{npc.personality.name}: ", end="", flush=True)
@@ -292,12 +321,21 @@ class NPCChatCLI:
                 # 记录开始时间
                 start_time = time.time()
                 
-                result = self.manager.chat(
-                    npc_id=self.current_npc_id,
-                    player_id=self.player_id,
-                    message=user_input,
-                    session_id=self.session_id
-                )
+                # 使用带性能监控的chat方法
+                if perf_trace_mode:
+                    result = self.manager.chat_with_perf(
+                        npc_id=self.current_npc_id,
+                        player_id=self.player_id,
+                        message=user_input,
+                        session_id=self.session_id
+                    )
+                else:
+                    result = self.manager.chat(
+                        npc_id=self.current_npc_id,
+                        player_id=self.player_id,
+                        message=user_input,
+                        session_id=self.session_id
+                    )
                 
                 # 计算响应时间
                 response_time = time.time() - start_time
@@ -310,7 +348,22 @@ class NPCChatCLI:
                     affinity = result.get("affinity", {})
                     level = affinity.get("level", "")
                     score = affinity.get("score", 0)
-                    print(f"\n  [好感度: {level} ({score}/100)] [响应时间: {response_time:.2f}秒]")
+                    
+                    # 显示性能分解 (如果启用)
+                    if perf_trace_mode and "performance" in result:
+                        perf = result["performance"]
+                        steps = perf.get("steps", [])
+                        
+                        print(f"\n  [好感度: {level} ({score}/100)] [总耗时: {response_time:.2f}秒]")
+                        
+                        # 显示简要性能分解
+                        if steps:
+                            print(f"  📊 性能分解:")
+                            for step in steps[:5]:  # 只显示前5个主要步骤
+                                if step["duration_ms"] > 10:  # 只显示耗时>10ms的步骤
+                                    print(f"     - {step['step']}: {step['duration_ms']:.1f}ms ({step['percent']:.1f}%)")
+                    else:
+                        print(f"\n  [好感度: {level} ({score}/100)] [响应时间: {response_time:.2f}秒]")
                 else:
                     print(f"(对话失败: {result.get('error', '未知错误')})")
                     
@@ -380,6 +433,69 @@ class NPCChatCLI:
             print("最近5次响应时间:")
             for i, t in enumerate(recent, 1):
                 print(f"  {i}. {t:.2f}秒")
+    
+    def show_detailed_performance(self):
+        """显示详细性能分析"""
+        npc = self.manager.get_npc(self.current_npc_id)
+        if not npc:
+            print("❌ 未选择NPC")
+            return
+        
+        if not hasattr(npc, 'perf_monitor'):
+            print("❌ 性能监控未启用")
+            return
+        
+        npc.print_performance_stats()
+    
+    def show_last_perf_trace(self):
+        """显示最近一次对话的性能分解"""
+        npc = self.manager.get_npc(self.current_npc_id)
+        if not npc:
+            print("❌ 未选择NPC")
+            return
+        
+        if not hasattr(npc, 'perf_monitor'):
+            print("❌ 性能监控未启用")
+            return
+        
+        npc.perf_monitor.print_last_trace()
+    
+    def export_performance_report(self):
+        """导出性能报告"""
+        npc = self.manager.get_npc(self.current_npc_id)
+        if not npc:
+            print("❌ 未选择NPC")
+            return
+        
+        if not hasattr(npc, 'perf_monitor'):
+            print("❌ 性能监控未启用")
+            return
+        
+        try:
+            filepath = npc.export_performance_report()
+            print(f"✅ 性能报告已导出: {filepath}")
+        except Exception as e:
+            print(f"❌ 导出失败: {e}")
+    
+    def reset_performance_stats(self):
+        """重置性能统计"""
+        npc = self.manager.get_npc(self.current_npc_id)
+        if not npc:
+            print("❌ 未选择NPC")
+            return
+        
+        if not hasattr(npc, 'perf_monitor'):
+            print("❌ 性能监控未启用")
+            return
+        
+        confirm = input("⚠️ 确认重置性能统计？(y/n): ")
+        if confirm.lower() != 'y':
+            print("已取消")
+            return
+        
+        npc.perf_monitor.reset()
+        self.response_times = []
+        print("✅ 性能统计已重置")
     
     def reset_player_id(self):
         """重置玩家ID"""

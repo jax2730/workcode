@@ -183,6 +183,17 @@ from .npc_manager import (
     create_template_npc
 )
 
+# 性能监控
+from .performance_monitor import (
+    PerformanceMonitor,
+    TimingRecord,
+    StepStatistics,
+    DialogueTrace,
+    timed,
+    get_global_monitor,
+    reset_global_monitor
+)
+
 __all__ = [
     # 记忆系统
     "MemoryTool",
@@ -264,6 +275,15 @@ __all__ = [
     "NPC_TEMPLATES",
     "create_npc_manager",
     "create_template_npc",
+    
+    # 性能监控
+    "PerformanceMonitor",
+    "TimingRecord",
+    "StepStatistics",
+    "DialogueTrace",
+    "timed",
+    "get_global_monitor",
+    "reset_global_monitor",
 ]
 
 __version__ = "1.0.0"

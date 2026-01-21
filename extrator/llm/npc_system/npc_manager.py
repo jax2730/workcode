@@ -162,6 +162,47 @@ class NPCManager:
                 "error": str(e)
             }
     
+    def chat_with_perf(self, npc_id: str, player_id: str, message: str,
+                       session_id: str = None, extra_context: Dict = None,
+                       print_trace: bool = False) -> Dict[str, Any]:
+        """
+        与指定NPC对话 (带详细性能监控)
+        
+        Args:
+            npc_id: NPC ID
+            player_id: 玩家ID
+            message: 消息
+            session_id: 会话ID
+            extra_context: 额外上下文
+            print_trace: 是否立即打印性能追踪
+            
+        Returns:
+            Dict: 包含 reply, affinity, performance 等信息
+        """
+        npc = self.get_npc(npc_id)
+        if not npc:
+            return {
+                "success": False,
+                "error": f"NPC不存在: {npc_id}"
+            }
+        
+        try:
+            # 检查NPC是否支持性能监控
+            if hasattr(npc, 'chat_with_perf'):
+                result = npc.chat_with_perf(player_id, message, session_id, 
+                                            extra_context, print_trace)
+            else:
+                # 回退到普通chat
+                result = npc.chat(player_id, message, session_id, extra_context)
+            
+            result["success"] = True
+            return result
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
     def get_all_status(self) -> Dict[str, Any]:
         """获取所有NPC状态"""
         status = {
