@@ -58,7 +58,7 @@ public class MainActivity extends GameActivity {
     ImageView joystick_mov,joystick_dir;
     Button button1,button2;
     ImageButton button3, button4, button5, button6, button7, button8, button9, button10, button11, button12, buttonDialog;
-    
+
     // NPC对话框控件
     RelativeLayout dialogContainer;
     LinearLayout dialogMessagesContainer;
@@ -69,7 +69,7 @@ public class MainActivity extends GameActivity {
     TextView dialogNpcName;
     boolean isDialogVisible = false;
     DialogManager dialogManager;
-    
+
     // 新的三级选择UI控件
     LinearLayout countryPanel, statePanel, countyPanel;
     LinearLayout selectionContainer;
@@ -147,10 +147,9 @@ public class MainActivity extends GameActivity {
         // 初始化对话管理器
         dialogManager = DialogManager.getInstance();
         dialogManager.setMainActivity(this);
-        
+
         // 从配置文件加载设置
         dialogManager.setServerUrl(DialogConfig.SERVER_URL);
-        dialogManager.setDialogMode(DialogConfig.DEFAULT_MODE);
         dialogManager.setNetworkEnabled(DialogConfig.ENABLE_NETWORK);
 
         controlViewInit();
@@ -2187,15 +2186,15 @@ public class MainActivity extends GameActivity {
     private void showDialogPanel() {
         dialogContainer.setVisibility(View.VISIBLE);
         isDialogVisible = true;
-        
+
         // 如果还没有开始对话，启动默认NPC对话
         if (dialogManager.getCurrentNpcName().equals("未知NPC")) {
             dialogManager.startDialog(DialogConfig.DEFAULT_NPC_NAME, DialogConfig.DEFAULT_NPC_ID);
         }
-        
+
         // 自动聚焦输入框
         dialogInputText.requestFocus();
-        
+
         // 显示软键盘
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         imm.showSoftInput(dialogInputText, InputMethodManager.SHOW_IMPLICIT);
@@ -2207,7 +2206,7 @@ public class MainActivity extends GameActivity {
     private void hideDialogPanel() {
         dialogContainer.setVisibility(View.GONE);
         isDialogVisible = false;
-        
+
         // 隐藏软键盘
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         imm.hideSoftInputFromWindow(dialogInputText.getWindowToken(), 0);
@@ -2218,27 +2217,30 @@ public class MainActivity extends GameActivity {
      */
     private void sendDialogMessage() {
         String message = dialogInputText.getText().toString().trim();
-        
+
         if (message.isEmpty()) {
             Toast.makeText(this, "请输入消息", Toast.LENGTH_SHORT).show();
             return;
         }
-        
+
         // 添加玩家消息到界面
         addPlayerMessage(message);
-        
+
         // 清空输入框
         dialogInputText.setText("");
-        
+
         // 隐藏软键盘
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         if (imm != null) {
             imm.hideSoftInputFromWindow(dialogInputText.getWindowToken(), 0);
         }
-        
+
+        // 显示加载动画
+        showLoadingMessage();
+
         // 通过DialogManager处理消息
         dialogManager.handlePlayerMessage(message);
-        
+
         // 同时发送到C++引擎（如果需要）
         command = "npc_chat " + message;
     }
@@ -2250,12 +2252,12 @@ public class MainActivity extends GameActivity {
         runOnUiThread(() -> {
             LayoutInflater inflater = LayoutInflater.from(this);
             View messageView = inflater.inflate(R.layout.dialog_message_player, null);
-            
+
             TextView messageText = messageView.findViewById(R.id.player_message);
             messageText.setText(message);
-            
+
             dialogMessagesContainer.addView(messageView);
-            
+
             // 滚动到底部
             dialogScrollView.post(() -> dialogScrollView.fullScroll(View.FOCUS_DOWN));
         });
@@ -2266,19 +2268,86 @@ public class MainActivity extends GameActivity {
      */
     public void addNpcMessage(String message) {
         runOnUiThread(() -> {
+            // 隐藏加载动画
+            hideLoadingMessage();
+
             LayoutInflater inflater = LayoutInflater.from(this);
             View messageView = inflater.inflate(R.layout.dialog_message_npc, null);
-            
+
             TextView npcNameText = messageView.findViewById(R.id.npc_name);
             TextView messageText = messageView.findViewById(R.id.npc_message);
-            
+
             npcNameText.setText(dialogManager.getCurrentNpcName());
             messageText.setText(message);
-            
+
             dialogMessagesContainer.addView(messageView);
-            
+
             // 滚动到底部
             dialogScrollView.post(() -> dialogScrollView.fullScroll(View.FOCUS_DOWN));
+        });
+    }
+
+    // 加载动画相关
+    private View loadingMessageView = null;
+    private Handler loadingHandler = new Handler(Looper.getMainLooper());
+    private Runnable loadingRunnable;
+    private int loadingStep = 0;
+
+    /**
+     * 显示加载动画
+     */
+    public void showLoadingMessage() {
+        runOnUiThread(() -> {
+            // 如果已经有加载动画，先移除
+            hideLoadingMessage();
+
+            LayoutInflater inflater = LayoutInflater.from(this);
+            loadingMessageView = inflater.inflate(R.layout.dialog_message_loading, null);
+
+            TextView dot1 = loadingMessageView.findViewById(R.id.loading_dot1);
+            TextView dot2 = loadingMessageView.findViewById(R.id.loading_dot2);
+            TextView dot3 = loadingMessageView.findViewById(R.id.loading_dot3);
+
+            dialogMessagesContainer.addView(loadingMessageView);
+
+            // 启动动画
+            loadingStep = 0;
+            loadingRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    if (loadingMessageView != null && loadingMessageView.getParent() != null) {
+                        loadingStep = (loadingStep + 1) % 4;
+
+                        // 根据步骤设置透明度
+                        dot1.setAlpha(loadingStep >= 1 ? 1.0f : 0.3f);
+                        dot2.setAlpha(loadingStep >= 2 ? 1.0f : 0.3f);
+                        dot3.setAlpha(loadingStep >= 3 ? 1.0f : 0.3f);
+
+                        loadingHandler.postDelayed(this, 400);
+                    }
+                }
+            };
+            loadingHandler.post(loadingRunnable);
+
+            // 滚动到底部
+            dialogScrollView.post(() -> dialogScrollView.fullScroll(View.FOCUS_DOWN));
+        });
+    }
+
+    /**
+     * 隐藏加载动画
+     */
+    public void hideLoadingMessage() {
+        runOnUiThread(() -> {
+            if (loadingRunnable != null) {
+                loadingHandler.removeCallbacks(loadingRunnable);
+                loadingRunnable = null;
+            }
+
+            if (loadingMessageView != null && loadingMessageView.getParent() != null) {
+                dialogMessagesContainer.removeView(loadingMessageView);
+                loadingMessageView = null;
+            }
         });
     }
 
