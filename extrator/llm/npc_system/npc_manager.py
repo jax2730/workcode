@@ -162,47 +162,6 @@ class NPCManager:
                 "error": str(e)
             }
     
-    def chat_with_perf(self, npc_id: str, player_id: str, message: str,
-                       session_id: str = None, extra_context: Dict = None,
-                       print_trace: bool = False) -> Dict[str, Any]:
-        """
-        与指定NPC对话 (带详细性能监控)
-        
-        Args:
-            npc_id: NPC ID
-            player_id: 玩家ID
-            message: 消息
-            session_id: 会话ID
-            extra_context: 额外上下文
-            print_trace: 是否立即打印性能追踪
-            
-        Returns:
-            Dict: 包含 reply, affinity, performance 等信息
-        """
-        npc = self.get_npc(npc_id)
-        if not npc:
-            return {
-                "success": False,
-                "error": f"NPC不存在: {npc_id}"
-            }
-        
-        try:
-            # 检查NPC是否支持性能监控
-            if hasattr(npc, 'chat_with_perf'):
-                result = npc.chat_with_perf(player_id, message, session_id, 
-                                            extra_context, print_trace)
-            else:
-                # 回退到普通chat
-                result = npc.chat(player_id, message, session_id, extra_context)
-            
-            result["success"] = True
-            return result
-        except Exception as e:
-            return {
-                "success": False,
-                "error": str(e)
-            }
-    
     def get_all_status(self) -> Dict[str, Any]:
         """获取所有NPC状态"""
         status = {
@@ -500,76 +459,73 @@ def create_npc_manager(data_dir: str = "./npc_data",
     return NPCManager(config, llm)
 
 
-# ==================== 预定义NPC模板 ====================
+def load_npc_templates(config_dir: str = "./npc_configs") -> Dict[str, dict]:
+    """
+    从配置目录加载所有NPC模板
+    
+    配置统一放在 npc_configs/ 目录下管理，不在代码中硬编码
+    """
+    templates = {}
+    config_path = Path(config_dir)
+    
+    if not config_path.exists():
+        return templates
+    
+    for json_file in config_path.glob("*.json"):
+        try:
+            with open(json_file, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            npc_id = config.get("npc_id", json_file.stem)
+            templates[npc_id] = config
+        except Exception as e:
+            print(f"[load_npc_templates] 加载失败 {json_file}: {e}")
+    
+    return templates
 
-NPC_TEMPLATES = {
-    "blacksmith": {
-        "npc_id": "blacksmith",
-        "personality": {
-            "name": "老铁匠",
-            "role": "铁匠",
-            "age": 55,
-            "gender": "男",
-            "traits": ["严肃", "专业", "热心"],
-            "background": "在这个镇上打铁30年，见证了无数冒险者的成长。",
-            "speech_style": "说话干脆利落，常用专业术语",
-            "knowledge": ["武器锻造", "金属材料", "镇上历史"],
-            "secrets": ["知道镇长年轻时的秘密", "藏有传说中的锻造图纸"],
-            "greeting": "哟，又来了个冒险者。需要打造什么武器？"
-        }
-    },
-    "merchant": {
-        "npc_id": "merchant",
-        "personality": {
-            "name": "精明商人",
-            "role": "商人",
-            "age": 40,
-            "gender": "男",
-            "traits": ["精明", "健谈", "贪财"],
-            "background": "走南闯北的商人，什么都卖，什么都买。",
-            "speech_style": "说话圆滑，喜欢讨价还价",
-            "knowledge": ["商品价格", "各地风土", "交易技巧"],
-            "secrets": ["知道黑市的位置", "有走私渠道"],
-            "greeting": "欢迎欢迎！看看有什么需要的？保证全镇最低价！"
-        }
-    },
-    "innkeeper": {
-        "npc_id": "innkeeper",
-        "personality": {
-            "name": "旅店老板娘",
-            "role": "旅店老板",
-            "age": 35,
-            "gender": "女",
-            "traits": ["热情", "八卦", "善良"],
-            "background": "经营这家旅店十年，是镇上的消息中心。",
-            "speech_style": "说话热情，喜欢打听八卦",
-            "knowledge": ["镇上八卦", "旅客信息", "烹饪"],
-            "secrets": ["知道很多旅客的秘密", "暗中帮助过逃犯"],
-            "greeting": "哎呀，来客人了！要住店还是吃饭？"
-        }
-    },
-    "guard": {
-        "npc_id": "guard",
-        "personality": {
-            "name": "守卫队长",
-            "role": "守卫",
-            "age": 45,
-            "gender": "男",
-            "traits": ["正直", "严肃", "忠诚"],
-            "background": "镇上守卫队的队长，维护治安二十年。",
-            "speech_style": "说话严肃，公事公办",
-            "knowledge": ["镇上治安", "周边地形", "战斗技巧"],
-            "secrets": ["知道镇外有强盗窝点", "曾经是佣兵"],
-            "greeting": "站住！有什么事？"
-        }
-    }
-}
+
+# 延迟加载的NPC模板（首次访问时从配置文件加载）
+_npc_templates_cache = None
+
+def get_npc_templates(config_dir: str = "./npc_configs") -> Dict[str, dict]:
+    """获取NPC模板（带缓存）"""
+    global _npc_templates_cache
+    if _npc_templates_cache is None:
+        _npc_templates_cache = load_npc_templates(config_dir)
+    return _npc_templates_cache
+
+
+# 为了向后兼容，保留 NPC_TEMPLATES 作为属性访问
+class _TemplatesProxy:
+    """代理类：首次访问时从配置文件加载模板"""
+    def __getitem__(self, key):
+        return get_npc_templates()[key]
+    
+    def __contains__(self, key):
+        return key in get_npc_templates()
+    
+    def __iter__(self):
+        return iter(get_npc_templates())
+    
+    def items(self):
+        return get_npc_templates().items()
+    
+    def keys(self):
+        return get_npc_templates().keys()
+    
+    def values(self):
+        return get_npc_templates().values()
+    
+    def get(self, key, default=None):
+        return get_npc_templates().get(key, default)
+
+NPC_TEMPLATES = _TemplatesProxy()
 
 
 def create_template_npc(template_name: str, llm=None, data_dir: str = "./npc_data") -> 'NPCAgent':
-    """从模板创建NPC"""
-    if template_name not in NPC_TEMPLATES:
-        raise ValueError(f"未知模板: {template_name}, 可用模板: {list(NPC_TEMPLATES.keys())}")
+    """从配置文件模板创建NPC"""
+    templates = get_npc_templates()
+    if template_name not in templates:
+        raise ValueError(f"未知模板: {template_name}, 可用模板: {list(templates.keys())}")
     
     from .npc_agent import load_npc_from_dict
-    return load_npc_from_dict(NPC_TEMPLATES[template_name], llm, data_dir)
+    return load_npc_from_dict(templates[template_name], llm, data_dir)

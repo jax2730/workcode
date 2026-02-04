@@ -244,9 +244,15 @@ class NPCAgent:
                 print(f"[NPCAgent:{self.npc_id}] RAG初始化失败: {e}")
         
         # 初始化上下文构建器
+        # [优化] 开启快速模式，禁用记忆和RAG检索以加速响应
         context_config = ContextConfig(
             max_tokens=3000,
-            role_description=config.personality.to_prompt()
+            role_description=config.personality.to_prompt(),
+            fast_mode=True,  # 快速模式：禁用记忆/RAG检索，响应更快
+            # 如果需要启用特定检索，可单独设置:
+            # enable_memory_search=False,
+            # enable_rag_search=False,
+            # enable_notes_search=False,
         )
         self.context_builder = ContextBuilder(
             config=context_config,
@@ -619,12 +625,12 @@ class NPCAgent:
             with self.perf_monitor.track("llm_generate"):
                 reply = self._generate_reply(context, message)
             
-            # 5. 更新好感度
+            # 5. 更新好感度 - 使用规则计算，不调用LLM (优化: 节省3-4秒)
             with self.perf_monitor.track("update_affinity"):
                 new_affinity = self.relationship.update_affinity(
                     self.npc_id, player_id,
                     message, reply,
-                    use_llm=(self.llm is not None)
+                    use_llm=False  # 禁用LLM，使用规则计算
                 )
             
             # 6. 存储到工作记忆
@@ -650,24 +656,25 @@ class NPCAgent:
                     metadata={"type": "npc_reply"}
                 )
             
-            # 7. 存储到情景记忆 (重要对话)
-            with self.perf_monitor.track("store_episodic_memory"):
-                if len(message) > 20 or new_affinity.score != affinity.score:
-                    self.memory.execute(
-                        "add",
-                        content=f"与玩家{player_id}的对话 - 玩家: {message[:100]} | {self.personality.name}: {reply[:100]}",
-                        memory_type="episodic",
-                        importance=0.7,
-                        user_id=player_id,
-                        session_id=session_id,
-                        event_type="dialogue",
-                        metadata={
-                            "affinity_before": affinity.score,
-                            "affinity_after": new_affinity.score
-                        }
-                    )
+            # [优化] 以下存储操作在快速模式下跳过
+            # 7. 存储到情景记忆 (重要对话) - 暂时禁用以提升性能
+            # with self.perf_monitor.track("store_episodic_memory"):
+            #     if len(message) > 20 or new_affinity.score != affinity.score:
+            #         self.memory.execute(
+            #             "add",
+            #             content=f"与玩家{player_id}的对话 - 玩家: {message[:100]} | {self.personality.name}: {reply[:100]}",
+            #             memory_type="episodic",
+            #             importance=0.7,
+            #             user_id=player_id,
+            #             session_id=session_id,
+            #             event_type="dialogue",
+            #             metadata={
+            #                 "affinity_before": affinity.score,
+            #                 "affinity_after": new_affinity.score
+            #             }
+            #         )
             
-            # 8. 持久化对话记录到SQLite
+            # 8. 持久化对话记录到SQLite - 保留，耗时约21ms可接受
             with self.perf_monitor.track("save_dialogue_sqlite"):
                 if self.dialogue_storage:
                     try:
@@ -687,41 +694,41 @@ class NPCAgent:
                     except Exception as e:
                         print(f"[NPCAgent:{self.npc_id}] 对话存储失败: {e}")
             
-            # 9. 保存对话到Markdown文件
-            with self.perf_monitor.track("save_dialogue_markdown"):
-                if self.file_memory_store and self.config.auto_save_dialogue_md:
-                    try:
-                        self.file_memory_store.save_dialogue(
-                            npc_id=self.npc_id,
-                            player_id=player_id,
-                            player_message=message,
-                            npc_reply=reply,
-                            session_id=session_id,
-                            metadata={
-                                "affinity": new_affinity.score,
-                                "affinity_level": new_affinity.level.value if hasattr(new_affinity.level, 'value') else str(new_affinity.level)
-                            }
-                        )
-                    except Exception as e:
-                        print(f"[NPCAgent:{self.npc_id}] Markdown保存失败: {e}")
+            # 9. 保存对话到Markdown文件 - 暂时禁用以提升性能
+            # with self.perf_monitor.track("save_dialogue_markdown"):
+            #     if self.file_memory_store and self.config.auto_save_dialogue_md:
+            #         try:
+            #             self.file_memory_store.save_dialogue(
+            #                 npc_id=self.npc_id,
+            #                 player_id=player_id,
+            #                 player_message=message,
+            #                 npc_reply=reply,
+            #                 session_id=session_id,
+            #                 metadata={
+            #                     "affinity": new_affinity.score,
+            #                     "affinity_level": new_affinity.level.value if hasattr(new_affinity.level, 'value') else str(new_affinity.level)
+            #                 }
+            #             )
+            #         except Exception as e:
+            #             print(f"[NPCAgent:{self.npc_id}] Markdown保存失败: {e}")
             
-            # 10. 保存重要事件到情景记忆文件
-            with self.perf_monitor.track("save_episodic_file"):
-                if self.file_memory_store and (len(message) > 50 or abs(new_affinity.score - affinity.score) >= 3):
-                    try:
-                        self.file_memory_store.save_episodic_memory(
-                            npc_id=self.npc_id,
-                            player_id=player_id,
-                            event_type="important_dialogue",
-                            content=f"玩家说: {message}\n\n{self.personality.name}回复: {reply}",
-                            importance=0.8,
-                            metadata={
-                                "affinity_change": new_affinity.score - affinity.score,
-                                "session_id": session_id
-                            }
-                        )
-                    except Exception as e:
-                        print(f"[NPCAgent:{self.npc_id}] 情景记忆保存失败: {e}")
+            # 10. 保存重要事件到情景记忆文件 - 暂时禁用以提升性能
+            # with self.perf_monitor.track("save_episodic_file"):
+            #     if self.file_memory_store and (len(message) > 50 or abs(new_affinity.score - affinity.score) >= 3):
+            #         try:
+            #             self.file_memory_store.save_episodic_memory(
+            #                 npc_id=self.npc_id,
+            #                 player_id=player_id,
+            #                 event_type="important_dialogue",
+            #                 content=f"玩家说: {message}\n\n{self.personality.name}回复: {reply}",
+            #                 importance=0.8,
+            #                 metadata={
+            #                     "affinity_change": new_affinity.score - affinity.score,
+            #                     "session_id": session_id
+            #                 }
+            #             )
+            #         except Exception as e:
+            #             print(f"[NPCAgent:{self.npc_id}] 情景记忆保存失败: {e}")
             
             # 更新会话历史
             conversation_history.append({

@@ -36,6 +36,11 @@ from extrator.llm.npc_system import (
     init_npc_data_directories,
     NPC_TEMPLATES
 )
+from extrator.llm.npc_system.performance_monitor import (
+    PerformanceMonitor,
+    get_performance_monitor,
+    DialogueMetrics
+)
 
 
 class NPCChatCLI:
@@ -52,8 +57,14 @@ class NPCChatCLI:
         self.player_id = self._load_or_create_player_id()
         self.session_id = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         
-        # 响应时间统计
+        # 响应时间统计 (简单版)
         self.response_times = []
+        
+        # 保存最后一次性能结果
+        self.last_perf_result = None
+        
+        # 显示模式: 'compact' 紧凑, 'detailed' 详细, 'none' 不显示
+        self.perf_display_mode = 'compact'
     
     def _load_or_create_player_id(self) -> str:
         """加载或创建持久化的player_id"""
@@ -94,9 +105,16 @@ class NPCChatCLI:
         # 2. 初始化LLM
         print("\n[2/3] 初始化LLM (qwen2.5)...")
         try:
+            # [优化] LLM参数优化以加速响应
             self.llm = ChatOllama(
                 model="qwen2.5",
-                temperature=0.7
+                temperature=0.7,
+                # 性能优化参数
+                num_predict=150,    # 限制最大生成token数 (默认128，适当增加)
+                num_ctx=2048,       # 减少上下文窗口 (默认4096)
+                repeat_penalty=1.1, # 适度重复惩罚
+                # top_k=40,         # 可选：限制采样范围
+                # top_p=0.9,        # 可选：nucleus采样
             )
             # 测试LLM连接
             test_response = self.llm.invoke("你好")
@@ -245,9 +263,6 @@ class NPCChatCLI:
         
         self.show_help()
         
-        # 性能追踪模式开关
-        perf_trace_mode = True  # 默认开启详细追踪
-        
         while True:
             try:
                 user_input = input(f"\n你: ").strip()
@@ -260,6 +275,7 @@ class NPCChatCLI:
             
             # 处理命令
             cmd = user_input.lower()
+            cmd_parts = cmd.split()
             
             if cmd in ['quit', 'exit']:
                 print("\n再见!")
@@ -292,83 +308,81 @@ class NPCChatCLI:
             elif cmd == 'help':
                 self.show_help()
                 continue
-            # 性能命令
-            elif cmd == 'perf':
-                self.show_detailed_performance()
+            # ========== 性能监控命令 ==========
+            elif cmd == 'perf' or cmd == 'perf last':
+                self.show_last_perf()
                 continue
-            elif cmd == 'perf last':
-                self.show_last_perf_trace()
+            elif cmd == 'perf all':
+                self.show_aggregate_perf()
                 continue
             elif cmd == 'perf export':
-                self.export_performance_report()
+                self.export_perf_log()
                 continue
             elif cmd == 'perf reset':
-                self.reset_performance_stats()
+                self.reset_perf_stats()
                 continue
             elif cmd == 'perf on':
-                perf_trace_mode = True
-                print("✅ 详细性能追踪已开启")
+                self.perf_display_mode = 'compact'
+                print("✅ 性能监控已开启 (紧凑模式)")
                 continue
             elif cmd == 'perf off':
-                perf_trace_mode = False
-                print("✅ 详细性能追踪已关闭 (仅记录总时间)")
+                self.perf_display_mode = 'none'
+                print("✅ 性能监控已关闭")
+                continue
+            elif cmd == 'perf detailed':
+                self.perf_display_mode = 'detailed'
+                print("✅ 性能监控切换为详细模式")
                 continue
             
-            # 正常对话
+            # 正常对话 - 使用带性能监控的版本
             print(f"\n{npc.personality.name}: ", end="", flush=True)
             
             try:
                 # 记录开始时间
                 start_time = time.time()
                 
-                # 使用带性能监控的chat方法
-                if perf_trace_mode:
-                    result = self.manager.chat_with_perf(
-                        npc_id=self.current_npc_id,
-                        player_id=self.player_id,
-                        message=user_input,
-                        session_id=self.session_id
-                    )
-                else:
-                    result = self.manager.chat(
-                        npc_id=self.current_npc_id,
-                        player_id=self.player_id,
-                        message=user_input,
-                        session_id=self.session_id
-                    )
+                # 使用带性能监控的chat方法 (使用NPC内部的perf_monitor)
+                result = npc.chat_with_perf(
+                    player_id=self.player_id,
+                    message=user_input,
+                    session_id=self.session_id,
+                    print_trace=(self.perf_display_mode == 'detailed')
+                )
                 
-                # 计算响应时间
+                # 计算总响应时间
                 response_time = time.time() - start_time
                 self.response_times.append(response_time)
                 
-                if result.get("success"):
-                    print(result["reply"])
-                    
-                    # 显示好感度变化和响应时间
-                    affinity = result.get("affinity", {})
-                    level = affinity.get("level", "")
-                    score = affinity.get("score", 0)
-                    
-                    # 显示性能分解 (如果启用)
-                    if perf_trace_mode and "performance" in result:
-                        perf = result["performance"]
-                        steps = perf.get("steps", [])
-                        
-                        print(f"\n  [好感度: {level} ({score}/100)] [总耗时: {response_time:.2f}秒]")
-                        
-                        # 显示简要性能分解
-                        if steps:
-                            print(f"  📊 性能分解:")
-                            for step in steps[:5]:  # 只显示前5个主要步骤
-                                if step["duration_ms"] > 10:  # 只显示耗时>10ms的步骤
-                                    print(f"     - {step['step']}: {step['duration_ms']:.1f}ms ({step['percent']:.1f}%)")
+                # 保存性能结果
+                if result.get("performance"):
+                    self.last_perf_result = result["performance"]
+                
+                # 显示回复
+                print(result["reply"])
+                
+                # 显示好感度
+                affinity = result.get("affinity", {})
+                level = affinity.get("level", "")
+                score = affinity.get("score", 0)
+                
+                # 根据显示模式显示性能信息
+                if self.perf_display_mode == 'detailed' and self.last_perf_result:
+                    print(f"\n  [好感度: {level} ({score}/100)]")
+                    self._print_detailed_perf(self.last_perf_result)
+                elif self.perf_display_mode == 'compact':
+                    perf_summary = result.get("performance_summary", "")
+                    if perf_summary:
+                        print(f"\n  [好感度: {level} ({score}/100)]")
+                        print(f"  {perf_summary}")
                     else:
-                        print(f"\n  [好感度: {level} ({score}/100)] [响应时间: {response_time:.2f}秒]")
+                        print(f"\n  [好感度: {level} ({score}/100)] [响应: {response_time:.2f}秒]")
                 else:
-                    print(f"(对话失败: {result.get('error', '未知错误')})")
+                    print(f"\n  [好感度: {level} ({score}/100)] [响应: {response_time:.2f}秒]")
                     
             except Exception as e:
+                import traceback
                 print(f"(出错: {e})")
+                traceback.print_exc()
             
             print("-" * 60)
     
@@ -434,68 +448,96 @@ class NPCChatCLI:
             for i, t in enumerate(recent, 1):
                 print(f"  {i}. {t:.2f}秒")
     
-    def show_detailed_performance(self):
-        """显示详细性能分析"""
-        npc = self.manager.get_npc(self.current_npc_id)
-        if not npc:
-            print("❌ 未选择NPC")
-            return
-        
-        if not hasattr(npc, 'perf_monitor'):
-            print("❌ 性能监控未启用")
-            return
-        
-        npc.print_performance_stats()
+    # ==================== 详细性能监控方法 ====================
     
-    def show_last_perf_trace(self):
-        """显示最近一次对话的性能分解"""
+    def _get_npc_perf_monitor(self):
+        """获取当前NPC的性能监控器"""
+        if not self.current_npc_id:
+            return None
         npc = self.manager.get_npc(self.current_npc_id)
-        if not npc:
-            print("❌ 未选择NPC")
-            return
-        
-        if not hasattr(npc, 'perf_monitor'):
-            print("❌ 性能监控未启用")
-            return
-        
-        npc.perf_monitor.print_last_trace()
+        if npc and hasattr(npc, 'perf_monitor'):
+            return npc.perf_monitor
+        return None
     
-    def export_performance_report(self):
-        """导出性能报告"""
-        npc = self.manager.get_npc(self.current_npc_id)
-        if not npc:
-            print("❌ 未选择NPC")
+    def show_last_perf(self):
+        """显示最近一次对话的详细性能"""
+        monitor = self._get_npc_perf_monitor()
+        if not monitor:
+            print("\n⚠️ 未选择NPC或NPC不支持性能监控")
             return
         
-        if not hasattr(npc, 'perf_monitor'):
-            print("❌ 性能监控未启用")
+        history = monitor.get_history(limit=1)
+        if not history:
+            print("\n⚠️ 暂无性能数据，请先进行一次对话")
             return
         
+        metrics = history[-1]
+        print(metrics.get_summary_table())
+    
+    def show_aggregate_perf(self):
+        """显示聚合性能统计"""
+        monitor = self._get_npc_perf_monitor()
+        if not monitor:
+            print("\n⚠️ 未选择NPC或NPC不支持性能监控")
+            return
+        print(monitor.get_aggregate_summary_table())
+    
+    def export_perf_log(self):
+        """导出性能日志到JSON"""
+        monitor = self._get_npc_perf_monitor()
+        if not monitor:
+            print("\n⚠️ 未选择NPC或NPC不支持性能监控")
+            return
         try:
-            filepath = npc.export_performance_report()
-            print(f"✅ 性能报告已导出: {filepath}")
+            filepath = monitor.export_to_json()
+            print(f"\n✅ 性能日志已导出: {filepath}")
         except Exception as e:
-            print(f"❌ 导出失败: {e}")
+            print(f"\n❌ 导出失败: {e}")
     
-    def reset_performance_stats(self):
+    def reset_perf_stats(self):
         """重置性能统计"""
-        npc = self.manager.get_npc(self.current_npc_id)
-        if not npc:
-            print("❌ 未选择NPC")
+        monitor = self._get_npc_perf_monitor()
+        if not monitor:
+            print("\n⚠️ 未选择NPC或NPC不支持性能监控")
             return
         
-        if not hasattr(npc, 'perf_monitor'):
-            print("❌ 性能监控未启用")
-            return
-        
-        confirm = input("⚠️ 确认重置性能统计？(y/n): ")
+        confirm = input("\n⚠️ 确认重置所有性能统计？(y/n): ")
         if confirm.lower() != 'y':
             print("已取消")
             return
         
-        npc.perf_monitor.reset()
-        self.response_times = []
+        monitor.clear_history()
+        self.last_perf_result = None
         print("✅ 性能统计已重置")
+    
+    def _print_detailed_perf(self, perf_dict: dict):
+        """打印详细性能信息"""
+        if not perf_dict:
+            return
+        
+        print("\n┌─────────────────────────────────────────────────────────────┐")
+        print("│                    详细步骤耗时                              │")
+        print("├─────────────────────────────────────────────────────────────┤")
+        
+        steps = perf_dict.get("steps", [])
+        for step in steps:
+            name = step.get("step_name", "")[:35]
+            duration = step.get("duration_ms", 0)
+            status = "✓" if step.get("success", True) else "✗"
+            print(f"│  {step.get('step_id', 0):2d}. {name:<35} {duration:>8.2f}ms {status} │")
+        
+        print("├─────────────────────────────────────────────────────────────┤")
+        
+        phase = perf_dict.get("phase_summary", {})
+        total = perf_dict.get("total_time_ms", 0)
+        
+        print(f"│  📥 检索:   {phase.get('retrieval_ms', 0):>8.2f}ms                            │")
+        print(f"│  🔧 构建:   {phase.get('context_build_ms', 0):>8.2f}ms                            │")
+        print(f"│  🤖 LLM:    {phase.get('llm_generate_ms', 0):>8.2f}ms                            │")
+        print(f"│  💾 存储:   {phase.get('storage_ms', 0):>8.2f}ms                            │")
+        print("├─────────────────────────────────────────────────────────────┤")
+        print(f"│  ⏱️  总计:   {total:>8.2f}ms ({total/1000:.2f}秒)                     │")
+        print("└─────────────────────────────────────────────────────────────┘")
     
     def reset_player_id(self):
         """重置玩家ID"""

@@ -1,542 +1,600 @@
 """
-性能监控系统 - Performance Monitor
-详细追踪NPC对话系统各模块的执行时间
+性能监控器 - Performance Monitor
+详细统计NPC对话系统各模块的耗时
 
-功能:
-- 追踪每个功能模块的调用耗时
-- 统计各步骤的平均耗时
-- 生成性能报告
-- 识别性能瓶颈
-
-使用方式:
-    from .performance_monitor import PerformanceMonitor, timed
-    
-    monitor = PerformanceMonitor()
-    
-    with monitor.track("memory_search"):
-        results = memory.search(query)
-    
-    # 或使用装饰器
-    @timed(monitor, "llm_generate")
-    def generate_reply():
-        ...
+监控的步骤:
+1. 获取好感度 (get_affinity)
+2. 构建上下文包 (build_context_packets)
+3. 检索工作记忆 (search_working_memory)
+4. 检索情景记忆 (search_episodic_memory)
+5. 检索语义记忆 (search_semantic_memory)
+6. 检索RAG知识 (search_rag_knowledge)
+7. 检索笔记 (search_notes)
+8. GSSC上下文构建 (gssc_build_context)
+9. LLM生成回复 (llm_generate)
+10. 更新好感度 (update_affinity)
+11. 存储工作记忆 (store_working_memory)
+12. 存储情景记忆 (store_episodic_memory)
+13. 持久化到SQLite (persist_sqlite)
+14. 保存到Markdown (save_markdown)
+15. 更新会话历史 (update_session)
 """
 
 import time
 import json
-import statistics
 from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Callable
-from contextlib import contextmanager
 from functools import wraps
-from collections import defaultdict
+from contextlib import contextmanager
+import threading
 
 
 @dataclass
-class TimingRecord:
-    """单次计时记录"""
-    name: str                    # 步骤名称
-    start_time: float           # 开始时间戳
-    end_time: float = 0.0       # 结束时间戳
-    duration_ms: float = 0.0    # 耗时(毫秒)
-    success: bool = True        # 是否成功
-    error: str = ""             # 错误信息
-    metadata: Dict = field(default_factory=dict)  # 额外元数据
-    
-    def finish(self, success: bool = True, error: str = ""):
-        """完成计时"""
-        self.end_time = time.perf_counter()
-        self.duration_ms = (self.end_time - self.start_time) * 1000
-        self.success = success
-        self.error = error
-
-
-@dataclass
-class StepStatistics:
-    """步骤统计信息"""
-    name: str
-    count: int = 0
-    total_ms: float = 0.0
-    min_ms: float = float('inf')
-    max_ms: float = 0.0
-    success_count: int = 0
-    failure_count: int = 0
-    durations: List[float] = field(default_factory=list)
-    
-    @property
-    def avg_ms(self) -> float:
-        return self.total_ms / self.count if self.count > 0 else 0.0
-    
-    @property
-    def success_rate(self) -> float:
-        return self.success_count / self.count * 100 if self.count > 0 else 0.0
-    
-    @property
-    def std_ms(self) -> float:
-        """标准差"""
-        if len(self.durations) < 2:
-            return 0.0
-        return statistics.stdev(self.durations)
-    
-    @property
-    def median_ms(self) -> float:
-        """中位数"""
-        if not self.durations:
-            return 0.0
-        return statistics.median(self.durations)
-    
-    @property
-    def p95_ms(self) -> float:
-        """95百分位"""
-        if not self.durations:
-            return 0.0
-        sorted_durations = sorted(self.durations)
-        idx = int(len(sorted_durations) * 0.95)
-        return sorted_durations[min(idx, len(sorted_durations) - 1)]
-    
-    def add_record(self, record: TimingRecord):
-        """添加一条记录"""
-        self.count += 1
-        self.total_ms += record.duration_ms
-        self.min_ms = min(self.min_ms, record.duration_ms)
-        self.max_ms = max(self.max_ms, record.duration_ms)
-        self.durations.append(record.duration_ms)
-        
-        if record.success:
-            self.success_count += 1
-        else:
-            self.failure_count += 1
-        
-        # 保留最近1000条记录，防止内存溢出
-        if len(self.durations) > 1000:
-            self.durations = self.durations[-1000:]
-    
-    def to_dict(self) -> dict:
-        return {
-            "name": self.name,
-            "count": self.count,
-            "avg_ms": round(self.avg_ms, 2),
-            "min_ms": round(self.min_ms, 2) if self.min_ms != float('inf') else 0,
-            "max_ms": round(self.max_ms, 2),
-            "median_ms": round(self.median_ms, 2),
-            "std_ms": round(self.std_ms, 2),
-            "p95_ms": round(self.p95_ms, 2),
-            "success_rate": round(self.success_rate, 2),
-            "total_ms": round(self.total_ms, 2)
-        }
-
-
-@dataclass
-class DialogueTrace:
-    """单次对话的完整追踪"""
-    trace_id: str
-    npc_id: str = ""
-    player_id: str = ""
+class StepTiming:
+    """单个步骤的计时信息"""
+    step_name: str
+    step_id: int
     start_time: float = 0.0
     end_time: float = 0.0
-    total_duration_ms: float = 0.0
-    steps: List[TimingRecord] = field(default_factory=list)
+    duration_ms: float = 0.0
     success: bool = True
     error: str = ""
-    user_message: str = ""
-    npc_reply: str = ""
-    
-    def add_step(self, record: TimingRecord):
-        """添加步骤记录"""
-        self.steps.append(record)
-    
-    def finish(self, success: bool = True, error: str = "", npc_reply: str = ""):
-        """完成追踪"""
-        self.end_time = time.perf_counter()
-        self.total_duration_ms = (self.end_time - self.start_time) * 1000
-        self.success = success
-        self.error = error
-        self.npc_reply = npc_reply
-    
-    def get_step_breakdown(self) -> List[Dict]:
-        """获取步骤分解"""
-        return [
-            {
-                "step": step.name,
-                "duration_ms": round(step.duration_ms, 2),
-                "percent": round(step.duration_ms / self.total_duration_ms * 100, 1) if self.total_duration_ms > 0 else 0,
-                "success": step.success
-            }
-            for step in self.steps
-        ]
+    metadata: Dict = field(default_factory=dict)
     
     def to_dict(self) -> dict:
         return {
-            "trace_id": self.trace_id,
-            "npc_id": self.npc_id,
-            "player_id": self.player_id,
-            "total_duration_ms": round(self.total_duration_ms, 2),
+            "step_id": self.step_id,
+            "step_name": self.step_name,
+            "duration_ms": round(self.duration_ms, 3),
             "success": self.success,
             "error": self.error,
-            "steps": self.get_step_breakdown()
+            "metadata": self.metadata
         }
+
+
+@dataclass
+class DialogueMetrics:
+    """单次对话的完整性能指标"""
+    dialogue_id: str
+    timestamp: str
+    player_id: str
+    npc_id: str
+    message_length: int = 0
+    reply_length: int = 0
+    steps: List[StepTiming] = field(default_factory=list)
+    total_time_ms: float = 0.0
     
-    def print_breakdown(self):
-        """打印步骤分解"""
-        print(f"\n{'='*60}")
-        print(f"对话性能追踪 [ID: {self.trace_id[:8]}]")
-        print(f"{'='*60}")
-        print(f"NPC: {self.npc_id} | 玩家: {self.player_id}")
-        print(f"总耗时: {self.total_duration_ms:.2f}ms ({self.total_duration_ms/1000:.2f}秒)")
-        print(f"状态: {'✅ 成功' if self.success else '❌ 失败: ' + self.error}")
-        print(f"{'-'*60}")
-        print(f"{'步骤':<25} {'耗时(ms)':<12} {'占比':<10} {'状态':<8}")
-        print(f"{'-'*60}")
+    # 阶段汇总
+    retrieval_time_ms: float = 0.0    # 检索阶段 (记忆+RAG+笔记)
+    context_build_time_ms: float = 0.0  # 上下文构建
+    llm_time_ms: float = 0.0          # LLM生成
+    storage_time_ms: float = 0.0      # 存储阶段
+    
+    def calculate_totals(self):
+        """计算各阶段总耗时"""
+        # 步骤分类 (基于 npc_agent.py 中实际使用的步骤名称)
+        retrieval_steps = ['search_working_memory', 'search_episodic_memory', 
+                          'search_semantic_memory', 'search_rag_knowledge', 'search_notes']
+        context_steps = ['context_build', 'build_context_packets', 'gssc_build_context']
+        llm_steps = ['llm_generate']
+        storage_steps = ['store_working_memory', 'store_episodic_memory', 
+                        'save_dialogue_sqlite', 'save_dialogue_markdown', 
+                        'save_episodic_file', 'persist_sqlite', 'save_markdown', 
+                        'update_session', 'update_affinity']
+        affinity_steps = ['get_affinity', 'update_affinity']
+        
+        # 重置统计
+        self.retrieval_time_ms = 0.0
+        self.context_build_time_ms = 0.0
+        self.llm_time_ms = 0.0
+        self.storage_time_ms = 0.0
         
         for step in self.steps:
-            percent = step.duration_ms / self.total_duration_ms * 100 if self.total_duration_ms > 0 else 0
-            status = "✅" if step.success else "❌"
-            # 高亮耗时最长的步骤
-            highlight = "⚠️ " if percent > 30 else "   "
-            print(f"{highlight}{step.name:<22} {step.duration_ms:>8.2f}ms   {percent:>5.1f}%     {status}")
+            if step.step_name in retrieval_steps:
+                self.retrieval_time_ms += step.duration_ms
+            elif step.step_name in context_steps:
+                self.context_build_time_ms += step.duration_ms
+            elif step.step_name in llm_steps:
+                self.llm_time_ms += step.duration_ms
+            elif step.step_name in storage_steps:
+                self.storage_time_ms += step.duration_ms
+            # 好感度操作归入context或storage（根据实际耗时影响较小）
+            elif step.step_name == 'get_affinity':
+                self.context_build_time_ms += step.duration_ms
+            elif step.step_name == 'update_affinity':
+                self.storage_time_ms += step.duration_ms
         
-        print(f"{'='*60}")
+        self.total_time_ms = sum(s.duration_ms for s in self.steps)
+    
+    def to_dict(self) -> dict:
+        self.calculate_totals()
+        return {
+            "dialogue_id": self.dialogue_id,
+            "timestamp": self.timestamp,
+            "player_id": self.player_id,
+            "npc_id": self.npc_id,
+            "message_length": self.message_length,
+            "reply_length": self.reply_length,
+            "total_time_ms": round(self.total_time_ms, 3),
+            "phase_summary": {
+                "retrieval_ms": round(self.retrieval_time_ms, 3),
+                "context_build_ms": round(self.context_build_time_ms, 3),
+                "llm_generate_ms": round(self.llm_time_ms, 3),
+                "storage_ms": round(self.storage_time_ms, 3)
+            },
+            "steps": [s.to_dict() for s in self.steps]
+        }
+    
+    def get_summary_table(self) -> str:
+        """生成可视化的汇总表格"""
+        self.calculate_totals()
+        
+        lines = []
+        lines.append("╔════════════════════════════════════════════════════════════════════════════╗")
+        lines.append("║                         对话性能详细报告                                    ║")
+        lines.append("╠════════════════════════════════════════════════════════════════════════════╣")
+        lines.append(f"║  对话ID: {self.dialogue_id[:60]:<64} ║")
+        lines.append(f"║  时间:   {self.timestamp:<64} ║")
+        lines.append(f"║  NPC:    {self.npc_id:<64} ║")
+        lines.append(f"║  玩家:   {self.player_id:<64} ║")
+        lines.append("╠════════════════════════════════════════════════════════════════════════════╣")
+        lines.append("║  步骤                                         耗时(ms)     状态           ║")
+        lines.append("╠════════════════════════════════════════════════════════════════════════════╣")
+        
+        for step in self.steps:
+            status = "✓" if step.success else "✗"
+            step_display = step.step_name[:40]
+            lines.append(f"║  {step.step_id:2d}. {step_display:<40} {step.duration_ms:>10.2f}     {status:<10} ║")
+        
+        lines.append("╠════════════════════════════════════════════════════════════════════════════╣")
+        lines.append("║  阶段汇总                                                                  ║")
+        lines.append("╠════════════════════════════════════════════════════════════════════════════╣")
+        
+        total = self.total_time_ms if self.total_time_ms > 0 else 1
+        
+        retrieval_pct = (self.retrieval_time_ms / total) * 100
+        context_pct = (self.context_build_time_ms / total) * 100
+        llm_pct = (self.llm_time_ms / total) * 100
+        storage_pct = (self.storage_time_ms / total) * 100
+        
+        lines.append(f"║  📥 检索阶段 (记忆+RAG+笔记):  {self.retrieval_time_ms:>10.2f} ms  ({retrieval_pct:>5.1f}%)           ║")
+        lines.append(f"║  🔧 上下文构建 (GSSC):         {self.context_build_time_ms:>10.2f} ms  ({context_pct:>5.1f}%)           ║")
+        lines.append(f"║  🤖 LLM生成回复:               {self.llm_time_ms:>10.2f} ms  ({llm_pct:>5.1f}%)           ║")
+        lines.append(f"║  💾 存储阶段:                  {self.storage_time_ms:>10.2f} ms  ({storage_pct:>5.1f}%)           ║")
+        lines.append("╠════════════════════════════════════════════════════════════════════════════╣")
+        lines.append(f"║  ⏱️  总耗时:                    {self.total_time_ms:>10.2f} ms  ({self.total_time_ms/1000:.2f} 秒)         ║")
+        lines.append("╚════════════════════════════════════════════════════════════════════════════╝")
+        
+        return "\n".join(lines)
+    
+    def get_compact_summary(self) -> str:
+        """获取紧凑的单行摘要"""
+        self.calculate_totals()
+        return (f"[耗时 {self.total_time_ms:.0f}ms] "
+                f"检索:{self.retrieval_time_ms:.0f}ms | "
+                f"构建:{self.context_build_time_ms:.0f}ms | "
+                f"LLM:{self.llm_time_ms:.0f}ms | "
+                f"存储:{self.storage_time_ms:.0f}ms")
+    
+    def print_breakdown(self):
+        """打印详细的性能分解报告（在控制台输出）"""
+        print(self.get_summary_table())
+    
+    def print_compact(self):
+        """打印紧凑的性能摘要"""
+        print(self.get_compact_summary())
 
 
 class PerformanceMonitor:
     """
     性能监控器
     
-    用于追踪NPC对话系统各模块的执行时间
+    使用方式:
+    ```python
+    monitor = PerformanceMonitor()
     
-    使用示例:
-        monitor = PerformanceMonitor()
-        
-        # 方式1: 上下文管理器
-        with monitor.track("memory_search"):
-            results = memory.search(query)
-        
-        # 方式2: 开始/结束追踪
-        trace = monitor.start_dialogue("npc_001", "player_001", "你好")
-        with monitor.track("step1"):
-            ...
-        monitor.end_dialogue(trace, success=True, reply="你好!")
-        
-        # 查看统计
-        monitor.print_statistics()
+    # 开始新对话监控
+    monitor.start_dialogue("player_1", "npc_blacksmith", "你好")
+    
+    # 记录各步骤
+    with monitor.step("get_affinity", 1):
+        affinity = relationship.get_affinity(...)
+    
+    with monitor.step("search_memory", 2):
+        memories = memory.search(...)
+    
+    # ... 其他步骤
+    
+    # 结束监控并获取报告
+    metrics = monitor.end_dialogue(reply="你好，欢迎来到我的铁匠铺！")
+    print(metrics.get_summary_table())
+    ```
     """
     
-    # NPC对话的标准步骤定义
-    DIALOGUE_STEPS = [
-        "get_affinity",           # 1. 获取好感度
-        "build_context_packets",  # 2. 构建上下文包
-        "memory_search",          # 3. 检索记忆
-        "rag_search",             # 4. 检索RAG知识
-        "notes_search",           # 5. 检索笔记
-        "context_build",          # 6. 构建完整上下文
-        "llm_generate",           # 7. LLM生成回复
-        "update_affinity",        # 8. 更新好感度
-        "store_working_memory",   # 9. 存储工作记忆
-        "store_episodic_memory",  # 10. 存储情景记忆
-        "save_dialogue_sqlite",   # 11. 持久化对话(SQLite)
-        "save_dialogue_markdown", # 12. 保存Markdown
-        "save_episodic_file",     # 13. 保存情景记忆文件
-        "other"                   # 其他
-    ]
+    # 预定义的步骤列表 (按执行顺序)
+    STEPS = {
+        1: "get_affinity",
+        2: "build_context_packets",
+        3: "search_working_memory",
+        4: "search_episodic_memory",
+        5: "search_semantic_memory",
+        6: "search_rag_knowledge",
+        7: "search_notes",
+        8: "gssc_build_context",
+        9: "llm_generate",
+        10: "update_affinity",
+        11: "store_working_memory",
+        12: "store_episodic_memory",
+        13: "persist_sqlite",
+        14: "save_markdown",
+        15: "update_session"
+    }
     
     def __init__(self, enabled: bool = True):
         self.enabled = enabled
-        self.statistics: Dict[str, StepStatistics] = {}
-        self.traces: List[DialogueTrace] = []
-        self.current_trace: Optional[DialogueTrace] = None
-        self._trace_counter = 0
-        
-        # 全局统计
-        self.total_dialogues = 0
-        self.successful_dialogues = 0
-        self.failed_dialogues = 0
-        
-        # 初始化所有标准步骤的统计
-        for step in self.DIALOGUE_STEPS:
-            self.statistics[step] = StepStatistics(name=step)
+        self.current_dialogue: Optional[DialogueMetrics] = None
+        self.history: List[DialogueMetrics] = []
+        self._lock = threading.Lock()
+        self._step_counter = 0
     
     def start_dialogue(self, npc_id: str, player_id: str, 
-                       user_message: str = "") -> DialogueTrace:
-        """开始一次对话追踪"""
-        self._trace_counter += 1
-        trace_id = f"trace_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{self._trace_counter}"
-        
-        trace = DialogueTrace(
-            trace_id=trace_id,
-            npc_id=npc_id,
-            player_id=player_id,
-            start_time=time.perf_counter(),
-            user_message=user_message
-        )
-        
-        self.current_trace = trace
-        self.total_dialogues += 1
-        
-        return trace
-    
-    def end_dialogue(self, trace: DialogueTrace = None, 
-                     success: bool = True, 
-                     error: str = "",
-                     npc_reply: str = ""):
-        """结束对话追踪"""
-        if trace is None:
-            trace = self.current_trace
-        
-        if trace is None:
-            return
-        
-        trace.finish(success, error, npc_reply)
-        self.traces.append(trace)
-        
-        if success:
-            self.successful_dialogues += 1
-        else:
-            self.failed_dialogues += 1
-        
-        # 保留最近100条追踪
-        if len(self.traces) > 100:
-            self.traces = self.traces[-100:]
-        
-        self.current_trace = None
-    
-    @contextmanager
-    def track(self, step_name: str, **metadata):
+                       message: str, dialogue_id: str = None) -> Optional[DialogueMetrics]:
         """
-        追踪一个步骤的执行时间
+        开始监控一次对话
         
-        使用:
-            with monitor.track("memory_search"):
-                results = memory.search(query)
+        Args:
+            npc_id: NPC ID
+            player_id: 玩家ID
+            message: 玩家消息
+            dialogue_id: 对话ID (可选)
+            
+        Returns:
+            DialogueMetrics: 对话追踪对象 (trace)，用于后续传给 end_dialogue
         """
         if not self.enabled:
+            return None
+        
+        with self._lock:
+            if dialogue_id is None:
+                dialogue_id = f"dlg_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+            
+            self.current_dialogue = DialogueMetrics(
+                dialogue_id=dialogue_id,
+                timestamp=datetime.now().isoformat(),
+                player_id=player_id,
+                npc_id=npc_id,
+                message_length=len(message)
+            )
+            self._step_counter = 0
+            
+            # 返回当前对话指标对象作为 trace
+            return self.current_dialogue
+    
+    @contextmanager
+    def step(self, step_name: str, step_id: int = None, **metadata):
+        """
+        使用上下文管理器记录步骤耗时
+        
+        Args:
+            step_name: 步骤名称
+            step_id: 步骤ID (可选，自动递增)
+            **metadata: 额外的元数据
+        """
+        if not self.enabled or self.current_dialogue is None:
             yield
             return
         
-        record = TimingRecord(
-            name=step_name,
-            start_time=time.perf_counter(),
+        with self._lock:
+            self._step_counter += 1
+            if step_id is None:
+                step_id = self._step_counter
+        
+        timing = StepTiming(
+            step_name=step_name,
+            step_id=step_id,
             metadata=metadata
         )
-        
-        error = ""
-        success = True
+        timing.start_time = time.perf_counter() * 1000  # 转换为毫秒
         
         try:
-            yield record
+            yield timing
+            timing.success = True
         except Exception as e:
-            error = str(e)
-            success = False
+            timing.success = False
+            timing.error = str(e)
             raise
         finally:
-            record.finish(success, error)
+            timing.end_time = time.perf_counter() * 1000
+            timing.duration_ms = timing.end_time - timing.start_time
             
-            # 添加到统计
-            if step_name not in self.statistics:
-                self.statistics[step_name] = StepStatistics(name=step_name)
-            self.statistics[step_name].add_record(record)
-            
-            # 添加到当前追踪
-            if self.current_trace:
-                self.current_trace.add_step(record)
+            with self._lock:
+                if self.current_dialogue:
+                    self.current_dialogue.steps.append(timing)
+    
+    # track 是 step 的别名，保持兼容性
+    track = step
     
     def record_step(self, step_name: str, duration_ms: float, 
-                    success: bool = True, error: str = ""):
-        """手动记录一个步骤（用于无法使用上下文管理器的情况）"""
+                    step_id: int = None, success: bool = True,
+                    error: str = "", **metadata) -> StepTiming:
+        """手动记录一个步骤 (不使用上下文管理器)"""
+        if not self.enabled or self.current_dialogue is None:
+            return None
+        
+        with self._lock:
+            self._step_counter += 1
+            if step_id is None:
+                step_id = self._step_counter
+            
+            timing = StepTiming(
+                step_name=step_name,
+                step_id=step_id,
+                duration_ms=duration_ms,
+                success=success,
+                error=error,
+                metadata=metadata
+            )
+            self.current_dialogue.steps.append(timing)
+            return timing
+    
+    def end_dialogue(self, trace: DialogueMetrics = None, 
+                     success: bool = True, 
+                     npc_reply: str = "", 
+                     error: str = "",
+                     reply: str = "") -> Optional[DialogueMetrics]:
+        """
+        结束对话监控并返回完整指标
+        
+        Args:
+            trace: start_dialogue 返回的追踪对象 (可选，向后兼容)
+            success: 对话是否成功完成
+            npc_reply: NPC回复内容
+            error: 错误信息 (如果 success=False)
+            reply: npc_reply的别名，保持向后兼容
+            
+        Returns:
+            DialogueMetrics: 完整的对话性能指标
+        """
         if not self.enabled:
-            return
+            return trace
         
-        record = TimingRecord(
-            name=step_name,
-            start_time=time.perf_counter() - duration_ms / 1000,
-            end_time=time.perf_counter(),
-            duration_ms=duration_ms,
-            success=success,
-            error=error
-        )
+        # 兼容旧的调用方式: end_dialogue(reply="...")
+        actual_reply = npc_reply or reply
         
-        if step_name not in self.statistics:
-            self.statistics[step_name] = StepStatistics(name=step_name)
-        self.statistics[step_name].add_record(record)
+        # 确定要操作的 metrics 对象
+        metrics = trace if trace is not None else self.current_dialogue
         
-        if self.current_trace:
-            self.current_trace.add_step(record)
+        if metrics is None:
+            return None
+        
+        with self._lock:
+            metrics.reply_length = len(actual_reply)
+            metrics.calculate_totals()
+            
+            # 记录成功/失败状态
+            if hasattr(metrics, 'success'):
+                metrics.success = success
+            if hasattr(metrics, 'error') and error:
+                metrics.error = error
+            
+            # 如果是当前对话，加入历史并清空
+            if metrics is self.current_dialogue:
+                self.history.append(metrics)
+                self.current_dialogue = None
+            elif trace is not None and trace not in self.history:
+                # 如果是通过 trace 传入的，也加入历史
+                self.history.append(trace)
+            
+            return metrics
     
-    def get_statistics(self) -> Dict[str, dict]:
-        """获取所有步骤的统计信息"""
-        return {
-            name: stats.to_dict() 
-            for name, stats in self.statistics.items()
-            if stats.count > 0
-        }
+    def get_history(self, limit: int = 10) -> List[DialogueMetrics]:
+        """获取历史记录"""
+        return self.history[-limit:]
     
-    def get_dialogue_summary(self) -> dict:
-        """获取对话总体统计"""
-        if not self.traces:
-            return {
-                "total_dialogues": 0,
-                "success_rate": 0,
-                "avg_duration_ms": 0
+    def get_aggregate_stats(self) -> Dict[str, Any]:
+        """获取聚合统计数据"""
+        if not self.history:
+            return {}
+        
+        # 按步骤聚合
+        step_stats: Dict[str, List[float]] = {}
+        total_times = []
+        
+        for metrics in self.history:
+            total_times.append(metrics.total_time_ms)
+            for step in metrics.steps:
+                if step.step_name not in step_stats:
+                    step_stats[step.step_name] = []
+                step_stats[step.step_name].append(step.duration_ms)
+        
+        # 计算每个步骤的统计
+        step_summary = {}
+        for name, times in step_stats.items():
+            step_summary[name] = {
+                "count": len(times),
+                "avg_ms": sum(times) / len(times) if times else 0,
+                "min_ms": min(times) if times else 0,
+                "max_ms": max(times) if times else 0,
+                "total_ms": sum(times)
             }
         
-        durations = [t.total_duration_ms for t in self.traces]
-        
         return {
-            "total_dialogues": self.total_dialogues,
-            "successful_dialogues": self.successful_dialogues,
-            "failed_dialogues": self.failed_dialogues,
-            "success_rate": round(self.successful_dialogues / self.total_dialogues * 100, 2) if self.total_dialogues > 0 else 0,
-            "avg_duration_ms": round(sum(durations) / len(durations), 2),
-            "min_duration_ms": round(min(durations), 2),
-            "max_duration_ms": round(max(durations), 2),
-            "median_duration_ms": round(statistics.median(durations), 2) if durations else 0
+            "dialogue_count": len(self.history),
+            "total_time": {
+                "avg_ms": sum(total_times) / len(total_times) if total_times else 0,
+                "min_ms": min(total_times) if total_times else 0,
+                "max_ms": max(total_times) if total_times else 0
+            },
+            "steps": step_summary
         }
     
-    def get_bottlenecks(self, top_n: int = 5) -> List[dict]:
-        """识别性能瓶颈（平均耗时最长的步骤）"""
-        sorted_stats = sorted(
-            [s for s in self.statistics.values() if s.count > 0],
-            key=lambda s: s.avg_ms,
-            reverse=True
-        )
+    def get_aggregate_summary_table(self) -> str:
+        """生成聚合统计表格"""
+        stats = self.get_aggregate_stats()
+        if not stats:
+            return "暂无统计数据"
         
-        return [
-            {
-                "step": s.name,
-                "avg_ms": round(s.avg_ms, 2),
-                "max_ms": round(s.max_ms, 2),
-                "count": s.count,
-                "recommendation": self._get_optimization_hint(s.name, s.avg_ms)
-            }
-            for s in sorted_stats[:top_n]
-        ]
-    
-    def _get_optimization_hint(self, step_name: str, avg_ms: float) -> str:
-        """获取优化建议"""
-        hints = {
-            "llm_generate": "考虑使用更快的模型或减少上下文长度",
-            "rag_search": "优化向量索引或减少检索数量",
-            "memory_search": "考虑添加索引或限制搜索范围",
-            "context_build": "简化上下文构建逻辑或减少包含的信息",
-            "save_dialogue_sqlite": "考虑异步写入或批量写入",
-            "save_dialogue_markdown": "考虑异步写入",
-            "update_affinity": "如果使用LLM分析，考虑切换到规则分析"
-        }
-        
-        if avg_ms > 1000:
-            return hints.get(step_name, "此步骤耗时较长，建议优化")
-        elif avg_ms > 500:
-            return hints.get(step_name, "可以考虑优化")
-        else:
-            return "性能良好"
-    
-    def print_statistics(self):
-        """打印详细统计信息"""
-        print(f"\n{'='*70}")
-        print(f"{'NPC对话系统性能统计':^70}")
-        print(f"{'='*70}")
-        
-        # 对话总览
-        summary = self.get_dialogue_summary()
-        print(f"\n📊 对话总览")
-        print(f"   总对话数: {summary.get('total_dialogues', 0)}")
-        print(f"   成功率: {summary.get('success_rate', 0)}%")
-        print(f"   平均耗时: {summary.get('avg_duration_ms', 0):.2f}ms ({summary.get('avg_duration_ms', 0)/1000:.2f}秒)")
-        print(f"   最快: {summary.get('min_duration_ms', 0):.2f}ms | 最慢: {summary.get('max_duration_ms', 0):.2f}ms")
-        
-        # 各步骤统计
-        print(f"\n📈 各步骤耗时统计")
-        print(f"{'-'*70}")
-        print(f"{'步骤名称':<25} {'次数':<8} {'平均(ms)':<12} {'最小':<10} {'最大':<10} {'P95':<10}")
-        print(f"{'-'*70}")
+        lines = []
+        lines.append("╔════════════════════════════════════════════════════════════════════════════╗")
+        lines.append("║                         性能聚合统计报告                                    ║")
+        lines.append("╠════════════════════════════════════════════════════════════════════════════╣")
+        lines.append(f"║  总对话次数: {stats['dialogue_count']:<62} ║")
+        lines.append(f"║  平均耗时:   {stats['total_time']['avg_ms']:.2f} ms{' ' * 54} ║")
+        lines.append(f"║  最快耗时:   {stats['total_time']['min_ms']:.2f} ms{' ' * 54} ║")
+        lines.append(f"║  最慢耗时:   {stats['total_time']['max_ms']:.2f} ms{' ' * 54} ║")
+        lines.append("╠════════════════════════════════════════════════════════════════════════════╣")
+        lines.append("║  步骤                              调用次数    平均(ms)    最大(ms)        ║")
+        lines.append("╠════════════════════════════════════════════════════════════════════════════╣")
         
         # 按平均耗时排序
-        sorted_stats = sorted(
-            [s for s in self.statistics.values() if s.count > 0],
-            key=lambda s: s.avg_ms,
+        sorted_steps = sorted(
+            stats['steps'].items(), 
+            key=lambda x: x[1]['avg_ms'], 
             reverse=True
         )
         
-        for stat in sorted_stats:
-            min_val = stat.min_ms if stat.min_ms != float('inf') else 0
-            print(f"{stat.name:<25} {stat.count:<8} {stat.avg_ms:<12.2f} {min_val:<10.2f} {stat.max_ms:<10.2f} {stat.p95_ms:<10.2f}")
+        for name, info in sorted_steps:
+            name_display = name[:32]
+            lines.append(
+                f"║  {name_display:<32} {info['count']:>8}    "
+                f"{info['avg_ms']:>8.2f}    {info['max_ms']:>8.2f}        ║"
+            )
         
-        # 性能瓶颈
-        print(f"\n⚠️  性能瓶颈 (Top 3)")
-        print(f"{'-'*70}")
-        bottlenecks = self.get_bottlenecks(3)
-        for i, b in enumerate(bottlenecks, 1):
-            print(f"   {i}. {b['step']}: 平均 {b['avg_ms']:.2f}ms")
-            print(f"      💡 {b['recommendation']}")
+        lines.append("╚════════════════════════════════════════════════════════════════════════════╝")
         
-        print(f"\n{'='*70}")
+        return "\n".join(lines)
     
-    def print_last_trace(self):
-        """打印最近一次对话追踪"""
-        if self.traces:
-            self.traces[-1].print_breakdown()
-        else:
-            print("暂无对话追踪记录")
-    
-    def export_report(self, filepath: str = "performance_report.json"):
-        """导出性能报告为JSON"""
-        report = {
-            "generated_at": datetime.now().isoformat(),
-            "summary": self.get_dialogue_summary(),
-            "step_statistics": self.get_statistics(),
-            "bottlenecks": self.get_bottlenecks(5),
-            "recent_traces": [t.to_dict() for t in self.traces[-10:]]
+    def export_to_json(self, filepath: str = None) -> str:
+        """导出历史记录到JSON"""
+        if filepath is None:
+            filepath = f"performance_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        
+        data = {
+            "export_time": datetime.now().isoformat(),
+            "dialogue_count": len(self.history),
+            "aggregate_stats": self.get_aggregate_stats(),
+            "dialogues": [m.to_dict() for m in self.history]
         }
         
         with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(report, f, ensure_ascii=False, indent=2)
+            json.dump(data, f, ensure_ascii=False, indent=2)
         
-        print(f"✅ 性能报告已导出到: {filepath}")
         return filepath
     
-    def reset(self):
-        """重置所有统计"""
-        self.statistics = {step: StepStatistics(name=step) for step in self.DIALOGUE_STEPS}
-        self.traces = []
-        self.total_dialogues = 0
-        self.successful_dialogues = 0
-        self.failed_dialogues = 0
-        self._trace_counter = 0
-        self.current_trace = None
-
-
-def timed(monitor: PerformanceMonitor, step_name: str):
-    """
-    装饰器：追踪函数执行时间
+    def clear_history(self):
+        """清除历史记录"""
+        with self._lock:
+            self.history.clear()
     
-    使用:
-        @timed(monitor, "llm_generate")
-        def generate_reply(context, message):
-            ...
-    """
-    def decorator(func: Callable):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            with monitor.track(step_name):
-                return func(*args, **kwargs)
-        return wrapper
-    return decorator
+    def get_dialogue_summary(self) -> Dict[str, Any]:
+        """
+        获取对话性能摘要 (用于 NPCAgent.get_performance_stats)
+        
+        Returns:
+            Dict: 包含对话次数、平均耗时等汇总信息
+        """
+        if not self.history:
+            return {
+                "dialogue_count": 0,
+                "avg_time_ms": 0,
+                "total_time_ms": 0
+            }
+        
+        total_times = [m.total_time_ms for m in self.history]
+        return {
+            "dialogue_count": len(self.history),
+            "avg_time_ms": sum(total_times) / len(total_times),
+            "min_time_ms": min(total_times),
+            "max_time_ms": max(total_times),
+            "total_time_ms": sum(total_times)
+        }
+    
+    def get_statistics(self) -> Dict[str, Dict[str, float]]:
+        """
+        获取各步骤的统计信息 (用于 NPCAgent.get_performance_stats)
+        
+        Returns:
+            Dict: 每个步骤的调用次数、平均/最小/最大耗时
+        """
+        stats = self.get_aggregate_stats()
+        return stats.get('steps', {})
+    
+    def get_bottlenecks(self, top_n: int = 5) -> List[Dict[str, Any]]:
+        """
+        获取最耗时的步骤 (性能瓶颈) (用于 NPCAgent.get_performance_stats)
+        
+        Args:
+            top_n: 返回前N个最慢的步骤
+            
+        Returns:
+            List: 按平均耗时降序排列的步骤列表
+        """
+        stats = self.get_aggregate_stats()
+        steps = stats.get('steps', {})
+        
+        if not steps:
+            return []
+        
+        # 按平均耗时降序排列
+        sorted_steps = sorted(
+            steps.items(),
+            key=lambda x: x[1].get('avg_ms', 0),
+            reverse=True
+        )
+        
+        bottlenecks = []
+        for name, info in sorted_steps[:top_n]:
+            bottlenecks.append({
+                "step_name": name,
+                "avg_ms": info.get('avg_ms', 0),
+                "max_ms": info.get('max_ms', 0),
+                "count": info.get('count', 0),
+                "total_ms": info.get('total_ms', 0)
+            })
+        
+        return bottlenecks
 
 
 # 全局性能监控器实例
 _global_monitor: Optional[PerformanceMonitor] = None
 
 
-def get_global_monitor() -> PerformanceMonitor:
+def get_performance_monitor() -> PerformanceMonitor:
     """获取全局性能监控器"""
     global _global_monitor
     if _global_monitor is None:
-        _global_monitor = PerformanceMonitor()
+        _global_monitor = PerformanceMonitor(enabled=True)
     return _global_monitor
 
 
-def reset_global_monitor():
-    """重置全局性能监控器"""
+def set_performance_monitor(monitor: PerformanceMonitor):
+    """设置全局性能监控器"""
     global _global_monitor
-    if _global_monitor:
-        _global_monitor.reset()
+    _global_monitor = monitor
+
+
+# ==================== 装饰器 ====================
+
+def timed_step(step_name: str, step_id: int = None):
+    """
+    装饰器: 自动记录函数执行时间
+    
+    使用:
+    ```python
+    @timed_step("search_memory", 2)
+    def search_memory(self, query):
+        ...
+    ```
+    """
+    def decorator(func: Callable):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            monitor = get_performance_monitor()
+            if monitor and monitor.current_dialogue:
+                with monitor.step(step_name, step_id):
+                    return func(*args, **kwargs)
+            else:
+                return func(*args, **kwargs)
+        return wrapper
+    return decorator
