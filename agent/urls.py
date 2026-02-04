@@ -17,23 +17,46 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 from extrator import views as extratorView
-
-# 调试：检查 general_connect 是否存在
-print(f"[DEBUG] extrator.views 中的函数: {dir(extratorView)}")
-print(f"[DEBUG] 是否有 general_connect: {hasattr(extratorView, 'general_connect')}")
-
 from extrator.llm.npc_system.views import npc_urlpatterns
 
 urlpatterns = [
-    # 星球环境对话
+    # 旧接口 (保持兼容)
     path('chat/', extratorView.chat),
     path('connect/', extratorView.connect),
     path('admin/', admin.site.urls),
     path("qa/", extratorView.qa_view, name="qa_view"),
+
+    # 通用对话 (旧接口)
+    path('general/connect/', extratorView.general_connect),
+    path('general/chat/', extratorView.general_chat_view),
+    path('general/clear/', extratorView.general_clear),
     
-    # 通用对话 (新增)
-    path('general/connect/', extratorView.general_connect),   # 创建会话
-    path('general/chat/', extratorView.general_chat_view),    # 对话
-    path('general/clear/', extratorView.general_clear),       # 清除历史
+    # Test 对话 (旧接口)
+    path('test/connect/', extratorView.test_connect),
+    path('test/chat/', extratorView.test_chat_view),
+    path('test/clear/', extratorView.test_clear),
+
+    # ==================== 统一接口 (推荐) ====================
+    # /api/<backend>/chat/  - 支持: general, test, test_chat, npc
+    # /api/<backend>/connect/
+    # /api/<backend>/clear/
+    path('api/<str:backend>/chat/', extratorView.unified_chat),
+    path('api/<str:backend>/connect/', extratorView.unified_connect),
+    path('api/<str:backend>/clear/', extratorView.unified_clear),
+    
+    # 旧路由 (保持兼容)
+    path('chat/<str:backend>/', extratorView.unified_chat),
+    path('connect/<str:backend>/', extratorView.unified_connect),
+    path('clear/<str:backend>/', extratorView.unified_clear),
+    
+    # 列出所有可用后端
+    path('api/backends/', extratorView.list_chat_backends),
+    path('backends/', extratorView.list_chat_backends),
+    
+    # ==================== Persona API - 人设管理 ====================
+    # GET/POST /api/persona/
+    # GET/PUT/DELETE /api/persona/<id>/
+    path('api/persona/', extratorView.persona_list_or_create),
+    path('api/persona/<str:persona_id>/', extratorView.persona_detail),
 ]
-urlpatterns += npc_urlpatterns  # 添加NPC系统路由
+urlpatterns += npc_urlpatterns
