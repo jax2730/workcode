@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 对话按钮背景 - 渐变蓝色带阴影效果 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 按下状态 -->
+    <item android:state_pressed="true">
+        <layer-list>
+            <item>
+                <shape android:shape="oval">
+                    <gradient
+                        android:startColor="#1E88E5"
+                        android:endColor="#1565C0"
+                        android:angle="135"
+                        android:type="linear" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+    
+    <!-- 正常状态 -->
+    <item>
+        <layer-list>
+            <!-- 阴影层 -->
+            <item android:top="2dp" android:left="2dp">
+                <shape android:shape="oval">
+                    <solid android:color="#40000000" />
+                </shape>
+            </item>
+            <!-- 主体层 -->
+            <item android:bottom="2dp" android:right="2dp">
+                <shape android:shape="oval">
+                    <gradient
+                        android:startColor="#42A5F5"
+                        android:endColor="#2196F3"
+                        android:angle="135"
+                        android:type="linear" />
+                    <stroke
+                        android:width="2dp"
+                        android:color="#FFFFFF" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+</selector>
+
