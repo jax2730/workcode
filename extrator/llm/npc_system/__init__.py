@@ -157,15 +157,6 @@ from .storage_config import (
     create_storage_manager
 )
 
-# 性能监控
-from .performance_monitor import (
-    PerformanceMonitor,
-    DialogueMetrics,
-    StepTiming,
-    get_performance_monitor,
-    set_performance_monitor
-)
-
 # 数据目录初始化
 from .init_data_dirs import (
     init_npc_data_directories,
@@ -187,11 +178,9 @@ from .npc_agent import (
 from .npc_manager import (
     NPCManager,
     NPCManagerConfig,
-    NPC_TEMPLATES,
     create_npc_manager,
     create_template_npc,
-    load_npc_templates,
-    get_npc_templates
+    get_npc_templates,  # 新增：从配置目录加载所有NPC模板
 )
 
 __all__ = [
@@ -256,13 +245,6 @@ __all__ = [
     "get_storage_manager",
     "create_storage_manager",
     
-    # 性能监控
-    "PerformanceMonitor",
-    "DialogueMetrics",
-    "StepTiming",
-    "get_performance_monitor",
-    "set_performance_monitor",
-    
     # 数据目录初始化
     "init_npc_data_directories",
     "init_npc_directories",
@@ -279,9 +261,9 @@ __all__ = [
     # NPC管理器
     "NPCManager",
     "NPCManagerConfig",
-    "NPC_TEMPLATES",
     "create_npc_manager",
     "create_template_npc",
+    "get_npc_templates",  # 从配置目录加载NPC模板
 ]
 
 __version__ = "1.0.0"

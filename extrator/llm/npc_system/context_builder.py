@@ -50,24 +50,9 @@ class ContextConfig:
     # 角色描述 (用于NPC)
     role_description: str = ""
     
-    # [优化] 快速模式 - 禁用耗时的检索操作
-    # 注意：这些字段必须是 dataclass 字段，否则外部传 fast_mode=True 会报
-    # "ContextConfig has no attribute 'fast_mode'"。
-    fast_mode: bool = False             # 快速模式开关
-    enable_memory_search: bool = True   # 是否启用记忆检索
-    enable_rag_search: bool = True      # 是否启用RAG检索
-    enable_notes_search: bool = True    # 是否启用笔记检索
-
-    
     def __post_init__(self):
         assert 0.0 <= self.reserve_ratio <= 1.0
         assert 0.0 <= self.min_relevance <= 1.0
-        # 快速模式下禁用所有检索
-        # 用 getattr 做边界收束，防止老版本对象缺字段导致 AttributeError
-        if getattr(self, "fast_mode", False):
-            self.enable_memory_search = False
-            self.enable_rag_search = False
-            self.enable_notes_search = False
         # 权重之和应为1
         total = self.recency_weight + self.relevance_weight
         if abs(total - 1.0) > 0.01:
@@ -237,7 +222,7 @@ class ContextBuilder:
             ))
         
         # ========== 2. 记忆系统 ==========
-        if self.memory_tool and self.config.enable_memory_search:
+        if self.memory_tool:
             try:
                 # 工作记忆
                 working_memories = self.memory_tool.execute(
@@ -298,7 +283,7 @@ class ContextBuilder:
                 print(f"[ContextBuilder] 记忆检索失败: {e}")
         
         # ========== 3. RAG知识库 ==========
-        if self.rag_tool and self.config.enable_rag_search:
+        if self.rag_tool:
             try:
                 rag_results = self.rag_tool.search(
                     query=user_query,
