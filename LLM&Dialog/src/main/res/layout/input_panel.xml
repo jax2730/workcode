@@ -1,32 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical" 
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:orientation="vertical"
 	android:background="#cfffffff">
-    
-	<EditText
-        android:id="@+id/txt_input"
-        android:layout_width="match_parent"
-        android:layout_height="80dp"
-        android:duplicateParentState="false"
-        android:ems="10"
-        android:enabled="true"
-        android:focusable="false"
-        android:freezesText="true"
-        android:gravity="top"
-        android:hint="@string/input_hint"
-        android:imeOptions="normal|actionDone"
-        android:inputType="text"
-        android:linksClickable="true"
-        android:longClickable="true"
-        android:singleLine="true" />
 
-    <Button
-        android:id="@+id/bt_confirm_input"
-        android:layout_width="172dp"
-        android:layout_height="wrap_content"
-        android:layout_gravity="right"
-        android:text="@string/confirm" />
-    
+	<EditText
+		android:id="@+id/txt_input"
+		android:layout_width="match_parent"
+		android:layout_height="80dp"
+		android:duplicateParentState="false"
+		android:ems="10"
+		android:enabled="true"
+		android:focusable="false"
+		android:freezesText="true"
+		android:gravity="top"
+		android:hint="@string/input_hint"
+		android:imeOptions="normal|actionDone"
+		android:inputType="text"
+		android:linksClickable="true"
+		android:longClickable="true"
+		android:singleLine="true" />
+
+	<Button
+		android:id="@+id/bt_confirm_input"
+		android:layout_width="172dp"
+		android:layout_height="wrap_content"
+		android:layout_gravity="right"
+		android:text="@string/confirm" />
+
 </LinearLayout>

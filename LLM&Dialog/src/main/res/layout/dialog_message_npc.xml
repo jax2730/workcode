@@ -31,7 +31,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="@drawable/bubble_npc"
-            android:text="你是南通？难道你就是江湖中人传言的那位杨三儿少侠吗？"
+            android:text="难道你就是江湖中人传言的那位杨少侠吗？"
             android:textColor="#FFFFFF"
             android:textSize="14sp"
             android:padding="12dp"

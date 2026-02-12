@@ -16,9 +16,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 对话管理器 - 统一接口版
- * 支持任意后端: general, test, test_chat, npc 等
- * 切换后端只需修改 DialogConfig.CHAT_BACKEND
+ * 对话管理器 - 统一接口
  */
 public class DialogManager {
 
@@ -109,9 +107,15 @@ public class DialogManager {
                     JSONObject resp = readResponse(conn);
                     if (resp.getBoolean("success")) {
                         sessionId = resp.optString("session_id", "");
-                        String greeting = resp.optString("reply", resp.optString("message", ""));
-                        showMessage(greeting);
                         Log.d(TAG, "连接成功: " + sessionId);
+
+                        // NPC后端: 获取该NPC的专属问候语
+                        if ("npc".equals(DialogConfig.CHAT_BACKEND) && !currentNpcId.isEmpty()) {
+                            fetchNpcGreeting();
+                        } else {
+                            String greeting = resp.optString("reply", resp.optString("message", ""));
+                            showMessage(greeting);
+                        }
                     }
                 } else {
                     useFallbackGreeting();
@@ -122,6 +126,44 @@ public class DialogManager {
                 useFallbackGreeting();
             }
         }).start();
+    }
+
+    /** 获取NPC专属问候语 */
+    private void fetchNpcGreeting() {
+        try {
+            String greetingUrl = serverUrl + "/npc/greeting/" + currentNpcId
+                    + "/?player_id=" + playerId;
+            URL url = new URL(greetingUrl);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(DialogConfig.CONNECT_TIMEOUT);
+            conn.setReadTimeout(DialogConfig.READ_TIMEOUT);
+
+            if (conn.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                JSONObject resp = readResponse(conn);
+                if (resp.getBoolean("success")) {
+                    String greeting = resp.optString("greeting", "");
+                    String npcName = resp.optString("npc_name", currentNpcName);
+                    if (!npcName.isEmpty()) {
+                        currentNpcName = npcName;
+                        // 更新UI上的NPC名称
+                        handler.post(() -> {
+                            if (mainActivity != null) mainActivity.setDialogNpcName(npcName);
+                        });
+                    }
+                    showMessage(greeting);
+                    Log.d(TAG, "NPC问候: " + greeting);
+                } else {
+                    useFallbackGreeting();
+                }
+            } else {
+                useFallbackGreeting();
+            }
+            conn.disconnect();
+        } catch (Exception e) {
+            Log.e(TAG, "获取问候语失败: " + e.getMessage());
+            useFallbackGreeting();
+        }
     }
 
     /** 处理玩家消息 */

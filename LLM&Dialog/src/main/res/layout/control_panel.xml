@@ -250,15 +250,12 @@
 
 	<ImageButton
 		android:id="@+id/buttonDialog"
-		android:layout_width="80dp"
-		android:layout_height="80dp"
-		android:layout_centerInParent="true"
-		android:background="@drawable/dialog_button_background"
-		android:src="@drawable/ic_dialog_chat"
-		android:scaleType="centerInside"
-		android:padding="16dp"
-		android:elevation="8dp"
-		android:contentDescription="对话按钮" />
+		android:layout_width="40dp"
+		android:layout_height="36dp"
+		android:layout_marginLeft="650px"
+		android:layout_marginTop="30px"
+		android:visibility="gone"
+		android:background="@drawable/joystick_button" />
 
 	<!-- NPC对话面板 -->
 	<include

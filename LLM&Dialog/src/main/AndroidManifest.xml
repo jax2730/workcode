@@ -17,7 +17,6 @@
 		android:name = ".GameApplication"
 	  	android:allowBackup="false"
 		android:debuggable="true"
-		android:usesCleartextTraffic="true"
 		android:icon="@mipmap/xxsj"
 		android:roundIcon="@mipmap/xxsj"
 		android:label="@string/app_name"

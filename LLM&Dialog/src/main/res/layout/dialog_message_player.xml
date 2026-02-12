@@ -32,7 +32,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="@drawable/bubble_player"
-            android:text="我有龙阳之好"
+            android:text="我是一名玩家，我发送消息"
             android:textColor="#FFFFFF"
             android:textSize="14sp"
             android:padding="12dp"

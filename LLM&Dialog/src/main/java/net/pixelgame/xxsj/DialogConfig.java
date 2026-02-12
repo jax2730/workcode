@@ -1,24 +1,16 @@
 package net.pixelgame.xxsj;
 
-/**
- * 对话系统配置
- * 可以在这里修改对话后端和服务器地址
- * 
- * 【快速切换后端】只需修改 CHAT_BACKEND 即可:
- *   - "general"   : 通用对话 (general_chat.py)
- *   - "test"      : 简单测试对话 (test.py)  
- *   - "test_chat" : 环境提取对话 (test_chat.py)
- *   - "npc"       : NPC对话系统 (npc_system/)
- */
+
 public class DialogConfig {
 
-    // ==================== 核心配置 ====================
+
 
     /**
-     * 【修改这里切换后端】
-     * 可选值: "general", "test", "test_chat", "npc"
+     *
+     * general test", "test_chat", "npc"
+     * 多NPC模式建议使用 "npc" 后端
      */
-    public static final String CHAT_BACKEND = "general";
+    public static final String CHAT_BACKEND = "npc";
 
     /**
      * Django服务器地址
@@ -37,26 +29,47 @@ public class DialogConfig {
     public static final int READ_TIMEOUT = 120000;
 
     /**
-     * 默认NPC (仅 npc 后端使用)
+     * 默认NPC
      */
     public static final String DEFAULT_NPC_ID = "blacksmith";
     public static final String DEFAULT_NPC_NAME = "老铁匠";
 
     // ==================== 自动生成的端点 ====================
 
-    /** 对话端点: /api/{backend}/chat/ */
+    /**
+     * 对话端点:
+     * - npc后端: /npc/chat/ (NPC系统专用，支持npc_id)
+     * - 其他后端: /chat/{backend}/
+     */
     public static String getChatEndpoint() {
-        return "/api/" + CHAT_BACKEND + "/chat/";
+        if ("npc".equals(CHAT_BACKEND)) {
+            return "/npc/chat/";
+        }
+        return "/chat/" + CHAT_BACKEND + "/";
     }
 
-    /** 连接端点: /api/{backend}/connect/ */
+    /**
+     * 连接端点:
+     * - npc后端: /npc/connect/
+     * - 其他后端: /connect/{backend}/
+     */
     public static String getConnectEndpoint() {
-        return "/api/" + CHAT_BACKEND + "/connect/";
+        if ("npc".equals(CHAT_BACKEND)) {
+            return "/npc/connect/";
+        }
+        return "/connect/" + CHAT_BACKEND + "/";
     }
 
-    /** 清除端点: /api/{backend}/clear/ */
+    /**
+     * 清除端点:
+     * - npc后端: /npc/clear/
+     * - 其他后端: /clear/{backend}/
+     */
     public static String getClearEndpoint() {
-        return "/api/" + CHAT_BACKEND + "/clear/";
+        if ("npc".equals(CHAT_BACKEND)) {
+            return "/npc/clear/";
+        }
+        return "/clear/" + CHAT_BACKEND + "/";
     }
 
     /** Cookie名: {backend}_session_id */

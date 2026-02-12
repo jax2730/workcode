@@ -3,7 +3,9 @@
     android:id="@+id/dialog_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:visibility="gone">
+    android:visibility="gone"
+    >
+    <!--android:visibility="gone"-->
 
     <!-- 对话历史区域 - 左下角 -->
     <LinearLayout
@@ -90,7 +92,7 @@
             android:layout_width="36dp"
             android:layout_height="36dp"
             android:background="@android:color/transparent"
-            android:src="@android:drawable/ic_menu_mood"
+            android:src="@android:drawable/ic_dialog_info"
             android:layout_marginRight="8dp"
             android:scaleType="fitCenter"
             android:contentDescription="表情" />
