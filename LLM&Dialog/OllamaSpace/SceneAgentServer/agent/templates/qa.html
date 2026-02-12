@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QA System</title>
+    <style>
+        .chat-container {
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .chat-message {
+            margin: 5px 0;
+        }
+        .user-message {
+            color: blue;
+        }
+        .ai-message {
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <h1>QA System</h1>
+    <div class="chat-container">
+        {% for message in history %}
+            <div class="chat-message">
+                {% if message.role == "user" %}
+                    <strong class="user-message">用户:</strong> {{ message.content }}
+                {% else %}
+                    <strong class="ai-message">AI:</strong> {{ message.content }}
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+    <form method="post">
+        {% csrf_token %}
+        <textarea name="prompt" rows="4" style="width: 100%;" placeholder="请输入您的问题..."></textarea>
+        <br>
+        <button type="submit">提交</button>
+    </form>
+</body>
+</html>
