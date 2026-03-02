@@ -1,0 +1,215 @@
+{
+	"image process":	{
+		"humidity":	{
+			"invert":	false,
+			"exposure":	0,
+			"exposure offset":	0,
+			"exposure gamma":	1,
+			"brightness":	0,
+			"clamp min":	0,
+			"clamp max":	1
+		},
+		"temperature":	{
+			"invert":	false,
+			"exposure":	0,
+			"exposure offset":	0,
+			"exposure gamma":	1,
+			"brightness":	0,
+			"clamp min":	0,
+			"clamp max":	1
+		},
+		"ao":	{
+			"radius":	0.010000,
+			"amplitude":	1000
+		}
+	},
+	"humidity range":	{
+		"min":	0,
+		"max":	100
+	},
+	"temperature range":	{
+		"min":	-50,
+		"max":	50
+	},
+	"biome distributions":	[{
+			"color":	[0.374348, 0.363418, 0.363418, 1],
+			"name":	"土地1",
+			"humidity":	{
+				"min":	0,
+				"max":	15
+			},
+			"temperature":	{
+				"min":	-50,
+				"max":	-30
+			}
+		}, {
+			"color":	[0.670490, 0.612910, 0.516676, 1],
+			"name":	"沙土2",
+			"humidity":	{
+				"min":	0,
+				"max":	35
+			},
+			"temperature":	{
+				"min":	0,
+				"max":	20
+			}
+		}, {
+			"color":	[0.294173, 0.366006, 0.175179, 1],
+			"name":	"绿草2",
+			"humidity":	{
+				"min":	15,
+				"max":	30
+			},
+			"temperature":	{
+				"min":	-50,
+				"max":	0
+			}
+		}, {
+			"color":	[0.315954, 0.282815, 0.246108, 1],
+			"name":	"水下1",
+			"humidity":	{
+				"min":	35,
+				"max":	100
+			},
+			"temperature":	{
+				"min":	10,
+				"max":	30
+			}
+		}, {
+			"color":	[0.740645, 0.771285, 0.783107, 1],
+			"name":	"雪地1",
+			"humidity":	{
+				"min":	55,
+				"max":	75
+			},
+			"temperature":	{
+				"min":	-50,
+				"max":	-30
+			}
+		}, {
+			"color":	[0.553702, 0.493571, 0.352776, 1],
+			"name":	"沙土1",
+			"humidity":	{
+				"min":	35,
+				"max":	100
+			},
+			"temperature":	{
+				"min":	0,
+				"max":	10
+			}
+		}, {
+			"color":	[0.206739, 0.274244, 0.106094, 1],
+			"name":	"绿草1",
+			"humidity":	{
+				"min":	75,
+				"max":	85
+			},
+			"temperature":	{
+				"min":	-50,
+				"max":	0
+			}
+		}, {
+			"color":	[0.236705, 0.222617, 0.193264, 1],
+			"name":	"雪地2",
+			"humidity":	{
+				"min":	30,
+				"max":	55
+			},
+			"temperature":	{
+				"min":	-50,
+				"max":	-30
+			}
+		}, {
+			"color":	[0.532847, 0.487565, 0.272813, 1],
+			"name":	"绿草1",
+			"humidity":	{
+				"min":	30,
+				"max":	55
+			},
+			"temperature":	{
+				"min":	-30,
+				"max":	-10
+			}
+		}, {
+			"color":	[0.374348, 0.366466, 0.213523, 1],
+			"name":	"黄绿草1",
+			"humidity":	{
+				"min":	30,
+				"max":	55
+			},
+			"temperature":	{
+				"min":	-10,
+				"max":	0
+			}
+		}, {
+			"color":	[0.315954, 0.274902, 0.213162, 1],
+			"name":	"石头1",
+			"humidity":	{
+				"min":	85,
+				"max":	100
+			},
+			"temperature":	{
+				"min":	-50,
+				"max":	-30
+			}
+		}, {
+			"color":	[0.234842, 0.257560, 0.128646, 1],
+			"name":	"黄绿草2",
+			"humidity":	{
+				"min":	35,
+				"max":	100
+			},
+			"temperature":	{
+				"min":	30,
+				"max":	50
+			}
+		}, {
+			"color":	[0.574557, 0.500096, 0.375649, 1],
+			"name":	"土地2",
+			"humidity":	{
+				"min":	0,
+				"max":	15
+			},
+			"temperature":	{
+				"min":	-30,
+				"max":	0
+			}
+		}, {
+			"color":	[0.491137, 0.446428, 0.396904, 1],
+			"name":	"石头2",
+			"humidity":	{
+				"min":	85,
+				"max":	100
+			},
+			"temperature":	{
+				"min":	-30,
+				"max":	0
+			}
+		}, {
+			"color":	[0.260307, 0.340980, 0.151823, 1],
+			"name":	"绿草3",
+			"humidity":	{
+				"min":	55,
+				"max":	75
+			},
+			"temperature":	{
+				"min":	-30,
+				"max":	0
+			}
+		}, {
+			"color":	[0.466111, 0.334162, 0.277528, 1],
+			"name":	"水下2",
+			"humidity":	{
+				"min":	0,
+				"max":	35
+			},
+			"temperature":	{
+				"min":	20,
+				"max":	50
+			}
+		}],
+	"spherical voronoi region":	{
+		"voronoi seed":	[0, 0],
+		"voronoi sqrt quads":	2
+	}
+}

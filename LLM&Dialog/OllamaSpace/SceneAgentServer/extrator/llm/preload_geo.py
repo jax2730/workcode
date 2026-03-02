@@ -1,0 +1,136 @@
+'''
+"stamp_terrain_instances":	[{
+			"width":	0.542000,
+			"height":	0.511000,
+			"verticalScale":	3.209000,
+			"transition":	0.476000,
+			"axis.x":	-0.593488,
+			"axis.y":	0.735420,
+			"axis.z":	-0.327000,
+			"angle":	103.957001,
+			"verticalTrans":	-4.332000,
+			"stamp_terrain_heightmap":	"biome_terrain/StampTerrain/Height Map_haidao.raw"
+		}, {
+			"width":	2,
+			"height":	2,
+			"verticalScale":	1,
+			"transition":	0.200000,
+			"axis.x":	0,
+			"axis.y":	1,
+			"axis.z":	0,
+			"angle":	0,
+			"verticalTrans":	0,
+			"stamp_terrain_heightmap":	"biome_terrain/StampTerrain/Height Map_shan.raw"
+		}],
+
+'''
+
+import copy
+import os
+from langchain_ollama import OllamaEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain.docstore.document import Document
+import json
+import math
+import random
+from . import utils as util
+
+# 默认参数
+stamp_terrain_instance = {
+			"width":	1.000000,
+			"height":	1.000000,
+			"verticalScale":	1,
+			"transition":	0.500000,
+			"axis.x":	0,
+			"axis.y":	1,
+			"axis.z":	0,
+			"angle":	0,
+			"verticalTrans":	0,
+			"stamp_terrain_heightmap":	"biome_terrain/StampTerrain/Height Map_haidao.raw"
+		}
+
+# 加载模板库
+def load_stample_terrain_instance(dir):
+    # stamp_terrain_instances:模板文件
+    raw_files = [file for file in os.listdir(dir) if file.endswith('.raw')]
+    print(raw_files)
+    return raw_files
+
+# 构建知识向量库
+def get_stamp_docs():
+    stamp_data_docs = []
+    stampData = util.load_json_from_file("extrator/llm/data/stamp_terrain.json")
+    for record in stampData: 
+        heightmap = record["heightmap"]
+        name = record["name"]
+        # 构建文档内容
+        content = (
+            f"Heightmap filename: {heightmap}, "
+            f"Terrain Type: {name}"
+        )
+        stamp_data_docs.append(Document(
+            page_content=content,
+            metadata={
+                # todo 增加对于各个地形类型的描述信息作为检索的额外信息
+                "heightmap": heightmap,
+                "name": name
+            }
+        ))
+    return stamp_data_docs
+
+global terrainstore
+def init():
+    print("----------初始化----------")
+
+    # 建立知识索引库 
+    global terrainstore
+    embeddings = OllamaEmbeddings(model='nomic-embed-text')
+    #  # 如果实例数据有变化 要重新生成一下
+    # terrainstore = FAISS.from_documents(get_stamp_docs(), embeddings)
+    # print("terrainstore", terrainstore)
+    # # 保存索引
+    # terrainstore.save_local("stamp_knowledge_index")
+    terrainstore = FAISS.load_local(
+        "stamp_knowledge_index",
+        embeddings,
+        allow_dangerous_deserialization=True
+    )
+
+def createTerrainStamp(TerrainAssets):
+    terrain_stamps = []
+    # TerrainAssets [{'latitude': 30, 'longitude': 120, 'type': '平原'}, {'latitude': 88, 'longitude': -120, 'type': '山地'}]
+    print("TerrainAssets", TerrainAssets)
+    global terrainstore
+    i = 0
+    for terrain in TerrainAssets:
+        terrain_data = copy.copy(stamp_terrain_instance)
+        docs = terrainstore.similarity_search(terrain["type"], k=1)
+        if i>=6: 
+            break
+        for doc in docs:
+            heightmap = doc.metadata.get('heightmap')
+            if heightmap:  # 确保 heightmap 存在
+                i += 1
+                print("terrain---------------", terrain)
+                x,y,z = get_normalized_coordinate(terrain["latitude"],terrain["longitude"])
+                terrain_data["stamp_terrain_heightmap"] = "biome_terrain/StampTerrain/"+heightmap   
+                terrain_data["axis.x"] = round(x, 6)
+                terrain_data["axis.y"] = round(y, 6)
+                terrain_data["axis.z"] = round(z, 6)
+                # terrain_stamps.append(heightmap)
+                terrain_stamps.append(terrain_data)
+    print("terrain_stamps", terrain_stamps)
+    return terrain_stamps
+
+
+
+# 经纬度转换为归一化球坐标
+def to_rad(deg):
+    return deg / 180 * math.pi
+def get_normalized_coordinate(lat, lng):
+    lat = to_rad(lat)
+    lng = to_rad(lng)
+    x = math.cos(lat) * math.cos(lng)
+    y = math.cos(lat) * math.sin(lng)
+    z = math.sin(lat)
+    return x, y, z

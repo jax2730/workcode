@@ -1,0 +1,499 @@
+{
+	"TerrainGroup":	{
+		"path":	"biome_terrain/default.biomeVirLibrary",
+		"selectName":	""
+	},
+	"VegGroup":	{
+		"path":	"biome_terrain/defaultBiomeVegVirGroup.bvvg",
+		"selectName":	""
+	},
+	"compositions":	[{
+			"biome id":	0,
+			"VegLayers":	[{
+					"name":	"suibing",
+					"scaleBase":	5,
+					"scaleRange":	5,
+					"density":	0.050000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"nandao04",
+					"scaleBase":	2,
+					"scaleRange":	0.500000,
+					"density":	0.200000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"xishan07",
+					"scaleBase":	2,
+					"scaleRange":	0.500000,
+					"density":	1,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}]
+		}, {
+			"biome id":	1,
+			"VegLayers":	[{
+					"name":	"nandao014",
+					"scaleBase":	1.500000,
+					"scaleRange":	0.500000,
+					"density":	1,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"chancao_07",
+					"scaleBase":	5,
+					"scaleRange":	2,
+					"density":	1,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"zacao",
+					"scaleBase":	1.200000,
+					"scaleRange":	0.300000,
+					"density":	1,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}]
+		}, {
+			"biome id":	2,
+			"VegLayers":	[{
+					"name":	"xiaomogu",
+					"scaleBase":	1,
+					"scaleRange":	0.600000,
+					"density":	1,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"yecao3",
+					"scaleBase":	1,
+					"scaleRange":	1,
+					"density":	1,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"guai02",
+					"scaleBase":	1,
+					"scaleRange":	0.500000,
+					"density":	1,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}]
+		}, {
+			"biome id":	3,
+			"VegLayers":	[{
+					"name":	"yecao3",
+					"scaleBase":	1,
+					"scaleRange":	0.300000,
+					"density":	1,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"lishi002",
+					"scaleBase":	1,
+					"scaleRange":	0.500000,
+					"density":	0.040000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"xiaoshitou02",
+					"scaleBase":	5,
+					"scaleRange":	1,
+					"density":	0.100000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}]
+		}, {
+			"biome id":	4,
+			"VegLayers":	[{
+					"name":	"shitou01",
+					"scaleBase":	1.200000,
+					"scaleRange":	0.500000,
+					"density":	0.100000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"shiticao04",
+					"scaleBase":	2,
+					"scaleRange":	1,
+					"density":	0.030000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"yecao3",
+					"scaleBase":	1.500000,
+					"scaleRange":	1,
+					"density":	1,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}]
+		}, {
+			"biome id":	5,
+			"VegLayers":	[{
+					"name":	"jiaoti004",
+					"scaleBase":	3,
+					"scaleRange":	1,
+					"density":	0.100000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"shiticao01",
+					"scaleBase":	2,
+					"scaleRange":	1,
+					"density":	1,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"nandao08",
+					"scaleBase":	2,
+					"scaleRange":	2,
+					"density":	0.050000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}]
+		}, {
+			"biome id":	6,
+			"VegLayers":	[{
+					"name":	"liqing001",
+					"scaleBase":	0.500000,
+					"scaleRange":	0.500000,
+					"density":	0.100000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"qiyizhiwu2",
+					"scaleBase":	0.500000,
+					"scaleRange":	0.500000,
+					"density":	0.050000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"bs_cao_005",
+					"scaleBase":	1,
+					"scaleRange":	1,
+					"density":	0.300000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}]
+		}, {
+			"biome id":	7,
+			"VegLayers":	[{
+					"name":	"jue01",
+					"scaleBase":	1,
+					"scaleRange":	0.500000,
+					"density":	0.200000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"cao14",
+					"scaleBase":	0.500000,
+					"scaleRange":	0.500000,
+					"density":	1,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"dayecao12",
+					"scaleBase":	1,
+					"scaleRange":	0.100000,
+					"density":	0.800000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}]
+		}, {
+			"biome id":	8,
+			"VegLayers":	[{
+					"name":	"shitou01",
+					"scaleBase":	0.500000,
+					"scaleRange":	0.500000,
+					"density":	0.100000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"yecao3",
+					"scaleBase":	1,
+					"scaleRange":	1,
+					"density":	1,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"hsxq_cao01",
+					"scaleBase":	1,
+					"scaleRange":	0.100000,
+					"density":	1,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}]
+		}, {
+			"biome id":	9,
+			"VegLayers":	[{
+					"name":	"dayecao1",
+					"scaleBase":	1,
+					"scaleRange":	0.100000,
+					"density":	1,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"shitou03",
+					"scaleBase":	3,
+					"scaleRange":	3,
+					"density":	0.050000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"hua_05",
+					"scaleBase":	3,
+					"scaleRange":	1,
+					"density":	1,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}]
+		}, {
+			"biome id":	10,
+			"VegLayers":	[{
+					"name":	"shitou03",
+					"scaleBase":	3,
+					"scaleRange":	3,
+					"density":	0.050000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"cao17",
+					"scaleBase":	1,
+					"scaleRange":	0.100000,
+					"density":	1,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"caiseguanmu6",
+					"scaleBase":	0.700000,
+					"scaleRange":	0,
+					"density":	0.600000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}]
+		}, {
+			"biome id":	11,
+			"VegLayers":	[{
+					"name":	"tiemujixie009",
+					"scaleBase":	1.500000,
+					"scaleRange":	1,
+					"density":	0.050000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"tiemujixie012",
+					"scaleBase":	2,
+					"scaleRange":	1,
+					"density":	0.050000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"guijijixie012",
+					"scaleBase":	3,
+					"scaleRange":	1.500000,
+					"density":	0.100000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}]
+		}, {
+			"biome id":	12,
+			"VegLayers":	[{
+					"name":	"shitou01",
+					"scaleBase":	1,
+					"scaleRange":	0.300000,
+					"density":	0.200000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"caiseguanmu4",
+					"scaleBase":	1,
+					"scaleRange":	0.500000,
+					"density":	0.300000,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"xiaohua1",
+					"scaleBase":	2,
+					"scaleRange":	0.200000,
+					"density":	1,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}]
+		}, {
+			"biome id":	13,
+			"VegLayers":	[{
+					"name":	"hsxq_cao04",
+					"scaleBase":	2,
+					"scaleRange":	1,
+					"density":	1,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"yecao3",
+					"scaleBase":	1,
+					"scaleRange":	1,
+					"density":	1,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"hua_05",
+					"scaleBase":	2,
+					"scaleRange":	1,
+					"density":	1,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}]
+		}, {
+			"biome id":	14,
+			"VegLayers":	[{
+					"name":	"shitou01",
+					"scaleBase":	1,
+					"scaleRange":	1,
+					"density":	8,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}, {
+					"name":	"yecao3",
+					"scaleBase":	1,
+					"scaleRange":	1,
+					"density":	3,
+					"topDiffuse":	[1, 1, 1, 1],
+					"topDiffuseRatio":	1,
+					"bottomDiffuse":	[1, 1, 1, 1],
+					"bottomDiffuseRatio":	1,
+					"lerpFactor":	0
+				}]
+		}, {
+			"biome id":	15,
+			"VegLayers":	[]
+		}]
+}

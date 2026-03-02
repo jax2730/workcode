@@ -1,0 +1,215 @@
+{
+	"image process":	{
+		"humidity":	{
+			"invert":	false,
+			"exposure":	0,
+			"exposure offset":	0,
+			"exposure gamma":	1,
+			"brightness":	30,
+			"clamp min":	0,
+			"clamp max":	1
+		},
+		"temperature":	{
+			"invert":	false,
+			"exposure":	0.400000,
+			"exposure offset":	0,
+			"exposure gamma":	1,
+			"brightness":	0,
+			"clamp min":	0,
+			"clamp max":	1
+		},
+		"ao":	{
+			"radius":	0.010000,
+			"amplitude":	1000
+		}
+	},
+	"humidity range":	{
+		"min":	0,
+		"max":	100
+	},
+	"temperature range":	{
+		"min":	-50,
+		"max":	50
+	},
+	"biome distributions":	[{
+			"color":	[0.300244, 0.507821, 0.503275, 1],
+			"name":	"冻土地貌",
+			"humidity":	{
+				"min":	0,
+				"max":	30
+			},
+			"temperature":	{
+				"min":	-50,
+				"max":	-20
+			}
+		}, {
+			"color":	[0.762252, 0.762252, 0.762252, 1],
+			"name":	"冰雪霜冻",
+			"humidity":	{
+				"min":	30,
+				"max":	70
+			},
+			"temperature":	{
+				"min":	-50,
+				"max":	-20
+			}
+		}, {
+			"color":	[0.587070, 0.540024, 0.452393, 1],
+			"name":	"冰川",
+			"humidity":	{
+				"min":	70,
+				"max":	100
+			},
+			"temperature":	{
+				"min":	-50,
+				"max":	-20
+			}
+		}, {
+			"color":	[0.962461, 0.909599, 0.785826, 1],
+			"name":	"沙漠砂质",
+			"humidity":	{
+				"min":	0,
+				"max":	15
+			},
+			"temperature":	{
+				"min":	-20,
+				"max":	50
+			}
+		}, {
+			"color":	[0.624609, 0.465694, 0.335426, 1],
+			"name":	"砂岩",
+			"humidity":	{
+				"min":	15,
+				"max":	30
+			},
+			"temperature":	{
+				"min":	-20,
+				"max":	50
+			}
+		}, {
+			"color":	[0.841502, 0.508444, 0.139519, 1],
+			"name":	"黄土",
+			"humidity":	{
+				"min":	30,
+				"max":	40
+			},
+			"temperature":	{
+				"min":	-20,
+				"max":	30
+			}
+		}, {
+			"color":	[0.270073, 0.239697, 0.202484, 1],
+			"name":	"风蚀",
+			"humidity":	{
+				"min":	30,
+				"max":	50
+			},
+			"temperature":	{
+				"min":	30,
+				"max":	50
+			}
+		}, {
+			"color":	[0.425833, 0.436913, 0.220051, 1],
+			"name":	"沼泽",
+			"humidity":	{
+				"min":	90,
+				"max":	100
+			},
+			"temperature":	{
+				"min":	-20,
+				"max":	30
+			}
+		}, {
+			"color":	[0.432742, 0.151618, 0, 1],
+			"name":	"火山",
+			"humidity":	{
+				"min":	50,
+				"max":	70
+			},
+			"temperature":	{
+				"min":	30,
+				"max":	50
+			}
+		}, {
+			"color":	[0.275239, 0.428571, 0.106808, 1],
+			"name":	"热带雨林",
+			"humidity":	{
+				"min":	85,
+				"max":	100
+			},
+			"temperature":	{
+				"min":	30,
+				"max":	50
+			}
+		}, {
+			"color":	[0.586637, 0.612096, 0.277645, 1],
+			"name":	"河流",
+			"humidity":	{
+				"min":	50,
+				"max":	90
+			},
+			"temperature":	{
+				"min":	10,
+				"max":	20
+			}
+		}, {
+			"color":	[0.436913, 0.402288, 0.402288, 1],
+			"name":	"流纹岩",
+			"humidity":	{
+				"min":	50,
+				"max":	90
+			},
+			"temperature":	{
+				"min":	-20,
+				"max":	-5
+			}
+		}, {
+			"color":	[0.791449, 0.468512, 0.312783, 1],
+			"name":	"侵蚀",
+			"humidity":	{
+				"min":	50,
+				"max":	90
+			},
+			"temperature":	{
+				"min":	20,
+				"max":	30
+			}
+		}, {
+			"color":	[0.495308, 0.325341, 0.069725, 1],
+			"name":	"花岗岩",
+			"humidity":	{
+				"min":	50,
+				"max":	90
+			},
+			"temperature":	{
+				"min":	-5,
+				"max":	10
+			}
+		}, {
+			"color":	[0.557873, 0.281674, 0.055264, 1],
+			"name":	"地热",
+			"humidity":	{
+				"min":	70,
+				"max":	85
+			},
+			"temperature":	{
+				"min":	30,
+				"max":	50
+			}
+		}, {
+			"color":	[0.336087, 0.608379, 0.616267, 1],
+			"name":	"碎屑",
+			"humidity":	{
+				"min":	40,
+				"max":	50
+			},
+			"temperature":	{
+				"min":	-20,
+				"max":	30
+			}
+		}],
+	"spherical voronoi region":	{
+		"voronoi seed":	[17, 137],
+		"voronoi sqrt quads":	5
+	}
+}

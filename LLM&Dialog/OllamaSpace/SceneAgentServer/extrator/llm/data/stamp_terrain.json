@@ -1,0 +1,32 @@
+[{
+    "name":"高原",
+    "heightmap":"Height Map_gaoyuan.raw"
+},{
+    "name":"海岛",
+    "heightmap":"Height Map_haidao.raw"
+},{
+    "name":"海滩",
+    "heightmap":"Height Map_haitan.raw"
+},{
+    "name":"河流",
+    "heightmap":"Height Map_heliu.raw"
+},{
+    "name":"丘陵",
+    "heightmap":"Height Map_qiuling.raw"
+},{
+    "name":"山",
+    "heightmap":"Height Map_shan.raw"
+},{
+    "name":"山脉",
+    "heightmap":"Height Map_shanmai.raw"
+},{
+    "name":"湿地",
+    "heightmap":"Height Map_shidi.raw"
+},{
+    "name":"峡谷",
+    "heightmap":"Height Map_xiagu.raw"
+},{
+    "name":"陨石坑",
+    "heightmap":"Height Map_yunshikeng.raw"
+}
+]
