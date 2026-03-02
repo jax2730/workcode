@@ -1,0 +1,18 @@
+Undefined symbols for architecture arm64:
+  "NpcProximityManager::addNpc(std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const&, Echo::DVector3 const&, float)", referenced from:
+      AsyncApp::AsyncApp(char const*, char const*, Echo::ECHO_GRAPHIC_PARAM const*, unsigned int, bool, unsigned int, unsigned int) in AsyncApp.o
+      AsyncApp::AsyncApp(char const*, char const*, Echo::ECHO_GRAPHIC_PARAM const*, unsigned int, bool, unsigned int, unsigned int) in AsyncApp.o
+  "NpcProximityManager::destroy()", referenced from:
+      AsyncApp::~AsyncApp() in AsyncApp.o
+      NpcProximityManager::~NpcProximityManager() in AsyncApp.o
+  "NpcProximityManager::activate(Echo::Camera*)", referenced from:
+      AsyncApp::AsyncApp(char const*, char const*, Echo::ECHO_GRAPHIC_PARAM const*, unsigned int, bool, unsigned int, unsigned int) in AsyncApp.o
+  "NpcProximityManager::getGameData() const", referenced from:
+      AsyncApp::getGameData() in AsyncApp.o
+  "vtable for NpcProximityManager", referenced from:
+      NpcProximityManager::~NpcProximityManager() in AsyncApp.o
+      g_NpcManager in AsyncApp.o
+   NOTE: a missing vtable usually means the first non-inline virtual member function has no definition.
+ld: symbol(s) not found for architecture arm64
+clang++: error: linker command failed with exit code 1 (use -v to see invocation)
+** ARCHIVE FAILED **
