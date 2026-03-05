@@ -1,0 +1,53 @@
+# Cursor Rules — KarstResConverter
+
+## Project
+
+C++17 CMake map/GIS data processing tool with ImGui + DirectX 11 GUI.
+
+## Skills
+
+This project includes two agent skills libraries that you MUST use:
+
+### Development Workflow (superpowers-main/skills/)
+Read the SKILL.md in each folder when the trigger matches:
+
+- `brainstorming/` — Before any feature work or creative task
+- `writing-plans/` — When creating implementation plans
+- `executing-plans/` — When implementing from a plan
+- `test-driven-development/` — Before writing implementation code
+- `systematic-debugging/` — When encountering bugs or unexpected behavior
+- `verification-before-completion/` — Before declaring work done
+- `subagent-driven-development/` — For parallel task dispatch
+- `requesting-code-review/` — After completing implementation
+- `receiving-code-review/` — When responding to review feedback
+- `dispatching-parallel-agents/` — For concurrent agent workflows
+- `using-git-worktrees/` — For parallel development branches
+- `finishing-a-development-branch/` — Merge/PR decisions
+- `writing-skills/` — Creating new skills
+
+### Context Engineering (Agent-Skills-for-Context-Engineering-main/skills/)
+Read the SKILL.md in each folder when building AI agent systems:
+
+- `context-fundamentals/` — Context windows and attention mechanics
+- `context-degradation/` — Diagnosing context failures
+- `context-compression/` — Reducing token usage
+- `context-optimization/` — KV-cache, compaction, masking
+- `multi-agent-patterns/` — Supervisor, swarm, hierarchical patterns
+- `memory-systems/` — Agent memory and knowledge graphs
+- `tool-design/` — Building effective agent tools
+- `filesystem-context/` — File-based context management
+- `hosted-agents/` — Background agent infrastructure
+- `evaluation/` — Agent evaluation frameworks
+- `advanced-evaluation/` — LLM-as-judge techniques
+- `project-development/` — LLM project methodology
+- `bdi-mental-states/` — BDI cognitive architecture
+
+## Coding Rules
+
+- C++17 standard, CMake 3.10+
+- Follow existing ImGui patterns in WindowTool.cpp
+- Use std::filesystem for path handling
+- Use nlohmann::json for JSON
+- Chinese comments are fine
+- RAII for DirectX resources
+- Save design docs to docs/plans/YYYY-MM-DD-<topic>.md

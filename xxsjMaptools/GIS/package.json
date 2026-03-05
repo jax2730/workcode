@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "csv-parse": "^6.1.0",
+    "fs": "^0.0.1-security",
+    "geotiff": "^2.1.4-beta.0",
+    "shpjs": "^6.1.0"
+  }
+}

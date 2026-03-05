@@ -1,0 +1,17 @@
+{
+    // Awesome Copilot MCP Server
+    // 需要安装 Docker Desktop: https://www.docker.com/products/docker-desktop/
+    // 安装后运行 Docker Desktop，即可使用 awesome-copilot MCP 工具搜索和安装 agents/skills/instructions
+    "servers": {
+        "awesome-copilot": {
+            "type": "stdio",
+            "command": "docker",
+            "args": [
+                "run",
+                "-i",
+                "--rm",
+                "ghcr.io/microsoft/mcp-dotnet-samples/awesome-copilot:latest"
+            ]
+        }
+    }
+}

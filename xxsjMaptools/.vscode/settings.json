@@ -1,0 +1,28 @@
+{
+    "files.associations": {
+        "SKILL.md": "markdown",
+        "CLAUDE.md": "markdown"
+    },
+    "files.exclude": {
+        "**/build/CMakeFiles": true,
+        "**/build/Debug": true,
+        "**/build/x64": true,
+        "**/build/*.filters": true,
+        "**/build/*.user": true
+    },
+    "search.exclude": {
+        "**/build": true,
+        "**/third/imgui": true,
+        "**/third/FreeImage": true,
+        "**/node_modules": true
+    },
+    "C_Cpp.default.cppStandard": "c++17",
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "cmake.buildDirectory": "${workspaceFolder}/build",
+    "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+    "github.copilot.chat.codeGeneration.instructions": [
+        {
+            "file": ".github/copilot-instructions.md"
+        }
+    ]
+}

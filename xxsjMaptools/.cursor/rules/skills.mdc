@@ -1,0 +1,51 @@
+---
+description: Development workflow skills and context engineering skills for the KarstResConverter project
+globs:
+alwaysApply: true
+---
+
+# KarstResConverter — Agent Skills Configuration
+
+## Project
+
+C++17 CMake map/GIS data processing tool with ImGui + DirectX 11 GUI.
+
+## Available Skills
+
+### Development Workflow Skills (superpowers-main/skills/)
+
+Before any task, check if a skill applies. Read the corresponding SKILL.md file:
+
+| Trigger | Skill Path |
+|---------|-----------|
+| New feature or creative work | `superpowers-main/skills/brainstorming/SKILL.md` |
+| Need implementation plan | `superpowers-main/skills/writing-plans/SKILL.md` |
+| Implementing from a plan | `superpowers-main/skills/executing-plans/SKILL.md` |
+| Writing code (any) | `superpowers-main/skills/test-driven-development/SKILL.md` |
+| Bug or unexpected behavior | `superpowers-main/skills/systematic-debugging/SKILL.md` |
+| About to declare done | `superpowers-main/skills/verification-before-completion/SKILL.md` |
+| Parallel task dispatch | `superpowers-main/skills/subagent-driven-development/SKILL.md` |
+| Code review needed | `superpowers-main/skills/requesting-code-review/SKILL.md` |
+| Receiving review feedback | `superpowers-main/skills/receiving-code-review/SKILL.md` |
+| Parallel dev branches | `superpowers-main/skills/using-git-worktrees/SKILL.md` |
+| Tasks complete, merge? | `superpowers-main/skills/finishing-a-development-branch/SKILL.md` |
+
+### Context Engineering Skills (Agent-Skills-for-Context-Engineering-main/skills/)
+
+Use when working on AI agent systems:
+
+| Trigger | Skill Path |
+|---------|-----------|
+| Context windows | `Agent-Skills-for-Context-Engineering-main/skills/context-fundamentals/SKILL.md` |
+| Context failures | `Agent-Skills-for-Context-Engineering-main/skills/context-degradation/SKILL.md` |
+| Token reduction | `Agent-Skills-for-Context-Engineering-main/skills/context-compression/SKILL.md` |
+| Context optimization | `Agent-Skills-for-Context-Engineering-main/skills/context-optimization/SKILL.md` |
+| Multi-agent design | `Agent-Skills-for-Context-Engineering-main/skills/multi-agent-patterns/SKILL.md` |
+| Agent memory | `Agent-Skills-for-Context-Engineering-main/skills/memory-systems/SKILL.md` |
+| Tool design | `Agent-Skills-for-Context-Engineering-main/skills/tool-design/SKILL.md` |
+| File context | `Agent-Skills-for-Context-Engineering-main/skills/filesystem-context/SKILL.md` |
+| Hosted agents | `Agent-Skills-for-Context-Engineering-main/skills/hosted-agents/SKILL.md` |
+| Evaluation | `Agent-Skills-for-Context-Engineering-main/skills/evaluation/SKILL.md` |
+| LLM-as-judge | `Agent-Skills-for-Context-Engineering-main/skills/advanced-evaluation/SKILL.md` |
+| LLM projects | `Agent-Skills-for-Context-Engineering-main/skills/project-development/SKILL.md` |
+| BDI architecture | `Agent-Skills-for-Context-Engineering-main/skills/bdi-mental-states/SKILL.md` |
