@@ -1,0 +1,277 @@
+#include <Common_Uniform_PS.inl> 
+#include<Common_Function.inl>		
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4	U_MaterialDiffuse;
+		Texture2D	S_Diffuse;
+		SamplerStat S_DiffuseSamplerState;
+		float4 texDiffuse(float2 vUV) 
+		{ 
+			return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+		}
+	#endif
+#else
+	//float4 U_InvProjectMatrix[4];
+	//float4 U_ViewParam;
+	//float4 U_SkyLightColor;
+	//float4 U_MainLightColor;
+	//float4 U_MainLightDirection;
+	//float4 U_SunColor;
+	//float4 U_WaterReflectColor;
+	//float4 U_UnderWaterColor;
+
+	//float4 U_CameraPosition;
+	  float4 U_FogColorNear;
+	  float4 U_FogColorFar;
+	  float4 U_FogParam;
+	  float4 U_FogRampParam;
+	//float4 U_PS_Time;
+
+	float4 U_MaterialCustomParam;
+	float4 U_PSGeneralRegister0; //x:mSpecularPower y:mSpecularStrength z:waterAmount w:reflectionAmount 
+	float4 U_PSGeneralRegister1; //x:mFoamBias   y:mFoamSoft z:mFoamTilling  w:mBorderSoft
+	float4 U_PSGeneralRegister2; //x:mFresnelBias y:mFresnelIntensity z:mFresnelRatio
+	float4 U_PSGeneralRegister3; //flowParamX,flowParamY
+
+	#ifdef USE_OCEAN_COLOR
+		//float4 U_WaterShallowColor;
+		//float4 U_WaterDeepColor;
+		//float4 U_WaterFoamColor;
+	#else
+		float4 U_PSGeneralRegister4; //ShallowColor
+		float4 U_PSGeneralRegister5; //DeepColor
+		float4 U_PSGeneralRegister6; //FoamColor
+	#endif
+
+
+	uniform Texture2D S_Bump;				//normal tex
+	SamplerState S_BumpSamplerState;
+	
+	uniform TextureCube S_ReflectCubeMap;	//reflect tex
+    SamplerState S_ReflectCubeMapSamplerState;
+
+	#ifdef USE_DIFFUSE_MAP
+		uniform Texture2D	S_Diffuse;
+		SamplerState S_DiffuseSamplerState;
+	#endif
+	
+	#ifdef SOFT_BORDER
+		uniform Texture2D S_Custom;				//foam tex
+		SamplerState S_CustomSamplerState;
+		uniform Texture2D S_Depth;
+		SamplerState S_DepthSamplerState;
+	#endif
+
+#endif
+
+struct PS_INPUT
+{
+    float4 Position             : SV_POSITION;
+	
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+	float4 	i_UV				: TEXCOORD0;
+	#endif
+#else
+    float4 	o_CausticBaseUV				: TEXCOORD9;
+	//float3 rotMatrix1			: TEXCOORD0; // first  row of the 3x3 transform from tangent to obj space
+	//float3 rotMatrix2			: TEXCOORD1; // second row of the 3x3 transform from tangent to obj space
+	//float3 rotMatrix3			: TEXCOORD2; // third  row of the 3x3 transform from tangent to obj space
+	float4 o_NoiseCoord0 		: TEXCOORD3;
+	float4 o_NoiseCoord1 		: TEXCOORD4;
+	float4 o_ViewPos			: TEXCOORD5;
+	float4 o_WorldPos			: TEXCOORD6;
+	#ifdef SOFT_BORDER
+		float4 o_ClipPos		: TEXCOORD7;
+		float4 o_CustomParam	: TEXCOORD8;
+	#endif	
+	
+	#ifdef VERTEX_COLOR
+		float4 o_VtColor		: COLOR0;
+	#endif
+#endif	
+#ifdef PARABOLOID_MAPPING
+	float	i_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+struct PS_OUTPUT
+{
+#ifndef SHADOWPASS
+    float4 o_Color	: SV_TARGET;
+#endif
+};
+
+
+uniform Texture2D S_CausticTex;				//caustic tex
+SamplerState S_CausticTexSamplerState;
+
+PS_OUTPUT main(PS_INPUT IN)
+{	
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+	
+#ifdef PARABOLOID_MAPPING
+	clip(IN.i_ClipDepth);
+#endif
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 o_Color = texDiffuse(IN.i_UV.xy);
+		//caustic
+		clip(o_Color.a - U_MaterialDiffuse.a);
+	#endif
+	
+#else
+
+	float4 t0 = S_Bump.Sample(S_BumpSamplerState, IN.o_NoiseCoord0.xy) * 2.0 - 1.0;
+	float4 t1 = S_Bump.Sample(S_BumpSamplerState, IN.o_NoiseCoord0.zw) * 2.0 - 1.0;
+	float4 t2 = S_Bump.Sample(S_BumpSamplerState, IN.o_NoiseCoord1.xy) * 2.0 - 1.0;
+	float3 N = t0.xyz + t1.xyz + t2.xyz;
+	
+	float3x3 m; // tangent to world matrix
+	m[0] = float3(IN.o_WorldPos.w, 0, 0);
+	m[1] = float3(0, 0, IN.o_WorldPos.w);
+	m[2] = float3(0, 1, 0);
+
+	N = normalize( mul( N, m ) );
+   	
+		
+	float3 eyeDir = U_PS_CameraPosition.xyz - IN.o_WorldPos.xyz;
+	eyeDir.xyz 		= normalize(eyeDir.xyz);
+	half2 refl_tex		= N.xy * IN.o_ViewPos.z;
+	//float2 final 		= IN.o_ScreenProj.xy / IN.o_ScreenProj.w;
+		
+	float4 R;
+	R.xyz = reflect(-eyeDir, N);
+	// conversion for cube map lookup
+	R.z = -R.z;
+	R.w = 0.0;
+	float4 reflection = S_ReflectCubeMap.Sample(S_ReflectCubeMapSamplerState, R.xyz,R.w);
+	reflection.rgb = pow(reflection.rgb, 2.2);
+	
+	float2 depthlerp = float2(1.0,1.0);
+	float alpha = 1.0;
+	float4 foamColor = float4(0,0,0,0);
+	
+	float sceneDD = 10.0;
+	
+	#ifdef SOFT_BORDER	
+		// foam
+		float2 screenTC = IN.o_ClipPos.xy / IN.o_ClipPos.w;
+		screenTC.x = (screenTC.x + 1.0) * 0.5 + U_ViewParam.z;
+		screenTC.y = 1.0 - (1.0 + screenTC.y) * 0.5 + U_ViewParam.w;
+		
+		float4 tempPos = float4(screenTC, 0.0, 1.0);
+		screenTC *= U_ViewParam.xy;
+		tempPos.z = S_Depth.Sample(S_DepthSamplerState, screenTC).r;
+		
+		tempPos.x = IN.o_ClipPos.x / IN.o_ClipPos.w;
+		tempPos.y = IN.o_ClipPos.y / IN.o_ClipPos.w;
+		
+		float4 viewSpacePos;
+		viewSpacePos.x = dot(U_InvProjectMatrix[0], tempPos);
+		viewSpacePos.y = dot(U_InvProjectMatrix[1], tempPos);
+		viewSpacePos.z = dot(U_InvProjectMatrix[2], tempPos);
+		viewSpacePos.w = dot(U_InvProjectMatrix[3], tempPos);
+		
+		float4 vp;
+		vp.x = dot(U_InvProjectMatrix[0], IN.o_ClipPos);
+		vp.y = dot(U_InvProjectMatrix[1], IN.o_ClipPos);
+		vp.z = dot(U_InvProjectMatrix[2], IN.o_ClipPos);
+		vp.w = dot(U_InvProjectMatrix[3], IN.o_ClipPos);
+		
+		float sceneDepth = viewSpacePos.z / viewSpacePos.w;
+		float3 vvv = viewSpacePos.xyz / viewSpacePos.w;		
+		sceneDD = length(vvv);
+		float pixelDepth = vp.z / vp.w;		
+		
+		float borderSoft = U_PSGeneralRegister1.w;
+		borderSoft = max(borderSoft,0.01);
+		float soft = (pixelDepth - sceneDepth);
+		alpha = saturate( soft / borderSoft);
+		depthlerp.y = saturate(soft * borderSoft);	
+		
+		foamColor = pow(S_Custom.Sample(S_CustomSamplerState,(IN.o_CustomParam.xy * U_PSGeneralRegister1.z + U_PSGeneralRegister3.xy + refl_tex)).rgbr, 2.2);
+		float foamsoft = saturate(soft * U_PSGeneralRegister1.y)  * saturate((U_PSGeneralRegister1.x - soft) * U_PSGeneralRegister1.y);
+		foamColor.a *= foamsoft;
+		alpha = saturate(alpha + foamColor.a);
+		
+		#ifdef USE_OCEAN_COLOR
+			foamColor.rgb *= pow(U_WaterFoamColor.rgb, 2.2);
+		#else
+			foamColor.rgb *= pow(U_PSGeneralRegister6.rgb, 2.2);
+		#endif
+	#endif
+	float3 wwpos = U_PS_CameraPosition.xyz - eyeDir * sceneDD;
+	
+	//caustic
+	float4 caustic         = float4(0,0,0, 1.0);
+	float  NdotV           = dot(N,eyeDir);
+	float  belowSurface    = step(0.0f,NdotV);
+	float3 cV              = U_PS_CameraPosition.xyz - IN.o_WorldPos.xyz;
+	float  distV2          = dot(cV,cV);
+	float  fadeDist2       = 250.f;
+	float  fadeFactor      = pow(clamp(1.0f-distV2/fadeDist2,0.0f,1.0f),2.0f);
+	float2 causticUV       = refl_tex.xy * U_PSGeneralRegister3.w + wwpos.xz * U_PSGeneralRegister3.z * 0.005f; 
+	
+    caustic = pow(S_CausticTex.Sample(S_CausticTexSamplerState,causticUV), 2.2) * fadeFactor;
+	
+	// fresnel
+	float facing = 1.0 - saturate(NdotV);
+	float fresnel = saturate(U_PSGeneralRegister2.x + U_PSGeneralRegister2.z * pow(facing, U_PSGeneralRegister2.y));
+	fresnel = saturate(fresnel * depthlerp.y);
+	float3 ldir = normalize(-U_MainLightDirection.xyz);
+	float4 litk = lit(dot(ldir,N),dot(normalize(eyeDir+ldir),N),U_PSGeneralRegister0.x);
+		
+	float3 waterColor;
+	
+	#ifdef USE_OCEAN_COLOR
+		waterColor = lerp(pow(U_WaterShallowColor.rgb, 2.2), pow(U_WaterDeepColor.rgb, 2.2), facing) * U_PSGeneralRegister0.z;
+	#else
+		waterColor = lerp(pow(U_PSGeneralRegister4.rgb, 2.2), pow(U_PSGeneralRegister5.rgb, 2.2), facing) * U_PSGeneralRegister0.z;
+	#endif	
+	
+	//reflection.rgb = reflection.rgb + U_SkyLightColor.rgb * N.y;
+	
+	reflection.rgb = lerp(waterColor,  reflection.rgb * pow(U_WaterReflectColor.rgb, 2.2), fresnel) * U_PSGeneralRegister0.w;
+	
+	psOut.o_Color.rgb = waterColor.rgb + reflection.rgb;	
+	
+	psOut.o_Color.rgb += U_SunColor.xyz * litk.z * litk.y * fresnel * U_PSGeneralRegister0.y * U_MainLightColor.a;
+	
+	psOut.o_Color.rgb = lerp(psOut.o_Color.xyz,foamColor.rgb,foamColor.a);
+		
+	psOut.o_Color.rgb = psOut.o_Color.rgb * pow(U_UnderWaterColor.rgb, 2.2);
+	
+	psOut.o_Color.rgb += caustic.rgb * belowSurface;
+	alpha = saturate(alpha + caustic.r * belowSurface);
+	
+#ifdef	USE_DIFFUSE_MAP
+	float4 diffuse = S_Diffuse.Sample(S_DiffuseSamplerState,refl_tex);
+	diffuse.rgb = pow(diffuse.rgb, 2.2);
+	psOut.o_Color.rgb += lerp(psOut.o_Color.rgb, diffuse.rgb, diffuse.a);
+#endif
+	float3 camToWorld =  U_PS_CameraPosition.xyz - IN.o_WorldPos.xyz;
+	float4 fogColor = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+	psOut.o_Color.rgb = psOut.o_Color.rgb * fogColor.a + fogColor.rgb;
+
+	psOut.o_Color.rgb = pow(psOut.o_Color.rgb, 1.0 / 2.2);
+	psOut.o_Color.a = alpha;
+	
+	#ifdef VERTEX_COLOR
+		psOut.o_Color.a *= (IN.o_VtColor.g * IN.o_VtColor.g);
+	#endif
+	
+	#ifdef EDITOR_MODE
+		if(U_MaterialCustomParam.w > 0)
+			psOut.o_Color.rgb = U_MaterialCustomParam.xyz;			
+	#endif
+	
+	float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.o_Color = psOut.o_Color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+#endif
+    
+	
+	return psOut;
+}

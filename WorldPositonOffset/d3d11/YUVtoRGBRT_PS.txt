@@ -1,0 +1,57 @@
+
+struct PS_INPUT
+{
+	float4 o_Position	: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+Texture2D	S_2DExt0;
+Texture2D	S_2DExt1;
+
+SamplerState S_2DExt0SamplerState;
+SamplerState S_2DExt1SamplerState;
+
+// Derived from https://msdn.microsoft.com/en-us/library/windows/desktop/dd206750(v=vs.85).aspx
+// Section: Converting 8-bit YUV to RGB888
+static const float3x3 YUVtoRGBCoeffMatrix =
+{
+	1.164383f,  1.164383f, 1.164383f,
+	0.000000f, -0.391762f, 2.017232f,
+	1.596027f, -0.812968f, 0.000000f
+};
+
+float3 ConvertYUVtoRGB(float3 yuv)
+{
+	// Derived from https://msdn.microsoft.com/en-us/library/windows/desktop/dd206750(v=vs.85).aspx
+	// Section: Converting 8-bit YUV to RGB888
+
+	// These values are calculated from (16 / 255) and (128 / 255)
+	yuv -= float3(0.062745f, 0.501960f, 0.501960f);
+	yuv = mul(yuv, YUVtoRGBCoeffMatrix);
+
+	return saturate(yuv);
+}
+
+// shader to convert a YUY2 texture to RGBA
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+	
+	float2 uv = IN.i_UV.xy;
+
+	float3 YUV;
+	YUV.x = S_2DExt0.Sample(S_2DExt0SamplerState, uv).x;
+	YUV.yz = S_2DExt1.Sample(S_2DExt1SamplerState, uv).xy;
+
+	psOut.o_Color.xyz = ConvertYUVtoRGB(YUV);
+	psOut.o_Color.w = 1.0f;
+	
+	return psOut;
+}
+
+

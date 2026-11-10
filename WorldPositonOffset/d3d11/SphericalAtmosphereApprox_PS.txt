@@ -1,0 +1,155 @@
+#include<PreComputeAtmosphere.inl>
+#include<RaySphereIntersectionHelper.inl>
+
+#define PI 3.141592653589793 
+
+uniform float4 U_PSCustom0;
+uniform float4 U_PSCustom1;
+uniform float4 U_PSCustom2;
+uniform float4 U_PSCustom3;
+uniform float4 U_PSCustom4;
+uniform float4 U_PSCustom5;
+uniform float4 U_PSCustom6;
+uniform float4 U_PSCustom7;
+uniform float4 U_PSCustom8;
+
+Texture2D S_Depth;
+SamplerState S_DepthSamplerState;
+
+#define DepthTex S_Depth
+#define DepthSampler S_DepthSamplerState
+
+
+#define earthCenter     U_PSCustom0.xyz
+#define earthRadius     U_PSCustom0.w
+
+#define atmosRadius     U_PSCustom1.x
+#define fadeRange       U_PSCustom1.y
+#define pixelSize       U_PSCustom1.zw
+
+#define sunDir          U_PSCustom2.xyz
+
+#define sunColor        U_PSCustom3.xyz
+
+#define depthLinearize U_PSCustom4.xy
+
+#define NDCToViewAdd U_PSCustom5.zw
+#define NDCToViewMul U_PSCustom5.xy
+
+#define alphaPower U_PSCustom6.x
+#define lightPower U_PSCustom6.y
+#define averageDensity U_PSCustom6.z
+
+#define inputColor U_PSCustom7.xyz
+
+#define blendDistance U_PSCustom8.x
+#define blendRange U_PSCustom8.y
+
+struct PS_INPUT{
+    float4 i_ClipPos    :SV_POSITION;
+    float4 i_ViewPos    :TEXCOORD0;
+};
+
+float ScreenSpaceToViewSpaceDepth(in float screenDepth)
+{ 
+    return depthLinearize.x / (depthLinearize.y + screenDepth);
+}
+
+float3 NdcToViewSpace(
+    in float viewSpaceDepth,
+    in float2 pos)
+{
+    float3 ret;
+     
+    ret.xy = (NDCToViewAdd + pos.xy * NDCToViewMul) * viewSpaceDepth;
+    ret.z = viewSpaceDepth;
+    
+    return ret;
+}
+
+float FresnelEffect(float3 v0, float3 v1, float power) {
+	return pow(1.f - saturate(dot(v0, v1)), power);
+}
+
+float4 main(PS_INPUT IN):SV_TARGET0{
+    float3 viewPos = IN.i_ViewPos.xyz;
+    float3 viewDir = normalize(viewPos - float3(0.f, 0.f, 0.f));
+    float3 normalDir = normalize(viewPos.xyz - earthCenter);
+
+    float3 earthToCamera = normalize(-earthCenter);
+
+    float2 uv = IN.i_ClipPos.xy * pixelSize;
+    float depth = DepthTex.SampleLevel(DepthSampler, uv, 0).r;
+    float viewspaceDepth = ScreenSpaceToViewSpaceDepth(depth);
+    float3 pFromDepth = NdcToViewSpace(viewspaceDepth, uv) * 0.001f;
+    float tFromDepth = length(pFromDepth);
+
+    float2 tAtmosphere = RayIntersectSphere(float3(0.f, 0.f, 0.f), viewDir, float4(earthCenter, atmosRadius));
+    float2 tEarth = RayIntersectSphere(float3(0.f, 0.f, 0.f), viewDir, float4(earthCenter, earthRadius));
+
+    float cosTheta = dot(sunDir, normalDir);
+    cosTheta = max(cosTheta, 0.f);
+    float LdotV = abs(dot(earthToCamera, sunDir));
+    float LVAngleParam = 2.f * acos(LdotV) / PI;
+    LVAngleParam = 1.f - LVAngleParam;
+    LVAngleParam = pow(LVAngleParam, 3);
+    cosTheta = lerp(cosTheta, 1.f, LVAngleParam);
+    // cosTheta = smoothstep(-1.f, 0.5, cosTheta);
+    // cosTheta = 1.f;
+    // float3 cameraToSphereCenter = normalize(float3(0.f, 0.f, 0.f) - earthCenter);
+    // float cosPhi = dot(viewDir, cameraToSphereCenter);
+    // float sinPhi = sqrt(1.f - cosPhi * cosPhi);
+    // float distance = sinPhi * atmosRadius;
+
+
+    // float cosTheta = clamp(dot(normalDir, sunDir), 0.f, 1.f);
+    // //float phase = RayleighPhase(cosTheta);
+
+
+    // 根据距离判断发光, 在earthRadius + fadeRange处最亮，往两侧衰减
+    // float fadeFactor = smoothstep(earthRadius, earthRadius + fadeRange, distance);
+    // fadeFactor = min(fadeFactor, smoothstep(earthRadius + fadeRange, atmosRadius, distance));
+
+    float3 atmosColor = 0.f;
+    float alpha = 0.f;
+    
+    // fresnel
+    {
+        // float fadeFactor = clamp(1.f - 3.f * FresnelEffect(normalDir, -viewDir, 3), 0.f, 1.f);
+        // if(depth != 0.f)
+        // {
+        //     fadeFactor = 0.f;
+        // }
+        // float3 atmosColor = sunColor * fadeFactor * cosTheta;
+        // float alpha = fadeFactor * cosTheta;
+
+    }
+    
+    // const density
+    {        
+        float distanceThroughAtmos = max(tAtmosphere.y - tAtmosphere.x, 1e-5f);
+        if(RayHitSphere(tEarth)){
+            distanceThroughAtmos = max(tEarth.x - tAtmosphere.x, 1e-5f);
+            if(PointInsideAtmosphere(pFromDepth, float4(earthCenter.xyz, atmosRadius)) && tFromDepth < tEarth.x)
+                distanceThroughAtmos = max(tFromDepth - tAtmosphere.x, 1e-5f);
+        }
+        else if(PointInsideAtmosphere(pFromDepth, float4(earthCenter.xyz, atmosRadius)))
+            distanceThroughAtmos = max(tFromDepth - tAtmosphere.x, 1e-5f);
+
+        float dDensity = averageDensity;
+        float densityInte = dDensity * distanceThroughAtmos;
+        densityInte = pow(clamp(densityInte, 0.f, 1.f), alphaPower);
+        // float3 atmosColor = sunColor * densityInte;
+        alpha = densityInte * cosTheta;
+        atmosColor = pow(inputColor.xyz, 2.2f) * lightPower * cosTheta; 
+    }
+
+    // in renderstate, blend src = 1, dst = 1- SrcAlpha
+    // so alpha must be preMultiplied into atmosColor
+    float altitude = length(earthCenter - 0.f);
+    float blendFactor = smoothstep(0.f, 1.f, (altitude - blendDistance) / blendRange);
+    atmosColor *= alpha;
+    alpha *= blendFactor;
+    atmosColor *= blendFactor;
+    return float4(pow(atmosColor, 0.4545f), alpha);
+}

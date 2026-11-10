@@ -1,0 +1,213 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1,
+						2,
+						3,
+						4,
+						5,
+						6
+					],
+					"jsonFile" : "directory-.-Debug-d0094a50bb2071803777.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.6.0"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						6
+					]
+				},
+				{
+					"build" : "EchoCommon",
+					"jsonFile" : "directory-EchoCommon-Debug-ba82398ccbe8b1d83823.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.4.1"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "EchoCommon",
+					"targetIndexes" : 
+					[
+						0
+					]
+				},
+				{
+					"build" : "EchoCore",
+					"jsonFile" : "directory-EchoCore-Debug-1e1f00ada4a32edce85d.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.4.1"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "EchoCore",
+					"targetIndexes" : 
+					[
+						2
+					]
+				},
+				{
+					"build" : "EchoPhysics",
+					"jsonFile" : "directory-EchoPhysics-Debug-3d2649a79df70d0fb631.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.4.1"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "EchoPhysics",
+					"targetIndexes" : 
+					[
+						5
+					]
+				},
+				{
+					"build" : "EchoEngine",
+					"jsonFile" : "directory-EchoEngine-Debug-0faf64fdab40f5c80f97.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.4.1"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "EchoEngine",
+					"targetIndexes" : 
+					[
+						3
+					]
+				},
+				{
+					"build" : "EchoComponent",
+					"jsonFile" : "directory-EchoComponent-Debug-8940decdc1f8ad06d5aa.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.4.1"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "EchoComponent",
+					"targetIndexes" : 
+					[
+						1
+					]
+				},
+				{
+					"build" : "EchoGame",
+					"jsonFile" : "directory-EchoGame-Debug-ba3e99a45bafa2f46005.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.4.1"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "EchoGame",
+					"targetIndexes" : 
+					[
+						4
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6
+					],
+					"name" : "PadBO2",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 1,
+					"id" : "EchoCommon::@d4f1c738e2a6146cc808",
+					"jsonFile" : "target-EchoCommon-Debug-696aa063bb5dc11a0d41.json",
+					"name" : "EchoCommon",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 5,
+					"id" : "EchoComponent::@b0218a90516a3ba88262",
+					"jsonFile" : "target-EchoComponent-Debug-b950b3911edd9f779ba7.json",
+					"name" : "EchoComponent",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "EchoCore::@678582e5671f465d3ded",
+					"jsonFile" : "target-EchoCore-Debug-42f711451524f3cf732e.json",
+					"name" : "EchoCore",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 4,
+					"id" : "EchoEngine::@0e49147075b65a8e5843",
+					"jsonFile" : "target-EchoEngine-Debug-475754f0e4bb5795e047.json",
+					"name" : "EchoEngine",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "EchoGame::@3090557f1f3a773c08b4",
+					"jsonFile" : "target-EchoGame-Debug-a6f12f147859192db632.json",
+					"name" : "EchoGame",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 3,
+					"id" : "EchoPhysics::@af15fd6f819d87d4c0c4",
+					"jsonFile" : "target-EchoPhysics-Debug-854ca3e2f396cdcd830c.json",
+					"name" : "EchoPhysics",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "PadBO2::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-PadBO2-Debug-38e78a7b5d6cd4e7c726.json",
+					"name" : "PadBO2",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/.cxx/Debug/1d3f1a4x/arm64-v8a",
+		"source" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 3
+	}
+}

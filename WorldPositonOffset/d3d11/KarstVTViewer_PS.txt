@@ -1,0 +1,18 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Light_Function_PS.inl>
+
+uniform Texture2D<float4> S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+struct PS_INPUT
+{
+    float4	i_PosInClip	: SV_POSITION;
+	float2	i_UVBase	: TEXCOORD0;
+};
+
+float4 main(PS_INPUT IN) : SV_TARGET
+{
+	float4 color = S_2DExt0.SampleLevel(S_2DExt0SamplerState, IN.i_UVBase, 0);
+	return color;
+}

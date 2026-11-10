@@ -1,0 +1,38 @@
+
+#include <Common_Uniform_VS.inl>
+
+uniform	float4 	U_VSCustom0;	
+uniform	float4	U_VSCustom1;
+	
+struct VS_INPUT							
+{										
+	float2 pos : POSITION0;				
+	float2 tc0 : TEXCOORD0;						
+	float2 tc1 : TEXCOORD1;						
+	float4 col : COLOR0;
+	float gray : COLOR1;	
+};											
+
+struct VS_OUTPUT						
+{		
+    float4 pos : SV_POSITION;									
+	float2 tc0 : TEXCOORD0;
+	float2 tc1 : TEXCOORD1;
+	float4 col : COLOR0;
+	float gray : COLOR1;
+		
+};												
+
+
+VS_OUTPUT main(	in VS_INPUT inVtx )						
+{		
+	VS_OUTPUT oVtx;				
+	float2 VP		= U_VSCustom0.xy;							
+	oVtx.tc0		= float2(inVtx.tc0.x,1.0-inVtx.tc0.y);
+	oVtx.tc1		= float2(inVtx.tc1.x,1.0-inVtx.tc1.y);
+	oVtx.gray		= inVtx.gray;
+	oVtx.col		= inVtx.col;
+	float2 pos      = inVtx.pos.xy +U_VSCustom1.xy;
+	oVtx.pos		= float4(pos.x*VP.x  - 1.0- (0.5 * VP.x)/U_VSCustom1.z,pos.y * VP.y -1.0 + (0.5* VP.y)/U_VSCustom1.z,0.0,1.0);
+	return oVtx;	
+}

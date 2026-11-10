@@ -1,0 +1,56 @@
+
+float4 U_WorldViewProjectMatrix[4];
+float4 U_InvTransposeWorldMatrix[3];
+float4 U_WorldMatrix[3];
+
+uniform float4	U_VSCustom0;
+struct VS_INPUT
+{
+	float3 i_Pos		    : POSITION0;
+    float3 i_Normal		    : NORMAL0;
+    float3 i_Texcoord		: TEXCOORD0; 
+};
+
+struct VS_OUTPUT
+{
+	float4 o_PosInClip		: SV_POSITION;
+    float2 o_MatIDUV        : TEXCOORD0;    //用于采样MatID的UV
+    nointerpolation float o_faceIndex : TEXCOORD1;
+    float3 o_WorldNormal: NORMAL0;
+    float3 o_WorldPos	: NORMAL1;
+    float3 o_LocalNormal: NORMAL2;
+    float3 o_Tangent    : TANGENT0;
+    float3 o_VTangent   : TANGENT1;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+    VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	float4  pos =  float4(IN.i_Pos.xyz, 1.0f);
+
+    vsOut.o_WorldPos = mul((float3x4)U_WorldMatrix, pos);
+
+    vsOut.o_PosInClip.x = dot(U_WorldViewProjectMatrix[0], pos);
+	vsOut.o_PosInClip.y = dot(U_WorldViewProjectMatrix[1], pos);
+	vsOut.o_PosInClip.z = dot(U_WorldViewProjectMatrix[2], pos);
+	vsOut.o_PosInClip.w = dot(U_WorldViewProjectMatrix[3], pos);
+
+    vsOut.o_MatIDUV = IN.i_Texcoord.xy;
+    vsOut.o_faceIndex = IN.i_Texcoord.z;
+
+    float4  normal =  float4(IN.i_Normal.xyz, 0.0f);   
+    vsOut.o_WorldNormal = mul((float3x4)U_InvTransposeWorldMatrix, normal);
+
+    if(U_VSCustom0.x != 0.f)
+        normal.xyz = normalize(IN.i_Pos);
+    vsOut.o_LocalNormal = normalize(normal).xyz;
+
+
+    float3 tempY = float3(0.f,1.f,0.f);
+    vsOut.o_Tangent = cross(vsOut.o_LocalNormal,tempY);
+    vsOut.o_Tangent = normalize(vsOut.o_Tangent);
+    vsOut.o_VTangent = cross(vsOut.o_Tangent,vsOut.o_LocalNormal);
+    vsOut.o_VTangent = normalize(vsOut.o_VTangent);
+
+    return vsOut;
+}

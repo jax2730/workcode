@@ -1,0 +1,27 @@
+#include <Common_GpuCull_CS.inl>
+
+#define thread_group_size_x 32u
+#define thread_group_size_y 1u
+
+cbuffer UniformBlock_Private_CS
+{
+    uint U_CSCustom0; //Count
+};
+
+StructuredBuffer<ClusterBlockUpdate> B_CSCustom0;				
+RWStructuredBuffer<ClusterBlock> B_CSCustom1;
+
+[numthreads(thread_group_size_x, thread_group_size_y, 1)]
+void main(uint3 threadIDInGroup : SV_GroupThreadID,
+			uint3 groupID : SV_GroupID,
+			uint groupIndex : SV_GroupIndex,
+			uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+	uint thread_index = dispatchThreadID.x;
+	if (thread_index >= U_CSCustom0)
+        return;
+	
+	ClusterBlockUpdate blockUpdate = B_CSCustom0[thread_index];
+	B_CSCustom1[blockUpdate.memIdx] = blockUpdate.data;
+}
+

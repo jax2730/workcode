@@ -1,0 +1,146 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+
+#include <Light_Function_PS.inl>
+
+#include <LandformPBRLighting.inl>
+
+uniform Texture2D S_2DExt0; // tex_SplattedBaseColor
+SamplerState S_2DExt0SamplerState;
+uniform Texture2D S_2DExt1; // tex_SplattedNormal
+SamplerState S_2DExt1SamplerState;
+
+uniform float4 U_LightPower;
+uniform float4 U_PSCustom0;	// DebugColor;
+uniform float4 U_PSCustom1;	// SnowParam;
+
+struct PS_INPUT
+{
+    float4	i_PosInClip	: SV_POSITION;
+	float4  i_WorldPos  : TEXCOORD0;
+	float2	i_UVBase	: TEXCOORD1;
+	float4	i_FogColor	: TEXCOORD2;
+	float3	i_ViewDir	: TEXCOORD3;
+};
+
+float4 main(PS_INPUT IN) : SV_TARGET
+{
+	// float4 oColor = (float4) 0.435294f;
+	float4 oColor = (float4)0.f;
+	
+	float4 DebugColor = U_PSCustom0;
+	float4 SnowParam = U_PSCustom1;
+
+	float4 cSplattedBaseColor = S_2DExt0.Sample(S_2DExt0SamplerState, IN.i_UVBase.xy);
+	cSplattedBaseColor = pow(cSplattedBaseColor, 2.2f);
+
+	float4 cSplattedNormal = S_2DExt1.Sample(S_2DExt1SamplerState, IN.i_UVBase.xy);
+	cSplattedNormal.xyz = cSplattedNormal.xyz * 2.f - 1.f;
+	float2x2 matNormalTrans[4] =
+	{
+		float2x2( 1,  0,  0,  1),
+		float2x2( 0,  1, -1,  0),
+		float2x2(-1,  0,  0, -1),
+		float2x2( 0, -1,  1,  0),
+	};
+	// cBaseNormal.xz = mul(cBaseNormal.xz, matNormalTrans[(int)U_PSCustom1.y]);
+	// cBaseNormal.xyz = normalize(cBaseNormal.xyz);
+
+	float fSnowSlope = clamp(cSplattedNormal.y, 0.f, 1.f);
+	fSnowSlope = clamp(fSnowSlope - SnowParam.x, 0.f, 1.f) / (1.f - SnowParam.x);
+	fSnowSlope *= fSnowSlope;
+	cSplattedBaseColor.rgb = lerp(cSplattedBaseColor.rgb, U_WeatherParam0.rgb, fSnowSlope * U_WeatherParam0.a);
+
+	float3 albedo = lerp(cSplattedBaseColor.rgb, 0.f, cSplattedBaseColor.a);
+	float3 f0 = lerp(0.04f, cSplattedBaseColor.rgb, cSplattedBaseColor.a);
+	float roughness = cSplattedNormal.a * cSplattedNormal.a;
+
+	float3 vViewDir = normalize(IN.i_ViewDir);
+
+	oColor.rgb = pbr_lighting(cSplattedNormal.xyz, -U_MainLightDirection.xyz, vViewDir,
+			albedo, f0, roughness, U_PBR_MainLightColor);
+
+	// oColor.rgb = cSplattedNormal.xyz * 0.5f + 0.5f;
+
+	float3 cLightAmbient = lerp(U_PBR_GroundLightColor.rgb, U_PBR_SkyLightColor.rgb, cSplattedNormal.y * 0.5f + 0.5f);
+	oColor.rgb += cLightAmbient * (albedo + f0);
+	
+	float3 cPointLightDiffAcc = 0.0f;
+	float3 cPointLightSpecAcc = 0.0f;
+
+#ifdef CLUSTER_POINT_LIGHT
+    // NOTE(yanghang): Check fragment in which block region.
+//     uint cluster_mask = getClusterLightMask(IN.i_PosInClip.xy);
+//
+//     if(cluster_mask != 0)
+//     {
+//         // NOTE(yanghang): It's may be 8,16,32 or more.
+//         uint bit_mask = 1;
+//
+// #ifdef CLUSTER_DEBUG
+//         bool hit_light = false;
+//         int light_miss_count = 0;
+// #endif
+//
+//         // NOTE(yanghang): It's may be 8,16,32
+//         for(uint i = 0;
+//             i < currentClusterLightCount;
+//             i++)
+//         {
+//             if(cluster_mask & bit_mask)
+//             {
+//                 float3 pointLightDir = U_ClusterLightWorldPosArray[i].xyz - IN.i_WorldPos;
+//                 float frag_light_square_d =
+//                     pointLightDir.x * pointLightDir.x +
+//                     pointLightDir.y * pointLightDir.y +
+//                     pointLightDir.z * pointLightDir.z;
+//
+//                 // NOTE:(yanghang): Optimize.
+//                 float square_outer_radius = U_ClusterLightDiffuseColorArray[i].w;
+//                 float square_inner_radius = U_ClusterLightWorldPosArray[i].w;
+//                 if(frag_light_square_d < square_outer_radius)
+//                 {
+//                     float square_inner_radius = U_ClusterLightWorldPosArray[i].w;
+//                     //NOTE(yanghang): Optimize, float fAtten = 1.0 - clamp((frag_light_square_d - square_inner_radius) / (square_outer_radius - square_inner_radius), 0.0, 1.0);
+//                     float fAtten = 1.0 - saturate((frag_light_square_d - square_inner_radius) * U_ClusterLightDeltaSquareRadiusINVArray[i>>2][i%4]);
+//                     float lightattenua = fAtten * fAtten;
+//
+//                     float3 cPointLightColor = U_ClusterLightDiffuseColorArray[i].xyz * lightattenua;
+//                     pointLightDir = normalize(pointLightDir);
+//
+//                     float vNDotPointL = clamp( dot(cSplattedNormal.xyz, pointLightDir), 0.f, 1.f);
+//                     cPointLightDiffAcc.rgb += cPointLightColor * vNDotPointL;
+//
+//                     float4 vPointLit = lit(1.f, dot(normalize(vViewDir + pointLightDir), cSplattedNormal.xyz), cSplattedNormal.w);
+//                     cPointLightSpecAcc += vPointLit.z * cPointLightColor * cSplattedBaseColor.w;
+// #ifdef CLUSTER_DEBUG
+//                     hit_light = true;
+// #endif
+//                 }
+// #ifdef CLUSTER_DEBUG
+//                 else
+//                 {
+//                     light_miss_count++;
+//                 }
+// #endif
+//             }
+//             bit_mask = bit_mask << 1;
+//         }// end for
+// #ifdef CLUSTER_DEBUG
+//         if(!hit_light)
+//         {
+//             cPointLightSpecAcc = float3(0,0,0);
+//             cPointLightDiffAcc = float3(0.03125f, 0, 0) * float(light_miss_count + 2);
+//         }
+// #endif
+//     }
+    
+#endif
+
+	oColor.rgb = oColor.rgb * IN.i_FogColor.a + IN.i_FogColor.rgb;
+	oColor.rgb = pow(oColor.rgb, 1.0 / 2.2);
+	oColor.a = 1.f;
+	float overdrawlerp = ceil(U_PS_Time.w);
+	oColor = oColor * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+	return oColor;
+}

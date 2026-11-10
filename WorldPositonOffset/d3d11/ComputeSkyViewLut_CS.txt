@@ -1,0 +1,113 @@
+#define SKYVIEWLUT_PASS
+#define MULTISCATTERING_APPROX_SAMPLING_ENABLED 1
+#define VIEWDATA_AVAILABLE 1
+#include <AtmosphereDataStructures.inl>
+
+Texture2D<float4> S_2DExt0;
+Texture2D<float4> S_2DExt1;
+SamplerState S_2DExt0SamplerState;
+RWTexture2D<float4> S_2DExt2;
+#define TransmittanceTex S_2DExt0
+#define MultiScatteredLuminanceTex S_2DExt1
+#define BilinearSampler S_2DExt0SamplerState
+#define SkyViewLut S_2DExt2
+
+// note: AtmosphereCommon.inl is using some functions from FastMathThirdParty.inl 
+// so it must be included before AtmosphereCommon.inl
+#include<FastMathThirdParty.inl>
+#include<AtmosphereCommon.inl>
+#include<AtmosphereScattering.inl>
+
+void UvToSkyViewLutParams(out float3 viewDir, in float viewHeight, in float2 uv)
+{
+    // constrain uvs to valid sub texel range(avoid zenith derivative issue making lut usage visible)
+    uv = FromSubUvsToUnit(uv, SkyAtmosphere.skyViewLutSizeAndInvSize);
+    // compute zenithAngle of horizon
+    float vHorizon = sqrt(viewHeight * viewHeight - Atmosphere.bottomRadius * Atmosphere.bottomRadius);
+    float cosBeta = vHorizon / viewHeight;
+    float beta = acosFast4(cosBeta);
+    float zenithHorizonAngle = PI - beta;
+
+    // HILLAIRE, SÉBASTIEN. A Scalable and Production Ready Sky and Atmosphere Rendering Technique, EGSR 2020
+    // use simple quadratic curve to remap zenithAngle to compress more texels near the horizon
+    float viewZenithAngle; 
+    if(uv.y < 0.5f)
+    {
+        float coord = 2.0f * uv.y;
+        coord = 1.f - coord;
+        coord *= coord;
+        coord = 1.f - coord;
+        viewZenithAngle = zenithHorizonAngle * coord;
+    }
+    else
+    {
+        float coord = uv.y * 2.f - 1.f;
+        coord *= coord;
+        viewZenithAngle = zenithHorizonAngle + beta * coord;
+    }
+    float cosViewZenithAngle = cos(viewZenithAngle);
+    float sinViewZenithAngle = sqrt(1.f - cosViewZenithAngle * cosViewZenithAngle)
+        * (viewZenithAngle > 0.f ? 1.f : -1.f);
+    float longitudeViewCosAngle = uv.x * 2.f * PI;
+    // make sure those values are in vrange as it could disrupt other math done later such as sqrt(1.f - c * c)
+    float cosLongitudeViewCosAngle = cos(longitudeViewCosAngle);
+    float sinLongitudeViewCosAngle = sqrt(1.f - cosLongitudeViewCosAngle * cosLongitudeViewCosAngle) 
+        * (longitudeViewCosAngle <= PI ? 1.f : -1.f);
+    viewDir = float3(
+        sinViewZenithAngle * cosLongitudeViewCosAngle,
+        sinViewZenithAngle * sinLongitudeViewCosAngle,
+        cosViewZenithAngle
+    );
+}
+
+[numthreads(THREADGROUP_SIZE, THREADGROUP_SIZE, 1)]
+void main(uint3 tId : SV_DispatchThreadID)
+{
+    float2 pixelPos = float2(tId.xy) + 0.5f;
+    float2 uv = pixelPos * SkyAtmosphere.skyViewLutSizeAndInvSize.zw;
+    float3 worldPos = GetTranslatedCameraPlanetPos();
+    
+    float3x3 localReferencial = GetSkyViewReferential(View.skyViewLutReferential);
+
+    float viewHeight = length(worldPos);
+    worldPos = float3(0.f, 0.f,  viewHeight);
+
+    float3 worldDir;
+    UvToSkyViewLutParams(worldDir, viewHeight, uv);
+
+    float3 atmosphereLightDirection = -U_MainLightDirection.xyz;
+    atmosphereLightDirection = normalize(mul(localReferencial, atmosphereLightDirection));
+    float3 atmosphereLightIlluminance = U_PBR_MainLightColor.rgb;
+
+    if(!MoveToTopAtmosphere(worldPos, worldDir, Atmosphere.topRadius))
+    {
+        // ray is not intersecting the atmosphere
+        SkyViewLut[int2(pixelPos)] = 0.f;
+        return;
+    }
+
+    SamplingSetup sampling = (SamplingSetup)0;
+    {
+        sampling.variableSampleCount = true;
+        sampling.minSampleCount = SkyAtmosphere.skyViewSampleCountMin;
+        sampling.maxSampleCount = SkyAtmosphere.skyViewSampleCountMax;
+        sampling.distanceToSampleCountMaxInv = SkyAtmosphere.skyViewDistanceToSampleCountMaxInv;
+    }
+
+    const bool ground = false;
+    const float deviceZ = FAR_DEPTH_VALUE;
+    const bool mieRayPhase = true;
+    const float aerialPerspectiveViewDistanceScale = 1.f;
+
+    // actually multiple scattering is taken into account also
+    SingleScatteringResult ss = IntegrateSingleScatteredLuminance(
+        float4(pixelPos, 0.f, 1.f), worldPos, worldDir,
+        ground, sampling, deviceZ, mieRayPhase,
+        atmosphereLightDirection,
+        atmosphereLightIlluminance,
+        aerialPerspectiveViewDistanceScale
+    );
+
+    const float transmittance = dot(ss.transmittance, 0.333333f); // get averaged transmittance
+    SkyViewLut[int2(pixelPos)] = float4(ss.L, transmittance);
+}

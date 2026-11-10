@@ -1,0 +1,455 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+#include <Light_Function_PS.inl>
+#include <EnvironmentLight_Function.inl>
+#include <Common_Function_PS.inl>
+#include <Common_GBuffers.inl>
+
+
+//-----------------------------------------------------------------------------
+// Uniforms
+//-----------------------------------------------------------------------------
+float4	U_MaterialCustomParam;
+
+// The USEINSTANCE and TEX_2DARRAY_INSTANCE must be define together.
+#ifdef TEX_2DARRAY_INSTANCE
+    #ifndef USEINSTANCE
+        #error Missing USEINSTANCE macro with TEX_2DARRAY_INSTANCE!
+    #endif
+#endif
+
+#ifdef TEX_2DARRAY_INSTANCE
+    Texture2DArray S_2DArrayExt0; // S_DiffuseArray;
+    SamplerState S_2DArrayExt0SamplerState;
+    Texture2DArray S_2DArrayExt1; // S_BumpArray;
+    SamplerState S_2DArrayExt1SamplerState;
+    #ifdef MIXED_MAP
+        Texture2DArray S_2DArrayExt2; // S_SpecularArray;
+        SamplerState  S_2DArrayExt2SamplerState;
+    #endif
+    #ifdef TEXTURE_MASK
+        Texture2DArray S_2DArrayExt4; // S_Custom2Array;
+        SamplerState  S_2DArrayExt4SamplerState;
+    #endif
+    #ifdef COVER_CUSTOM
+        Texture2DArray S_2DArrayExt5;	// S_Custom3Array;
+        SamplerState S_2DArrayExt5SamplerState;
+    #endif
+#else
+    Texture2D S_Diffuse;
+    SamplerState S_DiffuseSamplerState;
+    Texture2D S_Bump;
+    SamplerState S_BumpSamplerState;
+    Texture2D S_Custom7;
+    SamplerState S_Custom7SamplerState;
+    #ifdef MIXED_MAP
+        Texture2D S_Specular;
+        SamplerState S_SpecularSamplerState;
+    #endif
+    #ifdef TEXTURE_MASK
+        Texture2D S_Custom2;
+        SamplerState S_Custom2SamplerState;
+    #endif
+
+    float4	U_MaterialDiffuse;
+    float4	U_MaterialFresnel;
+    #if defined(EMISSIVE) && defined(DYNAMIC_EMISSIVE)
+        float4	U_MaterialSpecular;
+    #endif
+
+    float4	U_PSGeneralRegister0;	// x: roughness base,  y: bump scale,  z: wet  w: view light precent
+    #if defined(COVER_CUSTOM) || defined(COVER_WEATHER)
+        float4	U_PSGeneralRegister1;	// a: weather cover range
+    #endif
+    #ifdef EMISSIVE
+        float4	U_PSGeneralRegister2;	// rgb: emission color; a: emission min amount
+        #ifdef DYNAMIC_EMISSIVE
+            float4	U_PSGeneralRegister3; // x: emission max amount
+        #endif
+    #endif
+    #ifdef TEXTURE_MASK
+        float4	U_PSGeneralRegister4;	// texture mask r color
+        float4	U_PSGeneralRegister5;  	// texture mask g color
+        float4	U_PSGeneralRegister6;   // texture mask b color
+    #endif
+    float4  U_PSGeneralRegister15;	// y: weather cover factor for material
+    float4	U_PSGeneralRegister16;	// paint color
+    float4	U_PSGeneralRegister17;  // w: aging factor	
+    float4	U_PSGeneralRegister30;	// x: weather cover factor for runtime
+#endif
+
+#ifdef COVER_CUSTOM
+    Texture2D S_Custom3;
+    SamplerState S_Custom3SamplerState;
+#endif
+
+#ifdef RIPPLE
+    Texture2D S_Ripple;
+    SamplerState S_RippleSamplerState;
+    float4 ComputeRipple(float2 uv, float t)
+    {
+        float4 ripple = S_Ripple.Sample(S_RippleSamplerState, uv);
+        float gloss = ripple.y;
+        ripple.yz = ripple.yz * 2.0 - 1.0;
+        float dropFrac = frac(ripple.a + t);
+        float timeFrac = dropFrac - 1.0 + ripple.x;
+        float dropFactor = 1.0f-saturate( dropFrac);
+        float final = dropFactor* sin(clamp(timeFrac * 9.0, 0.0, 4.0) * 3.1415926);
+        return float4(ripple.yz * final, 1.0, (final ) * 0.2);
+    }
+#endif	
+
+Texture2D S_AgingTex;
+SamplerState S_AgingTexSamplerState;
+
+float4	U_LightPower;
+
+#define PS_OUTPUT GBuffers
+
+//-----------------------------------------------------------------------------
+// Input Struct
+//-----------------------------------------------------------------------------
+struct PS_INPUT
+{
+#if defined(USEINSTANCE) && defined(TEX_2DARRAY_INSTANCE)
+    float4 i_MaterialDiffuse    :NORMAL0; // rgb: diffuse color, a: custom cover texture index
+    float4 i_MaskColor			:NORMAL1;	// rgb: mask color, a: mask switch
+    float4 i_PSGeneralParam0	:NORMAL2;   // x: diff idx, y: bump idx, z: spec idx, w: weather cover factor
+    float4 i_PSGeneralParam1	:NORMAL3;   // x: roughness base, y: bump scale, z: cover range, w: weather cover factor
+    #ifdef TEXTURE_MASK
+        float4 i_TextureMaskRColor:NORMAL4; // rgb: r color a: custom 2 idx
+        float4 i_TextureMaskGColor:NORMAL5;	// rgb: g color
+        float4 i_TextureMaskBColor:NORMAL6; // rgb: b color
+    #endif
+
+    #ifdef EMISSIVE
+        float4 i_EmissiveColor             :NORMAL7; // rgb: color, a: min amount
+        #ifdef DYNAMIC_EMISSIVE
+            float4 i_DynamicEmissiveParam  :NORMAL8; // x: max amount, y: freq, z: offset
+        #endif
+    #endif
+#endif
+
+    float4	i_PosInClip			: SV_POSITION;
+    float4 	i_UV				: TEXCOORD0;	// w: View Space Z for USESHADOWMAP
+    float4 	i_Fog				: TEXCOORD1;
+    float4	i_WNormal			: TEXCOORD2;
+    float4	i_WPos				: TEXCOORD3;
+    float4	i_Tangent			: TEXCOORD4;
+    float4	i_Binormal			: TEXCOORD5;
+    float4	i_ViewDir			: TEXCOORD6; // Not typically used for static GBuffer but kept for Ripple/Stroke
+#ifdef PARABOLOID_MAPPING
+    float	i_ClipDepth			: TEXCOORD12;
+#endif
+    // Note: i_PosInModel / i_BoundBoxRange logic is missing in the source struct for this shader,
+    // so we assume standard culling isn't applied or data isn't passed, unlike other shaders.
+};
+
+//-----------------------------------------------------------------------------
+// Main
+//-----------------------------------------------------------------------------
+PS_OUTPUT main(PS_INPUT IN, bool isFrontFacing : SV_IsFrontFace)
+{
+    PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+#ifdef PARABOLOID_MAPPING
+    clip(IN.i_ClipDepth);
+#endif	
+
+    // 1. Material Properties Setup
+    float4 cMatDiffuse = float4(1.0f, 1.0f, 1.0f, 1.0f);
+    #ifdef TEX_2DARRAY_INSTANCE
+        cMatDiffuse = IN.i_MaterialDiffuse;
+    #else
+        cMatDiffuse = U_MaterialDiffuse;
+    #endif
+
+    #ifdef TEX_2DARRAY_INSTANCE
+        float fDiffTexIdx = IN.i_PSGeneralParam0.x;
+        float fBumpTexIdx = IN.i_PSGeneralParam0.y;
+        #ifdef MIXED_MAP
+            float fSpecTexIdx = IN.i_PSGeneralParam0.z;
+        #endif
+    #else
+        // Dissolve check for standard build
+        // Note: IllumBuildPBR doesn't seem to have the DISSOLVE macro logic in the source provided,
+        // but it does sample S_Custom7 for dissolve alpha in the else block.
+        float dissolveAlpha = S_Custom7.Sample(S_Custom7SamplerState, IN.i_UV.xy).a;
+        clip(dissolveAlpha - U_MaterialFresnel.y);
+    #endif
+
+    float fRoughnessBase = 0.0f;
+    float fBumpScale = 1.0f;
+    #ifdef TEX_2DARRAY_INSTANCE
+        fRoughnessBase = IN.i_PSGeneralParam1.x;
+        fBumpScale = IN.i_PSGeneralParam1.y;
+    #else
+        fRoughnessBase = U_PSGeneralRegister0.x;
+        fBumpScale = U_PSGeneralRegister0.y;
+    #endif
+
+    // 2. Base Color
+    float4 cTexDiffuse = float4(0.0f, 0.0f, 0.0f, 1.0f);
+    #ifdef TEX_2DARRAY_INSTANCE
+        cTexDiffuse = S_2DArrayExt0.Sample(S_2DArrayExt0SamplerState, float3(IN.i_UV.xy, fDiffTexIdx));
+    #else
+        cTexDiffuse = S_Diffuse.Sample(S_DiffuseSamplerState, IN.i_UV.xy);
+    #endif
+    
+    // Convert to Linear
+    cTexDiffuse.rgb = pow(cTexDiffuse.rgb, float3(2.2f,2.2f,2.2f));
+    float3 cBaseDiffuse = cTexDiffuse.rgb;
+
+    // Texture Masking
+    #ifdef TEXTURE_MASK
+        #ifdef TEX_2DARRAY_INSTANCE
+            float4 vMask = S_2DArrayExt4.Sample(S_2DArrayExt4SamplerState, float3(IN.i_UV.xy, IN.i_TextureMaskRColor.w));
+            float fMask = min(vMask.r + vMask.g + vMask.b, 1.0f);
+            float3 cTexMaskRColor = pow(IN.i_TextureMaskRColor.rgb, float3(2.2f,2.2f,2.2f)) * vMask.rrr;
+            float3 cTexMaskGColor = pow(IN.i_TextureMaskGColor.rgb, float3(2.2f,2.2f,2.2f)) * vMask.ggg;
+            float3 cTexMaskBColor = pow(IN.i_TextureMaskBColor.rgb, float3(2.2f,2.2f,2.2f)) * vMask.bbb;
+        #else
+            float4 vMask = S_Custom2.Sample(S_Custom2SamplerState, IN.i_UV.xy);
+            float fMask = min(vMask.r + vMask.g + vMask.b, 1.0f);
+            float3 cTexMaskRColor = pow(U_PSGeneralRegister4.rgb, float3(2.2f,2.2f,2.2f)) * vMask.rrr;
+            float3 cTexMaskGColor = pow(U_PSGeneralRegister5.rgb, float3(2.2f,2.2f,2.2f)) * vMask.ggg;
+            float3 cTexMaskBColor = pow(U_PSGeneralRegister6.rgb, float3(2.2f,2.2f,2.2f)) * vMask.bbb;
+        #endif
+        float3 cTexMaskColor = cTexMaskRColor + cTexMaskGColor + cTexMaskBColor;
+        cBaseDiffuse = lerp(cBaseDiffuse, cBaseDiffuse * cTexMaskColor, fMask);
+    #endif
+
+    // Paint Color
+    float fGray = dot(cBaseDiffuse, float3(0.3333f, 0.3334f, 0.3333f));
+    #ifdef TEX_2DARRAY_INSTANCE
+        float3 cMaskColor = pow(IN.i_MaskColor.rgb, float3(2.2f,2.2f,2.2f));
+        cBaseDiffuse = lerp(cBaseDiffuse, cMaskColor * fGray, IN.i_MaskColor.a);
+    #else
+        float3 cMaskColor = pow(U_PSGeneralRegister16.rgb, float3(2.2f,2.2f,2.2f));
+        cBaseDiffuse = lerp(cBaseDiffuse, cMaskColor * fGray, U_PSGeneralRegister16.a);
+    #endif
+    
+    // Aging
+    float4 cAgingDiffuse = S_AgingTex.Sample(S_AgingTexSamplerState, IN.i_UV.xy);
+    #ifdef TEX_2DARRAY_INSTANCE
+        cAgingDiffuse.a = IN.i_UV.z; // Reusing UV.z passed from vertex shader for aging
+    #else
+        cAgingDiffuse.a = U_PSGeneralRegister17.w;
+    #endif
+    cBaseDiffuse.rgb = lerp(cBaseDiffuse.rgb, pow(cAgingDiffuse.rgb, float3(2.2f, 2.2f, 2.2f)), cAgingDiffuse.a);
+
+    // 3. Normal Calculation
+    float3 N = normalize(IN.i_WNormal.xyz);
+    #ifdef TWO_SIDES
+        float frontValue = isFrontFacing ? 1.0f : -1.0f;
+        N *= frontValue;
+    #endif
+
+	#ifdef USESHADOWMAP
+		float4 shadowSpacePos[SHADOWSPLITE];
+		ProjectToLightSpace(shadowSpacePos, IN.i_WPos.xyz, N, IN.i_UV.w);
+	#endif
+
+    float4 cTexBump = float4(0.0f,0.0f,0.0f,0.0f);
+    float3 nn = N;
+    float3 tn = normalize(IN.i_Tangent.xyz);
+    float3 bn = normalize(IN.i_Binormal.xyz);
+    tn = normalize(tn - nn * dot(tn, nn));
+    bn = normalize(bn - nn * dot(bn, nn));
+    float3 tbn[3];
+    tbn[0] = float3(tn.x, bn.x, nn.x);
+    tbn[1] = float3(tn.y, bn.y, nn.y);
+    tbn[2] = float3(tn.z, bn.z, nn.z);
+
+    #ifdef TEX_2DARRAY_INSTANCE
+        cTexBump = S_2DArrayExt1.Sample(S_2DArrayExt1SamplerState, float3(IN.i_UV.xy, fBumpTexIdx));
+    #else
+        cTexBump = S_Bump.Sample(S_BumpSamplerState, IN.i_UV.xy);
+    #endif
+    float3 vTexNormal = cTexBump.xyz * 2.0f - 1.0f;
+    vTexNormal.z = 1.0f - sqrt(dot(vTexNormal.xy, vTexNormal.xy));
+    vTexNormal.xy *= float2(fBumpScale, fBumpScale);
+
+    #ifdef RIPPLE
+        float s = clamp(dot(N, float3(0.0,1.0,0.0)), 0.0, 1.0) ;
+        s = pow(s, 5.0);
+        #ifdef TEX_2DARRAY_INSTANCE
+            s *= (1.f - IN.i_PSGeneralParam0.w);
+        #else
+            s *= (1.f - U_PSGeneralRegister30.x);
+        #endif
+        vTexNormal.xy  *= (1.0 - s * 0.9f);
+        double time = U_PS_Time.x;
+        float time01 = U_PS_Time.y * 0.1591549;
+        float2 rUV = IN.i_WPos.xz * 0.25f;
+        float rOffset = floor(U_PS_Time.x * 0.5f) * 0.1f;
+        float4 ripple = ComputeRipple(rUV + rOffset, time01 * 3.0f);
+        rUV = IN.i_WPos.xz * 0.25f + 0.25f;
+        rOffset = floor(U_PS_Time.x * 0.5f + 0.25f) * 0.1f;
+        float4 ripple2 = ComputeRipple(rUV + float2(rOffset, -rOffset), time01 * 3.0f);
+        float rLerp1 =  sin(time01 * 3.1415);
+        float rLerp2 =  1.0 - rLerp1;
+        vTexNormal.xy += rLerp1 * ripple.xy * s;
+        vTexNormal.xy += rLerp2 * ripple2.xy * s;			
+    #endif	
+    vTexNormal.xyz = normalize(vTexNormal.xyz);
+    N.x = dot(tbn[0], vTexNormal.xyz);
+    N.y = dot(tbn[1], vTexNormal.xyz);
+    N.z = dot(tbn[2], vTexNormal.xyz);
+
+    // Cover / Weather Effects
+    #if defined(COVER_CUSTOM) || defined(COVER_WEATHER)
+        #ifdef TEX_2DARRAY_INSTANCE
+            float fCoverLerp = dot(N, U_PS_GravityDirection.xyz);
+            fCoverLerp = clamp(fCoverLerp + IN.i_PSGeneralParam1.z, 0.0f, 1.0f);
+            fCoverLerp *= IN.i_PSGeneralParam1.w;
+        #else
+            float fCoverLerp = dot(N, U_PS_GravityDirection.xyz);
+            fCoverLerp = clamp(fCoverLerp + U_PSGeneralRegister1.w, 0.0f, 1.0f);
+            fCoverLerp *= U_PSGeneralRegister15.y;
+        #endif
+    #endif
+
+    #ifdef COVER_CUSTOM
+        #ifdef TEX_2DARRAY_INSTANCE
+            float4 cTexCover = S_2DArrayExt5.Sample(S_2DArrayExt5SamplerState,
+                    float3(IN.i_UV.xy, IN.i_MaterialDiffuse.a));
+        #else
+            float4 cTexCover = S_Custom3.Sample(S_Custom3SamplerState, IN.i_UV.xy);
+        #endif
+        cTexCover.rgb = pow(cTexCover.rgb, float3(2.2f, 2.2f, 2.2f));
+        cBaseDiffuse = lerp(cBaseDiffuse, cTexCover.rgb, fCoverLerp);
+    #endif
+
+    #ifdef COVER_WEATHER
+        #ifdef TEX_2DARRAY_INSTANCE
+            fCoverLerp *= U_WeatherParam0.w * (1.f - IN.i_PSGeneralParam0.w);
+        #else
+            fCoverLerp *= U_WeatherParam0.w * (1.f - U_PSGeneralRegister30.x);
+        #endif
+        cBaseDiffuse = lerp(cBaseDiffuse, U_WeatherParam0.rgb, fCoverLerp);
+    #endif
+
+    // 4. PBR Params
+    float metallic = 1.0f;
+    float roughness = 0.0001f;
+    float ao = 1.0f;
+
+    #ifdef MIXED_MAP
+        float4 cTexSpec = float4(0.0f, 0.0f, 0.0f, 0.0f);
+        #ifdef TEX_2DARRAY_INSTANCE
+            cTexSpec = S_2DArrayExt2.Sample(S_2DArrayExt2SamplerState, float3(IN.i_UV.xy, fSpecTexIdx));
+        #else
+            cTexSpec = S_Specular.Sample(S_SpecularSamplerState, IN.i_UV.xy);
+        #endif
+        metallic = cTexSpec.r;
+        roughness = clamp(cTexSpec.g + fRoughnessBase, 0.0f, 1.0f);
+        ao = cTexSpec.b;
+    #else
+        #ifdef PBR_METAL
+            metallic = 1.0f;
+        #else
+            metallic = 0.0f;
+        #endif
+        #ifdef PBR_ROUGHNESS
+            ao = 1.0f;
+            roughness = cTexBump.b;
+        #endif
+        roughness = clamp(roughness + fRoughnessBase, 0.0, 1.0);
+    #endif
+
+    #ifdef RIPPLE
+        roughness = clamp(roughness - 0.4f * s, 0.0, 1.0);
+    #endif
+
+    // 5. Emission
+    float3 emission = 0.0f;
+
+    #ifdef EMISSIVE
+        float fEmissiveMask = 1.f;
+        #ifndef PBR_ROUGHNESS
+            fEmissiveMask = cTexBump.b;
+        #endif
+        #ifdef TEX_2DARRAY_INSTANCE
+            float3 cBaseEmissiveColor = cTexDiffuse.rgb * pow(IN.i_EmissiveColor.rgb, float3(2.2f,2.2f,2.2f)) * fEmissiveMask;
+            float3 cEmissiveColor = cBaseEmissiveColor * IN.i_EmissiveColor.w;
+            #ifdef DYNAMIC_EMISSIVE
+                float3 cMaxEmissiveColor = cBaseEmissiveColor * IN.i_DynamicEmissiveParam.x;
+                float f = sin(IN.i_DynamicEmissiveParam.y * U_PS_Time.x + IN.i_DynamicEmissiveParam.z);
+                f = f * 0.5f + 0.5f;
+                cEmissiveColor = lerp(cEmissiveColor, cMaxEmissiveColor, f);
+            #endif
+        #else
+            float3 cBaseEmissiveColor = cTexDiffuse.rgb * pow(U_PSGeneralRegister2.rgb, float3(2.2f,2.2f,2.2f)) * fEmissiveMask;
+            float3 cEmissiveColor = cBaseEmissiveColor * U_PSGeneralRegister2.w;
+            #ifdef DYNAMIC_EMISSIVE
+                float3 cMaxEmissiveColor = cBaseEmissiveColor * U_PSGeneralRegister3.x;
+                cEmissiveColor = lerp(cEmissiveColor, cMaxEmissiveColor, U_MaterialSpecular.w);
+            #endif
+        #endif
+        #ifdef TOD_EMISSIVE
+            cEmissiveColor *= U_LightPower.x;
+        #endif
+        emission += cEmissiveColor;
+    #endif
+
+    // Apply Material Diffuse Color Multiplier
+    cBaseDiffuse *= cMatDiffuse.rgb;
+
+    // 6. G-Buffer Output
+    float shadowFactor = 1.0;
+    #ifdef USESHADOWMAP
+        shadowFactor = calcShadowFactor(shadowSpacePos, IN.i_UV.w);
+    #endif
+
+    half3 encodedNormal = EncodeNormal(N);
+    
+    // Shading Model setup
+    uint useRoleMainLight = 1; 
+    uint receiveShadow = 1;
+    #ifndef USESHADOWMAP
+        receiveShadow = 0;
+    #endif
+    uint useEnvironmentMap = 1; 
+    uint usePointLight = 0;
+    #ifdef CLUSTER_POINT_LIGHT
+        usePointLight = 1;
+    #endif
+
+    half shadingModel = EncodeShadingModel(
+        useRoleMainLight,
+        receiveShadow,
+        useEnvironmentMap,
+        usePointLight,
+        1 // ShadingModelID = 1 (Standard)
+    );
+
+    // G0: Albedo (Gamma Encoded)
+    psOut.g0.xyz = pow(cBaseDiffuse, 1.0 / 2.2);
+    psOut.g0.w = cTexDiffuse.a; // Note: Original shader sets alpha to 0.5 at the end, but cTexDiffuse.a might be needed
+
+    // G1: Normal + Shadow
+    psOut.g1.xyz = encodedNormal;
+    psOut.g1.w = shadowFactor;
+
+    // G2: Metallic, Roughness, AO, ShadingModel
+    psOut.g2.x = metallic;
+    psOut.g2.y = roughness;
+    psOut.g2.z = ao;
+    psOut.g2.w = shadingModel;
+
+    // SC: Emission
+    psOut.sc.xyz = emission;
+    psOut.sc.w = 1.0;
+
+    // Editor Overrides
+    if(U_MaterialCustomParam.w > 0) {
+        psOut.sc.xyz = U_MaterialCustomParam.xyz;
+        psOut.g0.rgb = 0.0;
+        psOut.g2.w = 0.0;
+    }
+
+    return psOut;
+}

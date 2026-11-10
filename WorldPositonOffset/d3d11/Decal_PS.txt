@@ -1,0 +1,1076 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Light_Function_PS.inl>
+#include <EnvironmentLight_Function.inl>
+#include <Common_Function_PS.inl>
+#include <Effect_Function_PS.txt>
+
+float4 U_MaterialDiffuse;
+float4 U_MaterialFresnel;
+
+float4 U_InvWorldViewProjectMatrix[4];
+float4 U_PSGeneralRegister0;
+float4 U_PS_InvTransposeWorldMatrix[3];
+float4 U_InvViewProjectMatrix[4];
+float4 U_InvWorldMatrix[3];
+
+#ifdef SKILLINDICATOR
+Texture2D   S_Custom;
+SamplerState S_CustomSamplerState;
+float4 U_PSGeneralRegister1; //SI base color rgba
+float4 U_PSGeneralRegister2; //SI filling color rgba
+float4 U_PSGeneralRegister3; //SI x:startRadius y:endAngle z:fillingTime[0,1] w:innerRadius
+#endif
+
+#ifdef DISTORT
+float4 U_PSGeneralRegister4;
+#endif
+float4 U_PSGeneralRegister6;
+float4 U_PSGeneralRegister8;
+float4 U_PSGeneralRegister9;
+	
+float4 U_PSGeneralRegister5; // tile
+float4 U_PSGeneralRegister7; // x = age01, y = rand
+
+#ifdef EnableAlphaDistance
+float4 U_PSGeneralRegister10;
+#endif
+
+
+#ifdef BUMP_MAP
+	uniform Texture2D S_Bump;
+	SamplerState S_BumpSamplerState;
+#endif
+
+Texture2D	S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+Texture2D	S_Depth;
+SamplerState S_DepthSamplerState;
+
+#ifdef BROKEN
+	Texture2D   S_Custom2;
+	SamplerState S_Custom2SamplerState;
+
+	#ifdef DISSOLVE_DIRECT
+		Texture2D S_Custom3;  //texDissolveDirection 
+		SamplerState S_Custom3SamplerState;
+	#endif 
+
+	uniform float4 U_PSGeneralRegister11;
+	uniform float4 U_PSGeneralRegister12;
+
+	uniform float4 U_PSGeneralRegister13;
+	uniform float4 U_PSGeneralRegister14;
+
+#endif
+
+#ifdef DISTURBANCE_TEXTURE
+	Texture2D S_Custom4;  
+	SamplerState S_Custom4SamplerState;
+
+	uniform float4 U_PSGeneralRegister15;
+	uniform float4 U_PSGeneralRegister16;
+	uniform float4 U_PSGeneralRegister17;
+#endif
+
+#ifdef BILLBOARD_MASK_TEXTURE_1
+	Texture2D S_Custom5;  
+	SamplerState S_Custom5SamplerState;
+
+	uniform float4 U_PSGeneralRegister18;
+	uniform float4 U_PSGeneralRegister19;
+	uniform float4 U_PSGeneralRegister20;
+	uniform float4 U_PSGeneralRegister21;
+#endif
+
+#ifdef BILLBOARD_MASK_TEXTURE_2
+	Texture2D S_Custom6;  
+	SamplerState S_Custom6SamplerState;
+
+	uniform float4 U_PSGeneralRegister22;
+	uniform float4 U_PSGeneralRegister23;
+	uniform float4 U_PSGeneralRegister24;
+	uniform float4 U_PSGeneralRegister25;
+#endif
+
+uniform float4 U_PSGeneralRegister26;
+
+#ifdef POLAR_COORDINATES
+	uniform float4 U_PSGeneralRegister27;
+#endif
+
+//glossy info
+TextureCube	S_GlobalEnvironmentCubeMap;
+SamplerState S_GlobalEnvironmentCubeMapSamplerState;
+float4 U_GlobalEnvironmentCubeMipMapLevels;	//Note by hejiwei ：
+											//与U_PBR_Environment_Explosure应该合并在一起
+//diffuse info
+float4x4 U_PBR_RMatrix;
+float4x4 U_PBR_GMatrix;
+float4x4 U_PBR_BMatrix;
+//total luminance
+float4  U_PBR_Environment_Explosure;
+
+
+#ifdef TRAIL_DECAL
+	#define DECAL_TRIAL_VERTEX_OFFSET  1
+	#define DECAL_TRAIL_MAX_VERTEX_ELEMENT  4
+	#define DRAW_CUBEVERTEX_COUNT 36
+	#define ONE_DECALTRAIL_MAX_UNIFORM_COUNT DECAL_TRAIL_MAX_VERTEX_ELEMENT*100 + DECAL_TRIAL_VERTEX_OFFSET
+	uniform float4 U_PSCustom9[ONE_DECALTRAIL_MAX_UNIFORM_COUNT];
+#endif
+
+#ifdef DISTORT
+ 
+float3 mod289(float3 x)
+{
+    return x - floor(x / 289.0) * 289.0;
+}
+
+float2 mod289(float2 x)
+{
+    return x - floor(x / 289.0) * 289.0;
+}
+
+float3 permute(float3 x)
+{
+    return mod289((x * 34.0 + 1.0) * x);
+}
+
+float3 taylorInvSqrt(float3 r)
+{
+    return 1.79284291400159 - 0.85373472095314 * r;
+}
+
+float snoise(float2 v)
+{
+    const float4 C = float4( 0.211324865405187,  // (3.0-sqrt(3.0))/6.0
+                             0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
+                            -0.577350269189626,  // -1.0 + 2.0 * C.x
+                             0.024390243902439); // 1.0 / 41.0
+    // First corner
+    float2 i  = floor(v + dot(v, C.yy));
+    float2 x0 = v -   i + dot(i, C.xx);
+
+    // Other corners
+    float2 i1;
+    i1.x = step(x0.y, x0.x);
+    i1.y = 1.0 - i1.x;
+
+    // x1 = x0 - i1  + 1.0 * C.xx;
+    // x2 = x0 - 1.0 + 2.0 * C.xx;
+    float2 x1 = x0 + C.xx - i1;
+    float2 x2 = x0 + C.zz;
+
+    // Permutations
+    i = mod289(i); // Avoid truncation effects in permutation
+    float3 p =
+      permute(permute(i.y + float3(0.0, i1.y, 1.0))
+                    + i.x + float3(0.0, i1.x, 1.0));
+
+    float3 m = max(0.5 - float3(dot(x0, x0), dot(x1, x1), dot(x2, x2)), 0.0);
+    m = m * m;
+    m = m * m;
+
+    // Gradients: 41 points uniformly over a line, mapped onto a diamond.
+    // The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
+    float3 x = 2.0 * frac(p * C.www) - 1.0;
+    float3 h = abs(x) - 0.5;
+    float3 ox = floor(x + 0.5);
+    float3 a0 = x - ox;
+
+    // Normalise gradients implicitly by scaling m
+    m *= taylorInvSqrt(a0 * a0 + h * h);
+
+    // Compute final noise value at P
+    float3 g;
+    g.x = a0.x * x0.x + h.x * x0.y;
+    g.y = a0.y * x1.x + h.y * x1.y;
+    g.z = a0.z * x2.x + h.z * x2.y;
+    return 130.0 * dot(m, g);
+}
+
+float3 snoise_grad(float2 v)
+{
+    const float4 C = float4( 0.211324865405187,  // (3.0-sqrt(3.0))/6.0
+                             0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
+                            -0.577350269189626,  // -1.0 + 2.0 * C.x
+                             0.024390243902439); // 1.0 / 41.0
+    // First corner
+    float2 i  = floor(v + dot(v, C.yy));
+    float2 x0 = v -   i + dot(i, C.xx);
+
+    // Other corners
+    float2 i1;
+    i1.x = step(x0.y, x0.x);
+    i1.y = 1.0 - i1.x;
+
+    // x1 = x0 - i1  + 1.0 * C.xx;
+    // x2 = x0 - 1.0 + 2.0 * C.xx;
+    float2 x1 = x0 + C.xx - i1;
+    float2 x2 = x0 + C.zz;
+
+    // Permutations
+    i = mod289(i); // Avoid truncation effects in permutation
+    float3 p =
+      permute(permute(i.y + float3(0.0, i1.y, 1.0))
+                    + i.x + float3(0.0, i1.x, 1.0));
+
+    float3 m = max(0.5 - float3(dot(x0, x0), dot(x1, x1), dot(x2, x2)), 0.0);
+    float3 m2 = m * m;
+    float3 m3 = m2 * m;
+    float3 m4 = m2 * m2;
+
+    // Gradients: 41 points uniformly over a line, mapped onto a diamond.
+    // The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
+    float3 x = 2.0 * frac(p * C.www) - 1.0;
+    float3 h = abs(x) - 0.5;
+    float3 ox = floor(x + 0.5);
+    float3 a0 = x - ox;
+
+    // Normalise gradients
+    float3 norm = taylorInvSqrt(a0 * a0 + h * h);
+    float2 g0 = float2(a0.x, h.x) * norm.x;
+    float2 g1 = float2(a0.y, h.y) * norm.y;
+    float2 g2 = float2(a0.z, h.z) * norm.z;
+
+    // Compute noise and gradient at P
+    float2 grad =
+      -6.0 * m3.x * x0 * dot(x0, g0) + m4.x * g0 +
+      -6.0 * m3.y * x1 * dot(x1, g1) + m4.y * g1 +
+      -6.0 * m3.z * x2 * dot(x2, g2) + m4.z * g2;
+    float3 px = float3(dot(x0, g0), dot(x1, g1), dot(x2, g2));
+    return 130.0 * float3(grad, dot(m4, px));
+}
+#endif	
+
+float4 texDiffuse(float2 vUV) 
+{ 
+	return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+}
+
+struct PS_INPUT
+{
+    float4	i_PosInClip			: SV_POSITION;
+	float4 	i_UV				: TEXCOORD0;
+	float4 	i_Fog				: TEXCOORD1;
+	float4	i_Normal			: TEXCOORD2;
+	float4  i_ClipPos			: TEXCOORD3;
+	float4	i_EyeDir			: TEXCOORD4;
+
+#ifdef TRAIL_DECAL
+	nointerpolation precise float4  i_ObjectID: TEXCOORD5;
+#endif
+
+
+};
+
+
+float3 rotate (float4 qvec, float3 v) 
+{
+	float3 uv, uuv;
+	 
+	uv = cross(qvec.xyz, v);
+	uuv = cross(qvec.xyz, uv);
+	uv *= (2.0 * qvec.w);
+	uuv *= 2.0;
+		
+	return v + uv + uuv;
+}
+
+struct PS_OUTPUT
+{
+	float4 color : SV_TARGET;
+};
+
+float2 cal_tile_uv(float2 uv)
+{
+	float tile_speed = U_PSGeneralRegister5.x;
+	int tile_mode = U_PSGeneralRegister5.y;
+	int col_num = U_PSGeneralRegister5.z;
+	int row_num = U_PSGeneralRegister5.w;
+
+	float time = U_PSGeneralRegister7.x;
+	float rand = U_PSGeneralRegister7.y;
+
+	int tile_num = row_num * col_num;
+
+	uv.x = uv.x / col_num;
+	uv.y = uv.y / row_num;
+
+	float tile_width = 1.0f / col_num;
+	float tile_height = 1.0f / row_num;
+
+	int rand_offset_index = (1.0f - step(tile_mode, 0.0f)) * (rand / 255.0f) * tile_num;
+
+	int index = (tile_num * frac(time * tile_speed) + rand_offset_index) % tile_num;
+	
+	int row_index = index / col_num;
+	int col_index = index % col_num;
+
+	uv.x = tile_width * col_index + uv.x;
+	uv.y = tile_height * row_index + uv.y;
+
+	return uv;
+}
+
+float4 cal_color(float4 color1, float4 color1_coefficient, float4 color2, float4 color2_coefficient)
+{
+	return color1 * color1_coefficient * color2 * color2_coefficient;
+}
+
+float3 ProjectPointOnPlaneEquation(float3 point1, float4 planeEquation)
+{
+    // planeEquation.xyz 是法向量 (A, B, C)
+    // planeEquation.w 是 D
+    float3 normal = normalize(planeEquation.xyz); 
+    // 计算点到平面的有符号距离
+    // 距离公式：distance = (A*x + B*y + C*z + D) / sqrt(A^2 + B^2 + C^2)
+    // 由于我们使用单位法向量，分母为1
+    float distance = dot(point1, normal) + planeEquation.w / length(planeEquation.xyz);
+    float3 projection = point1 - distance * normal;
+    return projection;
+}
+
+struct DecalQuad
+{
+	float3 p0;
+	float3 p1;
+	float3 p2;
+	float3 p3;
+
+	float2 uv0;
+	float2 uv1;
+	float2 uv2;
+	float2 uv3;
+
+#ifdef DECAL_SEGMENT_COLOR
+	float4 color0;
+	float4 color1;
+	float4 color2;
+	float4 color3;
+#endif
+};
+
+
+bool ComputeBarycentricCoords_Area(float3 P, float3 A, float3 B, float3 C,out float3 barycentricCoords )
+{
+	float3 v0 = B - A;
+    float3 v1 = C - A;
+    float3 v2 = P - A;
+
+    float d00 = dot(v0, v0);
+    float d01 = dot(v0, v1);
+    float d11 = dot(v1, v1);
+    float d20 = dot(v2, v0);
+    float d21 = dot(v2, v1);
+
+    float denom = d00 * d11 - d01 * d01;
+    // 防止除零，如果分母接近0，则三角形退化或点P不在平面内
+    if (abs(denom) < 1e-2) 
+    {
+        barycentricCoords = float3(0, 0, 0);
+        return false;
+    }
+
+    float invDenom = 1.0 / denom;
+    float beta = (d11 * d20 - d01 * d21) * invDenom;
+    float gamma = (d00 * d21 - d01 * d20) * invDenom;
+    float alpha = 1.0 - beta - gamma;
+
+    barycentricCoords = float3(alpha, beta, gamma);
+	const float epsilon = -0.01f;
+	if(barycentricCoords.x < epsilon || barycentricCoords.y < epsilon || barycentricCoords.z  < epsilon)
+	{
+		return false;
+	}
+	return true;
+
+}
+
+
+bool ComputeBarycentricCoords(float3 P, DecalQuad quad ,out float2 p_uv, out float4 p_barycentricCoords)
+{	
+	//计算点在底平面的投影
+	float4 planeEquation;
+	planeEquation.xyz = -normalize(cross(quad.p1 - quad.p0, quad.p2 - quad.p0));
+	planeEquation.w = -dot(planeEquation.xyz, quad.p0);
+	float3 plane_point = ProjectPointOnPlaneEquation(P, planeEquation);
+	//0, 1, 2, 2, 3, 0
+	float3 barycentricCoords;
+	if(ComputeBarycentricCoords_Area(plane_point, quad.p0, quad.p1, quad.p2, barycentricCoords))
+	{
+		p_uv = barycentricCoords.x * quad.uv0 + barycentricCoords.y * quad.uv1 + barycentricCoords.z * quad.uv2;
+		p_barycentricCoords = float4(barycentricCoords.x, barycentricCoords.y, barycentricCoords.z, 0.0f);
+	}
+	else if(ComputeBarycentricCoords_Area(plane_point, quad.p2, quad.p3, quad.p0, barycentricCoords))
+	{
+		p_uv = barycentricCoords.x * quad.uv2+ barycentricCoords.y * quad.uv3 + barycentricCoords.z * quad.uv0;
+		p_barycentricCoords = float4(barycentricCoords.z, 0.0f, barycentricCoords.x, barycentricCoords.y);
+	}
+	else
+	{
+		return false;
+	}
+	return true;
+}
+
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+	float2 screenTC = IN.i_ClipPos.xy / IN.i_ClipPos.w;
+	screenTC.x = (screenTC.x + 1.0) * 0.5 + U_ViewParam.z;
+	screenTC.y = 1.0 - (1.0 + screenTC.y) * 0.5 + U_ViewParam.w;
+	screenTC *= U_ViewParam.xy;
+	#ifdef DISABLE_BACK_BUFFER
+		float depth = IN.i_ClipPos.z / IN.i_ClipPos.w;	
+	#else
+		float depth = S_Depth.Sample(S_DepthSamplerState, screenTC).r;
+	#endif
+
+	float4 target_clip_pos = float4(IN.i_ClipPos.x / IN.i_ClipPos.w, IN.i_ClipPos.y / IN.i_ClipPos.w, depth, 1.0f);
+
+	float4 target_world_pos = float4(0.0f, 0.0f, 0.0f, 1.0f);
+	target_world_pos.x = dot(U_InvViewProjectMatrix[0], target_clip_pos);
+	target_world_pos.y = dot(U_InvViewProjectMatrix[1], target_clip_pos);
+	target_world_pos.z = dot(U_InvViewProjectMatrix[2], target_clip_pos);
+	target_world_pos.w = dot(U_InvViewProjectMatrix[3], target_clip_pos);
+	target_world_pos.xyz /= target_world_pos.w;
+
+
+#ifdef TRAIL_DECAL
+	float2 uv = IN.i_UV.xy;
+	float3 geoAllUp = U_PSCustom9[0].xyz;
+	int TrailSegmentNum = int(U_PSCustom9[0].w+ 0.001f);
+	int currentObjectID = int(IN.i_ObjectID.x + 0.001f);
+	#ifdef DECAL_SEGMENT_COLOR
+		float4 resultSegmentColor = float4(1.0f, 1.0f, 1.0f, 1.0f);
+	#endif
+	//	6....0.....2.....4
+	//	.	 .	   .	 .
+	//	.	 .	   .	 .
+	//  7....1.....3 ....5
+
+	int    index =  currentObjectID * DECAL_TRAIL_MAX_VERTEX_ELEMENT + DECAL_TRIAL_VERTEX_OFFSET;
+	float3 center = U_PSCustom9[index + 0].xyz;
+	float  centerU = 	    U_PSCustom9[index + 0].w;
+	float  geoFrontWidth = U_PSCustom9[index + 1].x;
+	float  geoUpWidth = U_PSCustom9[index + 1].y;
+	float4 geoDelta = U_PSCustom9[index + 2];
+	#ifdef DECAL_SEGMENT_COLOR
+		float4 geoSegColor = U_PSCustom9[index + 3];
+	#endif
+	float3 cubeUp =  geoAllUp * geoUpWidth;
+	float3 cubeFront =  normalize(cross(cubeUp, geoDelta.xyz))* geoFrontWidth;
+
+	float3  bt0 =  center - cubeUp - cubeFront;
+	float2  bt_uv0 =  float2(centerU, 1.0f);
+	float3  bt1 =  center - cubeUp + cubeFront;
+	float2  bt_uv1 =  float2(centerU, 0.0f);
+
+
+
+	int    nextIndex = (currentObjectID + 1)* DECAL_TRAIL_MAX_VERTEX_ELEMENT + DECAL_TRIAL_VERTEX_OFFSET;
+	float3 next_center = U_PSCustom9[nextIndex + 0].xyz;
+	float  next_centerU = U_PSCustom9[nextIndex + 0].w;
+	float  next_geoFrontWidth = U_PSCustom9[nextIndex + 1].x;
+	float  next_geoUpWidth = U_PSCustom9[nextIndex + 1].y;
+	float4 next_geoDelta = U_PSCustom9[nextIndex + 2];
+	#ifdef DECAL_SEGMENT_COLOR
+		float4 next_geoSegColor = U_PSCustom9[nextIndex + 3];
+	#endif
+	float3 next_cubeUp =  geoAllUp * next_geoUpWidth;
+	float3 next_cubeFront =  normalize(cross(next_cubeUp, next_geoDelta.xyz))* next_geoFrontWidth;
+
+	float3  bt2 =  next_center - next_cubeUp - next_cubeFront;
+	float2  bt_uv2 =  float2(next_centerU, 1.0f);
+	float3  bt3 =  next_center - next_cubeUp + next_cubeFront;
+	float2  bt_uv3 =  float2(next_centerU, 0.0f);
+
+	//0,2,3,1
+	DecalQuad decal_quad0;
+	decal_quad0.p0 = bt0;
+	decal_quad0.p1 = bt2;
+	decal_quad0.p2 = bt3;
+	decal_quad0.p3 = bt1;
+
+	decal_quad0.uv0 = bt_uv0;
+	decal_quad0.uv1 = bt_uv2;
+	decal_quad0.uv2 = bt_uv3;
+	decal_quad0.uv3 = bt_uv1;
+	#ifdef DECAL_SEGMENT_COLOR
+		decal_quad0.color0 = geoSegColor;
+		decal_quad0.color1 = next_geoSegColor;
+		decal_quad0.color2 = next_geoSegColor;
+		decal_quad0.color3 = geoSegColor;
+	#endif
+	//第三个点
+	DecalQuad decal_quad1;
+	float needComputeThird = -1.0f;
+	if(currentObjectID + 2 < TrailSegmentNum)
+	{
+		needComputeThird = 1.0f;
+		int    thirdIndex = (currentObjectID + 2)* DECAL_TRAIL_MAX_VERTEX_ELEMENT + DECAL_TRIAL_VERTEX_OFFSET;
+		float3 third_center = U_PSCustom9[thirdIndex + 0].xyz;
+		float  third_u = U_PSCustom9[thirdIndex + 0].w;
+		float  third_geoFrontWidth = U_PSCustom9[thirdIndex + 1].x;
+		float  third_geoUpWidth = U_PSCustom9[thirdIndex + 1].y;
+		float4 third_geoDelta = U_PSCustom9[thirdIndex + 2];
+		#ifdef DECAL_SEGMENT_COLOR
+			float4 third_geoSegColor = U_PSCustom9[thirdIndex + 3];
+		#endif
+		float3 third_cubeUp =  geoAllUp * third_geoUpWidth;
+		float3 third_cubeFront =  normalize(cross(third_cubeUp, third_geoDelta.xyz))* third_geoFrontWidth;
+
+		float3 bt4 =  third_center - third_cubeUp - third_cubeFront;
+		float2 bt_uv4 =  float2(third_u, 1.0f);
+		float3 bt5 =  third_center - third_cubeUp + third_cubeFront;
+		float2 bt_uv5 =  float2(third_u, 0.0f);
+	
+		decal_quad1.p0 = bt2;
+		decal_quad1.p1 = bt4;
+		decal_quad1.p2 = bt5;
+		decal_quad1.p3 = bt3;
+
+		decal_quad1.uv0 = bt_uv2;
+		decal_quad1.uv1 = bt_uv4;
+		decal_quad1.uv2 = bt_uv5;
+		decal_quad1.uv3 = bt_uv3;
+
+	#ifdef DECAL_SEGMENT_COLOR
+		decal_quad1.color0 = next_geoSegColor;
+		decal_quad1.color1 = third_geoSegColor;
+		decal_quad1.color2 = third_geoSegColor;
+		decal_quad1.color3 = next_geoSegColor;
+	#endif
+	}
+
+	DecalQuad decal_quad2;
+	float needComputePrev = -1.0f;
+	if(currentObjectID  > 0)
+	{
+		needComputePrev = 1.0f;
+		int    prevIndex = (currentObjectID -1)* DECAL_TRAIL_MAX_VERTEX_ELEMENT + DECAL_TRIAL_VERTEX_OFFSET;
+		float3 prev_center = U_PSCustom9[prevIndex + 0].xyz;
+		float  prev_u = U_PSCustom9[prevIndex + 0].w;
+		float  prev_geoFrontWidth = U_PSCustom9[prevIndex + 1].x;
+		float  prev_geoUpWidth = U_PSCustom9[prevIndex + 1].y;
+		float4 prev_geoDelta = U_PSCustom9[prevIndex + 2];
+		#ifdef DECAL_SEGMENT_COLOR
+			float4 prev_geoSegColor = U_PSCustom9[prevIndex + 3];
+		#endif
+		float3 prev_cubeUp =  geoAllUp * prev_geoUpWidth;
+		float3 prev_cubeFront =  normalize(cross(prev_cubeUp, prev_geoDelta.xyz))* prev_geoFrontWidth;
+
+		float3 bt6 =  prev_center - prev_cubeUp - prev_cubeFront;
+		float2 bt_uv6 =  float2(prev_u, 1.0f);
+		float3 bt7 =  prev_center - prev_cubeUp + prev_cubeFront;
+		float2 bt_uv7 =  float2(prev_u, 0.0f);
+	
+		decal_quad2.p0 = bt6;
+		decal_quad2.p1 = bt0;
+		decal_quad2.p2 = bt1;
+		decal_quad2.p3 = bt7;
+
+		decal_quad2.uv0 = bt_uv6;
+		decal_quad2.uv1 = bt_uv0;
+		decal_quad2.uv2 = bt_uv1;
+		decal_quad2.uv3 = bt_uv7;
+
+	#ifdef DECAL_SEGMENT_COLOR
+		decal_quad2.color0 = prev_geoSegColor;
+		decal_quad2.color1 = geoSegColor;
+		decal_quad2.color2 = geoSegColor;
+		decal_quad2.color3 = prev_geoSegColor;
+	#endif
+	}
+
+	float2 out_uv = float2(0.0f, 0.0f);
+	float4 out_barycentricCoords;
+	if(ComputeBarycentricCoords(target_world_pos, decal_quad0, out_uv, out_barycentricCoords))
+	{
+		uv = out_uv;
+		#ifdef DECAL_SEGMENT_COLOR
+			resultSegmentColor = out_barycentricCoords.x * decal_quad0.color0 + out_barycentricCoords.y * decal_quad0.color1 + out_barycentricCoords.z * decal_quad0.color2 + out_barycentricCoords.w * decal_quad0.color3;
+		#endif
+	}
+	else if(needComputeThird > 0 && ComputeBarycentricCoords(target_world_pos, decal_quad1, out_uv, out_barycentricCoords))
+	{
+		uv = out_uv;
+		#ifdef DECAL_SEGMENT_COLOR
+			resultSegmentColor = out_barycentricCoords.x * decal_quad1.color0 + out_barycentricCoords.y * decal_quad1.color1 + out_barycentricCoords.z * decal_quad1.color2 + out_barycentricCoords.w * decal_quad1.color3;
+		#endif
+	}
+	else if(needComputePrev > 0 && ComputeBarycentricCoords(target_world_pos, decal_quad2, out_uv, out_barycentricCoords))
+	{
+		uv = out_uv;
+		#ifdef DECAL_SEGMENT_COLOR
+			resultSegmentColor = out_barycentricCoords.x * decal_quad2.color0 + out_barycentricCoords.y * decal_quad2.color1 + out_barycentricCoords.z * decal_quad2.color2 + out_barycentricCoords.w * decal_quad2.color3;
+		#endif
+	}	
+	else
+	{
+		clip(-1.0f);
+	}
+	float2 in_UV = uv;
+#else
+	float4 objectPosi = 0.0;
+	objectPosi.x = dot(U_InvWorldViewProjectMatrix[0], target_clip_pos);
+	objectPosi.y = dot(U_InvWorldViewProjectMatrix[1], target_clip_pos);
+	objectPosi.z = dot(U_InvWorldViewProjectMatrix[2], target_clip_pos);
+	objectPosi.w = dot(U_InvWorldViewProjectMatrix[3], target_clip_pos);
+	objectPosi.xyz /= objectPosi.w;
+
+#ifdef SPHERICAL_DISCARD
+	float r = objectPosi.x * objectPosi.x + objectPosi.y * objectPosi.y + objectPosi.z * objectPosi.z;
+	if (r > 0.25)
+	{
+		discard;
+	}
+#else
+	if (0.5 < abs(objectPosi.x) || 0.5 < abs(objectPosi.y) || 0.5 < abs(objectPosi.z))
+	{
+		discard;
+	}
+#endif
+	float2 uv = objectPosi.xz + 0.5;
+	float2 in_UV = uv;
+#endif
+
+#ifdef POLAR_COORDINATES
+	float2 InPolarUV = in_UV;
+#endif
+
+#ifdef POLAR_COORDINATES
+{
+	float2 center = float2(U_PSGeneralRegister27.x, U_PSGeneralRegister27.y);
+	float  radialScale = U_PSGeneralRegister27.z;
+	float  lengthScale = U_PSGeneralRegister27.w;
+	InPolarUV = PolarCoordinates_float(in_UV, center, radialScale, lengthScale);
+	#ifdef BASE_MAP1_ENABLE_POLAR
+		uv = InPolarUV;
+	#endif
+}
+#endif
+
+{
+	float tilling_u = U_PSGeneralRegister26.x;
+	float tilling_v = U_PSGeneralRegister26.y;
+	uv.x = uv.x * tilling_u;
+	uv.y = uv.y * tilling_v;
+	uv = cal_tile_uv(uv);
+}
+
+	// 扰动贴图
+#ifdef DISTURBANCE_TEXTURE
+	float2 disturbance_texture_to_diffuse_texture_strength_uv_offset = float2(0.0f, 0.0f); 
+	{
+
+		float2 distance_texture_uv = uv;
+		#ifdef DISTURBANCE_TEXTURE_SINGLE_UV
+			#ifdef DISTURBANCE_TEXTURE_ENABLE_POLAR
+				distance_texture_uv = InPolarUV;
+			#else
+				distance_texture_uv = in_UV;
+			#endif
+		#endif
+		
+		// float disturbance_texture_to_disolve_texture_strength = U_PSGeneralRegister15.y;
+		// float disturbance_texture_to_mask_texture_strength = U_PSGeneralRegister15.z;
+		float particle_age = U_PSGeneralRegister15.w;
+		float distance_texture_uv_tilling_u = U_PSGeneralRegister16.x;
+		float distance_texture_uv_tilling_v = U_PSGeneralRegister16.y;
+		float distance_texture_uv_roll_speed_u = U_PSGeneralRegister16.z;
+		float distance_texture_uv_roll_speed_v = U_PSGeneralRegister16.w;
+		float distance_texture_uv_offset_u = U_PSGeneralRegister17.x;
+		float distance_texture_uv_offset_v = U_PSGeneralRegister17.y;
+
+		distance_texture_uv.x *= distance_texture_uv_tilling_u;
+		distance_texture_uv.y *= distance_texture_uv_tilling_v;
+
+		distance_texture_uv.x += particle_age * distance_texture_uv_roll_speed_u + distance_texture_uv_offset_u;
+		distance_texture_uv.y += particle_age * distance_texture_uv_roll_speed_v + distance_texture_uv_offset_v;
+
+		float disturbance_noise = S_Custom4.Sample(S_Custom4SamplerState, distance_texture_uv).r;
+
+		// 对漫反射uv的影响
+		float disturbance_texture_to_diffuse_texture_strength = U_PSGeneralRegister15.x;
+		uv += disturbance_noise * disturbance_texture_to_diffuse_texture_strength;
+
+		// 对溶解uv的影响
+		float disturbance_texture_to_disolve_texture_strength = U_PSGeneralRegister15.y;
+		float temp_val = float(disturbance_noise * disturbance_texture_to_disolve_texture_strength);
+		disturbance_texture_to_diffuse_texture_strength_uv_offset = float2(temp_val, temp_val);
+	}
+#endif 
+
+#ifdef DISTORT
+	float _distortAmt = U_PSGeneralRegister4.y / 10.0;
+	float _distortScale = U_PSGeneralRegister4.z;
+	float _distortSpeed = U_PSGeneralRegister4.x;
+	float Time = U_PSGeneralRegister4.w;
+	float noise = snoise(uv * _distortScale + float2(Time *_distortSpeed, - Time *_distortSpeed));
+	uv += noise * _distortAmt;
+#endif
+	
+	half4 diffuseColor = S_Diffuse.Sample(S_DiffuseSamplerState, uv);
+	diffuseColor.rgb = pow(diffuseColor.rgb, 2.2);
+	half3  world_normal = normalize(IN.i_Normal.xyz);
+	float3 view_dir = U_PS_CameraPosition.xyz - target_world_pos.xyz;
+	half metallic = U_PSGeneralRegister8.y;
+	half roughness = U_PSGeneralRegister6.w;
+
+	float3 N = world_normal;
+	float3 V = normalize(view_dir);
+
+
+#ifdef BUMP_MAP
+	float normal_strength = U_PSGeneralRegister6.x;
+	float3 bump = S_Bump.Sample(S_BumpSamplerState, uv).xyz;
+	bump.xy = normal_strength * (2.h * bump.xy - 1.h);
+	bump.z = sqrt(1.0 - (bump.x * bump.x + bump.y * bump.y));
+	
+	float tempY = bump.z;
+	bump.z = -bump.y;
+	bump.y = tempY;
+	bump = normalize(bump);
+
+	float3 _WNormal;
+	_WNormal.x = dot(U_PS_InvTransposeWorldMatrix[0], bump);
+	_WNormal.y = dot(U_PS_InvTransposeWorldMatrix[1], bump);
+	_WNormal.z = dot(U_PS_InvTransposeWorldMatrix[2], bump);
+
+	world_normal = normalize(world_normal + _WNormal);
+	N = world_normal;
+#endif
+
+
+#ifdef WEATHER_COVER
+	// tod effects: weather cover, aging cover 
+	float coverMask = 1.0; 
+	{
+		half cosTheta_Normal_WorldUp = dot(N, U_PS_GravityDirection.xyz);
+		ComputeWeatherCover(
+			half4(U_WeatherParam0),				// 每个shader的前七个参数固定填这些
+			half4(U_WeatherParam1),				//
+			U_CoverColorParams,					//
+			U_CoverColorRotation,				//
+			target_world_pos.xyz,						//
+			coverMask,
+			0.0h,		//
+			cosTheta_Normal_WorldUp,			//
+			U_PSGeneralRegister6.y,		// custom weather cover scale
+			U_PSGeneralRegister6.z,		// custom weather cover range 材质面板上需要提供
+			diffuseColor.rgb,
+			roughness,
+			metallic
+		);
+	}	
+#endif
+
+
+#ifndef SKILLINDICATOR
+{
+	diffuseColor.rgb *= U_MaterialDiffuse.rgb;
+	#ifdef BROKEN
+	{
+		float tilling_u = U_PSGeneralRegister11.x;
+		float tilling_v = U_PSGeneralRegister11.y;
+		float offset_u = U_PSGeneralRegister11.z;
+		float offset_v = U_PSGeneralRegister11.w;
+		float rotate_angle = U_PSGeneralRegister12.x;
+
+		#ifdef BROKEN_TEXTURE_ENABLE_POLAR
+			float2 dissolve_base_uv = InPolarUV;
+		#else
+			float2 dissolve_base_uv = in_UV;
+		#endif
+		float2 dissolve_uv = cal_uv(dissolve_base_uv, tilling_u, tilling_v, offset_u, offset_v, rotate_angle);
+
+		#ifdef DISTURBANCE_TEXTURE
+		{
+			dissolve_uv += disturbance_texture_to_diffuse_texture_strength_uv_offset;
+		}
+		#endif
+
+		float dissolve_noise = S_Custom2.Sample(S_Custom2SamplerState, dissolve_uv).r;
+		float4 dissolve_edge_color = U_PSGeneralRegister13;
+		dissolve_edge_color *= U_PSGeneralRegister26.z;
+		float dissolve_edge_width = U_PSGeneralRegister14.x;
+		float dissolve_soft_value = U_PSGeneralRegister14.y;
+		float dissolve_val = U_PSGeneralRegister9.x;
+
+		#ifdef DISSOLVE_DIRECT
+			float dissolve_direct = S_Custom3.Sample(S_Custom3SamplerState, dissolve_base_uv).r;
+			dissolve_noise = (dissolve_noise + dissolve_direct) / 2.0f;
+		#endif
+
+		clip(dissolve_noise - dissolve_val);
+
+		float dissolve_switch =	step(0.00001f, dissolve_val);
+
+		float edge_max_val = dissolve_val + dissolve_edge_width;
+		float edge_val_01 = smoothstep(dissolve_val, edge_max_val, dissolve_noise);
+		float3 out_with_edge_color = lerp(dissolve_edge_color.rgb, diffuseColor.rgb, edge_val_01);
+		diffuseColor.rgb = lerp(diffuseColor.rgb, out_with_edge_color, dissolve_switch);
+
+		float dissolve_soft_max_val = dissolve_val + dissolve_soft_value;
+		float dissolve_soft_val_01 = smoothstep(dissolve_val, dissolve_soft_max_val, dissolve_noise);
+		diffuseColor.a = lerp(diffuseColor.a, diffuseColor.a * dissolve_soft_val_01, dissolve_switch);
+	}
+	#endif
+}
+#else
+{
+	psOut.color = 0.0;
+	float2 localPos = objectPosi.xz;
+	float distance = length(localPos);
+	float t = U_PSGeneralRegister3.z;
+	t = clamp(t, 0.0, 1.0);
+			
+	float4 baseColor = 	U_PSGeneralRegister1;
+	float4 fillingColor = U_PSGeneralRegister2;
+
+		//--------------------------------
+	#ifdef FAN
+		float startRadius = U_PSGeneralRegister3.x;
+		float endAngle = U_PSGeneralRegister3.y;
+		float outterRadius = 0.5;
+		float innerRadius = U_PSGeneralRegister3.w * 0.5;
+	
+		//float angle = lerp(0.0, endAngle, t);
+		
+		if(distance >= innerRadius && distance <= outterRadius)
+		{
+			if(endAngle > 180.0)
+			{
+				if(localPos.y <= 0.0 || abs(0.0 - localPos.y) < abs(0.0 - localPos.x) / tan((180.0 - endAngle / 2.0) * 0.017453292))
+				{
+					float4 color = baseColor * diffuseColor;
+					psOut.color.rgb += color.rgb * color.a;		
+					psOut.color.a += diffuseColor.a;
+					/*float currentRadius = t + (t - 1) * startAngle * innerRadius
+									+ (1 - t) * startAngle
+									+ (1 - t) * innerRadius;*/
+									
+					float ring = (0.5 - innerRadius)*startRadius+innerRadius;
+					float currentRadius = (0.5-ring)*t+ring;
+					
+					
+					if(distance <= currentRadius)
+					{
+						float4 diffuseColor2 = S_Custom.Sample(S_CustomSamplerState, uv);
+						diffuseColor2.rgb = pow(diffuseColor2.rgb, 2.2);
+						float4 color2 = fillingColor * diffuseColor2;
+						/*	
+						color.rgb = color.rgb * color.a + color2.rgb * color2.a * (1 - color.a);
+						float alpha = 1.0 - (1.0 - color.a) * (1.0 - color2.a);
+						color.a = alpha;
+						color.rgb = color.rgb / alpha;
+						*/
+						//color.rgb = color.rgb + color2.rgb * color2.a;
+						
+						psOut.color.rgb += color2.rgb * color2.a;
+						psOut.color.a += diffuseColor2.a;
+					}		
+				}
+			}
+			else // 180度以内
+			{
+				if(localPos.y <= 0.0 && abs(0.0 - localPos.y) >= abs(0.0 - localPos.x) / tan(endAngle / 2.0 * 0.017453292))
+				{
+					float4 color = baseColor * diffuseColor;
+					psOut.color.rgb += color.rgb * color.a;
+					psOut.color.a += diffuseColor.a;
+					
+					float ring = (0.5 - innerRadius)*startRadius+innerRadius;
+					float currentRadius = (0.5-ring)*t+ring;
+					
+					if(distance <= currentRadius)
+					{
+						float4 diffuseColor2 = S_Custom.Sample(S_CustomSamplerState, uv);
+						diffuseColor2.rgb = pow(diffuseColor2.rgb, 2.2);
+						
+						float4 color2 = fillingColor * diffuseColor2;
+						psOut.color.rgb += color2.rgb * color2.a;
+						psOut.color.a += diffuseColor2.a;
+					}
+				}
+			}
+		}
+	#endif
+	//--------------------------------
+	#ifdef QUAD
+		float4 color = baseColor * diffuseColor.rgba;
+		psOut.color.rgb += color.rgb * color.a;
+		psOut.color.a += diffuseColor.a;
+		if(localPos.y + 0.5 >= (1.0 - t))
+		{
+			float4 diffuseColor2 = S_Custom.Sample(S_CustomSamplerState, uv);
+			diffuseColor2.rgb = pow(diffuseColor2.rgb, 2.2);
+			
+			float4 color2 = fillingColor * diffuseColor2;
+			psOut.color.rgb += color2.rgb * color2.a;
+			psOut.color.a += diffuseColor2.a;
+		}	
+	#endif
+
+	diffuseColor = psOut.color;
+	diffuseColor.rgb *= U_MaterialDiffuse.rgb;
+}
+#endif
+
+
+
+#ifdef ILLUMINATION	
+	half3 color = 0.0;
+	half4 mainLightColor = U_PBR_MainLightColor;
+	half3 L = normalize(-U_MainLightDirection.xyz);	
+	half3 baseMap = diffuseColor.rgb;	
+	// directional light
+	{
+		color += calculateLightPower(N, V, L, mainLightColor.xyz, baseMap, roughness, metallic);
+	}
+
+	//point light &spot light
+	{
+	#ifdef CLUSTER_POINT_LIGHT
+		float3 cluster_light_color = calculateClusterPBRPointLight(IN.i_PosInClip.xy, target_world_pos.xyz, N, V, baseMap, roughness, metallic);
+		color += cluster_light_color;
+	#endif 
+	}
+	
+	// environment light
+	{
+		half3 environmentLo = 0.0h;
+		half3 ambientColor = ComputeAmbientLight(U_PBR_SkyLightColor.xyz, U_PBR_GroundLightColor.xyz, N, U_PS_AmbientBlendThreshold.y, U_PS_GravityDirection.xyz);
+		environmentLo += CalculateGlossyEnvColor(N, 
+                                            V, 
+                                            baseMap, 
+                                            metallic, 
+                                            roughness, 
+                                            1.0f, 
+                                            0.f,
+                                            0.f, 
+                                            U_GlobalEnvironmentCubeMipMapLevels.x, 
+                                            S_GlobalEnvironmentCubeMap,
+                                            S_GlobalEnvironmentCubeMapSamplerState);
+        environmentLo += CalculateDiffuseEnvColor(half3(N),
+                                             half3(baseMap), 
+                                             half(metallic), 
+                                             half(1.0f), 
+                                             half4x4(U_PBR_RMatrix),
+                                             half4x4(U_PBR_GMatrix), 
+                                             half4x4(U_PBR_BMatrix), 0.h);
+        environmentLo *= U_PBR_Environment_Explosure.x;
+		color += environmentLo * ambientColor;
+	}
+#endif
+
+#ifdef EMISSIVE
+	half3 missiveColor = diffuseColor.rgb * U_PSGeneralRegister0.xyz ;
+	half3 minMissiveColor = missiveColor * U_PSGeneralRegister0.w;
+
+	#ifdef ILLUMINATION
+		color += minMissiveColor;
+	#else
+		diffuseColor.rgb += minMissiveColor;
+	#endif
+#endif
+ 
+#ifdef ILLUMINATION
+	psOut.color.rgb = color;
+#else
+	psOut.color.rgb = diffuseColor.rgb;
+#endif	
+
+	psOut.color.a = diffuseColor.a * U_MaterialFresnel.r;
+#if defined(TRAIL_DECAL) && defined(DECAL_SEGMENT_COLOR)
+{
+	psOut.color = psOut.color * resultSegmentColor;
+}
+#endif
+	psOut.color.rgb = psOut.color.rgb * IN.i_Fog.a + IN.i_Fog.rgb;
+	psOut.color.rgb = pow(psOut.color.rgb, 1.0 / 2.2);
+
+#ifdef BILLBOARD_MASK_TEXTURE_1
+{
+	float tilling_u = U_PSGeneralRegister18.x;
+	float tilling_v = U_PSGeneralRegister18.y;
+	float offset_u = U_PSGeneralRegister18.z;
+	float offset_v = U_PSGeneralRegister18.w;
+
+	float rotate_angle = U_PSGeneralRegister19.x;
+
+	float4 diffuse_coefficient = U_PSGeneralRegister20;
+	float4 mask_coefficient = U_PSGeneralRegister21;
+	#ifdef BILLBOARD_MASK_TEXTURE_1_ENABLE_POLAR
+		float2 mask_texture_uv = InPolarUV;
+	#else
+		float2 mask_texture_uv = in_UV;
+	#endif
+	mask_texture_uv = cal_uvNoWrap(mask_texture_uv, tilling_u, tilling_v, offset_u, offset_v, rotate_angle);
+
+	float4 mask_val = S_Custom5.Sample(S_Custom5SamplerState, mask_texture_uv);
+
+	psOut.color = cal_color(psOut.color, diffuse_coefficient, mask_val, mask_coefficient);
+}
+#endif
+
+#ifdef BILLBOARD_MASK_TEXTURE_2
+{
+	float tilling_u = U_PSGeneralRegister22.x;
+	float tilling_v = U_PSGeneralRegister22.y;
+	float offset_u = U_PSGeneralRegister22.z;
+	float offset_v = U_PSGeneralRegister22.w;
+
+	float rotate_angle = U_PSGeneralRegister23.x;
+
+	float4 diffuse_coefficient = U_PSGeneralRegister24;
+	float4 mask_coefficient = U_PSGeneralRegister25;
+	#ifdef BILLBOARD_MASK_TEXTURE_2_ENABLE_POLAR
+		float2 mask_texture_uv2 = InPolarUV;
+	#else
+		float2 mask_texture_uv2 = in_UV;
+	#endif
+	mask_texture_uv2 = cal_uvNoWrap(mask_texture_uv2, tilling_u, tilling_v, offset_u, offset_v, rotate_angle);
+
+	float4 mask_val = S_Custom6.Sample(S_Custom6SamplerState, mask_texture_uv2);
+
+	psOut.color = cal_color(psOut.color, diffuse_coefficient, mask_val, mask_coefficient);
+}
+#endif
+
+#ifdef EnableAlphaDistance
+{
+	float alphaDistanceFar = U_PSGeneralRegister10.x;
+	float alphaDistanceStrength = U_PSGeneralRegister10.y;
+	float alphaDistanceStart = U_PSGeneralRegister10.z;
+	float cam_to_obj_len = sqrt(dot(IN.i_EyeDir.xyz, IN.i_EyeDir.xyz));
+	float alphaFactor = 0.0f;
+	#ifdef ALPHA_DISTANCE_TWOWAY
+		//一条梯形曲线 
+		float alphaBridgeDistance = U_PSGeneralRegister10.w;
+		float alphaSmoothDistance = alphaDistanceFar - alphaDistanceStart;
+		float cameraAlphaDistance = cam_to_obj_len - (alphaDistanceFar + alphaBridgeDistance);
+		float alphaNeedTwoWay = sign(cameraAlphaDistance);
+		alphaNeedTwoWay = max(0.0f, alphaNeedTwoWay);
+		float currentAlphaStart = alphaDistanceStart + (alphaSmoothDistance + alphaBridgeDistance) *alphaNeedTwoWay;
+		float currentAlphaEnd = alphaDistanceFar + (alphaSmoothDistance + alphaBridgeDistance) * alphaNeedTwoWay;
+		alphaFactor = smoothstep(currentAlphaStart, currentAlphaEnd, cam_to_obj_len);
+		alphaFactor = alphaNeedTwoWay* (1.0f - alphaFactor) + (1.0f- alphaNeedTwoWay) * alphaFactor;
+	#else
+		alphaFactor = smoothstep(alphaDistanceStart, alphaDistanceFar, cam_to_obj_len);
+	#endif
+	#ifdef ALPHA_DISTANCE_REVERSE
+		alphaFactor = 1.0f - alphaFactor;
+	#endif
+	psOut.color.a = psOut.color.a * lerp((1.0f - alphaDistanceStrength), 1.0f, alphaFactor);
+}
+#endif
+
+	return psOut;
+}

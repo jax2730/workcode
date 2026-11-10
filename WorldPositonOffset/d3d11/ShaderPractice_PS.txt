@@ -1,0 +1,17 @@
+#include<Common_Uniform_PS.inl>
+
+struct PS_INPUT
+{
+    float4 i_PosInClip	   : SV_POSITION;
+    float4 i_UV            : TEXCOORD0;
+};
+
+float4 linear2sRGB(float4 linearColor)
+{
+    return float4(pow(linearColor.rgb, 1.f / 2.2), linearColor.a);
+}
+
+float4 main(PS_INPUT IN): SV_TARGET{
+    float3 color = 0.5f + 0.5f * cos(U_PS_Time.x + IN.i_UV.xyx + float3(0.f, 2.f, 4.f));
+    return linear2sRGB(float4(color, 1.f));
+}

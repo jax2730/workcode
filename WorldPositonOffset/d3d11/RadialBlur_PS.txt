@@ -1,0 +1,77 @@
+Texture2D S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+struct PS_INPUT
+{
+	float4 i_PosInClip : SV_POSITION;
+	float4 i_UV : TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color : SV_TARGET;
+};
+
+float4 U_PSCustom0; // x: range, y: switch of origin, zw: render target width and height
+float4 U_PSCustom1; // x: offset, y: strength, zw: origin
+float4 U_PSCustom2; // x: AspectRatio
+#define NUM_SAMPLES 7
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+	float range = U_PSCustom0.x;
+	float origin_switch = U_PSCustom0.y;	// 1: from center to edge
+	float2 rt_rect = U_PSCustom0.zw;
+	float offset = U_PSCustom1.x;
+	float2 origin = U_PSCustom1.zw;
+	float aspect_ratio = U_PSCustom2.x;
+
+
+
+	float2 direction = origin - IN.i_UV.xy; 
+
+	if(aspect_ratio>1)
+	{
+		direction.y*=aspect_ratio;
+	}
+	else 
+	{
+		direction.x/=aspect_ratio;
+	}
+
+	float distance = length(direction);
+	float factor = distance - range;
+
+
+	factor=origin_switch*max(-factor, 0)+(1-origin_switch)*max(factor, 0);
+
+	const float c_multipliers[NUM_SAMPLES] =
+	{
+		0.01f,
+		0.0099f,
+		0.0097f,
+		0.0095f,
+		0.0093f,
+		0.0091f,
+		0.0090f
+	};
+	
+	direction *= offset;
+	float4 color = float4(0.0f, 0.0f, 0.0f, 0.0f);
+
+
+    for (int i = 0; i < NUM_SAMPLES; i ++)
+    {
+        color += S_2DExt0.Sample(S_2DExt0SamplerState, IN.i_UV*rt_rect);
+		IN.i_UV.xy += direction*c_multipliers[i];
+		
+    }
+	
+	color /= NUM_SAMPLES;
+
+	factor = clamp(factor / (distance+0.0001f), 0.0f, 1.0f);
+	float alpha = clamp(U_PSCustom1.y*factor, 0.0f, 1.0f);
+	psOut.o_Color = float4(color.rgb, alpha);
+
+	return psOut;
+}

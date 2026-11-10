@@ -1,0 +1,57 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function_Lighting.inl>
+
+Texture2D S_Depth;
+SamplerState S_DepthSamplerState;
+
+float4 U_InvViewProjectMatrix[4];
+float4 U_PSCustom0;		// xy: viewPortRange
+
+float4 U_FogColorNear;
+float4 U_FogColorFar;
+float4 U_FogParam;
+float4 U_FogRampParam;
+
+struct PS_INPUT
+{
+    float4 position	: SV_POSITION;
+	float4 uv		: TEXCOORD0;
+	float4 pos 		: TEXCOORD1;
+};
+
+struct PS_OUTPUT
+{
+	float4 color : SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+    PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+	float2 uv = IN.uv.xy * U_PSCustom0.xy;
+	float4 pos;
+	pos.xy = IN.pos.xy;
+	pos.z = S_Depth.Sample(S_DepthSamplerState, uv).r;
+	pos.w = 1.0f;
+	pos = pos / pos.z;
+
+	float3 wPos;
+	wPos.x = dot(U_InvViewProjectMatrix[0], pos);
+	wPos.y = dot(U_InvViewProjectMatrix[1], pos);
+	wPos.z = dot(U_InvViewProjectMatrix[2], pos);
+	float wPosw = dot(U_InvViewProjectMatrix[3], pos);
+	wPos = wPos / wPosw;
+
+	float3 camToWorld = U_PS_CameraPosition.xyz - wPos.xyz;
+	float4x4 gravityRotatePosMatrix;
+	gravityRotatePosMatrix[0] = U_PS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_PS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_PS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_PS_GravityRotationMatrix[3];
+	camToWorld = mul(gravityRotatePosMatrix, float4(camToWorld.xyz, 0.0f)).xyz;
+	float4 Fog = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+
+    psOut.color = Fog;
+
+    return psOut;
+}

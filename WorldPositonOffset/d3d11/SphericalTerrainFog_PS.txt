@@ -1,0 +1,70 @@
+#include <SphericalFog_Function.inl>
+
+Texture2D S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+#define DepthTex S_2DExt0
+#define DepthSampler S_2DExt0SamplerState
+
+float4 U_PSCustom0;
+float4 U_PSCustom1;
+
+#define ndcToViewMul    U_PSCustom0.xy
+#define ndcToViewAdd    U_PSCustom0.zw
+
+#define depthLinearize  U_PSCustom1.xy
+#define nearPlane       U_PSCustom1.z
+
+struct PS_INPUT
+{
+    float4 Position : SV_POSITION;
+    float4 TexCoord : TEXCOORD0;
+};
+
+float ScreenSpaceToViewSpaceDepth(in float screenDepth, in float2 depthLinearizeParam)
+{
+    // Optimised version of "-cameraClipNear / (cameraClipFar - projDepth * (cameraClipFar - cameraClipNear)) * cameraClipFar"
+
+    // Set your depthLinearizeMul and depthLinearizeAdd to:
+    // depthLinearizeMul = -proj[2][3];
+    // depthLinearizeAdd = proj[2][2];
+    return depthLinearizeParam.x / (depthLinearizeParam.y + screenDepth);
+}
+
+float3 NdcToViewSpace(
+    in float viewSpaceDepth,
+    in float2 pos,
+    in float2 NDCToViewAdd,
+    in float2 NDCToViewMul)
+{
+    float3 ret;
+     
+    ret.xy = (NDCToViewAdd + pos.xy * NDCToViewMul) * viewSpaceDepth;
+    ret.z = viewSpaceDepth;
+    
+    return ret;
+}
+
+float3 GetViewDirection(float2 uv)
+{
+    float2 viewXY = (uv * ndcToViewMul + ndcToViewAdd) * (-nearPlane);
+    return normalize(float3(viewXY, -nearPlane));
+}
+
+float4 main(PS_INPUT psInput): SV_TARGET0
+{
+    float4 psOut = 0.f;
+    float2 uv = psInput.TexCoord.xy;
+    float3 viewDir = GetViewDirection(uv);
+
+    float screenDepth = DepthTex.SampleLevel(DepthSampler, uv, 0).r;
+    float viewspaceDepth = ScreenSpaceToViewSpaceDepth(screenDepth, depthLinearize);
+    float3 pFromDepth = NdcToViewSpace(viewspaceDepth, uv, ndcToViewAdd, ndcToViewMul);
+
+    return ComputeSphFogBlocked(
+        pFromDepth,
+        0,
+        viewDir,
+        psInput.Position.xy);  
+    // return psOut;    
+}

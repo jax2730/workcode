@@ -1,0 +1,35 @@
+Texture2D	S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+float4 U_PSCustom0[4];
+
+struct PS_INPUT
+{
+    float4	i_PosInClip			: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+	
+	float2 uv = IN.i_UV.xy;
+	
+	float lum = 0.0f;
+	
+	lum += S_2DExt0.Sample(S_2DExt0SamplerState, uv + U_PSCustom0[0].xy).r;
+	lum += S_2DExt0.Sample(S_2DExt0SamplerState, uv + U_PSCustom0[1].xy).r;
+	lum += S_2DExt0.Sample(S_2DExt0SamplerState, uv + U_PSCustom0[2].xy).r;
+	lum += S_2DExt0.Sample(S_2DExt0SamplerState, uv + U_PSCustom0[3].xy).r;
+	
+	lum = min(lum * 0.25f, 64.0f);
+  
+	psOut.o_Color = float4(lum, lum, lum, lum);
+
+	return psOut;
+}

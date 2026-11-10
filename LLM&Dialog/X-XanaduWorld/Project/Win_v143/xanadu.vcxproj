@@ -1,0 +1,719 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug_Editor|Win32">
+      <Configuration>Debug_Editor</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug_Editor|x64">
+      <Configuration>Debug_Editor</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="EditorDebug|Win32">
+      <Configuration>EditorDebug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="EditorDebug|x64">
+      <Configuration>EditorDebug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="EditorRelease|Win32">
+      <Configuration>EditorRelease</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="EditorRelease|x64">
+      <Configuration>EditorRelease</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release_Editor|Win32">
+      <Configuration>Release_Editor</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release_Editor|x64">
+      <Configuration>Release_Editor</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{CA651AA8-4153-4AF8-BB0F-C5991DCEFEB8}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>PadBO2</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0.19041.0</WindowsTargetPlatformVersion>
+    <ProjectName>xanadu</ProjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>NotSet</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='EditorDebug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>NotSet</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_Editor|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>NotSet</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>NotSet</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='EditorRelease|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>NotSet</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_Editor|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>NotSet</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>NotSet</CharacterSet>
+    <VCToolsVersion>14.34.31933</VCToolsVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='EditorDebug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>NotSet</CharacterSet>
+    <VCToolsVersion>14.34.31933</VCToolsVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_Editor|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>NotSet</CharacterSet>
+    <VCToolsVersion>14.34.31933</VCToolsVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>NotSet</CharacterSet>
+    <VCToolsVersion>14.34.31933</VCToolsVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='EditorRelease|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>NotSet</CharacterSet>
+    <VCToolsVersion>14.34.31933</VCToolsVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_Editor|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>NotSet</CharacterSet>
+    <VCToolsVersion>14.34.31933</VCToolsVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="xanadu.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='EditorDebug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="xanadu.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug_Editor|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="xanadu.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="xanadu.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='EditorRelease|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="xanadu.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release_Editor|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="xanadu.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="xanadu.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='EditorDebug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="xanadu.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug_Editor|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="xanadu.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="xanadu.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='EditorRelease|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="xanadu.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release_Editor|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="xanadu.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>..\..\Bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>..\..\Intermediate\$(TargetOS)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='EditorDebug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>..\..\Bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>..\..\Intermediate\$(TargetOS)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_Editor|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>..\..\Bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>..\..\Intermediate\$(TargetOS)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>..\..\Bin\$(TargetOS)\$(Configuration)\</OutDir>
+    <IntDir>..\..\Intermediate\$(TargetOS)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='EditorDebug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>..\..\Bin\$(TargetOS)\Debug\</OutDir>
+    <IntDir>..\..\Intermediate\$(TargetOS)\$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName)ED</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_Editor|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>..\..\Bin\$(TargetOS)\Debug\</OutDir>
+    <IntDir>..\..\Intermediate\$(TargetOS)\$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName)_Editor</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>..\..\Bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>..\..\Intermediate\$(TargetOS)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='EditorRelease|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>..\..\Bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>..\..\Intermediate\$(TargetOS)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_Editor|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>..\..\Bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>..\..\Intermediate\$(TargetOS)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>..\..\Bin\$(TargetOS)\$(Configuration)\</OutDir>
+    <IntDir>..\..\Intermediate\$(TargetOS)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='EditorRelease|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>..\..\Bin\$(TargetOS)\Release\</OutDir>
+    <IntDir>..\..\Intermediate\$(TargetOS)\$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName)ED</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_Editor|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>..\..\Bin\$(TargetOS)\Release\</OutDir>
+    <IntDir>..\..\Intermediate\$(TargetOS)\$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName)_Editor</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>$(EchoSDK)\Include\EchoCore;$(EchoSDK)\Include\EchoEngine;$(EchoSDK)\Include\ThirdParty\tinythread;$(EchoSDK)\Include\ThirdParty\cjson;$(EchoSDK)\Include\ThirdParty\freetype;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4251;4275</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(EchoSDK)\Lib\$(TargetOS)\$(Platform)\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>echoengine.lib;echocore.lib;tinythread.lib;cjson.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+    <CustomBuildStep>
+      <Command>setlocal
+call $(ProjectName)_Dep_DLL.bat $(Platform) $(Configuration) $(TargetOS) $(EchoSDK)
+endlocal</Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>none_exist</Outputs>
+    </CustomBuildStep>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='EditorDebug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>$(EchoSDK)\Include\EchoCore;$(EchoSDK)\Include\EchoEngine;$(EchoSDK)\Include\ThirdParty\tinythread;$(EchoSDK)\Include\ThirdParty\cjson;$(EchoSDK)\Include\ThirdParty\freetype;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4251;4275</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(EchoSDK)\Lib\$(TargetOS)\$(Platform)\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>echoengine.lib;echocore.lib;tinythread.lib;cjson.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+    <CustomBuildStep>
+      <Command>setlocal
+call $(ProjectName)_Dep_DLL.bat $(Platform) $(Configuration) $(TargetOS) $(EchoSDK)
+endlocal</Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>none_exist</Outputs>
+    </CustomBuildStep>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug_Editor|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>$(EchoSDK)\Include\EchoCore;$(EchoSDK)\Include\EchoEngine;$(EchoSDK)\Include\ThirdParty\tinythread;$(EchoSDK)\Include\ThirdParty\cjson;$(EchoSDK)\Include\ThirdParty\freetype;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4251;4275</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(EchoSDK)\Lib\$(TargetOS)\$(Platform)\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>echoengine.lib;echocore.lib;tinythread.lib;cjson.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+    <CustomBuildStep>
+      <Command>setlocal
+call $(ProjectName)_Dep_DLL.bat $(Platform) $(Configuration) $(TargetOS) $(EchoSDK)
+endlocal</Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>none_exist</Outputs>
+    </CustomBuildStep>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>$(EchoSDK)\Include\EchoCore\Role;$(EchoSDK)\Include\EchoCore;$(EchoSDK)\Include\EchoEngine;$(EchoSDK)\Include\EchoGame;$(EchoSDK)\Include\ThirdParty\cpp-httplib;$(EchoSDK)\Include\ThirdParty\tinythread;$(EchoSDK)\Include\ThirdParty\cjson;$(EchoSDK)\Include\ThirdParty\freetype;$(EchoSDK)\Include\EchoCommon;$(EchoSDK)\Include\EchoPhysics;$(EchoSDK)\Include\EchoComponent;$(EchoSDK)\Include\ThirdParty\zeromq;%(AdditionalIncludeDirectories);../../../../EchoEngine/Code/Core/Source/FGUIParser;../../../../EchoEngine/Code/Core/Source/FGUIParser/entt/src</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4251;4275</DisableSpecificWarnings>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(EchoSDK)\Lib\$(TargetOS)\$(Platform)\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>EchoCommon.lib;EchoEngine.lib;EchoCore.lib;EchoComponent.lib;EchoGame.lib;tinythread.lib;EchoJson.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+    <CustomBuildStep>
+      <Command>setlocal
+call $(ProjectName)_Dep_DLL.bat $(Platform) $(Configuration) $(TargetOS) $(EchoSDK)
+endlocal</Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>none_exist</Outputs>
+    </CustomBuildStep>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='EditorDebug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;ECHO_EDITOR;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>$(EchoSDK)\Include\EchoCore\Role;$(EchoSDK)\Include\EchoCore;$(EchoSDK)\Include\EchoEngine;$(EchoSDK)\Include\EchoGame;$(EchoSDK)\Include\ThirdParty\tinythread;$(EchoSDK)\Include\ThirdParty\cjson;$(EchoSDK)\Include\ThirdParty\freetype;$(EchoSDK)\Include\EchoCommon;$(EchoSDK)\Include\EchoPhysics;$(EchoSDK)\Include\EchoComponent;$(EchoSDK)\Include\ThirdParty\zeromq;$(EchoSDK)\Include\EditorCommon;$(EchoSDK)\Include\EchoEditor;%(AdditionalIncludeDirectories);../../../../EchoEngine/Code/Core/Source/FGUIParser;../../../../EchoEngine/Code/Core/Source/FGUIParser/entt/src;D:\svn-sync\Echo_SU_Develop\EchoEngine\SDKs\ThirdParty\zerozmq\Include;D:\svn-sync\Echo_SU_Develop\EchoEngine\SDKs\ThirdParty\cppzmq\Include</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4251;4275</DisableSpecificWarnings>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(EchoSDK)\Lib\$(TargetOS)\$(Platform)\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>EchoCommon.lib;EchoEngineED.lib;EchoCoreED.lib;EchoComponentED.lib;EditorCommon.lib;EchoEditor.lib;EchoGameED.lib;tinythread.lib;EchoJson.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+    <CustomBuildStep>
+      <Command>setlocal
+call $(ProjectName)_Dep_DLL.bat $(Platform) Debug $(TargetOS) $(EchoSDK)
+endlocal</Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>none_exist</Outputs>
+    </CustomBuildStep>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug_Editor|x64'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;ECHO_EDITOR_MODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>$(EchoSDK)\Include\EchoCore\Role;$(EchoSDK)\Include\EchoCore;$(EchoSDK)\Include\EchoEngine;$(EchoSDK)\Include\EchoGame;$(EchoSDK)\Include\ThirdParty\tinythread;$(EchoSDK)\Include\ThirdParty\cjson;$(EchoSDK)\Include\ThirdParty\freetype;$(EchoSDK)\Include\EchoCommon;$(EchoSDK)\Include\EchoPhysics;$(EchoSDK)\Include\EchoComponent;$(EchoSDK)\Include\ThirdParty\zeromq;$(EchoSDK)\Include\SceneBox;%(AdditionalIncludeDirectories);../../../../EchoEngine/Code/Core/Source/FGUIParser;../../../../EchoEngine/Code/Core/Source/FGUIParser/entt/src;D:\svn-sync\Echo_SU_Develop\EchoEngine\SDKs\ThirdParty\zerozmq\Include;D:\svn-sync\Echo_SU_Develop\EchoEngine\SDKs\ThirdParty\cppzmq\Include</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4251;4275</DisableSpecificWarnings>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(EchoSDK)\Lib\$(TargetOS)\$(Platform)\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>EchoCommon.lib;EchoEngine.lib;EchoCore.lib;EchoComponent.lib;EditorCommon.lib;tinythread.lib;EchoJson.lib;freetype.lib;SceneBox.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+    <CustomBuildStep>
+      <Command>
+      </Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>none_exist</Outputs>
+    </CustomBuildStep>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>$(EchoSDK)\Include\EchoCore;$(EchoSDK)\Include\EchoEngine;$(EchoSDK)\Include\ThirdParty\tinythread;$(EchoSDK)\Include\ThirdParty\cjson;$(EchoSDK)\Include\ThirdParty\freetype;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4251;4275</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(EchoSDK)\Lib\$(TargetOS)\$(Platform)\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>echoengine.lib;echocore.lib;tinythread.lib;cjson.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+    <CustomBuildStep>
+      <Command>setlocal
+call $(ProjectName)_Dep_DLL.bat $(Platform) $(Configuration) $(TargetOS) $(EchoSDK)
+endlocal</Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>none_exist</Outputs>
+    </CustomBuildStep>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='EditorRelease|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>$(EchoSDK)\Include\EchoCore;$(EchoSDK)\Include\EchoEngine;$(EchoSDK)\Include\ThirdParty\tinythread;$(EchoSDK)\Include\ThirdParty\cjson;$(EchoSDK)\Include\ThirdParty\freetype;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4251;4275</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(EchoSDK)\Lib\$(TargetOS)\$(Platform)\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>echoengine.lib;echocore.lib;tinythread.lib;cjson.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+    <CustomBuildStep>
+      <Command>setlocal
+call $(ProjectName)_Dep_DLL.bat $(Platform) $(Configuration) $(TargetOS) $(EchoSDK)
+endlocal</Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>none_exist</Outputs>
+    </CustomBuildStep>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release_Editor|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>$(EchoSDK)\Include\EchoCore;$(EchoSDK)\Include\EchoEngine;$(EchoSDK)\Include\ThirdParty\tinythread;$(EchoSDK)\Include\ThirdParty\cjson;$(EchoSDK)\Include\ThirdParty\freetype;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4251;4275</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(EchoSDK)\Lib\$(TargetOS)\$(Platform)\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>echoengine.lib;echocore.lib;tinythread.lib;cjson.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+    <CustomBuildStep>
+      <Command>setlocal
+call $(ProjectName)_Dep_DLL.bat $(Platform) $(Configuration) $(TargetOS) $(EchoSDK)
+endlocal</Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>none_exist</Outputs>
+    </CustomBuildStep>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>$(EchoSDK)\Include\EchoCore\Role;$(EchoSDK)\Include\EchoCore;$(EchoSDK)\Include\EchoEngine;$(EchoSDK)\Include\EchoGame;$(EchoSDK)\Include\ThirdParty\cpp-httplib;$(EchoSDK)\Include\ThirdParty\tinythread;$(EchoSDK)\Include\ThirdParty\cjson;$(EchoSDK)\Include\ThirdParty\freetype;$(EchoSDK)\Include\EchoCommon;$(EchoSDK)\Include\EchoPhysics;$(EchoSDK)\Include\EchoComponent;$(EchoSDK)\Include\ThirdParty\zeromq;%(AdditionalIncludeDirectories);../../../../EchoEngine/Code/Core/Source/FGUIParser;../../../../EchoEngine/Code/Core/Source/FGUIParser/entt/src;D:\svn-sync\Echo_SU_Develop\EchoEngine\SDKs\ThirdParty\zerozmq\Include;D:\svn-sync\Echo_SU_Develop\EchoEngine\SDKs\ThirdParty\cppzmq\Include</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4251;4275</DisableSpecificWarnings>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(EchoSDK)\Lib\$(TargetOS)\$(Platform)\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>EchoCommon.lib;EchoEngine.lib;EchoCore.lib;EchoComponent.lib;EchoGame.lib;tinythread.lib;EchoJson.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+    <CustomBuildStep>
+      <Command>setlocal
+call $(ProjectName)_Dep_DLL.bat $(Platform) $(Configuration) $(TargetOS) $(EchoSDK)
+endlocal</Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>none_exist</Outputs>
+    </CustomBuildStep>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='EditorRelease|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;ECHO_EDITOR;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>$(EchoSDK)\Include\EchoCore\Role;$(EchoSDK)\Include\EchoCore;$(EchoSDK)\Include\EchoEngine;$(EchoSDK)\Include\EchoGame;$(EchoSDK)\Include\ThirdParty\tinythread;$(EchoSDK)\Include\ThirdParty\cjson;$(EchoSDK)\Include\ThirdParty\freetype;$(EchoSDK)\Include\EchoCommon;$(EchoSDK)\Include\EchoPhysics;$(EchoSDK)\Include\EchoComponent;$(EchoSDK)\Include\ThirdParty\zeromq;$(EchoSDK)\Include\EditorCommon;$(EchoSDK)\Include\EchoEditor;%(AdditionalIncludeDirectories);../../../../EchoEngine/Code/Core/Source/FGUIParser;../../../../EchoEngine/Code/Core/Source/FGUIParser/entt/src;D:\svn-sync\Echo_SU_Develop\EchoEngine\SDKs\ThirdParty\zerozmq\Include;D:\svn-sync\Echo_SU_Develop\EchoEngine\SDKs\ThirdParty\cppzmq\Include</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4251;4275</DisableSpecificWarnings>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(EchoSDK)\Lib\$(TargetOS)\$(Platform)\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>EchoCommon.lib;EchoEngineED.lib;EchoCoreED.lib;EchoComponentED.lib;EchoGameED.lib;EditorCommon.lib;EchoEditor.lib;tinythread.lib;EchoJson.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+    <CustomBuildStep>
+      <Command>setlocal
+call $(ProjectName)_Dep_DLL.bat $(Platform) Release $(TargetOS) $(EchoSDK)
+endlocal</Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>none_exist</Outputs>
+    </CustomBuildStep>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release_Editor|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;ECHO_EDITOR_MODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>$(EchoSDK)\Include\EchoCore\Role;$(EchoSDK)\Include\EchoCore;$(EchoSDK)\Include\EchoEngine;$(EchoSDK)\Include\EchoGame;$(EchoSDK)\Include\ThirdParty\tinythread;$(EchoSDK)\Include\ThirdParty\cjson;$(EchoSDK)\Include\ThirdParty\freetype;$(EchoSDK)\Include\EchoCommon;$(EchoSDK)\Include\EchoPhysics;$(EchoSDK)\Include\EchoComponent;$(EchoSDK)\Include\ThirdParty\zeromq;$(EchoSDK)\Include\SceneBox;%(AdditionalIncludeDirectories);../../../../EchoEngine/Code/Core/Source/FGUIParser;../../../../EchoEngine/Code/Core/Source/FGUIParser/entt/src;D:\svn-sync\Echo_SU_Develop\EchoEngine\SDKs\ThirdParty\zerozmq\Include;D:\svn-sync\Echo_SU_Develop\EchoEngine\SDKs\ThirdParty\cppzmq\Include</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4251;4275</DisableSpecificWarnings>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(EchoSDK)\Lib\$(TargetOS)\$(Platform)\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>EchoCommon.lib;EchoEngine.lib;EchoCore.lib;EchoComponent.lib;EditorCommon.lib;tinythread.lib;EchoJson.lib;freetype.lib;SceneBox.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+    <CustomBuildStep>
+      <Command>
+      </Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>none_exist</Outputs>
+    </CustomBuildStep>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\Source\AppBase.h" />
+    <ClInclude Include="..\..\Source\appview.h" />
+    <ClInclude Include="..\..\Source\AsyncApp.h" />
+    <ClInclude Include="..\..\Source\AsyncAppBase.h" />
+    <ClInclude Include="..\..\Source\Barrier.h" />
+    <ClInclude Include="..\..\Source\BuildingTest.h" />
+    <ClInclude Include="..\..\Source\CmdBuffer.h" />
+    <ClInclude Include="..\..\Source\CmdChain.h" />
+    <ClInclude Include="..\..\Source\EchoMiniMap.h" />
+    <ClInclude Include="..\..\Source\EchoNPCController.h" />
+    <ClInclude Include="..\..\Source\EchoPlayerObj.h" />
+    <ClInclude Include="..\..\Source\EchoPlayerObjManager.h" />
+    <ClInclude Include="..\..\Source\EchoRobotObj.h" />
+    <ClInclude Include="..\..\Source\EchoRobotObjManager.h" />
+    <ClInclude Include="..\..\Source\EchoSphericalController.h" />
+    <ClInclude Include="..\..\Source\EchoTerrainController.h" />
+    <ClInclude Include="..\..\Source\FrameControl.h" />
+    <ClInclude Include="..\..\Source\LogicWrapper.h" />
+    <ClInclude Include="..\..\Source\resource.h" />
+    <ClInclude Include="..\..\Source\RewindHeap.h" />
+    <ClInclude Include="..\..\Source\SceneHeatMap.h" />
+    <ClInclude Include="..\..\Source\SyncApp.h" />
+    <ClInclude Include="..\..\Source\win32RemoteControl.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\Source\appview.cpp" />
+    <ClCompile Include="..\..\Source\AsyncApp.cpp" />
+    <ClCompile Include="..\..\Source\AsyncAppBase.cpp" />
+    <ClCompile Include="..\..\Source\Barrier.cpp" />
+    <ClCompile Include="..\..\Source\BuildingTest.cpp" />
+    <ClCompile Include="..\..\Source\CmdChain.cpp" />
+    <ClCompile Include="..\..\Source\EchoMiniMap.cpp" />
+    <ClCompile Include="..\..\Source\EchoNPCController.cpp" />
+    <ClCompile Include="..\..\Source\EchoPlayerObj.cpp" />
+    <ClCompile Include="..\..\Source\EchoPlayerObjManager.cpp" />
+    <ClCompile Include="..\..\Source\EchoRobotObj.cpp" />
+    <ClCompile Include="..\..\Source\EchoRobotObjManager.cpp" />
+    <ClCompile Include="..\..\Source\EchoSphericalController.cpp" />
+    <ClCompile Include="..\..\Source\EchoTerrainController.cpp" />
+    <ClCompile Include="..\..\Source\FrameControl.cpp" />
+    <ClCompile Include="..\..\Source\LogicWrapper.cpp" />
+    <ClCompile Include="..\..\Source\RewindHeap.cpp" />
+    <ClCompile Include="..\..\Source\SceneHeatMap.cpp" />
+    <ClCompile Include="..\..\Source\SyncApp.cpp" />
+    <ClCompile Include="..\..\Source\PlatformWin32\WinMain.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\..\Source\Resource.rc" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

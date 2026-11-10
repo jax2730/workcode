@@ -1,0 +1,98 @@
+#include "ImageProcessing.inl"
+
+struct PCGGenTempUniforms
+{
+	float min;
+	float max;
+	int processBrightness;
+	float brightness;
+	
+	int processExposure;
+	float exposure;
+	float exposureOffset;
+	float gammaInv;
+	
+	int processInvert;
+	int processClamp;
+	float clampMin;
+	float clampMax;
+	
+	float4 noiseSeed;
+	
+	float noiseFreq;
+	float noiseStr;
+	float2 pad;
+};
+
+uniform PCGGenTempUniforms U_CSCustom0;
+#define temperatureUniform U_CSCustom0
+
+#ifdef PROCEDURAL_SPHERE
+#include "CubeSphereMapping.inl"
+#include "SimplexNoise3D.inl"
+struct GridUniforms
+{
+    float2 offset;
+    float2 gridSize;
+    uint slice;
+    float3 padding;
+};
+
+uniform GridUniforms U_CSCustom1;
+#endif
+
+Texture2D<float> S_2DExt0;
+#define elevationMap S_2DExt0
+
+RWTexture2D<unorm float> S_2DExt1;
+#define temperatureMap S_2DExt1
+
+[numthreads(16, 16, 1)]
+void main(uint3 dtId : SV_DispatchThreadID)
+{
+	uint2 wh;
+	temperatureMap.GetDimensions(wh.x, wh.y);
+	if (any(dtId.xy >= wh))
+	{
+		return;
+	}
+	
+	float elevation = elevationMap[dtId.xy];
+	
+	float temperature = elevation;
+#ifdef PROCEDURAL_SPHERE
+	uint face = U_CSCustom1.slice;
+	float2 gridOffset = U_CSCustom1.offset + float2(dtId.x, dtId.y) * U_CSCustom1.gridSize;
+	float3 cubeVertex = GetCubeVertex(face, gridOffset);
+	float3 unitSphere = normalize(cubeVertex);
+	[branch]
+	if (temperatureUniform.noiseStr > 0)
+	{
+		temperature += SimplexFBM(unitSphere * temperatureUniform.noiseFreq, 4, temperatureUniform.noiseSeed) * temperatureUniform.noiseStr;
+	}
+#endif
+	
+	temperature = saturate(1.0 - (temperature - temperatureUniform.min) / (temperatureUniform.max - temperatureUniform.min));
+	
+	if (temperatureUniform.processBrightness)
+	{
+		temperature = ImageProcessing::Brightness(temperature, pow(1.015f, temperatureUniform.brightness));
+	}
+
+	if (temperatureUniform.processExposure)
+	{
+		temperature = ImageProcessing::Exposure(temperature, temperatureUniform.exposure, temperatureUniform.exposureOffset, temperatureUniform.gammaInv);
+	}
+	
+	if (temperatureUniform.processInvert)
+	{
+		temperature = ImageProcessing::Invert(temperature);
+	}
+	
+	if (temperatureUniform.processClamp)
+	{
+		temperature = ImageProcessing::Clamp(temperature, temperatureUniform.clampMin, temperatureUniform.clampMax);
+	}
+	
+	temperatureMap[dtId.xy] = temperature;
+}

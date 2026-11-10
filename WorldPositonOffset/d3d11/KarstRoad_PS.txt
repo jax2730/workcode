@@ -1,0 +1,36 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Light_Function_PS.inl>
+#include <LandformPBRLighting.inl>
+
+struct PS_INPUT
+{
+    float4  i_PosInClip	    : SV_POSITION;
+    float3  i_PosInWorld	: POSITION0;
+    float3  i_Normal        : NORMAL0;
+    float4  i_ClipPos       : TEXCOORD0;
+    float4  i_FogColor		: TEXCOORD1;
+    float3  i_texUV         : TEXCOORD2;
+};
+
+float4 U_ProjectMatrix[4];	//ProjectMatrix
+float4x4 U_ViewMatrix;	//ViewMatrix
+float4 U_InvViewProjectMatrix[4]; //ViewMatrix
+
+uniform Texture2D S_Custom;
+SamplerState S_CustomSamplerState;
+
+uniform Texture2D S_Custom2;
+SamplerState S_Custom2SamplerState;
+
+float4 main(PS_INPUT IN) : SV_TARGET
+{
+	float3 normal = normalize(IN.i_Normal);
+    float4 albedo = IN.i_texUV.z == 0.0 ? S_Custom.Sample(S_CustomSamplerState, IN.i_texUV.xy) : S_Custom2.Sample(S_Custom2SamplerState, IN.i_texUV.xy);  
+    float3 V = normalize(U_PS_CameraPosition.xyz - IN.i_PosInWorld.xyz);
+    float3 L = normalize(-U_MainLightDirection.xyz);
+    float3 color = pbr_lighting_fresnel_weighted(normal, L, V, albedo.rgb, 0.0, 1.0, U_MainLightColor.rgb);
+    color.rgb = color.rgb * IN.i_FogColor.a + IN.i_FogColor.rgb;
+
+	return float4(color, 1.0);
+}

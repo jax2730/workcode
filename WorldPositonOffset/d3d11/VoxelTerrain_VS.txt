@@ -1,0 +1,148 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+#include <TriPlanarMapping_Function_VS.inl>
+
+float4 U_WorldRotationMatrix[3];
+float4 U_WorldViewProjectMatrix[4];
+float4 U_WorldMatrix[3];
+float4 U_InvTransposeWorldMatrix[3];
+#ifdef USESHADOWMAP
+float4 U_WorldMatrixBaseView[4];
+#endif
+
+struct VS_INPUT
+{
+    float3 i_Pos        : POSITION0;
+#ifndef SHADOWPASS  
+    float3 i_Normal     : NORMAL0;
+    uint2  i_Index      : TEXCOORD0;
+    float3  i_Blend      : TEXCOORD1;
+    // #ifdef USE_FACE_NORMAL
+        float3 i_FaceNormal : TEXCOORD2;
+    // #endif // USE_FACE_NORMAL
+#endif
+};
+
+struct VS_OUTPUT
+{
+    float4 o_PosInClip          : SV_POSITION;
+
+    #ifndef SHADOWPASS        
+        // triplanar mapping needs
+        float3 o_LocalP         : TEXCOORD0;
+        float3 o_LocalN         : TEXCOORD1;
+        float3 o_WorldP         : TEXCOORD2;
+        float3 o_WorldN         : TEXCOORD3;
+
+        float3 o_Tangent1       : TEXCOORD4;
+        float3 o_BiTangent1     : TEXCOORD5;
+        float3 o_Tangent2       : TEXCOORD6;
+        float3 o_BiTangent2     : TEXCOORD7;
+
+        nointerpolation uint2 o_Index : TEXCOORD8;
+        float3  o_Blend          : TEXCOORD9;
+
+        #ifdef USESHADOWMAP
+            float o_ViewSpaceZ : TEXCOORD10;
+            float3 o_WPosViewBase : TEXCOORD11;
+        #endif
+    #endif // !SHADOWPASS
+
+    #ifdef PARABOLOID_MAPPING
+        float3 o_ClipDepth : TEXCOORD12;
+    #endif
+
+    #ifdef VOXELKARST
+        float4 o_VertexColor : COLOR0;
+    #endif
+};
+
+// rotate vertex normal toward face normal if the angle of two vectors is larger than threshold_Angle
+float3 CalculateTransNormal(float3 vNormal, float3 fNormal, float mixValue, float threshold_Angle)
+{
+    float threshold_cos_theta = cos(threshold_Angle);
+    float cos_theta = dot(vNormal, fNormal);
+
+    return (cos_theta < threshold_cos_theta) ? normalize(mixValue * vNormal + (1 - mixValue) * fNormal) : vNormal;
+}
+
+float3 GetGISColor(uint color)
+{
+    float b = (float)(color >> 16 & 0xff) / 255.0;
+    float g = (float)(color >> 8 & 0xff) / 255.0;
+    float r = (float)(color & 0xff) / 255.0;
+    return pow(float3(r, g, b), 2.2);
+}
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+    VS_OUTPUT vsOut = (VS_OUTPUT)0;
+
+    float4 p = float4(IN.i_Pos.xyz, 1.f);
+    vsOut.o_PosInClip.x = dot(U_WorldViewProjectMatrix[0], p);
+    vsOut.o_PosInClip.y = dot(U_WorldViewProjectMatrix[1], p);
+    vsOut.o_PosInClip.z = dot(U_WorldViewProjectMatrix[2], p);
+    vsOut.o_PosInClip.w = dot(U_WorldViewProjectMatrix[3], p);
+
+    #ifdef PARABOLOID_MAPPING
+        vsOut.o_ClipDepth = vsOut.o_PosInClip.z;
+	    ParaboloidMapping(
+            vsOut.o_PosInClip, 
+            U_ShadowLightDepthMulAdd.x, 
+            U_ShadowLightDepthMulAdd.z, 
+            U_ShadowLightDepthMulAdd.w);
+    #endif
+
+    #ifdef SHADOWPASS
+        #ifndef PARAMBOLOID_MAPPING
+            vsOut.o_PosInClip.z = ClampToNearPlane(vsOut.o_PosInClip.z);
+        #endif
+    #else // SHADOWPASS
+        // #ifdef USE_FACE_NORMAL
+            float3 vNormal = normalize(IN.i_Normal);
+            float3 fNormal = normalize(IN.i_FaceNormal);
+            float3 transNormal = CalculateTransNormal(vNormal, fNormal, 0.45f, 50.f);
+        // #endif // USE_FACE_NORMAL
+
+        vsOut.o_WorldP.x = dot(U_WorldMatrix[0], p);
+        vsOut.o_WorldP.y = dot(U_WorldMatrix[1], p);
+        vsOut.o_WorldP.z = dot(U_WorldMatrix[2], p);
+
+        float4 n = float4(normalize(IN.i_Normal), 0.f);
+        vsOut.o_WorldN.x = dot(U_WorldRotationMatrix[0], n);
+        vsOut.o_WorldN.y = dot(U_WorldRotationMatrix[1], n);
+        vsOut.o_WorldN.z = dot(U_WorldRotationMatrix[2], n);    
+        #ifdef USESHADOWMAP
+            
+            float4 wposView;
+            wposView.x = dot(U_WorldMatrixBaseView[0], p);
+            wposView.y = dot(U_WorldMatrixBaseView[1], p);
+            wposView.z = dot(U_WorldMatrixBaseView[2], p);
+            wposView.w = 1.0f;
+            vsOut.o_WPosViewBase = wposView.xyz;
+
+            float4 viewRow2 = U_ViewMatrix[2];
+            viewRow2[3] = 0.0f;
+            vsOut.o_ViewSpaceZ = -dot(viewRow2, wposView);
+        #endif // USESHADOWMAP
+
+        computeTangentSpaceVectors(
+            vsOut.o_WorldN, 
+            vsOut.o_Tangent1.xyz, 
+            vsOut.o_BiTangent1.xyz,
+            vsOut.o_Tangent2.xyz,
+            vsOut.o_BiTangent2.xyz);
+
+        vsOut.o_Blend = IN.i_Blend.xyz;
+        vsOut.o_Index = IN.i_Index;
+        vsOut.o_LocalP = IN.i_Pos;
+        // vsOut.o_LocalN = IN.i_Normal;
+        // #ifdef USE_FACE_NORMAL
+            vsOut.o_LocalN = transNormal;
+        // #endif // USE_FACE_NORMAL
+        #ifdef VOXELKARST
+            vsOut.o_VertexColor = float4(GetGISColor(IN.i_Index.y), 1.0);
+        #endif // VOXELKARST
+    #endif // SHADOWPASS
+    return vsOut;
+}

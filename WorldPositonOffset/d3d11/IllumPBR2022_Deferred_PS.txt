@@ -1,0 +1,494 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+#include <Light_Function_PS.inl>
+#include <Common_Function_PS.inl>
+
+#include <Common_GBuffers.inl>
+
+#ifndef BUMP_MAP
+	#undef RIPPLE
+#endif
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4	U_MaterialDiffuse;
+		Texture2D	S_Diffuse;
+		SamplerState S_DiffuseSamplerState;
+		float4 texDiffuse(float2 vUV) 
+		{ 
+			return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+		}
+	#endif
+#else
+
+	float4	U_MaterialDiffuse;
+	float4	U_MaterialSpecular;
+	float4  U_MaterialFresnel;
+	float4	U_MaterialCustomParam;
+	float4	U_MaterialCustomParam1;
+	float4  U_GlobalBuildingColor;
+	
+	float4	U_LightPower;	//x for lightpower, y for specular offset
+	float4  U_ReflectCubeMapMipLevels;
+
+	float4	U_PSGeneralRegister0;
+	float4	U_PSGeneralRegister1;
+	float4	U_PSGeneralRegister2;
+	float4	U_PSGeneralRegister3;
+	float4	U_PSGeneralRegister4;
+	float4	U_PSGeneralRegister5;
+	float4	U_PSGeneralRegister6;
+	float4	U_PSGeneralRegister7;
+	float4	U_PSGeneralRegister8;
+	float4	U_PSGeneralRegister9;
+	float4	U_PSGeneralRegister10;
+	float4	U_PSGeneralRegister11;
+	float4	U_PSGeneralRegister12;
+	float4	U_PSGeneralRegister13;
+	float4	U_PSGeneralRegister14;
+	float4	U_PSGeneralRegister15;
+	float4	U_PSGeneralRegister16;
+	float4	U_PSGeneralRegister17;
+	float4	U_PSGeneralRegister30; 
+
+	float4	U_PSGeneralRegister29; 	//x ---current mask percentage
+									//y --- if 1 on Lattice Cull Mask
+									//z ---alpha range
+									//w ---direction if w >= 0 Positive elseif w < 0 Reverse     
+	
+	Texture2D	S_Diffuse;
+	SamplerState S_DiffuseSamplerState;
+	
+	#ifndef PBR_SIMPLE	
+		Texture2D	S_Specular;
+		SamplerState S_SpecularSamplerState;
+	#endif
+	#ifdef DISSOLVE
+			Texture2D S_Custom7;
+			SamplerState S_Custom7SamplerState;
+	#endif
+
+	#ifdef TEXTURE_EMISSIVE
+		Texture2D S_Custom10;
+		SamplerState S_Custom10SamplerState;
+	#endif
+	
+	Texture2D	S_Bump;
+	SamplerState S_BumpSamplerState;
+
+	#ifdef REFLECT_CUBE_MAP
+		#undef ENVIRONMENT_MAP
+		TextureCube	S_ReflectCubeMap;
+		SamplerState S_ReflectCubeMapSamplerState;
+	#endif
+	
+	#ifdef ENVIRONMENT_MAP
+		TextureCube	S_EnvironmentCubeMap;
+		SamplerState S_EnvironmentCubeMapSamplerState;
+	#endif
+	
+	float4 texDiffuse(float2 vUV) 
+	{ 
+		return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+	}
+
+	#ifdef DETAIL_BUMP
+		Texture2D	S_Custom;
+		SamplerState S_CustomSamplerState;
+	#endif
+	
+	#ifdef CLUSTER_POINT_LIGHT
+		#include "Shadow_Light_Function_PS.inl"
+	#endif
+#endif
+
+float3 fresnelSchlick(float cosTheta, float3 F0)
+{
+	return F0 + (1.0-F0) * pow(1.0-cosTheta, 5.0);
+}
+
+float distributionGGX(float3 N, float3 H, float roughness)
+{
+	float a = roughness * roughness;
+	float a2 = a * a;
+	float NdotH = max(dot(N, H), 0.0);
+	float NdotH2 = NdotH * NdotH;
+	float nom = a2;
+	float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+	denom = 3.141592654 * denom * denom;
+	denom = max(denom, 0.00001);
+	return nom / denom;
+}
+
+float geometrySchlickGGX(float NdotV, float roughness)
+{
+	float r = roughness + 1.0;
+	float k = (r * r) / 8.0;
+	
+	float nom = NdotV;
+	float denom = NdotV * (1.0 - k) + k;
+	
+	return nom / denom;
+}
+
+float geometrySmith(float3 N, float3 V, float3 L, float roughness)
+{
+	float NdotV = max(dot(N, V), 0.0);
+	float NdotL = max(dot(N, L), 0.0);
+	float ggx2 = geometrySchlickGGX(NdotV, roughness);
+	float ggx1 = geometrySchlickGGX(NdotL, roughness);
+	
+	return ggx2 * ggx1;
+}
+
+float3 envBRDFApprox(float3 specularColor, float roughness, float NoV)
+{
+	float4 c0 = float4(-1.0,	-0.0275,	-0.572,		0.022);
+	float4 c1 = float4(1.0,		0.0425,		1.04,		-0.04);
+	
+	float4 r = roughness * c0 + c1;
+	float a004 = min(r.x * r.x, exp2(-9.28 * NoV)) * r.x + r.y;
+	float2 AB = float2(-1.04, 1.04) * a004 + r.zw;
+    //此处将下限clamp到1e-6防止因浮点数计算误差导致BRDF积分出现负值
+	return max(specularColor * AB.x + AB.y, 1e-6f);
+}
+
+
+//float3 envBRDFApprox(float3 specularColor, float roughness, float NoV)
+//{
+//   return pow(1.0f-max(roughness,NoV),3.f)+specularColor;
+//}
+
+float3 thinTranslucency(float3 N, float3 L, float3 transmittanceColor)
+{
+	float transmittance = saturate(dot(-N, L) + 0.2);
+	float fresnel = (1.0 - transmittance) * (1.0 - transmittance);
+	fresnel *= fresnel;
+	
+	return transmittance * (1.0 - fresnel) * transmittanceColor;
+}
+
+struct PS_INPUT
+{
+
+    float4	i_PosInClip			: SV_POSITION;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 	i_UV				: TEXCOORD0;
+	#endif
+
+#else
+	float4 	i_UV				: TEXCOORD0;
+	float4 	i_Fog				: TEXCOORD1;
+	float4	i_Normal			: TEXCOORD2;
+	float4	i_WPos				: TEXCOORD3;
+	
+	float4	i_Tangent			: TEXCOORD4;
+	float4	i_Binormal			: TEXCOORD5;
+	//float4	i_EyeDir			: TEXCOORD6;
+	#ifdef VERTEX_COLOR
+		float4 i_Diffuse		: TEXCOORD7;
+	#endif
+	#ifdef USESHADOWMAP
+		float	i_ViewSpaceZ					: TEXCOORD8;
+	#endif
+	#ifdef MOTIONBLUR
+		float4  i_VelUV     : TEXCOORD15;
+	#endif
+#endif
+#ifdef PARABOLOID_MAPPING
+	float	i_ClipDepth			: TEXCOORD12;
+#endif
+	float4	i_PosInModel		: TEXCOORD13;
+	float4  i_BoundBoxRange     : TEXCOORD14;
+};
+
+#define PS_OUTPUT GBuffers
+
+PS_OUTPUT main(PS_INPUT IN,bool isFrontFacing : SV_IsFrontFace)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+#ifdef PARABOLOID_MAPPING
+	clip(IN.i_ClipDepth);
+#endif
+
+	#ifdef NoColor
+		psOut.sc = float4(0.0, 0.0, 0.0, 0.0);
+        return psOut;
+	#endif
+	float2 uv = IN.i_UV.xy;
+	
+	uv *= U_PSGeneralRegister2.x;
+	uv += frac(U_PS_Time.z * float2(U_PSGeneralRegister1.z, U_PSGeneralRegister1.w));
+
+	#ifdef DISSOLVE
+	
+		if(U_MaterialCustomParam1.y > 0)
+		{
+			float4x4 thresholdMatrix =
+			{  1.0 / 17.0,  9.0 / 17.0,  3.0 / 17.0, 11.0 / 17.0,
+			  13.0 / 17.0,  5.0 / 17.0, 15.0 / 17.0,  7.0 / 17.0,
+			   4.0 / 17.0, 12.0 / 17.0,  2.0 / 17.0, 10.0 / 17.0,
+			  16.0 / 17.0,  8.0 / 17.0, 14.0 / 17.0,  6.0 / 17.0
+			};
+			float2 pos = IN.i_PosInClip.xy;
+			
+			
+			pos.xy = pos.xy/U_MaterialCustomParam1.z;
+			
+			int xindex = fmod(pos.x, 4);
+			int yindex =fmod(pos.y, 4);
+			
+			float alpha = thresholdMatrix[xindex][yindex];//* _RowAccess[yindex];
+			
+			if(alpha < U_MaterialCustomParam1.y)
+				discard;
+		}
+		else
+		{
+			if(S_Custom7.Sample(S_Custom7SamplerState, uv).a < U_MaterialFresnel.y)
+			discard;	
+		}
+
+		bool needDiscard = ComputeBitmapCullMask(U_PSGeneralRegister29, IN.i_BoundBoxRange, 
+		U_MaterialCustomParam1.z, IN.i_PosInModel.xyz, IN.i_PosInClip.xyz);
+		if(needDiscard)
+			discard;
+	#endif
+	
+	
+
+	half4 diffuseColor = S_Diffuse.Sample(S_DiffuseSamplerState, uv);
+
+	#ifdef ALPHA_TEST
+		clip(diffuseColor.a - U_MaterialDiffuse.a);
+	#endif
+	half alphaValue = diffuseColor.a; 
+	
+	half3 baseMap = pow(diffuseColor.rgb, 2.2);
+	
+	half3 colorMask = pow(U_PSGeneralRegister4.rgb, 2.2);
+	
+	colorMask = lerp(half3(1.0, 1.0, 1.0), colorMask, U_PSGeneralRegister13.z);
+	baseMap = baseMap * colorMask;
+
+	half3 N = normalize(IN.i_Normal.xyz);
+	
+	#ifdef TWO_SIDES
+		float frontValue = isFrontFacing ? 1.0f : -1.0f;
+		N *= frontValue;
+	#endif
+
+	#ifdef USESHADOWMAP
+		float4 shadowSpacePos[SHADOWSPLITE];
+		ProjectToLightSpace(shadowSpacePos, IN.i_WPos.xyz, N, IN.i_ViewSpaceZ);
+	#endif
+
+	half3 V = normalize(U_PS_CameraPosition.xyz - IN.i_WPos.xyz);
+	half3 L = normalize(-U_MainLightDirection.xyz);
+	
+	half3 H = normalize(L+V);
+	half NdotH = max(dot(N, H), 0.0h);
+	half wetFinal = U_PSGeneralRegister8.w * NdotH;
+	
+	// Note by hejiwei: 法线贴图统一设置 z = 1, 所有法线强度、细节法线都只对xy分量操作，
+	// 只在最后变换到世界空间之前normalize一次	
+	half4 bumpColor = 0.0;	
+	half3 bump = half3(0.h, 0.h, 1.h); 
+	#ifdef BUMP_MAP
+		bumpColor = S_Bump.Sample(S_BumpSamplerState, uv); 		
+		bump = bumpColor.rgb * 2.h - 1.h;	
+		bump.xy *= U_PSGeneralRegister2.w;
+		bump.z = 1.h;	
+		
+		#ifdef DETAIL_BUMP
+			float2 detailUV = U_PSGeneralRegister13.x;
+			
+			detailUV /= U_PSGeneralRegister2.x;
+			
+			half4 detailBumpColor = S_Custom.Sample(S_CustomSamplerState, uv * detailUV);
+			bump.xy += (detailBumpColor.xy - half2(0.5, 0.5)) * U_PSGeneralRegister13.y;
+		#endif
+	#endif
+
+	float coverLerp = dot(N, U_PS_GravityDirection.xyz);
+	float agingLerp = coverLerp*U_PSGeneralRegister17.w;	
+	agingLerp = clamp(agingLerp, 0.0, 1.0);
+	half3 agingColor = pow(U_GlobalAgingColour.rgb, 2.2);
+	float maskRes = 1.0;
+// #define CUBE_RANGE
+#ifndef CUBE_RANGE
+    float4 tsPos = U_CoverColorParams;
+    float dist = length(IN.i_WPos.xz - tsPos.xz);
+    maskRes = smoothstep(tsPos.w - 1.0f, tsPos.w, dist);
+    // maskRes = 1.0 - maskRes;
+#else
+    float rectSize = 20.0f;
+    float2 halfSize = rectSize * 0.5;
+    float4 tsPos = U_CoverColorParams;
+    // Calculate the distance to the nearest edge of the rectangle
+    float2 distToEdge = abs(IN.i_WPos.xz - tsPos.xz) - halfSize;
+
+    // Use length function to determine if the point is within the rectangle boundaries
+    maskRes = length(max(distToEdge, 0.0));
+    maskRes = clamp(maskRes, 0.0, 1.0);
+    // maskRes = 1.0 - maskRes;
+#endif
+
+	baseMap.rgb = lerp(baseMap.rgb, agingColor, agingLerp);	
+
+	coverLerp += U_PSGeneralRegister11.z;
+	coverLerp = clamp(coverLerp, 0.0, 1.0);
+	
+	coverLerp = coverLerp * U_PSGeneralRegister5.w;
+	
+	half3 coverMap = U_WeatherParam0.xyz;
+	coverLerp *= U_WeatherParam0.w * (1.0 - U_PSGeneralRegister30.x);
+
+	half metallic = 1.0;
+	half roughness = 0.0001;
+	half ao = 1.0;
+
+	#ifdef PBR_SIMPLE
+		metallic = U_PSGeneralRegister8.y;
+		ao = pow(bumpColor.b, U_PSGeneralRegister15.z);
+		//ao = lerp(1.0, bumpColor.b, U_PSGeneralRegister8.z);
+		// 4.w 粗糙度基础值   15.y 粗糙度开关
+		roughness = lerp(U_PSGeneralRegister4.w, bumpColor.b, U_PSGeneralRegister15.y);
+		metallic = lerp(metallic, bumpColor.b, U_PSGeneralRegister17.z);
+	#else
+		half3 mixMap = S_Specular.Sample(S_SpecularSamplerState, uv).rgb;
+		
+		metallic = mixMap.r;
+		roughness = clamp(mixMap.g + U_PSGeneralRegister6.w, 0.0, 1.0);
+		ao = pow(mixMap.b, U_PSGeneralRegister15.z);
+	#endif
+	
+		#ifdef BUMP_MAP
+			half3 nn = N;//normalize(IN.i_Normal.xyz);
+			half3 tn = normalize(IN.i_Tangent.xyz);
+			half3 bn = normalize(IN.i_Binormal.xyz);
+
+			tn = normalize(tn - nn * dot(tn, nn));
+			bn = normalize(bn - nn * dot(bn, nn));
+
+			half3x3 tbn = 
+			{
+				tn.x, bn.x, nn.x,
+				tn.y, bn.y, nn.y,
+				tn.z, bn.z, nn.z 
+			};
+			N = normalize(mul(tbn, bump));
+		#endif
+		
+		float r = U_WeatherParam1.x;
+
+		roughness = lerp(roughness, r, coverLerp);
+		roughness -= wetFinal;
+
+		roughness = max(roughness , 1e-6);
+
+		float m = U_WeatherParam1.y;
+
+		metallic = lerp(metallic, m, coverLerp);
+
+		metallic = lerp(metallic, 0.5, wetFinal);
+
+		coverLerp *= maskRes;	
+		baseMap = lerp(baseMap, coverMap, coverLerp);
+
+
+		half3 grayColor = baseMap.rgb * half3(0.333, 0.333, 0.333);
+		float gray = grayColor.r + grayColor.g + grayColor.b;
+
+		grayColor.rgb =  half3(gray,gray,gray);
+
+		baseMap.rgb = lerp(baseMap.rgb,grayColor,U_MaterialCustomParam.x);
+
+		// 计算自发光
+		half3 emission = 0.0h;
+		#ifdef EMISSIVE
+			half3 misColor = U_PSGeneralRegister0.xyz;
+			half3 missiveColor = diffuseColor.rgb * misColor * diffuseColor.a; // 使用原始 diffuseColor
+			half3 minMissiveColor = missiveColor * U_PSGeneralRegister0.w;
+			half todFactor = lerp(1.0, U_LightPower.x, U_PSGeneralRegister12.z);
+			half3 maxMissiveColor = missiveColor * U_PSGeneralRegister1.x;
+			half factor = U_MaterialSpecular.w;
+			emission += lerp(minMissiveColor, lerp(minMissiveColor, maxMissiveColor, half3(factor, factor, factor)), U_PSGeneralRegister12.w) * todFactor;
+		#endif
+
+		#ifdef TEXTURE_EMISSIVE
+			half4 cMissiveMap = S_Custom10.Sample(S_Custom10SamplerState, uv);
+			cMissiveMap.rgb = pow(cMissiveMap.rgb, 2.2f);
+			half3 tMissiveBaseColor = pow(U_PSGeneralRegister16.xyz, 2.2f);
+			half3 tMissiveColor = diffuseColor.rgb * cMissiveMap.rgb * tMissiveBaseColor.rgb * cMissiveMap.a; // 使用原始 diffuseColor
+			half3 tMinMissiveColor = tMissiveColor * U_PSGeneralRegister3.x;
+			half tTodFactor = lerp(1.0, U_LightPower.x, U_PSGeneralRegister3.z);
+			half3 tMaxMissiveColor = tMissiveColor * U_PSGeneralRegister3.y;
+			half tFactor = U_MaterialSpecular.w;
+			emission += lerp(tMinMissiveColor, lerp(tMinMissiveColor, tMaxMissiveColor, half3(tFactor, tFactor, tFactor)), U_PSGeneralRegister3.w) * tTodFactor;
+		#endif
+
+    	// #if defined(GBUFFER_PASS)
+            float shadowFactor = 1.0;
+            #ifdef USESHADOWMAP
+                shadowFactor = calcShadowFactor(shadowSpacePos, IN.i_ViewSpaceZ);
+            #endif
+
+            half3 encodedNormal = EncodeNormal(N);
+            uint useRoleMainLight = clamp(uint(U_PSGeneralRegister7.w), 0, 1);
+            uint receiveShadow = 0;
+            #ifdef USESHADOWMAP
+                receiveShadow = 1;
+            #endif
+            uint useEnvironmentMap = 0;
+            #if defined(ENVIRONMENT_MAP) || defined(REFLECT_CUBE_MAP)
+                useEnvironmentMap = 1;
+            #endif
+
+			uint usePointLight = 0;
+			#ifdef CLUSTER_POINT_LIGHT
+				usePointLight = 1;
+			#endif
+
+            half shadingModel = EncodeShadingModel(
+                useRoleMainLight,
+                receiveShadow,
+                useEnvironmentMap,
+				usePointLight,
+                2); // 标准 PBR
+
+            float alphaOut = alphaValue * U_MaterialFresnel.r;
+
+            psOut.g0.xyz = pow(baseMap.rgb, 1.0 / 2.2); // Albedo
+            psOut.g0.w = alphaOut;
+
+            psOut.g1.xyz = encodedNormal;   // Normal
+            psOut.g1.w = shadowFactor;      // Shadow Factor
+
+            psOut.g2.x = metallic;          // Metallic
+            psOut.g2.y = roughness;         // Roughness
+            psOut.g2.z = ao;                // AO
+            psOut.g2.w = shadingModel;      // Shading Model
+
+            psOut.sc.xyz = emission;        // Emission
+            psOut.sc.w = 0.0h;              // Unused
+
+            if(U_MaterialCustomParam.w > 0)
+            {
+			    psOut.sc.xyz = (1 - U_MaterialCustomParam.w) * psOut.g0.xyz + U_MaterialCustomParam.w * U_MaterialCustomParam.xyz;
+			    psOut.sc.a = 1.0;
+			    psOut.g2.w = 0; // unlit
+            }
+
+#ifdef EditorHelp
+	        psOut.sc.rgb = psOut.g0.rgb * 0.00001 + float3(1.0, 0.0, 0.0);
+	        psOut.sc.a = 1.0;
+			psOut.g2.w = 0; // unlit
+#endif // EditorHelp
+	// #endif // GBUFFER_PASS
+	return psOut;
+}

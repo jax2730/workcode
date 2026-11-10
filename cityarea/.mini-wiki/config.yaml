@@ -1,0 +1,47 @@
+generation:
+  language: zh
+  detail_level: detailed
+  include_diagrams: true
+  include_examples: true
+  link_to_source: true
+  min_sections: 8
+
+project:
+  name: cityarea
+  type: backend
+  primary_language: python
+  focus_areas:
+    - GIS
+    - 城市空间处理
+    - block 聚类
+    - GPKG 导出
+
+progressive:
+  enabled: auto
+  batch_size: 2
+  quality_check: false
+  auto_continue: false
+
+domain_hierarchy:
+  enabled: true
+  auto_detect: false
+  language: zh
+  domains:
+    - 城市聚类系统
+    - 道路与街区处理
+    - 行政区处理
+    - 数据抓取与导出
+
+linking:
+  auto_cross_links: true
+  generate_doc_map: true
+  generate_dependency_graph: true
+
+exclude:
+  - .git
+  - .venv
+  - venv
+  - __pycache__
+  - node_modules
+  - dist
+  - build

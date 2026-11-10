@@ -1,0 +1,39 @@
+#include <Common_Uniform_VS.inl>
+
+
+struct VS_INPUT
+{
+	float3 i_Position	: POSITION0;
+	float2 i_UV			: TEXCOORD0;
+	float4 i_Diffuse	: COLOR0;
+};
+
+struct VS_OUTPUT
+{
+	float4 o_PosInClip	: SV_POSITION;
+	float4 o_Diffuse	: COLOR0;
+	float4 o_UV			: TEXCOORD0;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+
+	float4 pos;
+	pos.xyz	= IN.i_Position;
+	pos.w = 1.0;
+	
+	vsOut.o_PosInClip.x = dot( pos , U_ViewProjectMatrix[0] );
+	vsOut.o_PosInClip.y = dot( pos , U_ViewProjectMatrix[1] );
+	vsOut.o_PosInClip.z = dot( pos , U_ViewProjectMatrix[2] );
+	vsOut.o_PosInClip.w = dot( pos , U_ViewProjectMatrix[3] );
+
+	vsOut.o_UV.xy = IN.i_UV.xy;
+	vsOut.o_Diffuse = IN.i_Diffuse;
+	#ifdef EDITOR_MODE
+		#ifdef HierarchicalLOD
+			vsOut.o_PosInClip = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+		#endif
+	#endif
+	return vsOut;
+}

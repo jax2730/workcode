@@ -1,0 +1,59 @@
+Texture2D S_2DExt0;//TracingVolumetricTexture 
+SamplerState S_2DExt0SamplerState;
+
+float4 U_PSCustom0;
+float4 U_PSCustom1;
+float4 U_PSCustom2;
+
+#define DepthTexture								S_2DExt0
+#define PointClampedSampler							S_2DExt0SamplerState
+#define SourceTexelOffsets23						U_PSCustom0
+#define SourceMaxUV       							U_PSCustom1.xy
+#define DestinationResolution       				U_PSCustom1.zw
+#define ViewSizeAndInvSize							U_PSCustom2
+
+float GetDeviceZ(float2 UV)
+{
+	return DepthTexture.Sample(PointClampedSampler , min(UV, SourceMaxUV));
+}
+
+struct PS_INPUT
+{
+    float4 o_Position	: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+     float4 o_Color	: SV_TARGET;
+     float  o_Depth	: SV_Depth;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+
+	float Depth = 0;
+	float2 UV = IN.i_UV;
+
+	const float OffsetScale = 0.25f;
+	float DeviceZ0 = GetDeviceZ(UV.xy + SourceTexelOffsets23.zw * OffsetScale * float2(-1,-1));
+	float DeviceZ1 = GetDeviceZ(UV.xy + SourceTexelOffsets23.zw * OffsetScale * float2(-1, 1));
+	float DeviceZ2 = GetDeviceZ(UV.xy + SourceTexelOffsets23.zw * OffsetScale * float2( 1,-1));
+	float DeviceZ3 = GetDeviceZ(UV.xy + SourceTexelOffsets23.zw * OffsetScale * float2( 1, 1));
+
+	const float MaxDeviceZ = max(max(DeviceZ0, DeviceZ1), max(DeviceZ2, DeviceZ3));
+	const float MinDeviceZ = min(min(DeviceZ0, DeviceZ1), min(DeviceZ2, DeviceZ3));
+
+	const float2 Resolution = uint2(DestinationResolution * ViewSizeAndInvSize.xy * ViewSizeAndInvSize.zw);
+	const uint2  PixelPos = uint2(UV.xy * Resolution);
+
+	const uint2 PixelPosStep = (PixelPos >> 1) * 2;
+	uint CheckerBoard = (PixelPos.x - PixelPosStep.x);
+	CheckerBoard = (PixelPos.y - PixelPosStep.y) == 0 ? CheckerBoard : 1 - CheckerBoard;
+
+	Depth = CheckerBoard > 0 ? MaxDeviceZ : MinDeviceZ;
+	psOut.o_Depth = Depth;
+	return psOut;
+}
+

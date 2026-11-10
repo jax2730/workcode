@@ -1,0 +1,181 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+float4	U_WorldViewProjectMatrix[4];	
+float4  U_WorldMatrix[3];
+float4  U_InvTransposeWorldMatrix[3];
+
+
+struct VS_INPUT
+{
+	float4 i_Pos		: POSITION0;
+
+	float4 i_Normal		: NORMAL0;
+};
+
+
+
+
+struct VS_OUTPUT
+{
+	float4	o_PosInClip			: SV_POSITION;
+
+	float4 	o_UV				: TEXCOORD0;
+	float4	o_Fog				: TEXCOORD1;
+	float4	o_WNormal			: TEXCOORD2;
+	float4  o_ClipPos			: TEXCOORD3;
+	float4	o_EyeDir			: TEXCOORD4;
+
+#ifdef TRAIL_DECAL
+	nointerpolation precise float4  o_ObjectID: TEXCOORD5;
+#endif
+};
+
+float3 rotate (float4 qvec, float3 v) 
+{
+	float3 uv, uuv;
+	 
+	uv = cross(qvec.xyz, v);
+	uuv = cross(qvec.xyz, uv);
+	uv *= (2.0 * qvec.w);
+	uuv *= 2.0;
+		
+	return v + uv + uuv;
+}
+
+float4 inverseQuat(float4 qvec)
+{
+	float fNorm = qvec.w*qvec.w + qvec.x*qvec.x + qvec.y*qvec.y + qvec.z*qvec.z;
+	float4 quat = float4(0.0f, 0.0f, 0.0f, 1.0f);
+	if ( fNorm > 0.0 )
+	{
+		float fInvNorm = 1.0f/fNorm;	
+		quat.w =  qvec.w* fInvNorm;
+		quat.x = -qvec.x* fInvNorm;
+		quat.y = -qvec.y* fInvNorm;
+		quat.z = -qvec.z* fInvNorm;	
+	}
+	return quat;
+}
+
+#ifdef TRAIL_DECAL
+	#define DECAL_TRIAL_VERTEX_OFFSET  1
+	#define DECAL_TRAIL_MAX_VERTEX_ELEMENT  4
+	#define DRAW_CUBEVERTEX_COUNT 36
+	#define ONE_DECALTRAIL_MAX_UNIFORM_COUNT DECAL_TRAIL_MAX_VERTEX_ELEMENT*100 + DECAL_TRIAL_VERTEX_OFFSET
+	uniform float4 U_VSCustom9[ONE_DECALTRAIL_MAX_UNIFORM_COUNT];
+#endif
+
+
+
+VS_OUTPUT main(VS_INPUT IN, uint vtxId : SV_VertexID)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	
+#ifdef TRAIL_DECAL
+	float3 geoAllUp = U_VSCustom9[0].xyz;
+	int    currentObjectID =  int(vtxId / DRAW_CUBEVERTEX_COUNT);
+	vsOut.o_ObjectID.x = currentObjectID;
+
+	//需要3个向量, geoRight, geoUp, geoFront。 并且带长度
+	int    index =  currentObjectID * DECAL_TRAIL_MAX_VERTEX_ELEMENT + DECAL_TRIAL_VERTEX_OFFSET;
+	float3 center = U_VSCustom9[index + 0].xyz;
+	float  u = 	    U_VSCustom9[index + 0].w;
+	float  geoFrontWidth = U_VSCustom9[index + 1].x;
+	float  geoUpWidth = U_VSCustom9[index + 1].y;
+	float4 geoDelta = U_VSCustom9[index + 2];
+	float3 cubeUp =  geoAllUp * geoUpWidth;
+	float3 cubeFront =  normalize(cross(cubeUp, geoDelta.xyz))* geoFrontWidth;
+
+	
+	int    nextIndex = (currentObjectID + 1)* DECAL_TRAIL_MAX_VERTEX_ELEMENT + DECAL_TRIAL_VERTEX_OFFSET;
+	float3 next_center = U_VSCustom9[nextIndex + 0].xyz;
+	float  next_u = U_VSCustom9[nextIndex + 0].w;
+	float  next_geoFrontWidth = U_VSCustom9[nextIndex + 1].x;
+	float  next_geoUpWidth = U_VSCustom9[nextIndex + 1].y;
+	float4 next_geoDelta = U_VSCustom9[nextIndex + 2];
+	float3 next_cubeUp =  geoAllUp * next_geoUpWidth;
+	float3 next_cubeFront =  normalize(cross(next_cubeUp, next_geoDelta.xyz))* next_geoFrontWidth;
+	
+	//用当前点x小于 0 xyz,  用x 大于0的xyz下一个点
+	float3 iPos = IN.i_Pos.xyz;
+	float3 outPos = float3(0.0f, 0.0f, 0.0f);
+
+	float  isRight = sign(iPos.x + 1.0f); 
+	float  isLeft = 1.0f - isRight;
+
+	float  isTop   = sign(iPos.y + 1.0f); 
+	float  isFront = sign(iPos.z + 1.0f); 
+	
+
+	//立方体的左边使用当前点中心, 立方体的右边使用下一个点的中心
+	float3 result_cubeCenter = center * isLeft + next_center * isRight;
+	float3 result_cubeFront =  cubeFront * isLeft + next_cubeFront* isRight;
+	float3 result_cubeUp =  cubeUp * isLeft + next_cubeUp* isRight;
+
+	//(ipos.z = -1 或1， 得到的结果为立方体前方或后方的点)
+	//得到世界坐标点
+	outPos = result_cubeCenter + result_cubeFront * iPos.z;
+	outPos = outPos + result_cubeUp * iPos.y;
+	float4 WPos = float4(outPos.xyz, 1.0f);
+
+	//得到世界坐标
+	vsOut.o_PosInClip.x = dot(U_ViewProjectMatrix[0], WPos);
+	vsOut.o_PosInClip.y = dot(U_ViewProjectMatrix[1], WPos);
+	vsOut.o_PosInClip.z = dot(U_ViewProjectMatrix[2], WPos);
+	vsOut.o_PosInClip.w = dot(U_ViewProjectMatrix[3], WPos);
+	//得到法线方向
+	vsOut.o_WNormal.xyz = cubeUp;
+
+	float4 vCamPos = U_VS_CameraPosition;
+	float3 camToWorld =  vCamPos.xyz - WPos.xyz;
+	vsOut.o_EyeDir.xyz = camToWorld;
+	vsOut.o_ClipPos = vsOut.o_PosInClip;
+	vsOut.o_Fog = float4(0.0f, 0.0f, 0.0f, 1.0f);
+
+#else
+	float4  pos =  float4(IN.i_Pos.xyz, 1.0f);
+	float4 WorldMatrix[3];
+	float4 InvTransposeWorldMatrix[3];
+
+	vsOut.o_PosInClip.x = dot(U_WorldViewProjectMatrix[0], pos);
+	vsOut.o_PosInClip.y = dot(U_WorldViewProjectMatrix[1], pos);
+	vsOut.o_PosInClip.z = dot(U_WorldViewProjectMatrix[2], pos);
+	vsOut.o_PosInClip.w = dot(U_WorldViewProjectMatrix[3], pos);
+
+	WorldMatrix[0] = U_WorldMatrix[0];
+	WorldMatrix[1] = U_WorldMatrix[1];
+	WorldMatrix[2] = U_WorldMatrix[2];
+
+	InvTransposeWorldMatrix[0] = U_InvTransposeWorldMatrix[0];
+	InvTransposeWorldMatrix[1] = U_InvTransposeWorldMatrix[1];
+	InvTransposeWorldMatrix[2] = U_InvTransposeWorldMatrix[2];
+
+	float3 WPos = mul((float3x4)WorldMatrix, pos);
+
+	float4  normal =  float4(IN.i_Normal.xyz, 0.0f);
+	normal = float4(0.0f, 1.0f, 0.0f, 0.0f);
+	
+	float4	vCamPos				=	U_VS_CameraPosition;
+	
+	vsOut.o_WNormal.xyz = mul((float3x4)InvTransposeWorldMatrix, float4(normal.xyz, 0.0f));
+ 
+	//vsOut.o_UV = IN.i_UV;
+		
+	float3 camToWorld =  vCamPos.xyz - WPos;
+	
+	vsOut.o_EyeDir.xyz = camToWorld;
+
+	float4x4 gravityRotatePosMatrix;
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+	
+	vsOut.o_Fog = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);	
+	
+	vsOut.o_ClipPos = vsOut.o_PosInClip;
+#endif
+	return vsOut;
+}

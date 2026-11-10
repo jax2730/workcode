@@ -1,0 +1,286 @@
+#include <Common_Uniform_PS.inl> 
+#include <Light_Function_PS.inl>
+#include <EnvironmentLight_Function.inl>
+#include <Common_Function_PS.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+
+#include <Common_GBuffers.inl>
+
+// #ifdef SHADOWPASS
+// 	#ifdef ALPHA_TEST
+// 		float4	U_MaterialDiffuse;
+// 		Texture2D	S_Diffuse;
+// 		SamplerState S_DiffuseSamplerState;
+// 		float4 texDiffuse(float2 vUV) 
+// 		{ 
+// 			return S_Diffuse.Sample(S_DiffuseSamplerState, vUV);
+// 		}
+// 	#endif
+// #else
+	Texture2D S_Diffuse; //冰面贴图
+	SamplerState S_DiffuseSamplerState;
+
+	Texture2D S_Custom; //冰面贴图
+	SamplerState S_CustomSamplerState;
+
+	Texture2D S_Bump; //法线贴图
+	SamplerState S_BumpSamplerState;
+
+	//Texture2D S_Diffuse; //漫反射贴图
+	//SamplerState S_DiffuseSamplerState;
+
+	#ifdef TEXTURE_MASK
+		Texture2D S_Custom2;
+		SamplerState S_Custom2SamplerState;
+	#endif
+	//TextureCube S_EnvironmentCubeMap;
+	//SamplerState S_EnvironmentCubeMapSamplerState;
+	float4 U_MaterialDiffuse;
+
+	float4 U_PBR_Environment_Explosure;
+
+	float4x4 U_PBR_RMatrix;
+	float4x4 U_PBR_GMatrix;
+	float4x4 U_PBR_BMatrix;
+
+    float4	U_MaterialCustomParam;
+	float4 U_MaterialCustomParam1;
+	#ifndef SIMPLE
+		Texture2D S_Specular;
+		SamplerState S_SpecularSamplerState;
+	#endif
+	float4 U_PSGeneralRegister0; //x:冰面深度视差参数 y:冰面粗糙度 z:冰缝深度参数 w:法线强度
+	float4 U_PSGeneralRegister1; //x:菲涅尔 y:反射等级 z:底层uv旋转 w:ViewLightPrecent
+	float4 U_PSGeneralRegister2; //x:ReflectRotateAngle反射角度 y:简易模式下粗糙度 z:简易模式下金属度
+	float4 U_PSGeneralRegister3; //x:UV缩放 y:下面UV缩放 z:MaskPercent w:mask开关
+	float4 U_PSGeneralRegister4; //x:下冰面被法线影响的UV强度 y:下冰面U补偿 z:下冰面V补偿
+	float4 U_PSGeneralRegister5; //MaskRColor.rgb
+	float4 U_PSGeneralRegister6; //MaskGColor.rgb
+	float4 U_PSGeneralRegister7; //MaskBColor.rgb
+	float4 U_PSGeneralRegister8; //x:SSS Strenth y:SSS Width
+	float4 U_PSGeneralRegister9; //SSSColor.rgb
+	float4 U_PSGeneralRegister10;
+	float4 U_PSGeneralRegister30;
+	
+// #endif
+
+float3 calculateSSS(float3 lightDir, float3 viewDir, float3 normal, float3 albedo,float SSSWidth,float3 SSSColor) 
+{
+	float NdotL = max(dot(normal, lightDir), 0.0);
+	float NdotV = max(dot(normal, viewDir), 0.0);
+
+	// 使用Wrap Lighting模型来增强SSS效果
+	// 它可以使光线在表面边缘处产生更柔和的散射效果
+	float wrap = 1.0 + SSSWidth * NdotL;
+	float sssStrength = pow(NdotL / wrap, 2.0); 
+
+	// 结合SSS颜色和物体的基本颜色
+	float3 scatteredLight = SSSColor.xyz * sssStrength;//内部折射颜色变化
+
+	// 将SSS效果与物体表面的基本颜色结合
+	return lerp(albedo, scatteredLight, sssStrength);
+}
+
+#ifdef ENVIRONMENT_MAP
+
+	TextureCube	S_GlobalEnvironmentCubeMap;
+	SamplerState S_GlobalEnvironmentCubeMapSamplerState;
+	float4 U_GlobalEnvironmentCubeMipMapLevels;
+#endif
+
+
+struct PS_INPUT
+{
+    float4 i_PosInClip			: SV_POSITION;
+
+	// #ifdef SHADOWPASS
+	// 	#ifdef ALPHA_TEST
+	// 		float4 	i_UV		: TEXCOORD0;
+	// 	#endif // ALPHA_TEST
+	// #else // SHADOWPASS
+	    float4 i_UV				: TEXCOORD0;
+	    float4 i_Normal			: TEXCOORD1;
+	    float4 i_WPos			: TEXCOORD2;
+	    float4 i_Fog			: TEXCOORD3;	
+	    float4 i_Tangent		: TEXCOORD4;
+	    float4 i_Binormal		: TEXCOORD5;
+	    float4 i_EyeDir			: TEXCOORD6;
+
+	    #ifdef VERTEX_COLOR
+	        float4 o_Diffuse    : TEXCOORD7;
+		#endif // VERTEX_COLOR
+
+		#ifdef USESHADOWMAP
+			float	i_ViewSpaceZ					: TEXCOORD8;
+		#endif // USESHADOWMAP
+	// #endif // SHADOWPASS
+
+	#ifdef PARABOLOID_MAPPING
+		float	i_ClipDepth			: TEXCOORD13;
+	#endif // PARABOLOID_MAPPING
+};
+
+#define PS_OUTPUT GBuffers
+
+PS_OUTPUT main(PS_INPUT IN) : SV_TARGET
+{
+    PS_OUTPUT psOut = (PS_OUTPUT) 1.f;
+
+#ifdef PARABOLOID_MAPPING
+	clip(IN.i_ClipDepth);
+#endif
+
+	#ifdef NoColor
+        psOut.sc = float4(0.0, 0.0, 0.0, 0.0);
+		return psOut;
+	#endif
+	float2 uv = IN.i_UV.xy;
+
+	float2 underUV = uv;
+	float roleUV = U_PSGeneralRegister1.z;
+	underUV = float2(underUV.x * cos(roleUV) - underUV.y * sin(roleUV),
+					underUV.x * sin(roleUV) + underUV.y * cos(roleUV));
+	float3 viewDir = normalize(IN.i_EyeDir.xyz);
+	float3 normal = normalize(IN.i_Normal.xyz);
+	
+	#ifdef USESHADOWMAP
+		float4 shadowSpacePos[SHADOWSPLITE];
+		ProjectToLightSpace(shadowSpacePos, IN.i_WPos.xyz, normal, IN.i_ViewSpaceZ);
+	#endif
+	
+	uv *= U_PSGeneralRegister3.x;
+	
+	float4 iceColor = S_Diffuse.Sample(S_DiffuseSamplerState, uv);
+	
+	half4 bumpColor = 0.0;
+	
+	half3 nn = normal;
+	half3 tn = normalize(IN.i_Tangent.xyz);
+	half3 bn = normalize(IN.i_Binormal.xyz);
+
+	tn = normalize(tn - nn * dot(tn, nn));
+	bn = normalize(bn - nn * dot(bn, nn));
+
+	half3x3 tbn =
+	{
+		tn.x, bn.x, nn.x,
+		tn.y, bn.y, nn.y,
+		tn.z, bn.z, nn.z 
+	};
+		
+	bumpColor = S_Bump.Sample(S_BumpSamplerState, uv);
+		
+	half3 bump = bumpColor.rgb * 2.0 - 1.0;
+	bump *= half3(U_PSGeneralRegister0.w, U_PSGeneralRegister0.w, 1.0);	
+	bump.z = 1.h;
+	bump = normalize(bump);
+	normal = mul(tbn, bump);
+
+	//计算一下法线影响下层冰面UV
+	float2 normalInf = (normal.xy + 0.5) * 0.5;
+	
+	underUV *= U_PSGeneralRegister3.y;//下冰面UV缩放
+	float3  parallax = mul(transpose(tbn), viewDir.xyz);
+	underUV = underUV - parallax.xy * U_PSGeneralRegister0.x + normalInf * U_PSGeneralRegister4.x;
+	underUV = float2(underUV.x + U_PSGeneralRegister4.y, underUV.y + U_PSGeneralRegister4.z);
+	
+	float4 mindIceColor = S_Custom.Sample(S_CustomSamplerState, underUV);
+	
+	float4 diffuseColor = lerp(iceColor, mindIceColor, U_PSGeneralRegister0.z);
+
+	#ifdef ALPHA_TEST
+		clip(diffuseColor.a - U_MaterialDiffuse.a);
+	#endif
+	
+	half alphaValue = diffuseColor.a;
+	half3 baseMap = pow(diffuseColor.rgb, 2.2);
+	
+	half3 colorMask = pow(U_PSGeneralRegister5.rgb, 2.2);
+
+	#ifdef TEXTURE_MASK
+		half4 mask = S_Custom2.Sample(S_Custom2SamplerState, uv);
+		half3 colorR = colorMask * mask.r;
+		half3 colorG = pow(U_PSGeneralRegister6.rgb, 2.2) * mask.g;
+		half3 colorB = pow(U_PSGeneralRegister7.rgb, 2.2) * mask.b;
+		float f = (min(mask.r + mask.g + mask.b, 1.0)) * U_PSGeneralRegister3.w;
+		half3 colorF = colorR + colorG +  colorB;
+		baseMap = lerp(baseMap, baseMap * colorF, f);
+	#else
+		colorMask = lerp(half3(1.0, 1.0, 1.0), colorMask, U_PSGeneralRegister3.w);
+		baseMap = baseMap * colorMask;
+	#endif
+	half metallic = 1.0;
+	half roughness = 0.0001;
+	half ao = 1.0;
+	
+	#ifdef SIMPLE
+		metallic = U_PSGeneralRegister2.z;
+		roughness = U_PSGeneralRegister2.y;
+	#else
+		half3 mixMap = S_Specular.Sample(S_SpecularSamplerState, uv).rgb;
+		metallic = mixMap.r;
+		roughness = clamp(mixMap.g + U_PSGeneralRegister0.y, 0.0, 1.0);
+		ao = mixMap.b;
+	#endif
+		
+	float wetFinal = U_PSGeneralRegister1.x;
+	roughness -= wetFinal;
+	roughness = max(roughness, 1e-6);
+	metallic = lerp(metallic, 0.5, wetFinal);
+
+    // --- SSS作为自发光计算 ---
+	half3 L_sss = normalize(half3(-U_MainLightDirection.x, 0.0, -U_MainLightDirection.z));
+    half3 sss = calculateSSS(L_sss, viewDir, normal, baseMap, U_PSGeneralRegister8.y, U_PSGeneralRegister9.rgb);
+    half3 emission = sss * U_PSGeneralRegister8.x;
+
+    // #if defined(GBUFFER_PASS)
+        float shadowFactor = 1.0;
+	    #ifdef USESHADOWMAP
+		    shadowFactor = calcShadowFactor(
+			    shadowSpacePos, 
+			    IN.i_ViewSpaceZ);
+		    shadowFactor = min(shadowFactor, 1.0);
+	    #endif
+
+        half3 encodedNormal = EncodeNormal(normal);
+        uint useRoleMainLight = 0;
+        uint receiveShadow = 1;
+        #ifndef USESHADOWMAP
+            receiveShadow = 0;
+        #endif
+
+        uint useEnvironmentMap = 1;
+        #ifndef ENVIRONMENT_MAP
+            useEnvironmentMap = 0;
+        #endif
+
+		uint usePointLight = 0;
+        #ifdef CLUSTER_POINT_LIGHT
+            usePointLight = 1;
+        #endif
+
+        half shadingModel = EncodeShadingModel(useRoleMainLight, receiveShadow, useEnvironmentMap, usePointLight, 1);
+
+        psOut.g0.xyz = pow(baseMap, 1.0/2.2);
+        psOut.g0.w = alphaValue;
+
+        psOut.g1.xyz = encodedNormal;
+        psOut.g1.w = shadowFactor;
+
+        psOut.g2.x = metallic;
+        psOut.g2.y = roughness;
+        psOut.g2.z = ao;
+        psOut.g2.w = shadingModel;
+        
+        psOut.sc.xyz = emission;
+        psOut.sc.w = 0.0;
+
+		#ifdef EditorHelp
+	        psOut.sc.rgb = psOut.g0.rgb * 0.00001 + float3(1.0, 0.0, 0.0);
+	        psOut.sc.a = 1.0;
+			psOut.g2.w = 0; // unlit
+		#endif // EditorHelp
+	// #endif // GBUFFER_PASS
+    return psOut;
+}

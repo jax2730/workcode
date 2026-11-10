@@ -1,0 +1,640 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+#include <Light_Function_PS.inl>
+#include <EnvironmentLight_Function.inl>
+#include <Common_Function_PS.inl>
+
+#include <Common_GBuffers.inl>
+
+// #ifdef SHADOWPASS
+// 	#ifdef ALPHA_TEST
+// 		float4	U_MaterialDiffuse;
+// 		Texture2D	S_Diffuse;
+// 		SamplerState S_DiffuseSamplerState;
+// 		float4 texDiffuse(float2 vUV) 
+// 		{ 
+// 			return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+// 		}
+// 	#endif
+// #else
+	
+	float4	U_MaterialDiffuse;
+	float4	U_MaterialSpecular;
+	float4	U_MaterialFresnel;
+	float4	U_MaterialCustomParam;
+	float4	U_MaterialCustomParam1;
+
+	float4	U_LightPower;	//x for lightpower, y for specular offset
+
+
+	float4	U_PSGeneralRegister0;
+	float4	U_PSGeneralRegister1;
+	float4	U_PSGeneralRegister2;
+	float4	U_PSGeneralRegister3;
+	float4	U_PSGeneralRegister4;
+	float4	U_PSGeneralRegister5;
+	float4	U_PSGeneralRegister6;
+	float4	U_PSGeneralRegister7;
+	float4	U_PSGeneralRegister8;
+	float4	U_PSGeneralRegister9;
+	float4  U_PSGeneralRegister15;
+	
+
+	float4	U_PSGeneralRegister29; 	//x ---current mask percentage
+									//y --- if 1 on Lattice Cull Mask
+									//z ---alpha range
+									//w ---direction if w >= 0 Positive elseif w < 0 Reverse
+
+	float4 U_PSGeneralRegister31;	//xyz ---dissolve_edge_color
+									//w ---dissolve_color_strength
+	float4 U_PSGeneralRegister32;	//x ---dissolve tilling U
+									//y ---dissolve tilling V
+ 									//z ---dissolve_edge_width
+									//w ---dissolve_soft_value
+	
+	Texture2D	S_Diffuse;
+	SamplerState S_DiffuseSamplerState;
+	float4 texDiffuse(float2 vUV) 
+	{ 
+		return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+	}
+	#ifdef DISSOLVE
+		Texture2D S_Custom7;
+		SamplerState S_Custom7SamplerState;
+
+		float2 cal_uv(float2 uv, float tilling_u, float tilling_v, float offset_u, float offset_v, float angle)
+		{
+			float2 new_uv;
+
+			//uvƽ��
+			new_uv.x = uv.x * tilling_u;
+			new_uv.y = uv.y * tilling_v;
+
+			//ƫ��
+			new_uv.x += offset_u;
+			new_uv.y += offset_v;
+
+			//��ƽ�̺�ƫ�Ƶ� UV ���±�� [0,1] ��Χ���γ�ƽ��ѭ��
+			new_uv.x = fmod(new_uv.x, tilling_u) / tilling_u;
+			new_uv.y = fmod(new_uv.y, tilling_v) / tilling_v;
+
+			//ƽ�Ƶ�����
+			float2 temp_uv = new_uv;
+			temp_uv.x = new_uv.x - 0.5;
+			temp_uv.y = new_uv.y - 0.5;
+
+			//��ת
+			float temp_u = temp_uv.x * cos(angle) - temp_uv.y * sin(angle);
+			float temp_v = temp_uv.x * sin(angle) + temp_uv.y * cos(angle);
+
+			//�ƻ�����
+			new_uv.x = temp_u + 0.5;
+			new_uv.y = temp_v + 0.5;
+			//�ָ�tilling�ߴ�
+			new_uv.x *= tilling_u;
+			new_uv.y *= tilling_v;
+
+			return new_uv;
+		}
+	#endif
+	
+	#ifdef SPECULAR_MAP
+		Texture2D	S_Specular;
+		SamplerState S_SpecularSamplerState;
+	#endif
+	
+	Texture2D	S_Bump;
+	SamplerState S_BumpSamplerState;
+	#ifdef EYE_PUPIL
+		Texture2D S_Custom;
+		SamplerState S_CustomSamplerState;
+		Texture2D S_Custom2;
+		SamplerState S_Custom2SamplerState;
+	#endif
+	
+	#ifdef EYE_IRIS
+		Texture2D S_Custom3;				// r -- luminance, gb -- color tint mask, a -- mask
+		SamplerState S_Custom3SamplerState;
+		Texture2D S_Custom4;
+		SamplerState S_Custom4SamplerState;
+	#endif
+	
+	#ifdef ENVIRONMENT_REFLECT
+		TextureCube	S_EnvironmentCubeMap;
+		SamplerState S_EnvironmentCubeMapSamplerState;
+	#else
+		#ifdef ENVIRONMENT_REFLECT_MULT
+			TextureCube	S_EnvironmentCubeMap;
+		   SamplerState S_EnvironmentCubeMapSamplerState;
+		#endif
+	#endif
+	
+	#ifdef CLUSTER_POINT_LIGHT
+		#include "Common_Function.inl"
+		#include "Shadow_Light_Function_PS.inl"
+	#endif
+
+// #endif
+
+#define EYEBALL_TEX_SIZE 512.0f
+#define PUPIL_TEX_SIZE 256.0f
+float2 CalcPupilUvScaling( float2 baseUv, float scalingFactor , float4 scaleOffset)
+{
+	half2 pupilUv = baseUv - half2(0.5f, 0.5f);
+	float sizeFactor = EYEBALL_TEX_SIZE / PUPIL_TEX_SIZE;
+	//pupilUv *= scalingFactor * sizeFactor;
+	pupilUv *= sizeFactor * (1.0 / scaleOffset.xy);
+	pupilUv += half2(0.5f, 0.5f);
+	pupilUv += scaleOffset.zw * sizeFactor * (1.0 / scaleOffset.xy);
+	pupilUv.x = saturate(pupilUv.x);
+	pupilUv.y = saturate(pupilUv.y);
+
+	return pupilUv;
+}
+
+#define GLOSS_ENCODE_FACTOR 13.0f
+
+float GetSpecPowerFromGloss(float gloss)
+{
+    return pow(2,GLOSS_ENCODE_FACTOR*gloss);
+}
+
+float GetGlossFromSpecPower(float specPower)
+{
+    return log2(specPower)/GLOSS_ENCODE_FACTOR;
+}
+
+void EyePhyDirLighting(
+					   //output
+					   out half3 finalLighting, out half3 diffuseLighting, out half3 specLighting, out half3 adjustedDiffuse, out float ndl,out float ndh,
+					   //input lighting property
+					   half3 lightDir, half3 lightColor, 
+					   //input
+					   half3 normal, half3 viewDir, half3 diffuseColor, float gloss, half3 specColor, float fresnelFactor, float shadow)
+{
+	//const preparation
+	half3 h = normalize(lightDir+viewDir);
+	ndh = saturate(dot(normal, h));
+	ndl = saturate(dot(lightDir, normal));        	    
+	float ndv = saturate(dot(viewDir, normal));
+	float vdh = saturate(dot(viewDir, h));
+
+	half3 spec = 0.0f;
+	float specGloss = GetGlossFromSpecPower(gloss);	
+	float invGloss = 1.0f-specGloss;
+	if(ndl>0.0f)
+	{
+		float invFresFactor = 1.0f/(1.0f+fresnelFactor*invGloss);
+		float3 fresnelSpec = specColor+(1.0f-specColor)*pow(1.0f-vdh, 5.0f)*invFresFactor;
+		float distribute = pow(ndh, gloss);
+		float geometry = (0.0397436*gloss+0.0856832f)/max(ndl, ndv);
+		spec = fresnelSpec*distribute*geometry;
+	}
+	
+	//diffuse calc
+    adjustedDiffuse = diffuseColor;
+	float3 dif = ndl * adjustedDiffuse;
+
+	//light calc
+	float3 lighting = shadow * lightColor;
+	
+	//final
+	finalLighting = ( dif + spec ) * lighting;
+	//this code will be optimized if not used
+	diffuseLighting = dif * lighting;
+	specLighting = spec * lighting;
+}
+
+float GetLuminance(half3 color)
+{
+    const half3 lumWeight = half3(0.2125f, 0.7154f, 0.0721f);
+    return dot(color, lumWeight);
+}
+
+half3 HslToRgb(half3 c)
+{
+	half4 K = half4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+	half3 p = abs(frac(c.xxx + K.xyz) * 6.0 - K.www);
+	return c.z * lerp(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+
+half3 RgbToHsl(half3 c)
+{
+	half4 K = half4(0.0f, -1.0f / 3.0f, 2.0f / 3.0f, -1.0f);
+	half4 p = lerp(half4(c.bg, K.wz), half4(c.gb, K.xy), step(c.b, c.g));
+	half4 q = lerp(half4(p.xyw, c.r), half4(c.r, p.yzx), step(p.x, c.r));
+
+	half d = q.x - min(q.w, q.y);
+	half e = 1.0e-10;
+	return half3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+half3 CustomColor(half3 color, float h, float s, float l)
+{
+	half3 hsl;
+	hsl.r = h;
+	hsl.g = s;
+	hsl.b = l*GetLuminance(color);
+
+	return HslToRgb(hsl);
+}
+
+half3 CustomColor2(half3 color, float r, float g, float b)
+{
+	half3 hsl = RgbToHsl(half3(r,g,b));
+	hsl.b *= GetLuminance(color);
+
+	return HslToRgb(hsl);
+}
+
+half3 CustomColor3(half luminance, float3 rgb)
+{
+	half3 hsl = RgbToHsl(half3(rgb));
+	hsl.b *= luminance;
+	return HslToRgb(hsl);
+}
+
+float3 fresnelSchlick(float cosTheta, float3 F0)
+{
+	return F0 + (1.0-F0) * pow(1.0-cosTheta, 5.0);
+}
+
+float distributionGGX(float3 N, float3 H, float roughness)
+{
+	float a = roughness * roughness;
+	float a2 = a * a;
+	float NdotH = max(dot(N, H), 0.0);
+	float NdotH2 = NdotH * NdotH;
+	float nom = a2;
+	float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+	denom = 3.141592654 * denom * denom;
+	denom = max(denom, 0.00001);
+	return nom / denom;
+}
+
+float geometrySchlickGGX(float NdotV, float roughness)
+{
+	float r = roughness + 1.0;
+	float k = (r * r) / 8.0;
+	
+	float nom = NdotV;
+	float denom = NdotV * (1.0 - k) + k;
+	
+	return nom / denom;
+}
+
+float geometrySmith(float3 N, float3 V, float3 L, float roughness)
+{
+	float NdotV = max(dot(N, V), 0.0);
+	float NdotL = max(dot(N, L), 0.0);
+	float ggx2 = geometrySchlickGGX(NdotV, roughness);
+	float ggx1 = geometrySchlickGGX(NdotL, roughness);
+	
+	return ggx2 * ggx1;
+}
+
+//float3 calculateLightPower(float3 N, float3 V, float3 L, float3 lightPower, float3 albedo, float roughness, float metallic)
+//{
+//	float3 H = normalize(L+V);
+//	float NdotL = max(dot(N, L), 0.0);
+//			
+//	float3 F0 = float3(0.04, 0.04, 0.04);
+//	F0 = lerp(F0, albedo, metallic);
+//
+//	float3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
+//	float D = distributionGGX(N, H, roughness);
+//	float G = geometrySmith(N, V, L, roughness);
+//	
+//	float3 nom = D * G * F;
+//	float denom = 4 * max(dot(N, V), 0.0) * NdotL + 0.00001;
+//	float3 BRDF = nom / denom;
+//	
+//	float3 kS = F;
+//	float3 kD = 1.0 - kS;
+//	kD *= 1.0 - metallic;
+//	
+//	return (kD * albedo / 3.141592654 + BRDF) * NdotL * lightPower;
+//}
+
+float3 calculateLightPower2(float3 N, float3 V, float3 L, float3 lightPower, float3 albedo, float roughness, float metallic)
+{
+	float3 H    = normalize(L+V);
+	float NdotH = max(dot(N, H), 0.0);
+	float LdotH = max(dot(L,H),0.0);
+	float NdotL = max(dot(N, L), 0.0);
+	float a2    = roughness*roughness;
+	float a4    = a2*a2;
+    
+	float NdotH2 = NdotH*NdotH;
+	float LdotH2 = LdotH*LdotH;
+	  
+    float denom = 4.0f*3.1415926f*pow(NdotH2*(a4-1.f)+1.f,2.f)*(LdotH2*(1.0f-a2)+a2);
+	denom = max(denom, 0.00001f);
+    float brdf  = a4/denom;
+	float3 F0 = float3(0.04, 0.04, 0.04);
+	F0 = lerp(F0, albedo, metallic);
+	
+	float3 kd    = 1.0f - min(F0/(LdotH + 0.00001f), 1.0f);
+	kd = kd * (1.0f-metallic);
+	
+	return (albedo*kd / 3.141592654 + brdf*F0) * NdotL * lightPower;	
+}
+
+
+float3 envBRDFApprox(float3 specularColor, float roughness, float NoV)
+{
+	float4 c0 = float4(-1.0,	-0.0275,	-0.572,		0.022);
+	float4 c1 = float4(1.0,		0.0425,		1.04,		-0.04);
+	
+	float4 r = roughness * c0 + c1;
+	float a004 = min(r.x * r.x, exp2(-9.28 * NoV)) * r.x + r.y;
+	float2 AB = float2(-1.04, 1.04) * a004 + r.zw;
+	return specularColor * AB.x + AB.y;
+}
+
+//float3 envBRDFApprox(float3 specularColor, float roughness, float NoV)
+//{
+//   return pow(1.0f-max(roughness,NoV),3.f)+specularColor;
+//}
+
+struct PS_INPUT
+{
+    float4 i_Position	: SV_POSITION;
+// #ifdef SHADOWPASS
+// 	#ifdef ALPHA_TEST
+// 		float4 	i_UV				: TEXCOORD0;
+// 	#endif
+// #else
+	float4 	i_UV				: TEXCOORD0;
+	float4 	i_Fog				: TEXCOORD1;
+	float4	i_Normal			: TEXCOORD2;
+	float4	i_WPos				: TEXCOORD3;
+	
+	float4	i_Tangent			: TEXCOORD4;
+	float4	i_Binormal			: TEXCOORD5;
+	float4	i_EyeDir			: TEXCOORD6;
+	#ifdef USESHADOWMAP
+		float	i_ViewSpaceZ					: TEXCOORD7;
+	#endif
+	
+	#ifdef VERTEX_COLOR
+		float4	i_Diffuse		: COLOR0;
+	#endif
+	#ifdef MOTIONBLUR
+		float4  i_VelUV     : TEXCOORD15;
+	#endif
+// #endif
+#ifdef PARABOLOID_MAPPING
+	float	i_ClipDepth			: TEXCOORD12;
+#endif
+	float4  i_PosInModel	: TEXCOORD13;
+	float4  i_BoundBoxRange     : TEXCOORD14;
+};
+
+#define PS_OUTPUT GBuffers
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+#ifdef PARABOLOID_MAPPING
+	clip(IN.i_ClipDepth);
+#endif
+
+	float2 uv = IN.i_UV.xy;
+	half4 diffuseColor = S_Diffuse.Sample(S_DiffuseSamplerState, uv);
+	diffuseColor.rgb = pow(diffuseColor.rgb, 2.2f);
+
+	#ifdef ALPHA_TEST
+		clip(diffuseColor.a - U_MaterialDiffuse.a);
+	#endif
+	half alphaValue = diffuseColor.a;
+
+	half4 irisTex = half4(0.0h, 0.0h, 0.0h, 1.0h);
+	#ifdef EYE_IRIS
+		float2 irisUV = CalcPupilUvScaling(uv, U_PSGeneralRegister2.x, U_PSGeneralRegister3);
+		irisTex = S_Custom3.SampleLevel(S_Custom3SamplerState, irisUV,0);
+		float3 irisDiffuse = CustomColor3(irisTex.r, pow(U_PSGeneralRegister2.yzw, 2.2f));
+		float3 irisColorTint1 = CustomColor3(irisTex.r, pow(U_PSGeneralRegister8.yzw, 2.2f));
+		float3 irisColorTint2 = CustomColor3(irisTex.r, pow(U_PSGeneralRegister9.yzw, 2.2f));
+		diffuseColor.rgb = lerp(diffuseColor.rgb, irisDiffuse.rgb, irisTex.a);
+		diffuseColor.rgb = lerp(diffuseColor.rgb, irisColorTint1, irisTex.b);
+		diffuseColor.rgb = lerp(diffuseColor.rgb, irisColorTint2, irisTex.g);
+	#endif
+	
+	half4 pupilDiffuse = 0.h;
+	float2 pupilUV = 0.h;
+	#ifdef EYE_PUPIL
+		float3 eyePupilColorTint = pow(U_PSGeneralRegister1.xyz, 2.2f);
+		pupilUV = CalcPupilUvScaling(uv, U_PSGeneralRegister0.x, U_PSGeneralRegister4);
+		pupilDiffuse = S_Custom.SampleLevel(S_CustomSamplerState, pupilUV, 0);
+		pupilDiffuse.rgb = CustomColor2(pupilDiffuse.rgb, eyePupilColorTint.x, eyePupilColorTint.y, eyePupilColorTint.z);
+		diffuseColor.rgb = lerp(diffuseColor.rgb, pupilDiffuse.rgb, pupilDiffuse.a);
+	#endif
+
+	half3 normal = normalize(IN.i_Normal.xyz);	
+	
+	#ifdef USESHADOWMAP
+		float4 shadowSpacePos[SHADOWSPLITE];
+		ProjectToLightSpace(shadowSpacePos, IN.i_WPos.xyz, normal, IN.i_ViewSpaceZ);
+	#endif
+
+	half3 nn = normal;//normalize(IN.i_Normal.xyz);
+	half3 tn = normalize(IN.i_Tangent.xyz);
+	half3 bn = normalize(IN.i_Binormal.xyz);
+
+	tn = normalize(tn - nn * dot(tn, nn));
+	bn = normalize(bn - nn * dot(bn, nn));
+
+	half3x3 tbn = 
+	{
+		tn.x, bn.x, nn.x,
+		tn.y, bn.y, nn.y,
+		tn.z, bn.z, nn.z 
+	};
+	half4 bumpColor = S_Bump.Sample(S_BumpSamplerState, uv);
+
+	half3 specularColor = U_MaterialSpecular.rgb;
+		
+	half glossiness = U_MaterialFresnel.z * 32.0f;
+	half metallic = 0.01;
+	half roughness = 0.01;
+	half ao = 1.0;
+#ifdef SPECULAR_MAP
+	half3 mixMap = S_Specular.Sample(S_SpecularSamplerState, uv).rgb;
+	metallic = clamp(mixMap.r + U_PSGeneralRegister15.y, 1e-4h, 1.0h);
+	roughness = clamp(mixMap.g + U_PSGeneralRegister15.x, 1e-4h, 1.0h);
+	ao = pow(mixMap.b, U_PSGeneralRegister15.z);
+#endif
+	#ifdef EYE_IRIS
+		half4 irisbumpColor = S_Custom4.Sample(S_Custom4SamplerState, irisUV);
+		bumpColor = lerp(bumpColor, irisbumpColor, irisTex.a);
+	#endif
+	
+	#ifdef EYE_PUPIL
+		half4 pupilbumpColor = S_Custom2.Sample(S_Custom2SamplerState, pupilUV);
+		bumpColor = lerp(bumpColor, pupilbumpColor, pupilDiffuse.a);
+	#endif
+
+	half3 bump = half3(0.0f, 0.0f, 0.0f);
+	bump = bumpColor.xyz * 2.0f - 1.0f;
+	bump.z = 1.0;
+	normal = normalize(mul(tbn, bump));
+	half glossa = clamp(1.0 - roughness, 0.0, 1.0);
+	glossiness = 1.0;
+	glossiness *= glossa;
+
+	glossiness += 1e-6;
+#ifdef EYE_IRIS
+	diffuseColor.rgb = lerp(U_MaterialDiffuse.rgb * diffuseColor.rgb, diffuseColor.rgb, irisTex.a);
+#endif
+	
+	half3 emission = 0.0h;
+	#ifdef EMISSIVE
+		
+		half3 missiveColor = diffuseColor.rgb * pow(U_PSGeneralRegister5.xyz,2.2f) * diffuseColor.a;
+		half3 minMissiveColor = missiveColor * U_PSGeneralRegister5.w * irisTex.a;
+		#ifdef EYE_IRIS
+		missiveColor *= (irisTex.a);
+		#endif
+		#ifdef TOD_EMISSIVE
+			half todFactor = U_LightPower.x;		
+			
+			#ifdef DYNAMIC_EMISSIVE
+				half3 maxMissiveColor = missiveColor * U_PSGeneralRegister6.x * irisTex.a;
+				half factor = U_MaterialSpecular.w;	
+				emission += lerp(minMissiveColor, maxMissiveColor, half3(factor, factor, factor)) * todFactor;
+			#else
+				emission += minMissiveColor * todFactor;
+			#endif
+		#else
+		
+			#ifdef DYNAMIC_EMISSIVE
+				half3 maxMissiveColor = missiveColor * U_PSGeneralRegister6.x * irisTex.a;
+				half factor = U_MaterialSpecular.w;	
+				emission += lerp(minMissiveColor, maxMissiveColor, half3(factor, factor, factor));
+			#else
+				emission += minMissiveColor;
+			#endif
+			
+		#endif
+		
+	#endif
+
+	{
+		//dither discard
+		if(ComputeDitherCullMask(IN.i_Position.xy,U_MaterialCustomParam1.y,U_MaterialCustomParam1.z))
+			discard;
+
+		bool needDiscard = ComputeBitmapCullMask(U_PSGeneralRegister29, IN.i_BoundBoxRange, 
+		U_MaterialCustomParam1.z, IN.i_PosInModel.xyz, IN.i_Position.xyz);
+		if(needDiscard)
+			discard;
+	}
+
+	#ifdef DISSOLVE
+		float dissolve_val = U_MaterialFresnel.y;
+		float3 dissolve_edge_color = U_PSGeneralRegister31.xyz;     
+		float dissolve_color_strength = U_PSGeneralRegister31.w;    
+		float dissolve_tilling_u = U_PSGeneralRegister32.x;
+		float dissolve_tilling_v = U_PSGeneralRegister32.y;
+		float dissolve_edge_width = U_PSGeneralRegister32.z;
+		float dissolve_soft_value = U_PSGeneralRegister32.w;
+		//float dissolve_rolling_u = 0.0;
+		//float dissolve_rolling_v = 0.0;
+		float dissolve_rotate_angle = 0.0;
+
+		float dissolve_offset_u = 0.0f; //dissolve_rolling_u * U_PS_Time.x;
+		float dissolve_offset_v = 0.0f; //dissolve_rolling_v * U_PS_Time.x;
+		dissolve_rotate_angle   = 0.0f; //radians(dissolve_rotate_angle);
+
+		float2 dissolve_uv = cal_uv(uv,dissolve_tilling_u,dissolve_tilling_v,dissolve_offset_u,dissolve_offset_v,dissolve_rotate_angle);
+		float dissolve_noise = S_Custom7.Sample(S_Custom7SamplerState, dissolve_uv).a;
+		clip(dissolve_noise - dissolve_val);
+
+		//2 2 2 2 2 2 2
+		//2 1 1 1 1 1 2
+		//2 1 0 0 0 1 2
+		//2 1 0 0 0 1 2
+		//2 1 1 1 1 1 2
+		//2 2 2 2 2 2 2  
+
+		float edge_max_val =  dissolve_val + dissolve_edge_width;
+		float edge_val_01 = smoothstep(dissolve_val, edge_max_val, dissolve_noise);
+		float dissolve_switch =	step(0.00001f, dissolve_val);
+		float3 final_edge_color = dissolve_switch * dissolve_edge_color * dissolve_color_strength * (1.0 - edge_val_01);
+		
+		float dissolve_soft_max_val = dissolve_val + dissolve_soft_value;
+		float dissolve_soft_val_01 = smoothstep(dissolve_val, dissolve_soft_max_val, dissolve_noise);
+		alphaValue = lerp(alphaValue, alphaValue * dissolve_soft_val_01, dissolve_switch);
+
+		emission += final_edge_color;
+	#endif // DISSOLVE
+
+    // #if defined(GBUFFER_PASS)
+        float shadowFactor = 1.0;
+        #ifdef USESHADOWMAP
+            shadowFactor = calcShadowFactor(shadowSpacePos, IN.i_ViewSpaceZ);
+            shadowFactor = min(shadowFactor, 1.0);
+        #endif
+
+        half3 encodedNormal = EncodeNormal(normal);
+        uint useRoleMainLight = 0;
+        #ifdef ALONE_ROLE_LIGHT
+            useRoleMainLight = 1;
+        #endif
+
+        uint receiveShadow = 1;
+        #ifdef USESHADOWMAP
+            receiveShadow = 1;
+        #else
+            receiveShadow = 0;
+        #endif
+        
+        uint useEnvironmentMap = 1;
+        #if defined(ENVIRONMENT_REFLECT) || defined(ENVIRONMENT_REFLECT_MULT)
+            useEnvironmentMap = 1;
+        #else
+            useEnvironmentMap = 0;
+        #endif
+
+		uint usePointLight = 0;
+        #ifdef CLUSTER_POINT_LIGHT
+            usePointLight = 1;
+        #endif
+
+        half shadingModel = EncodeShadingModel(useRoleMainLight, receiveShadow, useEnvironmentMap, usePointLight, 2);
+
+        psOut.g0.xyz = pow(diffuseColor.rgb, 1.0/2.2); // Albedo
+        psOut.g0.w = alphaValue;                       // Alpha
+
+        psOut.g1.xyz = encodedNormal;                  // Normal
+        psOut.g1.w = shadowFactor;                     // Shadow Factor
+
+        psOut.g2.x = metallic;                         // Metallic
+        psOut.g2.y = roughness;                        // Roughness
+        psOut.g2.z = ao;                               // AO
+        psOut.g2.w = shadingModel;                     // Shading Model
+
+        psOut.sc.xyz = emission;                       // Emission
+        psOut.sc.w = 0.0h;
+
+		#ifdef EDITOR_MODE
+			if (U_MaterialCustomParam.w > 0)
+        	{
+        	    psOut.sc.rgb = U_MaterialCustomParam.xyz;
+				psOut.sc.a = 1.0;
+				psOut.g2.w = 0; // unlit
+        	}
+		#endif // EDITOR_MODE
+
+		#ifdef EditorHelp
+	        psOut.sc.rgb = psOut.g0.rgb * 0.00001 + float3(1.0, 0.0, 0.0);
+	        psOut.sc.a = 1.0;
+			psOut.g2.w = 0; // unlit
+		#endif // EditorHelp
+	// #endif // GBUFFER_PASS
+	
+	return psOut;
+}

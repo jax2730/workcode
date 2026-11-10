@@ -1,0 +1,88 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Light_Function_PS.inl>
+
+uniform Texture2D S_2DExt0; //tex_BaseDiffuse
+SamplerState S_2DExt0SamplerState;
+uniform Texture2D S_2DExt1; //tex_BaseNormal
+SamplerState S_2DExt1SamplerState;
+
+uniform float4 U_PSCustom0;	//DebugColor;
+uniform float4 U_PSCustom1;	//SnowParam;
+
+#ifdef CLUSTER_POINT_LIGHT
+	#include "Shadow_Light_Function_PS.inl"
+#endif
+
+struct PS_INPUT
+{
+    float4	i_PosInClip	: SV_POSITION;
+	float4  i_WorldPos  : TEXCOORD0;
+	float2	i_UVBase	: TEXCOORD1;
+	float4	i_FogColor	: TEXCOORD2;
+	float3	i_ViewDir	: TEXCOORD3;
+#ifdef PARABOLOID_MAPPING
+	float	i_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+float4 main(PS_INPUT IN) : SV_TARGET
+{
+#ifdef PARABOLOID_MAPPING
+	clip(IN.i_ClipDepth);
+#endif
+
+	float4 oColor = (float4) 0.435294f;
+	
+	float4 DebugColor = U_PSCustom0;
+	float4 SnowParam = U_PSCustom1;
+
+	float4 cBaseDiffuse = S_2DExt0.Sample(S_2DExt0SamplerState, IN.i_UVBase.xy);
+	cBaseDiffuse = pow(cBaseDiffuse, 2.2f);
+	float4 cBaseNormal = S_2DExt1.Sample(S_2DExt1SamplerState, IN.i_UVBase.xy);
+	cBaseNormal.w *= 512.f;
+	cBaseNormal.xyz = cBaseNormal.xyz * 2.f - 1.f;
+	cBaseNormal.xyz = normalize(cBaseNormal.xyz);
+
+	float fSnowSlope = clamp(cBaseNormal.y, 0.f, 1.f);
+	fSnowSlope = clamp(fSnowSlope - SnowParam.x, 0.f, 1.f) / (1.f - SnowParam.x);
+	fSnowSlope *= fSnowSlope;
+	cBaseDiffuse.rgb = lerp(cBaseDiffuse.rgb, U_WeatherParam0.rgb, fSnowSlope * U_WeatherParam0.a);
+
+	float fNdotL = clamp(dot(cBaseNormal.xyz, -U_MainLightDirection.xyz), 0.0f, 1.0f);
+	float3 cLight = fNdotL * U_MainLightColor.rgb;
+	cLight += lerp(U_GroundLightColor.rgb, U_SkyLightColor.rgb, cBaseNormal.y * 0.5f + 0.5f);
+	
+	float3 vViewDir = normalize(IN.i_ViewDir);
+	float4 vLit = lit(1.f, dot(normalize(vViewDir - U_MainLightDirection.xyz), cBaseNormal.xyz), cBaseNormal.w);
+	float3 cLightSpecular = vLit.z * U_MainLightColor.rgb * cBaseDiffuse.w * U_MainLightColor.a;
+
+	float3 cPointLightDiffAcc = 0.0f;
+	float3 cPointLightSpecAcc = 0.0f;
+
+#ifdef CLUSTER_POINT_LIGHT
+	PointLightAndSpecularOutput shadowLightResult = calculateShadowPointLightAndSpecular(
+		IN.i_WorldPos, cBaseNormal.xyz, vViewDir, max(cBaseNormal.w, 0.001f));
+	cPointLightDiffAcc += shadowLightResult.color;
+	cPointLightSpecAcc += shadowLightResult.specular * cBaseDiffuse.w;
+	
+    PointLightAndSpecularOutput lightResult = 
+        calculateClusterPointLightAndSpecular(IN.i_PosInClip.xy,
+                                              IN.i_WorldPos.xyz,
+                                              cBaseNormal.xyz,
+                                              max(cBaseNormal.w, 0.001f),
+                                              vViewDir);
+    cPointLightDiffAcc += lightResult.color;
+    cPointLightSpecAcc += lightResult.specular * cBaseDiffuse.w;    
+#endif
+
+	oColor.rgb = cBaseDiffuse.rgb *(cLight + cPointLightDiffAcc);
+	oColor.rgb += cLightSpecular + cPointLightSpecAcc;
+	
+	oColor.rgb = oColor.rgb * IN.i_FogColor.a + IN.i_FogColor.rgb;
+	oColor.rgb = pow(oColor.rgb, 1.0 / 2.2);
+	oColor.a = 1.f;
+	float overdrawlerp = ceil(U_PS_Time.w);
+	oColor = oColor * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+	return oColor;
+}

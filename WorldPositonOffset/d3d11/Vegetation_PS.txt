@@ -1,0 +1,243 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+#include <Light_Function_PS.inl>
+#include <EnvironmentLight_Function.inl>
+
+Texture2D S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+float4 	U_MaterialDiffuse;
+
+#ifdef BUMP_MAP
+	Texture2D S_Bump;
+	SamplerState S_BumpSamplerState;
+	
+	float4	U_MaterialSpecular;	// r: normal ratio, g: specular ratio, b: speculay exp
+	float4	U_PSGeneralRegister30;
+	float4 	U_PSGeneralRegister3;
+	float4	U_PSGeneralRegister0;	// Light ratio, x: main light, y: sky light, z: ground light
+#endif
+
+#ifdef FLOW_COLOR
+	Texture2D S_Custom;
+	SamplerState S_CustomSamplerState;
+	
+	//float4  U_PS_WindParams;
+	float4  U_PSGeneralRegister1;	// x: flow uv tilling, y: flow speed ratio, z: flow ratio, w: flow bias
+	float4  U_PSGeneralRegister2;	// flow adjust color
+#endif
+
+#ifndef OBJECT_DIFFUSE_EMISSION
+	float4 U_PSCustom0[2]; // 0.xyz: DiffuseTop, 0.w: slope; 1.xyz: DiffuseBottom, 1.w: intercept
+#ifdef EMISSION
+	float4 U_PSCustom1[2]; // 0.xyz: EmissionTop, 0.w: slope; 1.xyz: EmissionBottom, 1.w: intercept
+#endif
+	float4 U_PSCustom2;		// xy: terrain factor slop and intercept, z: terrain scale;
+#endif
+
+#ifdef CLUSTER_POINT_LIGHT
+	#include "Shadow_Light_Function_PS.inl"
+#endif
+
+struct PS_INPUT
+{
+    float4 i_PosInClip	: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+#ifndef SHADOWPASS
+	float4 i_Fog		: TEXCOORD1;
+	float4 i_WPos		: TEXCOORD2;
+#ifdef BUMP_MAP
+	float3 i_Normal		: TEXCOORD3;
+	float3 i_Tangent	: TEXCOORD4;
+	float3 i_ViewDir	: TEXCOORD5;
+#else
+	float4 i_LightDiffuse	: TEXCOORD3;
+	float3 i_LightAmbient	: TEXCOORD4;
+#endif
+	float4 i_Diffuse	: COLOR0;
+	float4 i_Emission	: COLOR1;
+#endif
+#ifdef PARABOLOID_MAPPING
+	float	i_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+#ifdef SHADOWPASS
+void main(PS_INPUT IN)
+#else
+float4 main(PS_INPUT IN) : SV_TARGET
+#endif
+{
+#ifdef PARABOLOID_MAPPING
+	clip(IN.i_ClipDepth);
+#endif
+
+#ifdef SHADOWPASS
+#ifdef ALPHA_TEST
+	float4 cTexDiffuse = S_Diffuse.Sample(S_DiffuseSamplerState, IN.i_UV.xy);
+	float fAlphaRef = lerp(U_MaterialDiffuse.a, 1.01f, IN.i_UV.w);
+	clip(cTexDiffuse.a - fAlphaRef);
+#endif
+	return;
+#else
+	float4 cTexDiffuse = S_Diffuse.Sample(S_DiffuseSamplerState, IN.i_UV.xy);
+
+#ifdef ALPHA_TEST
+	float fAlphaRef = lerp(U_MaterialDiffuse.a, 1.01f, IN.i_UV.w);
+	clip(cTexDiffuse.a - fAlphaRef);
+#endif
+
+#ifndef OBJECT_DIFFUSE_EMISSION
+	float F = saturate(IN.i_Diffuse.w * U_PSCustom0[0].w + U_PSCustom0[1].w);
+	float3 cVtxDiffuse = lerp(U_PSCustom0[1].rgb, U_PSCustom0[0].rgb, F);
+#ifdef EMISSION
+	IN.i_Emission.rgb = lerp(U_PSCustom1[1].rgb, U_PSCustom1[0].rgb, F);
+#endif
+#endif
+
+	cTexDiffuse.rgb *= U_MaterialDiffuse.rgb;
+	float fGray = dot(cTexDiffuse.rgb, float3(0.3333f, 0.3334f, 0.3333f));
+	cTexDiffuse.rgb = pow(cTexDiffuse.rgb, 2.2);
+#ifdef OBJECT_DIFFUSE_EMISSION
+	cTexDiffuse.rgb *= IN.i_Diffuse.rgb;
+#else
+	cTexDiffuse.rgb *= cVtxDiffuse;
+	float fTerrFactor = saturate((1.f - IN.i_Diffuse.w) * U_PSCustom2.x + U_PSCustom2.y);
+	cTexDiffuse.rgb = lerp(IN.i_Diffuse.rgb * fGray * U_PSCustom2.z,
+			cTexDiffuse.rgb, 1.f - fTerrFactor);
+#endif
+	
+	float3 cLightDiffuse = float3(0.0f, 0.0f, 0.0f);
+	float3 cLightAmbient = float3(0.0f, 0.0f, 0.0f);
+	float3 cLightSpecular = float3(0.0f, 0.0f, 0.0f);
+	float3 cPointLightDiffAcc = float3(0.0f, 0.0f, 0.0f);
+	float3 cPointLightSpecAcc = float3(0.0f, 0.0f, 0.0f);
+
+	float fFlowNDotL = 1.f;
+	float coverLerp = 0.0;
+	
+#ifdef USESHADOWMAP
+	float4 shadowSpacePos[SHADOWSPLITE];
+	ProjectToLightSpace(shadowSpacePos, IN.i_WPos.xyz);
+#endif
+
+#ifdef BUMP_MAP
+	float3 nn = normalize(IN.i_Normal);
+	float3 tn = normalize(IN.i_Tangent);
+	float3 bn = cross(tn, nn);
+	tn = cross(nn, bn);
+	float4 cTexNormal = S_Bump.Sample(S_BumpSamplerState, IN.i_UV.xy);
+	cTexNormal.xyz = cTexNormal.xyz * 2.f - 1.f;
+	cTexNormal.xy *= U_MaterialSpecular.x;
+	cTexNormal.xyz = normalize(cTexNormal.xyz);
+	float3x3 MatTBN = 
+	{
+		tn.x, bn.x, nn.x,
+		tn.y, bn.y, nn.y,
+		tn.z, bn.z, nn.z,
+	};	
+	float3 vNormal = mul(MatTBN, cTexNormal.xyz);
+	
+	coverLerp = dot(vNormal, U_PS_GravityDirection.xyz);
+	coverLerp += U_PSGeneralRegister3.x;
+	coverLerp = clamp(coverLerp, 0.0, 1.0);
+	float3 coverMap = U_WeatherParam0.xyz;
+	coverLerp *= U_WeatherParam0.w * (1.0 - U_PSGeneralRegister30.x);
+
+	float3 cMainLightColor = U_PBR_MainLightColor.rgb * U_PSGeneralRegister0.xxx;
+	float3 cSkyLightColor = U_PBR_SkyLightColor.rgb * U_PSGeneralRegister0.yyy;
+	float3 cGroundLightColor = U_PBR_GroundLightColor.rgb * U_PSGeneralRegister0.zzz;
+	float  cBlendThreshold	 = U_PS_AmbientBlendThreshold.y;
+
+
+	float fNDotL = clamp(dot(vNormal, -U_MainLightDirection.xyz), 0.f, 1.f);
+	cLightDiffuse = cMainLightColor * fNDotL;
+	cLightAmbient = ComputeAmbientLight(cSkyLightColor.xyz, cGroundLightColor.xyz, vNormal, cBlendThreshold, U_PS_GravityDirection.xyz);
+
+	float3 vViewDir = normalize(U_PS_CameraPosition.xyz - IN.i_WPos.xyz);
+	float fNdotH = clamp(dot(normalize(vViewDir + (-U_MainLightDirection.xyz)), vNormal.xyz), 0.f, 1.f);
+	float fSpecFactor = pow(fNdotH, max(U_MaterialSpecular.z, 0.000001f));
+	#if SPECULAR_OPT == 0
+		cLightSpecular = cMainLightColor;
+	#elif SPECULAR_OPT == 1
+		cLightSpecular = cTexDiffuse.rgb;
+	#endif
+	cLightSpecular = lerp(cLightSpecular, coverMap, coverLerp);
+	cLightSpecular *= fSpecFactor * U_MaterialSpecular.y * cTexNormal.a;
+
+#ifdef CLUSTER_POINT_LIGHT
+        #if SPECULAR_OPT == 0
+			PointLightAndSpecularOutput shadowLightResult = calculateShadowPointLightAndSpecular(
+				IN.i_WPos, vNormal, vViewDir, max(U_MaterialSpecular.z, 0.000001f));
+			cPointLightDiffAcc += shadowLightResult.color;
+			cPointLightSpecAcc += shadowLightResult.specular * U_MaterialSpecular.y;
+	
+        PointLightAndSpecularOutput lightResult = 
+            calculateClusterPointLightAndSpecular(IN.i_PosInClip.xy,
+                                                  IN.i_WPos.xyz,
+                                                  vNormal,
+                                                  max(U_MaterialSpecular.z, 0.000001f),
+                                                  vViewDir);
+        cPointLightDiffAcc += lightResult.color;
+        cPointLightSpecAcc += lightResult.specular * U_MaterialSpecular.y;
+
+		#elif SPECULAR_OPT == 1
+        	PointLightAndSpecularFactorOutput shadowLightResult = calculateShadowPointLightAndSpecularFactor(
+				IN.i_WPos, vNormal, vViewDir, max(U_MaterialSpecular.z, 0.000001f));
+			cPointLightDiffAcc += shadowLightResult.color;
+			cPointLightSpecAcc += shadowLightResult.specularFactor * cTexDiffuse.rgb * U_MaterialSpecular.y;
+	
+        PointLightAndSpecularFactorOutput lightResult = 
+            calculateClusterPointLightAndSpecularFator(IN.i_PosInClip.xy,
+                                                       IN.i_WPos.xyz,
+                                                       vNormal,
+                                                       max(U_MaterialSpecular.z, 0.000001f),
+                                                       vViewDir);
+        cPointLightDiffAcc += lightResult.color;
+        cPointLightSpecAcc += lightResult.specularFactor * cTexDiffuse.rgb * U_MaterialSpecular.y;                
+		#endif
+#endif
+
+	fFlowNDotL = fNDotL;
+#else
+	cLightDiffuse = IN.i_LightDiffuse.rgb;
+	cLightAmbient = IN.i_LightAmbient.rgb;
+	fFlowNDotL = IN.i_LightDiffuse.a;
+#endif
+	
+	// cTexDiffuse.rgb = lerp(cTexDiffuse.rgb, pow(U_WeatherParam0.rgb, 2.2f) * fGray,
+	// 						IN.i_WPos.w * U_WeatherParam0.a);
+	
+	float4 oFragColor = (float4)1.0f;
+	oFragColor.rgb = cTexDiffuse.rgb * cLightDiffuse + cLightSpecular;
+#ifdef USESHADOWMAP
+	float shadowFactor = calcShadowFactor(
+			shadowSpacePos, 
+			IN.i_UV.z);
+	oFragColor.rgb *= shadowFactor;
+#endif
+	oFragColor.rgb += cTexDiffuse.rgb * (cLightAmbient + cPointLightDiffAcc + IN.i_Emission.rgb) + cPointLightSpecAcc;
+
+#ifdef FLOW_COLOR
+	float2x2 matWind = float2x2(U_PS_WindParams.x, U_PS_WindParams.z,
+								-U_PS_WindParams.z, U_PS_WindParams.x);
+	float2 vFlowDir = mul(matWind, IN.i_WPos.xz * U_PSGeneralRegister1.xx);
+	vFlowDir.x -= frac(U_PS_WindParams.w * U_PS_Time.x * U_PSGeneralRegister1.y);
+	float3 cFlowColor = pow(S_Custom.Sample(S_CustomSamplerState, vFlowDir).rgb, 2.2f);
+	cFlowColor *= U_PSGeneralRegister1.zzz * IN.i_Diffuse.a * U_PSGeneralRegister2.rgb;
+	oFragColor.rgb += cTexDiffuse.rgb * cFlowColor * max(U_PSGeneralRegister1.w, fFlowNDotL);
+#endif
+
+	oFragColor.rgb = max(oFragColor.rgb, float3(0.0, 0.0, 0.0));
+	
+	oFragColor.rgb = oFragColor.rgb * IN.i_Fog.a + IN.i_Fog.rgb;
+	oFragColor.rgb = pow(oFragColor.rgb, 1.0 / 2.2);
+
+	oFragColor.a = 1.0f;
+	float overdrawlerp = ceil(U_PS_Time.w);
+	oFragColor = oFragColor * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+	return oFragColor;
+#endif
+}

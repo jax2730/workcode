@@ -1,0 +1,67 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl> 
+
+
+float4  U_VSCustom0[4];
+
+struct VS_INPUT
+{
+	float4 i_Offset		: POSITION0;
+	float4 i_UV	        : TEXCOORD0;
+};
+
+struct VS_OUTPUT
+{
+	float4 o_Position	: SV_POSITION;
+	float4 o_UV			: TEXCOORD0;
+	//float4 o_FogParam	: TEXCOORD1;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+   	
+	float4 sunPos = float4(-U_VSCustom0[0].x,-U_VSCustom0[0].y,-U_VSCustom0[0].z,1.0f); 
+	//sunPos *= 0.9f;
+	float2 offset = float2(U_VSCustom0[1].x * IN.i_Offset.x , U_VSCustom0[1].x * IN.i_Offset.y);
+	sunPos.xyz = sunPos.xyz + offset.x * U_VSCustom0[2].xyz + offset.y * U_VSCustom0[3].xyz;
+	
+	float4 vPos = sunPos;
+	
+	vPos.w = 0.0f;				
+		
+	vsOut.o_Position.x = dot(U_ViewMatrix[0], vPos);
+	vsOut.o_Position.y = dot(U_ViewMatrix[1], vPos);
+	vsOut.o_Position.z = dot(U_ViewMatrix[2], vPos);
+	vsOut.o_Position.w = dot(U_ViewMatrix[3], vPos);
+	
+	vPos = vsOut.o_Position;
+	
+	vPos.w = 1.0f;	
+	
+	vsOut.o_Position.x = dot(U_ProjectMatrix[0], vPos);
+	vsOut.o_Position.y = dot(U_ProjectMatrix[1], vPos);
+	vsOut.o_Position.z = dot(U_ProjectMatrix[2], vPos);
+	vsOut.o_Position.w = dot(U_ProjectMatrix[3], vPos);
+	
+#ifdef REVERSE_DEPTH
+	vsOut.o_Position.z = 0.0f;
+#else
+	vsOut.o_Position.z = vsOut.o_Position.w;
+#endif
+		
+	vsOut.o_UV.xy = IN.i_UV.xy;
+	vsOut.o_UV.zw = IN.i_Offset.xy;
+	
+	//float3 vWPos = sunPos.xyz * U_VSCustom0[1].y + U_CameraPosition.xyz;
+	
+	//float3 camToWorld =  U_CameraPosition.xyz - vWPos.xyz;
+	
+	//vsOut.o_FogParam = ComputeFogColor(camToWorld,U_FogParam.xy,U_FogParam.zw,U_FogRampParam, U_FogColorNear, U_FogColorFar);
+#ifdef EDITOR_MODE
+	#ifdef HierarchicalLOD
+		vsOut.o_Position = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+	#endif
+#endif
+	return vsOut;
+}

@@ -1,0 +1,47 @@
+#include <Common_Uniform_PS.inl>
+
+Texture2D		S_2DExt0 ;				
+SamplerState S_2DExt0SamplerState;
+float4 texBase(float2 _tc){ return S_2DExt0.Sample(S_2DExt0SamplerState,_tc);	}
+
+Texture2D		S_2DExt1 ;				
+SamplerState S_2DExt1SamplerState;
+float4 texMask(float2 _tc){ return S_2DExt1.Sample(S_2DExt1SamplerState,_tc);	}
+
+
+
+struct PS_IN
+{
+float4 pos : SV_POSITION;
+	float2 tc0	:	TEXCOORD0;
+	float2 tc1	:	TEXCOORD1;
+	float4 col	:	COLOR0; 
+	float gray	:	COLOR1;
+	
+};
+
+struct PS_OUT
+{
+	float4 col	:	SV_TARGET;		
+};
+
+PS_OUT main( in PS_IN inPix)
+{	
+	PS_OUT outPix;										
+	float4 color = texBase(inPix.tc0);	
+	float4 co = color.rgba;
+	co *= inPix.col;
+	
+	float g = co.r * 0.3 + co.g * 0.5 + co.b * 0.2;
+	float3 g3 = float3(g,g,g);
+	outPix.col.rgb = lerp( co.rgb , g3 , inPix.gray );
+	
+	outPix.col.a = co.a * texMask(inPix.tc1).a;
+	
+	float overdrawlerp = ceil(U_PS_Time.w);
+	outPix.col = outPix.col * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+	
+	return outPix;
+}													
+								
+	

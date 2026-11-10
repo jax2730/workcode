@@ -1,0 +1,249 @@
+// Author: yanghang
+// Date:  2021-03-14
+#include <Common_Uniform_PS.inl>
+#include <SphericalFog_Function.inl>
+#define ALPHA_EPSILON  0.0001
+
+float4	U_MaterialCustomParam1;
+
+struct PSInstanceData
+{
+    float4 outlineColor;// Only use RGB. Alpha as HDR factor.
+    float4 glowColor;
+
+    float2 glowUVRealOffset;// Texture UV coordinate unit.
+    float alpha;
+    float grayed;
+    
+    float hdr_factor;
+    float dissolveStrength;
+    float outlineEnable;
+    float outlineDistanceMin;
+
+    float outlineAntiAliasWidth;
+    float outlineDistanceMax;
+    float glowEnable;
+    float glowDistanceMin;
+
+    float glowDistanceMax;
+    float glowHDRFactor;
+    float solubility;
+    float padding_0;
+};
+
+StructuredBuffer<PSInstanceData> B_CSCustom1;
+#define PS_INSTANCE_BATCH_DATA B_CSCustom1
+
+#define batch_dissolve_strength U_PSCustom1.x
+
+#define gray      psInstanceData.grayed // NOTE: 1.0f == gray, 0 == normal.
+#define total_alpha psInstanceData.alpha
+#define outer_glow_HDR psInstanceData.glowHDRFactor
+#define text_HDR psInstanceData.hdr_factor
+#define dissolve_strength psInstanceData.dissolveStrength
+
+#define outline_enable psInstanceData.outlineEnable
+#define outline_max_0  psInstanceData.outlineDistanceMin
+#define outline_max_1  psInstanceData.outlineDistanceMax
+#define outline_color_rgb psInstanceData.outlineColor.rgb
+#define outline_HDR psInstanceData.outlineColor.a
+
+#define outer_glow_enable psInstanceData.glowEnable
+#define outer_glow_uv_offset psInstanceData.glowUVRealOffset
+#define outer_glow_min_dvalue psInstanceData.glowDistanceMin
+#define outer_glow_max_dvalue psInstanceData.glowDistanceMax
+#define outer_glow_color psInstanceData.glowColor
+
+#define Solubility              psInstanceData.solubility
+
+// NOTE(yanghang): SDF Font Atlas texture
+Texture2DArray	S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+Texture2D	S_Custom5;
+SamplerState S_Custom5SamplerState;
+
+uniform float4 U_PSCustom1;
+
+float4 texPseudoSDF(float3 vUV) 
+{ 
+    return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+}
+
+float4 texSolubility(float2 vUV)
+{
+    return S_Custom5.Sample(S_Custom5SamplerState, vUV);
+}
+
+struct PS_INPUT
+{
+    float4 i_pos	                : SV_POSITION;
+    float4 i_worldPos               : TEXCOORD0;
+	float3 i_atlas_uv				: TEXCOORD1;
+    float2 i_solubility_uv          : TEXCOORD2;
+#ifdef UI3D_STYLE_COVER_WEATHER
+    float4 i_fogColor				: TEXCOORD3;
+#endif
+    float2 i_clipPos                : COLOR0;
+    float4 i_color                  : COLOR1;
+    float3 i_softness               : COLOR2;
+    uint i_instanceID               : COLOR3;
+};
+
+struct PS_OUTPUT
+{
+	float4 color : SV_TARGET;
+};
+
+float median(float3 c)
+{
+    return max(min(c.x, c.y), min(max(c.x, c.y), c.z));
+}
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+    PSInstanceData psInstanceData = PS_INSTANCE_BATCH_DATA[IN.i_instanceID];
+        //点阵剔除
+    float final_dissolve_strength = batch_dissolve_strength + (1.0f - batch_dissolve_strength)* dissolve_strength;
+	if(final_dissolve_strength > 0)
+	{
+		float4x4 thresholdMatrix =
+		{  1.0 / 17.0,  9.0 / 17.0,  3.0 / 17.0, 11.0 / 17.0,
+			13.0 / 17.0,  5.0 / 17.0, 15.0 / 17.0,  7.0 / 17.0,
+			4.0 / 17.0, 12.0 / 17.0,  2.0 / 17.0, 10.0 / 17.0,
+			16.0 / 17.0,  8.0 / 17.0, 14.0 / 17.0,  6.0 / 17.0
+		};
+		float2 pos = IN.i_pos.xy;
+			
+		pos.xy = pos.xy/U_MaterialCustomParam1.z;
+		
+		int xindex = fmod(pos.x, 4);
+		int yindex =fmod(pos.y, 4);
+		
+		float alpha_dissolve = thresholdMatrix[xindex][yindex];//* _RowAccess[yindex];
+			
+		if(alpha_dissolve < final_dissolve_strength)
+			discard;
+	}
+
+    if(Solubility > 0.0f)
+    {
+		if(texSolubility(IN.i_solubility_uv).a < Solubility)
+			discard;	
+    }
+
+    float4 sdf_texel = texPseudoSDF(IN.i_atlas_uv);
+    float pseudo_d = sdf_texel.r;//(changziheng): single channel
+    float sdf_alpha = clamp((pseudo_d - 0.5f)/fwidth(pseudo_d) + 0.5f, 0, 1.0f);
+    
+    float4 color = IN.i_color;
+
+    color.rgb *= text_HDR;
+    color.a *= sdf_alpha;
+    if(gray == 1.0f)
+    {
+        float color_gray = (color.r + color.g + color.b) * 0.33333333333333f;
+        color.rgb = lerp(color.rgb, float3(color_gray, color_gray, color_gray), gray);
+    }
+    
+    if(outline_enable == 1.0f)
+    {
+        float oFactor = 1.0f;
+        if(pseudo_d >= outline_max_0)
+        {
+            oFactor = smoothstep(outline_max_1,
+                                 outline_max_0,
+                                 pseudo_d);
+        }
+
+        float3 outline_HDR_color = outline_color_rgb * outline_HDR;
+        color.rgb = lerp(color.rgb, outline_HDR_color, oFactor);
+    }
+    
+    if(outer_glow_enable == 1.0f)
+    {
+        float4 outer_glow_sdf = texPseudoSDF(float3(IN.i_atlas_uv.xy + outer_glow_uv_offset, IN.i_atlas_uv.z));
+		
+		float4 glow_c = outer_glow_color * smoothstep(outer_glow_min_dvalue,
+                                                      outer_glow_max_dvalue,
+                                                      outer_glow_sdf.r);
+        glow_c *= outer_glow_HDR;
+		color = lerp(glow_c, color, sdf_alpha);
+    }
+    
+    color.a *= total_alpha;
+
+    float clip_alpha = 1.0f;
+    //NOTE: Clip.
+    // TODO(yanghang): Optimize, blend_verge relative calculate can be constant.
+
+    if(IN.i_softness.z > 0.0f)
+    {
+        float2 factor = float2(0.0f, 0.0f);
+        if(IN.i_clipPos.x < 0.0f)
+            factor.x = (1.0f - abs(IN.i_clipPos.x)) * IN.i_softness.x;
+        else
+            factor.x = (1.0f - IN.i_clipPos.x) * IN.i_softness.x;
+        if(IN.i_clipPos.y < 0.0f)
+            factor.y = (1.0f - abs(IN.i_clipPos.y)) * IN.i_softness.y;
+        else
+            factor.y = (1.0f - IN.i_clipPos.y) * IN.i_softness.y;
+
+        clip_alpha = clamp(min(factor.x, factor.y), 0.0f, 1.0f);
+    }
+    else
+    {
+        float2 factor = abs(IN.i_clipPos);
+        float max_factor = max(factor.x, factor.y);
+        float blend_verge = 0.005f;
+        float blend_verge_inv = 1.0f / blend_verge; 
+        if(max_factor > 1.0f)
+        {
+            // Edge blend
+        
+            float verge_value = clamp(max_factor, 1.0f, (1.0f + blend_verge));
+            verge_value -= 1.0f;
+            verge_value = blend_verge - verge_value;
+            
+            clip_alpha = verge_value * blend_verge_inv; 
+        } 
+    }
+
+    if(clip_alpha < ALPHA_EPSILON)
+        discard;
+    color.a *= clip_alpha;
+    //Clip end.
+    psOut.color = color;
+
+#ifdef UI3D_STYLE_WRITE_MASK
+    if(psOut.color.a < ALPHA_EPSILON)
+        discard;
+#endif
+
+#ifdef UI3D_STYLE_COVER_WEATHER
+    psOut.color.rgb = pow(pow(psOut.color.rgb, 2.2) * IN.i_fogColor.a + IN.i_fogColor.rgb, 1.0 / 2.2);
+
+    half3 V = normalize(U_PS_CameraPosition.xyz - IN.i_worldPos.xyz);
+
+    float4 sphFog = ComputeSphFogBlocked(
+    IN.i_worldPos.xyz,
+    U_PS_CameraPosition.xyz,
+    -V,
+    IN.i_pos.xy
+    );
+	psOut.color.rgb = lerp(psOut.color.rgb, sphFog.xyz, sphFog.a);
+#endif
+
+    //NOTE: Clip Debug
+#if 0
+    psOut.color = float4(IN.i_clipPos.x, IN.i_clipPos.y, 0, 1.0f);
+#endif
+
+    //TODO(yanghang):Overdraw debug effect,maybe need remove.
+    float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.color = psOut.color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+    
+    return psOut;
+}

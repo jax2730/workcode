@@ -1,0 +1,389 @@
+{
+	"archive" : {},
+	"artifacts" : 
+	[
+		{
+			"path" : "G:/Echo_SU_Develop/EchoSDK/Lib/Android/ARM64/Release/libEchoCommon.a"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"add_definitions",
+			"include_directories"
+		],
+		"files" : 
+		[
+			"EchoCommon/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 28,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 22,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 38,
+				"parent" : 0
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : " -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++20 -Wall -frtti -fexceptions -fsigned-char -Werror -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-const-variable  -O2 -g -DNDEBUG -fPIC"
+				}
+			],
+			"defines" : 
+			[
+				{
+					"backtrace" : 2,
+					"define" : "NDEBUG"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCommon/../../../../../../EchoCommon/Include"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCommon/../../../../../../EchoCommon/PrivateInclude"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCommon/../../../../../../EchoSDK/Include/ThirdParty/tinythread"
+				}
+			],
+			"language" : "CXX",
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20,
+				21,
+				22,
+				23,
+				24,
+				25,
+				26,
+				27,
+				28,
+				29,
+				30,
+				31,
+				32,
+				33,
+				34
+			],
+			"sysroot" : 
+			{
+				"path" : "D:/AndroidSDk/NDK/26.1.10909125/toolchains/llvm/prebuilt/windows-x86_64/sysroot"
+			}
+		}
+	],
+	"id" : "EchoCommon::@d4f1c738e2a6146cc808",
+	"name" : "EchoCommon",
+	"nameOnDisk" : "libEchoCommon.a",
+	"paths" : 
+	{
+		"build" : "EchoCommon",
+		"source" : "EchoCommon"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20,
+				21,
+				22,
+				23,
+				24,
+				25,
+				26,
+				27,
+				28,
+				29,
+				30,
+				31,
+				32,
+				33,
+				34
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoAnimationCurve.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoAtomicScalar.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoAxisAlignedBox.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoColorValue.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoDMatrix4.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoDVector3.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoDataStream.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoDataStreamUtil.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoDualQuaternion.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoIndex.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoMalloc.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoMath.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoMatrix3.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoMatrix4.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoMemoryPool.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoMemoryTracker.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoName.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoOrientedBox.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoPhysicsCommon.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoPlane.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoPrecompiledHeaders.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoQuaternion.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoRotationSpline.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoStringConverter.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoStringPool.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoStringUtil.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoSurfaceType.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoTRectF.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoTransform.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoUTFString.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoVector2.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoVector2_t.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoVector3.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoVector3_t.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoCommon/Source/EchoVector4.cpp",
+			"sourceGroupIndex" : 0
+		}
+	],
+	"type" : "STATIC_LIBRARY"
+}

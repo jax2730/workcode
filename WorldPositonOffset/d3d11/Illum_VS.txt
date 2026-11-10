@@ -76,8 +76,15 @@ struct VS_INPUT
 #endif
 
 #ifdef HWSKINNED
-	float4	blend	: BLENDWEIGHT0;
-	uint4	index	: BLENDINDICES0;
+	#ifndef HWSKINNED_DUAL
+		float4	blend	: BLENDWEIGHT0;
+		uint4	index	: BLENDINDICES0;
+	#else
+		float4	blend0	: BLENDWEIGHT0;
+		float4	blend1	: BLENDWEIGHT1;
+		uint4	index0	: BLENDINDICES0;
+		uint4	index1	: BLENDINDICES1;
+	#endif
 #endif
 };
 
@@ -100,7 +107,6 @@ struct VS_OUTPUT
 	float4	o_EyeDir			: TEXCOORD6;
 	#ifdef USESHADOWMAP
 		float   o_ViewSpaceZ		: TEXCOORD7;
-		float4  O_LightSpacePos[SHADOWSPLITE] : TEXCOORD8; 
 	#endif
 	
 	#ifdef SCREENDISTORT
@@ -127,10 +133,12 @@ struct VS_OUTPUT
 	float3x4 loadBoneMatrix (uint animationData , uint index)
 	{
 		float3x4 rvt ;
+		uint hIndex = animationData>>16;
+		uint wIndex = animationData&0xffff;
 
-		rvt[0] = S_2DExt0.Load(uint3(index*3 + 0, animationData, 0));
-		rvt[1] = S_2DExt0.Load(uint3(index*3 + 1, animationData, 0));
-		rvt[2] = S_2DExt0.Load(uint3(index*3 + 2, animationData, 0));
+		rvt[0] = S_2DExt0.Load(uint3(index*3 + 0+wIndex, hIndex, 0));
+		rvt[1] = S_2DExt0.Load(uint3(index*3 + 1+wIndex, hIndex, 0));
+		rvt[2] = S_2DExt0.Load(uint3(index*3 + 2+wIndex, hIndex, 0));
 		return rvt ;
 	}
 #endif
@@ -146,8 +154,20 @@ VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID : SV_InstanceID)
 	float4 fHandedness = 1.f;
 
 	#ifdef HWSKINNED
-		float4	Weight		= IN.blend;
-		uint4  Index		= IN.index;
+		#ifndef HWSKINNED_DUAL
+			float4	Weight = IN.blend;
+			uint4   Index  = IN.index;
+			#define BlendCount 4
+		#else
+			float Weight[8] ;
+			Weight[0] = IN.blend0[0]; Weight[1] = IN.blend0[1]; Weight[2] = IN.blend0[2]; Weight[3] = IN.blend0[3];
+			Weight[4] = IN.blend1[0]; Weight[5] = IN.blend1[1]; Weight[6] = IN.blend1[2]; Weight[7] = IN.blend1[3];
+			uint  Index[8];
+			Index[0] = IN.index0[0]; Index[1] = IN.index0[1]; Index[2] = IN.index0[2]; Index[3] = IN.index0[3];
+			Index[4] = IN.index1[0]; Index[5] = IN.index1[1]; Index[6] = IN.index1[2]; Index[7] = IN.index1[3];
+			#define BlendCount 8
+		#endif
+
 
 		float4 BoneMatC0	= float4(0.0,0.0,0.0,0.0);
 		float4 BoneMatC1	= float4(0.0,0.0,0.0,0.0);
@@ -156,7 +176,7 @@ VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID : SV_InstanceID)
         #ifdef SKINNEDINSTANCE
 		   	// recalculate index
 		   	uint 	animationData = U_VSCustom1[i_InstanceID >> 2][i_InstanceID & 3];
-			for(int i=0;i<4;++i)
+			for(int i=0;i<BlendCount;++i)
 			{
 		     	float3x4 res=loadBoneMatrix(animationData,Index[i]);
 		     	BoneMatC0 += Weight[i] * res[0];
@@ -164,7 +184,7 @@ VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID : SV_InstanceID)
 			 	BoneMatC2 += Weight[i] * res[2];
 			}
 	    #else
-			for(int i=0;i<4;++i)
+			for(int i=0;i<BlendCount;++i)
 		    {
 		    	int idx = Index[i];
 		    	BoneMatC0	+=	U_BoneMatrix[idx*3+0]*Weight[i];	
@@ -217,14 +237,17 @@ VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID : SV_InstanceID)
 		InvTransposeWorldMatrix[1] = U_VSCustom0[idxInst + 4];
 		InvTransposeWorldMatrix[2] = U_VSCustom0[idxInst + 5];
 
-		float4 Wpos;
-		Wpos.xyz = mul((float3x4)WorldMatrix, pos);
-		Wpos.w = 1.0;
-
-		// translate to camera space
-		float4 vObjPosInCam = Wpos - U_VS_CameraPosition;
+		// WorldMatrix is now camera-relative (CPU did high-precision subtraction)
+		// No need to subtract camera position again!
+		float4 vObjPosInCam;
+		vObjPosInCam.xyz = mul((float3x4)WorldMatrix, pos);
 		vObjPosInCam.w = 1.f;
 		vsOut.o_PosInClip = mul((float4x4)U_ZeroViewProjectMatrix, vObjPosInCam);
+		
+		// Reconstruct world position for lighting calculations
+		float4 Wpos;
+		Wpos.xyz = vObjPosInCam.xyz + U_VS_CameraPosition.xyz;
+		Wpos.w = 1.0;
 	#endif
 
 	fHandedness = determinant(float3x3(WorldMatrix[0].xyz, WorldMatrix[1].xyz, WorldMatrix[2].xyz));
@@ -277,7 +300,7 @@ VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID : SV_InstanceID)
 			float4 lastBoneMatC1	= float4(0.0,0.0,0.0,0.0);
 			float4 lastBoneMatC2	= float4(0.0,0.0,0.0,0.0);
 
-			for(int i=0;i<4;++i)
+			for(int i=0;i<BlendCount;++i)
 			{
 				int idx = Index[i];
 				lastBoneMatC0	+=	U_LastBoneMatrix[idx*3+0]*Weight[i];	
@@ -352,67 +375,6 @@ VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID : SV_InstanceID)
 	
 	#ifdef USESHADOWMAP
 		float viewZ = -dot(U_MainCamViewMatrix, float4(vsOut.o_WPos.xyz, 1.0f));
-	
-	    float4 wpos = vsOut.o_WPos;
-		float3 wNormal = normalize(vsOut.o_WNormal.xyz);
-		float3 wLight = -U_VS_MainLightDirection.xyz;
-
-		float shadowCos = dot(wNormal, wLight);
-		float shadowSine = sqrt(1-shadowCos*shadowCos);
-		
-		float4 normalBias = ShadowNormalOffset * shadowSine * U_ShadowBiasMul;
-		float4 wposOffset = wpos;
-		const float BlendThreshold = 1;
-	
-		#if SHADOWSPLITE > 0
-		{
-		#if SHADOWSPLITE > 1
-			float lerpAmt = smoothstep(1.0 - BlendThreshold, 1.0, viewZ / U_VS_ShadowSplit[0].x);
-			wposOffset.xyz  = wpos.xyz + wNormal * lerp(normalBias[0], normalBias[1], lerpAmt);
-		#else
-			wposOffset.xyz  = wpos.xyz + wNormal * normalBias[0];
-		#endif
-		}
-		vsOut.O_LightSpacePos[0].x = dot(U_LightVPMatrix0[0], wposOffset);
-		vsOut.O_LightSpacePos[0].y = dot(U_LightVPMatrix0[1], wposOffset);
-		vsOut.O_LightSpacePos[0].z = dot(U_LightVPMatrix0[2], wposOffset);
-		vsOut.O_LightSpacePos[0].w = dot(U_LightVPMatrix0[3], wposOffset);
-		#endif
-		#if SHADOWSPLITE > 1	
-		{
-		#if SHADOWSPLITE > 2
-			float lerpAmt = smoothstep(1.0 - BlendThreshold, 1.0, (viewZ - U_VS_ShadowSplit[0].x) / (U_VS_ShadowSplit[0].y - U_VS_ShadowSplit[0].x));
-			wposOffset.xyz  = wpos.xyz + wNormal * lerp(normalBias[1], normalBias[2], lerpAmt);
-		#else
-			wposOffset.xyz  = wpos.xyz + wNormal * normalBias[1];
-		#endif
-		}
-		vsOut.O_LightSpacePos[1].x = dot(U_LightVPMatrix1[0], wposOffset);
-		vsOut.O_LightSpacePos[1].y = dot(U_LightVPMatrix1[1], wposOffset);
-		vsOut.O_LightSpacePos[1].z = dot(U_LightVPMatrix1[2], wposOffset);
-		vsOut.O_LightSpacePos[1].w = dot(U_LightVPMatrix1[3], wposOffset);
-		#endif
-		#if SHADOWSPLITE > 2	
-	   	{
-		#if SHADOWSPLITE > 3
-			float lerpAmt = smoothstep(1.0 - BlendThreshold, 1.0, (viewZ - U_VS_ShadowSplit[0].y) / (U_VS_ShadowSplit[0].z - U_VS_ShadowSplit[0].y));
-			wposOffset.xyz  = wpos.xyz + wNormal * lerp(normalBias[2], normalBias[3], lerpAmt);
-		#else
-			wposOffset.xyz  = wpos.xyz + wNormal * normalBias[2];
-		#endif
-		}
-		vsOut.O_LightSpacePos[2].x = dot(U_LightVPMatrix2[0], wposOffset);
-		vsOut.O_LightSpacePos[2].y = dot(U_LightVPMatrix2[1], wposOffset);
-		vsOut.O_LightSpacePos[2].z = dot(U_LightVPMatrix2[2], wposOffset);
-		vsOut.O_LightSpacePos[2].w = dot(U_LightVPMatrix2[3], wposOffset);
-		#endif	
-		#if SHADOWSPLITE > 3	
-		wposOffset.xyz = wpos.xyz + wNormal * normalBias[3];
-		vsOut.O_LightSpacePos[3].x = dot(U_LightVPMatrix3[0], wposOffset);
-		vsOut.O_LightSpacePos[3].y = dot(U_LightVPMatrix3[1], wposOffset);
-		vsOut.O_LightSpacePos[3].z = dot(U_LightVPMatrix3[2], wposOffset);
-		vsOut.O_LightSpacePos[3].w = dot(U_LightVPMatrix3[3], wposOffset);
-		#endif			
 		vsOut.o_ViewSpaceZ = viewZ;
 	#endif
 #endif

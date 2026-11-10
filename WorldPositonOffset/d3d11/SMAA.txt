@@ -1,0 +1,244 @@
+
+#ifdef VERTEX_SHADER
+float4 U_VSGeneralRegister0;
+#define RT_Width U_VSGeneralRegister0.x
+#define RT_Height U_VSGeneralRegister0.y
+#define RT_xRange U_VSGeneralRegister0.z
+#define RT_yRange U_VSGeneralRegister0.w
+#elif defined(PIXEL_SHADER)
+float4 U_PSGeneralRegister0;
+#define RT_Width U_PSGeneralRegister0.x
+#define RT_Height U_PSGeneralRegister0.y
+#define RT_xRange U_PSGeneralRegister0.z
+#define RT_yRange U_PSGeneralRegister0.w
+float4 U_PSGeneralRegister1; // subsampleIndices
+
+#if defined(LumaEdgeDetection) || defined(ColorEdgeDetection) || defined(NeighborhoodBlending) || defined(Resolve)
+uniform Texture2D S_2DExt0; // color
+#endif
+
+#if defined(LumaEdgeDetection) || defined(ColorEdgeDetection) || defined(DepthEdgeDetection)
+uniform Texture2D S_2DExt1; // depth
+#endif
+
+#ifdef BlendingWeightCalculation
+uniform Texture2D S_2DExt2; // edgedetection
+#endif
+
+#ifdef NeighborhoodBlending
+uniform Texture2D S_2DExt3; // Blend
+#endif
+
+#ifdef BlendingWeightCalculation
+uniform Texture2D S_2DExt4; // area
+#endif
+
+#ifdef BlendingWeightCalculation
+uniform Texture2D S_2DExt5; // search
+#endif
+#endif
+
+#define SMAA_RT_METRICS float4(1.0 / RT_Width, 1.0 / RT_Height, RT_Width, RT_Height)
+#define SMAA_HLSL_4_1
+#define SMAA_PRESET_HIGH
+#define SMAA_PREDICATION 1
+#include <SMAA.inl>
+
+/**
+ * Input textures
+ */
+//Texture2D colorTexPrev;
+//Texture2DMS<float4, 2> colorTexMS;
+//Texture2D velocityTex;
+
+
+/**
+ * Edge detection techniques
+ */
+#ifdef LumaEdgeDetection
+#ifdef VERTEX_SHADER
+//DX10_SMAAEdgeDetectionVS
+#define SHADER_FUNCTION \
+    void main(float2 position : POSITION0, \
+                out float4 svPosition : SV_POSITION, \
+                inout float2 texcoord : TEXCOORD0, \
+                out float4 offset[3] : TEXCOORD1) { \
+        svPosition = float4(position.xy, 1.0, 1.0); \
+        texcoord = float2(texcoord.x * RT_xRange, texcoord.y * RT_yRange); \
+        SMAAEdgeDetectionVS(texcoord, offset); \
+    }
+#elif defined(PIXEL_SHADER)
+//DX10_SMAALumaEdgeDetectionPS
+#define SHADER_FUNCTION \
+    float2 main(float4 position : SV_POSITION, \
+                float2 texcoord : TEXCOORD0, \
+                float4 offset[3] : TEXCOORD1) : SV_TARGET { \
+        return SMAALumaEdgeDetectionPS(texcoord, offset, S_2DExt0, S_2DExt1); \
+    }
+#endif
+#endif
+
+#ifdef ColorEdgeDetection
+#ifdef VERTEX_SHADER
+//DX10_SMAAEdgeDetectionVS
+#define SHADER_FUNCTION \
+    void main(float2 position : POSITION0, \
+                out float4 svPosition : SV_POSITION, \
+                inout float2 texcoord : TEXCOORD0, \
+                out float4 offset[3] : TEXCOORD1) { \
+        svPosition = float4(position.xy, 1.0, 1.0); \
+        texcoord = float2(texcoord.x * RT_xRange, texcoord.y * RT_yRange); \
+        SMAAEdgeDetectionVS(texcoord, offset); \
+    }
+#elif defined(PIXEL_SHADER)
+//DX10_SMAAColorEdgeDetectionPS
+#define SHADER_FUNCTION \
+    float2 main(float4 position : SV_POSITION, \
+                float2 texcoord : TEXCOORD0, \
+                float4 offset[3] : TEXCOORD1) : SV_TARGET { \
+        return SMAAColorEdgeDetectionPS(texcoord, offset, S_2DExt0, S_2DExt1); \
+    }
+#endif
+#endif
+
+#ifdef DepthEdgeDetection
+#ifdef VERTEX_SHADER
+//DX10_SMAAEdgeDetectionVS
+#define SHADER_FUNCTION \
+    void main(float2 position : POSITION0, \
+                out float4 svPosition : SV_POSITION, \
+                inout float2 texcoord : TEXCOORD0, \
+                out float4 offset[3] : TEXCOORD1) { \
+        svPosition = float4(position.xy, 1.0, 1.0); \
+        texcoord = float2(texcoord.x * RT_xRange, texcoord.y * RT_yRange); \
+        SMAAEdgeDetectionVS(texcoord, offset); \
+    }
+#elif defined(PIXEL_SHADER)
+//DX10_SMAADepthEdgeDetectionPS
+#define SHADER_FUNCTION \
+    float2 main(float4 position : SV_POSITION, \
+                float2 texcoord : TEXCOORD0, \
+                float4 offset[3] : TEXCOORD1) : SV_TARGET { \
+        return SMAADepthEdgeDetectionPS(texcoord, offset, S_2DExt1); \
+    }
+#endif
+#endif
+
+/**
+ * Blending weight calculation technique
+ */
+#ifdef BlendingWeightCalculation
+#ifdef VERTEX_SHADER
+//DX10_SMAABlendingWeightCalculationVS
+#define SHADER_FUNCTION \
+    void main(float2 position : POSITION0, \
+                out float4 svPosition : SV_POSITION, \
+                inout float2 texcoord : TEXCOORD0, \
+                out float2 pixcoord : TEXCOORD1, \
+                out float4 offset[3] : TEXCOORD2) { \
+        svPosition = float4(position.xy, 1.0, 1.0); \
+        texcoord = float2(texcoord.x * RT_xRange, texcoord.y * RT_yRange); \
+        SMAABlendingWeightCalculationVS(texcoord, pixcoord, offset); \
+    }
+#elif defined(PIXEL_SHADER)
+//DX10_SMAABlendingWeightCalculationPS
+#define SHADER_FUNCTION \
+    float4 main(float4 position : SV_POSITION, \
+                float2 texcoord : TEXCOORD0, \
+                float2 pixcoord : TEXCOORD1, \
+                float4 offset[3] : TEXCOORD2) : SV_TARGET { \
+        return SMAABlendingWeightCalculationPS(texcoord, pixcoord, offset, S_2DExt2, S_2DExt4, S_2DExt5, U_PSGeneralRegister1); \
+    }
+#endif
+#endif
+
+/**
+ * Neighborhood blending technique
+ */
+#ifdef NeighborhoodBlending
+#ifdef VERTEX_SHADER
+//DX10_SMAANeighborhoodBlendingVS
+#define SHADER_FUNCTION \
+    void main(float2 position : POSITION0, \
+                out float4 svPosition : SV_POSITION, \
+                inout float2 texcoord : TEXCOORD0, \
+                out float4 offset : TEXCOORD1) { \
+        svPosition = float4(position.xy, 1.0, 1.0); \
+        texcoord = float2(texcoord.x * RT_xRange, texcoord.y * RT_yRange); \
+        SMAANeighborhoodBlendingVS(texcoord, offset); \
+    }
+#elif defined(PIXEL_SHADER)
+//DX10_SMAANeighborhoodBlendingPS
+// #if SMAA_REPROJECTION
+//     #define SMAANeighborhoodBlendingPSFUNC \
+//         SMAANeighborhoodBlendingPS(texcoord, offset, S_2DExt0, S_2DExt3, velocityTex);
+// #else
+//     #define SMAANeighborhoodBlendingPSFUNC \
+//         SMAANeighborhoodBlendingPS(texcoord, offset, S_2DExt0, S_2DExt3);
+// #endif
+#define SHADER_FUNCTION \
+    float4 main(float4 position : SV_POSITION, \
+                float2 texcoord : TEXCOORD0, \
+                float4 offset : TEXCOORD1) : SV_TARGET { \
+        return SMAANeighborhoodBlendingPS(texcoord, offset, S_2DExt0, S_2DExt3); \
+    }
+#endif
+#endif
+
+/**
+ * Temporal resolve technique
+ */
+// #ifdef Resolve
+// #ifdef VERTEX_SHADER
+// //DX10_SMAAResolveVS
+// #define SHADER_FUNCTION \
+//     void main(float2 position : POSITION0, \
+//                 out float4 svPosition : SV_POSITION, \
+//                 inout float2 texcoord : TEXCOORD0) { \
+//         svPosition = float4(position.xy, 1.0, 1.0); \
+//     }
+// #elif defined(PIXEL_SHADER)
+// //DX10_SMAAResolvePS
+// #if SMAA_REPROJECTION
+//     #define SMAAResolvePSFUNC SMAAResolvePS(texcoord, S_2DExt0, colorTexPrev, velocityTex)
+// #else
+//     #define SMAAResolvePSFUNC SMAAResolvePS(texcoord, S_2DExt0, colorTexPrev)
+// #endif
+// #define SHADER_FUNCTION \
+//     float4 main(float4 position : SV_POSITION, \
+//                 float2 texcoord : TEXCOORD0) : SV_TARGET { \
+//         return SMAAResolvePS(texcoord, S_2DExt0, colorTexPrev); \
+//     }
+// #endif
+// #endif
+
+/**
+ * 2x multisampled buffer conversion into two regular buffers
+ */
+// #ifdef Separate
+// #ifdef VERTEX_SHADER
+// //DX10_SMAASeparateVS
+// #define SHADER_FUNCTION \
+//     void main(float2 position : POSITION0, \
+//                 out float4 svPosition : SV_POSITION, \
+//                 inout float2 texcoord : TEXCOORD0) { \
+//         svPosition = float4(position.xy, 1.0, 1.0); \
+//     }
+// #elif defined(PIXEL_SHADER)
+// //DX10_SMAASeparatePS
+// #define SHADER_FUNCTION \
+//     void main(float4 position : SV_POSITION, \
+//                 float2 texcoord : TEXCOORD0, \
+//                 out float4 target0 : SV_TARGET0, \
+//                 out float4 target1 : SV_TARGET1) { \
+//         SMAASeparatePS(position, texcoord, target0, target1, colorTexMS); \
+//     }
+// #endif
+// #endif
+
+#ifndef SHADER_FUNCTION
+#error you should define a pass and a shader type
+#endif
+
+
+SHADER_FUNCTION

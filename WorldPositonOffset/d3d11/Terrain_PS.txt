@@ -1,0 +1,407 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+
+#ifdef EMISSION_COLOR
+	float4 U_LightPower;
+#endif
+
+uniform float4 U_PSCustom0;  // projection plane
+uniform float4 U_PSCustom1;	 // Multiplier of diffuse map
+
+#if defined(NORMAL_MAP_LAYER0) || defined(NORMAL_MAP_LAYER1) || defined(NORMAL_MAP_LAYER2) || defined(NORMAL_MAP_LAYER3)
+	uniform float4 U_PSCustom2;
+	uniform float4 U_PSCustom3;
+	uniform float4 U_PSCustom4;
+	uniform float4 U_PSCustom5;
+#endif
+
+uniform float4 U_PSCustom6;
+uniform float4 U_PSCustom7;
+uniform float4 U_PSCustom8;
+uniform float4 U_PSCustom9;
+uniform float4 U_PSCustom10;
+
+uniform Texture2D S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+
+#if TERRAINLAYER >= 1
+	uniform Texture2D S_2DExt1;
+	SamplerState S_2DExt1SamplerState;
+	
+	#ifdef NORMAL_MAP_LAYER0
+		uniform Texture2D S_2DExt2;
+		SamplerState S_2DExt2SamplerState;
+		
+	#endif	
+#endif
+#if TERRAINLAYER >= 2
+	uniform Texture2D S_2DExt3;
+	SamplerState S_2DExt3SamplerState;
+		
+	uniform Texture2D S_2DExt4;
+	SamplerState S_2DExt4SamplerState;
+		
+	#ifdef NORMAL_MAP_LAYER1
+		uniform Texture2D S_2DExt5;
+		SamplerState S_2DExt5SamplerState;
+	#endif
+#endif
+#if TERRAINLAYER >= 3
+	uniform Texture2D S_2DExt6;
+	SamplerState S_2DExt6SamplerState;
+	#ifdef NORMAL_MAP_LAYER2
+		uniform Texture2D S_2DExt7;
+		SamplerState S_2DExt7SamplerState;
+	#endif
+#endif
+#if TERRAINLAYER >= 4
+	uniform Texture2D S_2DExt8;
+	SamplerState S_2DExt8SamplerState;
+	#ifdef NORMAL_MAP_LAYER3
+		uniform Texture2D S_2DExt9;
+		SamplerState S_2DExt9SamplerState;
+	#endif
+#endif
+
+struct PS_INPUT
+{
+    float4	i_PosInClip			: SV_POSITION;
+	float4	i_Normal	: TEXCOORD0;	// w: fog factor
+	float4	i_UVBase	: TEXCOORD1;	// w: viewSpaceZ
+	float3	i_PosUV		: TEXCOORD2;
+	float4	i_WorldPos	: TEXCOORD3;
+	float4  i_FogColor  : TEXCOORD4;
+#if defined(NORMAL_MAP_LAYER0) || defined(NORMAL_MAP_LAYER1) || defined(NORMAL_MAP_LAYER2) || defined(NORMAL_MAP_LAYER3)
+	float3	i_ViewDir	: TEXCOORD5;
+#endif
+#ifdef VERTEX_COLOR
+	float4	i_Diffuse	: COLOR0;
+#endif
+#ifdef EMISSION_COLOR
+	float4	i_Emission	: COLOR1;
+#endif
+};
+
+// Calc blend weight by normal, the normal must be normalized.
+float3 calcNrmBlendWeights(in float3 vNormal)
+{
+	float3 weights = abs(vNormal);
+	weights = weights - 0.577f;
+	weights = max(weights, 0.f);
+	weights /= dot(weights, 1.f);
+	return weights;
+}
+
+void TriplanerProjection(out float4 oDiffuse, in Texture2D texDiffuse, SamplerState samplerState, in float4 cDiffuseColor, in float3 vNormal, in float3 vPosUV, in float vUVRatio)
+{
+	float3 vNrmWeights = calcNrmBlendWeights(vNormal);
+
+	float3 vUVDiffuse = vPosUV * vUVRatio;
+	float2 vUVDiffuseXZ = vUVDiffuse.xz;
+	float2 vUVDiffuseXY = { vNormal.z >= 0 ? vUVDiffuse.x : -vUVDiffuse.x, -vUVDiffuse.y };
+	float2 vUVDiffuseZY = { vNormal.x >= 0 ? -vUVDiffuse.z : vUVDiffuse.z, -vUVDiffuse.y };
+	float4 cDiffuseXZ = texDiffuse.Sample(samplerState, vUVDiffuseXZ);
+	float4 cDiffuseXY = texDiffuse.Sample(samplerState, vUVDiffuseXY);
+	float4 cDiffuseZY = texDiffuse.Sample(samplerState, vUVDiffuseZY);
+	oDiffuse = cDiffuseXZ * vNrmWeights.yyyy + cDiffuseXY * vNrmWeights.zzzz + cDiffuseZY * vNrmWeights.xxxx;
+	oDiffuse = pow(oDiffuse*cDiffuseColor, 2.2f) * cDiffuseColor.a;
+}
+
+void TriplanerProjectionWithNormal(out float4 oDiffuse, out float4 oNormal,
+	in Texture2D texDiffuse,in SamplerState texDiffuseSamplerState, in Texture2D texNormal, in SamplerState texNormalSamplerState, in float4 cDiffuseColor, in float fNormalRatio,
+	in float fSpecRatio, in float3 vNormal, in float3 vPosUV, in float2 vUVRatio)
+{
+	float3 vNrmWeights = calcNrmBlendWeights(vNormal);
+
+	float3 vUVDiffuse = vPosUV * vUVRatio.x;
+	float2 vUVDiffuseXZ = vUVDiffuse.xz;
+	float2 vUVDiffuseXY = { vNormal.z >= 0 ? vUVDiffuse.x : -vUVDiffuse.x, -vUVDiffuse.y };
+	float2 vUVDiffuseZY = { vNormal.x >= 0 ? -vUVDiffuse.z : vUVDiffuse.z, -vUVDiffuse.y };
+	float4 cDiffuseXZ = texDiffuse.Sample(texDiffuseSamplerState, vUVDiffuseXZ);
+	float4 cDiffuseXY = texDiffuse.Sample(texDiffuseSamplerState, vUVDiffuseXY);
+	float4 cDiffuseZY = texDiffuse.Sample(texDiffuseSamplerState, vUVDiffuseZY);
+	oDiffuse = cDiffuseXZ * vNrmWeights.yyyy + cDiffuseXY * vNrmWeights.zzzz + cDiffuseZY * vNrmWeights.xxxx;
+	oDiffuse = pow(oDiffuse*cDiffuseColor, 2.2f) * cDiffuseColor.a;
+
+	float3 vUVNormal = vPosUV * vUVRatio.y;
+	float2 vUVNormalXZ = vUVNormal.xz;
+	float2 vUVNormalXY = { vNormal.z >= 0 ? vUVNormal.x : -vUVNormal.x, -vUVNormal.y };
+	float2 vUVNormalZY = { vNormal.x >= 0 ? -vUVNormal.z : vUVNormal.z, -vUVNormal.y };
+	float4 cNormalXZ = texNormal.Sample(texNormalSamplerState, vUVNormalXZ);
+	float4 cNormalXY = texNormal.Sample(texNormalSamplerState, vUVNormalXY);
+	float4 cNormalZY = texNormal.Sample(texNormalSamplerState, vUVNormalZY);
+	oNormal = cNormalXZ * vNrmWeights.yyyy + cNormalXY * vNrmWeights.zzzz + cNormalZY * vNrmWeights.xxxx;
+	oNormal.xyz -= 0.5f;
+	oNormal.xyz *= 2.f;
+	oNormal.xy *= fNormalRatio;
+	oNormal.xyz = normalize(oNormal.xyz);
+	oNormal.w = pow(oNormal.w, 2.2f) * fSpecRatio;
+}
+
+void BaseProjection(out float4 oDiffuse, in Texture2D texDiffuse, SamplerState texDiffuseSamplerState, in float4 cDiffuseColor, in float2 vUV, in float vUVRatio)
+{
+	oDiffuse = pow(texDiffuse.Sample(texDiffuseSamplerState, vUV * vUVRatio) * cDiffuseColor, 2.2f) * cDiffuseColor.a;
+}
+
+void BaseProjectionWithNormal(out float4 oDiffuse, out float4 oNormal,
+	in Texture2D texDiffuse,in SamplerState texDiffuseSamplerState, in Texture2D texNormal,in SamplerState texNormalSamplerState, in float4 cDiffuseColor,
+	in float fNormalRatio, in float fSpecRatio, in float2 vUV, in float2 vUVRatio)
+{
+	oDiffuse = pow(texDiffuse.Sample(texDiffuseSamplerState, vUV * vUVRatio.x) * cDiffuseColor, 2.2f) * cDiffuseColor.a;
+
+	oNormal = texNormal.Sample(texNormalSamplerState, vUV * vUVRatio.y);
+	oNormal.xyz -= 0.5f;
+	oNormal.xyz *= 2.f;
+	oNormal.xy *= fNormalRatio;
+	oNormal.xyz = normalize(oNormal.xyz);
+	oNormal.w = pow(oNormal.w, 2.2f) * fSpecRatio;
+}
+
+float4 main(PS_INPUT IN) : SV_TARGET
+{
+	float4 cSplattedColor = (float4)0.f;
+	float4 cSplattedNormal = (float4)0.f;
+	float3 vNormal = normalize(IN.i_Normal.xyz);
+	
+#ifdef USESHADOWMAP
+	float4 shadowSpacePos[SHADOWSPLITE];
+	ProjectToLightSpace(shadowSpacePos, IN.i_WorldPos.xyz);
+#endif
+
+	float4 ProjPlane = U_PSCustom0;
+	float4 DiffuseMapMult = U_PSCustom1;
+
+#if defined(NORMAL_MAP_LAYER0) || defined(NORMAL_MAP_LAYER1) || defined(NORMAL_MAP_LAYER2) || defined(NORMAL_MAP_LAYER3)
+	float4 NormalMapMult 	= U_PSCustom2;
+	float4 NormalRatio 		= U_PSCustom3;
+	float4 SpecularRatio	= U_PSCustom4;
+	float4 SpecularExp		= U_PSCustom5;
+#endif
+
+	float4 DiffuseColor0	= U_PSCustom6;
+	float4 DiffuseColor1	= U_PSCustom7;
+	float4 DiffuseColor2	= U_PSCustom8;
+	float4 DiffuseColor3	= U_PSCustom9;
+	float4 DebugColor		= U_PSCustom10;
+
+#if TERRAINLAYER <= 0
+	cSplattedColor = (float4)0.435294f;
+	cSplattedNormal.xyz = vNormal;
+#endif
+
+#if TERRAINLAYER > 0
+	float2 vUVPlane[3] =
+	{
+		float2(IN.i_PosUV.x, IN.i_PosUV.z),		// XZ Plane
+		float2(-IN.i_PosUV.z, -IN.i_PosUV.y),	// ZY Plane
+		float2(IN.i_PosUV.x, -IN.i_PosUV.y)		// YX Plane
+	};
+#endif
+
+#if TERRAINLAYER >= 1
+	float2 vUVLayer0 = vUVPlane[ProjPlane.x];
+#endif
+#if TERRAINLAYER >= 2
+	float2 vUVLayer1 = vUVPlane[ProjPlane.y];
+	float2 vUVWeight = IN.i_PosUV.xz;
+#endif
+#if TERRAINLAYER >= 3
+	float2 vUVLayer2 = vUVPlane[ProjPlane.z];
+#endif
+#if TERRAINLAYER >= 4
+	float2 vUVLayer3 = vUVPlane[ProjPlane.w];
+#endif
+
+#if TERRAINLAYER >= 2
+	float4 vWeight = S_2DExt3.Sample(S_2DExt3SamplerState, vUVWeight);
+#endif
+	float fLeastWeight = 1.f;
+
+#if defined(NORMAL_MAP_LAYER0) || defined(NORMAL_MAP_LAYER1) || defined(NORMAL_MAP_LAYER2) || defined(NORMAL_MAP_LAYER3)
+	float3 nn = vNormal.xyz;
+	float3 tn = float3(1.f, 0.f, 0.f);
+	float3 bn = cross(tn, nn);
+	tn = cross(nn, bn);
+	float3x3 MatTBN =
+	{
+		tn.x, bn.x, nn.x,
+		tn.y, bn.y, nn.y,
+		tn.z, bn.z, nn.z
+	};
+	float2 vSpecularParam = (float2)0.f;	// x: specular ratio, y: specular exp
+#endif
+
+	// total weith is 1;
+#if TERRAINLAYER >= 4
+	float4 cDiffuse3 = (float4)1.f;
+	#ifdef NORMAL_MAP_LAYER3
+		float4 cNormal3 = (float4)0.f;
+	#endif
+	#ifdef TRIPLANER_LAYER3
+		#ifdef NORMAL_MAP_LAYER3
+			TriplanerProjectionWithNormal(cDiffuse3, cNormal3, S_2DExt8,S_2DExt8SamplerState, S_2DExt9,S_2DExt9SamplerState, DiffuseColor3, NormalRatio.w, SpecularRatio.w, vNormal, IN.i_PosUV, float2(DiffuseMapMult.w, NormalMapMult.w));
+		#else
+			TriplanerProjection(cDiffuse3, S_2DExt8, DiffuseColor3, vNormal, IN.i_PosUV, DiffuseMapMult.w);
+		#endif
+	#else
+		#ifdef NORMAL_MAP_LAYER3
+			BaseProjectionWithNormal(cDiffuse3, cNormal3, S_2DExt8,S_2DExt8SamplerState, S_2DExt9,S_2DExt9SamplerState, DiffuseColor3, NormalRatio.w, SpecularRatio.w, vUVLayer3, float2(DiffuseMapMult.w, NormalMapMult.w));
+		#else
+			BaseProjection(cDiffuse3, S_2DExt8,S_2DExt8SamplerState, DiffuseColor3, vUVLayer3, DiffuseMapMult.w);
+		#endif
+	#endif
+	cSplattedColor += cDiffuse3	 * vWeight.r;
+	#ifdef NORMAL_MAP_LAYER3
+		cNormal3.xyz = mul(MatTBN, cNormal3.xyz);
+		cSplattedNormal += cNormal3 * vWeight.r;
+		vSpecularParam += float2(SpecularRatio.w, SpecularExp.w) * vWeight.r;
+	#else
+		cSplattedNormal.xyz += vNormal * vWeight.r;
+	#endif
+	fLeastWeight -= vWeight.r;
+#endif
+
+#if TERRAINLAYER >= 3
+	float4 cDiffuse2 = (float4) 1.f;
+	#ifdef NORMAL_MAP_LAYER2
+		float4 cNormal2 = (float4)0.f;
+	#endif
+	#ifdef TRIPLANER_LAYER2
+		#ifdef NORMAL_MAP_LAYER2
+			TriplanerProjectionWithNormal(cDiffuse2, cNormal2, S_2DExt6,S_2DExt6SamplerState, S_2DExt7,S_2DExt7SamplerState, DiffuseColor2, NormalRatio.z, SpecularRatio.z, vNormal, IN.i_PosUV, float2(DiffuseMapMult.z, NormalMapMult.z));
+		#else
+			TriplanerProjection(cDiffuse2, S_2DExt6, DiffuseColor2, vNormal, IN.i_PosUV, DiffuseMapMult.z);
+		#endif
+	#else
+		#ifdef NORMAL_MAP_LAYER2
+			BaseProjectionWithNormal(cDiffuse2, cNormal2, S_2DExt6,S_2DExt6SamplerState, S_2DExt7,S_2DExt7SamplerState, DiffuseColor2, NormalRatio.z, SpecularRatio.z, vUVLayer2, float2(DiffuseMapMult.z, NormalMapMult.z));
+		#else
+			BaseProjection(cDiffuse2, S_2DExt6,S_2DExt6SamplerState, DiffuseColor2, vUVLayer2, DiffuseMapMult.z);
+		#endif
+	#endif
+	cSplattedColor += cDiffuse2 * vWeight.g;
+	#ifdef NORMAL_MAP_LAYER2
+		cNormal2.xyz = mul(MatTBN, cNormal2.xyz);
+		cSplattedNormal += cNormal2 * vWeight.g;
+		vSpecularParam += float2(SpecularRatio.z, SpecularExp.z) * vWeight.g;
+	#else
+		cSplattedNormal.xyz += vNormal * vWeight.g;
+	#endif
+	fLeastWeight -= vWeight.g;
+#endif
+
+#if TERRAINLAYER >= 2
+	float4 cDiffuse1 = (float4) 1.f;
+	#ifdef NORMAL_MAP_LAYER1
+		float4 cNormal1 = (float4)0.f;
+	#endif
+	#ifdef TRIPLANER_LAYER1
+		#ifdef NORMAL_MAP_LAYER1
+			TriplanerProjectionWithNormal(cDiffuse1, cNormal1, S_2DExt4,S_2DExt4SamplerState, S_2DExt5,S_2DExt5SamplerState, DiffuseColor1, NormalRatio.y, SpecularRatio.y, vNormal, IN.i_PosUV, float2(DiffuseMapMult.y, NormalMapMult.y));
+		#else
+			TriplanerProjection(cDiffuse1, S_2DExt4, DiffuseColor1, vNormal, IN.i_PosUV, DiffuseMapMult.y);
+		#endif
+	#else
+		#ifdef NORMAL_MAP_LAYER1
+			BaseProjectionWithNormal(cDiffuse1, cNormal1, S_2DExt4,S_2DExt4SamplerState, S_2DExt5,S_2DExt5SamplerState, DiffuseColor1, NormalRatio.y, SpecularRatio.y, vUVLayer1, float2(DiffuseMapMult.y, NormalMapMult.y));
+		#else
+			BaseProjection(cDiffuse1, S_2DExt4,S_2DExt4SamplerState, DiffuseColor1, vUVLayer1, DiffuseMapMult.y);
+		#endif
+	#endif
+	cSplattedColor += cDiffuse1 * vWeight.b;
+	#ifdef NORMAL_MAP_LAYER1
+		cNormal1.xyz = mul(MatTBN, cNormal1.xyz);
+		cSplattedNormal += cNormal1 * vWeight.b;
+		vSpecularParam += float2(SpecularRatio.y, SpecularExp.y) * vWeight.b;
+	#else
+		cSplattedNormal.xyz += vNormal * vWeight.b;
+	#endif
+	fLeastWeight -= vWeight.b;
+#endif
+
+#if TERRAINLAYER >= 1
+	float4 cDiffuse0 = (float4) 1.f;
+	#ifdef NORMAL_MAP_LAYER0
+		float4 cNormal0 = (float4)0.f;
+	#endif
+	#ifdef TRIPLANER_LAYER0
+		#ifdef NORMAL_MAP_LAYER0
+			TriplanerProjectionWithNormal(cDiffuse0, cNormal0, S_2DExt1,S_2DExt1SamplerState, S_2DExt2,S_2DExt2SamplerState, DiffuseColor0, NormalRatio.x, SpecularRatio.x, vNormal, IN.i_PosUV, float2(DiffuseMapMult.x, NormalMapMult.x));
+		#else
+			TriplanerProjection(cDiffuse0, S_2DExt1, DiffuseColor0, vNormal, IN.i_PosUV, DiffuseMapMult.x);
+		#endif
+	#else
+		#ifdef NORMAL_MAP_LAYER0
+			BaseProjectionWithNormal(cDiffuse0, cNormal0, S_2DExt1,S_2DExt1SamplerState, S_2DExt2,S_2DExt2SamplerState, DiffuseColor0, NormalRatio.x, SpecularRatio.x, vUVLayer0, float2(DiffuseMapMult.x, NormalMapMult.x));
+		#else
+			BaseProjection(cDiffuse0, S_2DExt1,S_2DExt1SamplerState, DiffuseColor0, vUVLayer0, DiffuseMapMult.x);
+		#endif
+	#endif
+		cSplattedColor += cDiffuse0 * fLeastWeight;
+	#ifdef NORMAL_MAP_LAYER0
+		cNormal0.xyz = mul(MatTBN, cNormal0.xyz);
+		cSplattedNormal += cNormal0 * fLeastWeight;
+		vSpecularParam += float2(SpecularRatio.x, SpecularExp.x) * fLeastWeight;
+	#else
+		cSplattedNormal.xyz += vNormal * fLeastWeight;
+	#endif
+#endif
+
+#ifdef VERTEX_COLOR
+	cSplattedColor.rgb *= IN.i_Diffuse.rgb;
+#endif
+
+	float4 cBaseColor = S_2DExt0.Sample(S_2DExt0SamplerState, IN.i_UVBase.xy);
+	cBaseColor.rgb = pow(cBaseColor.rgb, 2.2f);
+#if TERRAINLAYER >= 1
+	cSplattedColor.rgb = lerp(cSplattedColor.rgb, cBaseColor.rgb, IN.i_UVBase.z);
+	#if defined(NORMAL_MAP_LAYER0) || defined(NORMAL_MAP_LAYER1) || defined(NORMAL_MAP_LAYER2) || defined(NORMAL_MAP_LAYER3)
+		cSplattedNormal = lerp(cSplattedNormal, float4(vNormal.xyz, 0.f), IN.i_UVBase.z);
+		cSplattedNormal.xyz = normalize(cSplattedNormal.xyz);
+	#endif
+#else
+	cSplattedColor.rgb = cBaseColor.rgb;
+#endif
+
+	float fNdotL = max(dot(cSplattedNormal.xyz, -U_MainLightDirection.xyz), 0.f);
+	float3 cLightDiffuse = fNdotL * U_MainLightColor.rgb * cBaseColor.a;
+	float3 cLightSpecular = (float3)0.f;
+#if defined(NORMAL_MAP_LAYER0) || defined(NORMAL_MAP_LAYER1) || defined(NORMAL_MAP_LAYER2) || defined(NORMAL_MAP_LAYER3)
+	float3 vViewDir = normalize(IN.i_ViewDir);
+	float4 vLit = lit(1.f, dot(normalize(vViewDir-U_MainLightDirection.xyz), cSplattedNormal.xyz), vSpecularParam.y);
+	cLightSpecular = vLit.z * U_MainLightColor.rgb * cSplattedNormal.w * vSpecularParam.x * cBaseColor.a * U_MainLightColor.a;
+#endif
+	float fAmbient = cSplattedNormal.y;
+	float3 cLightAmbient = lerp(U_GroundLightColor.rgb, U_SkyLightColor.rgb, fAmbient * 0.5f + 0.5f);
+	cLightAmbient *= cBaseColor.a;
+
+	float3 cPointLightDiffAcc = 0.0f;
+	float3 cPointLightSpecAcc = 0.0f;
+
+	float3 cEmissionColor = (float3)0;
+#ifdef EMISSION_COLOR
+	cEmissionColor = lerp(IN.i_Emission.rgb * 10.0, cEmissionColor.rgb, IN.i_UVBase.z);
+	cEmissionColor *= lerp(saturate(U_LightPower.x), 1.f, IN.i_Emission.a);
+#endif
+
+	float3 oFragColor = cSplattedColor.rgb * (cLightDiffuse + cLightAmbient + cPointLightDiffAcc + cEmissionColor);
+	oFragColor.rgb += cLightSpecular + cPointLightSpecAcc;
+
+#ifdef USESHADOWMAP
+	float shadowFactor = calcShadowFactor(
+		shadowSpacePos, 
+		IN.i_UVBase.w);
+			
+	shadowFactor = min(shadowFactor, 1.0);
+	oFragColor.rgb *= shadowFactor;
+#endif
+
+	oFragColor.rgb = oFragColor.rgb * IN.i_FogColor.a + IN.i_FogColor.rgb;
+	oFragColor.rgb = pow(oFragColor.rgb, 1.0 / 2.2);
+	float overdrawlerp = ceil(U_PS_Time.w);
+	oFragColor.rgb = oFragColor.rgb * (1.0 - overdrawlerp) + float3(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp);
+	return float4(oFragColor, 1.0);
+}
+

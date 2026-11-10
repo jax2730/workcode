@@ -1,0 +1,1121 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function_PS.inl>
+#include <Common_Function.inl>
+#include <Effect_Function_PS.txt>
+#include <SphericalFog_Function.inl>
+#include <Light_Function_PS.inl>
+
+
+#ifdef SCREENDISTORT
+	#undef RADIALBLUR
+	#undef LOCAL_RADIALBLUR
+	Texture2D S_BackbufferTex;
+	SamplerState S_BackbufferTexSamplerState;
+#endif
+
+#ifdef RADIALBLUR
+	#undef LOCAL_RADIALBLUR
+	Texture2D S_BackbufferTex;
+    SamplerState S_BackbufferTexSamplerState;
+	uniform float4 U_PSCustom2; //PSCBQuadPos
+#endif
+
+Texture2D S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+uniform float4 U_PSCustom5;
+
+#ifdef DISSOLVE
+Texture2D S_2DExt2;  //texDissolve 
+SamplerState S_2DExt2SamplerState;
+
+	#ifdef BILLBOARD_DISSOLVE_DIRECT
+		Texture2D S_2DExt3;  //texDissolveDirection 
+		SamplerState S_2DExt3SamplerState;
+	#endif 
+
+	uniform float4 U_PSGeneralRegister0;
+	uniform float4 U_PSGeneralRegister1;
+
+	uniform float4 U_PSGeneralRegister14;
+	uniform float4 U_PSGeneralRegister15;
+
+#endif
+
+#ifdef BILLBOARD_MASK_TEXTURE_1
+	Texture2D S_2DExt4;  
+	SamplerState S_2DExt4SamplerState;
+	uniform float4 U_PSGeneralRegister2;
+	uniform float4 U_PSGeneralRegister3;
+	uniform float4 U_PSGeneralRegister4;
+	uniform float4 U_PSGeneralRegister5;
+#endif
+
+#ifdef BILLBOARD_MASK_TEXTURE_2
+	Texture2D S_2DExt5;  
+	SamplerState S_2DExt5SamplerState;
+	uniform float4 U_PSGeneralRegister6;
+	uniform float4 U_PSGeneralRegister7;
+	uniform float4 U_PSGeneralRegister8;
+	uniform float4 U_PSGeneralRegister9;
+#endif
+
+#ifdef DISTURBANCE_TEXTURE
+	Texture2D S_2DExt6;  
+	SamplerState S_2DExt6SamplerState;
+
+	uniform float4 U_PSGeneralRegister11;
+#endif
+
+#ifdef PARTICLE_FRESNEL
+	uniform float4 U_PSGeneralRegister12;
+#endif
+
+#ifdef EnableAlphaDistance
+	uniform float4 U_PSGeneralRegister13;
+#endif
+
+#ifdef DISTORT
+	uniform float4 U_PSCustom0; //PSCBPreDistort
+#endif	
+
+#ifdef DOUBLETEX
+	uniform float4 U_PSCustom1[4]; //PSCBPreBlendMulit
+	Texture2D S_2DExt1;
+	SamplerState S_2DExt1SamplerState;
+	//uniform float4 U_PSCustom4;
+#else
+	uniform float4 U_PSCustom1[2]; //PSCBPreBlendMulit
+#endif
+
+	uniform float4 U_PSCustom3; //PSCBGeneralRegister0
+	uniform float4	U_MaterialCustomParam1;
+
+#ifdef DEPTH_FADE
+	Texture2D	    S_Depth;
+	SamplerState    S_DepthSamplerState;
+
+	//uniform float4 U_InvProjectMatrix[4];
+	uniform float4 U_PSGeneralRegister20;
+	uniform float4 U_PSGeneralRegister21;
+#endif
+
+	uniform float4 U_PSGeneralRegister22;
+
+#ifdef SIX_LIGHT_MAP
+	Texture2D S_2DExt7;
+	SamplerState S_2DExt7SamplerState;
+	uniform float4 U_PSGeneralRegister25;
+#endif
+
+#ifdef POLAR_COORDINATES
+	uniform float4 U_PSGeneralRegister26;
+#endif
+
+
+
+#ifdef LOCAL_RADIALBLUR
+	#ifndef LOCAL_RADIALBLUR_SAMPLE_COUNT
+		#define LOCAL_RADIALBLUR_SAMPLE_COUNT 6
+	#endif
+
+	uniform float4 U_PSGeneralRegister27;
+	uniform float4 U_PSGeneralRegister28;
+	Texture2D    S_BackbufferTex;
+    SamplerState S_BackbufferTexSamplerState;
+
+	float SimpleRand(float2 uv) 
+	{
+    	return frac(sin(dot(uv, float2(12.9898, 78.233))) * 43758.5453);
+	}
+	
+
+	float SphereThicknessMask(float3 camPos, float3 pixelPos, float3 center, float radius)
+	{
+		float3 dir = pixelPos - camPos;
+		float dist = length(dir);
+		if (dist <= 1e-4) return 0.0;
+		dir /= dist;
+
+		float3 oc = camPos - center;
+		float b = dot(dir, oc);
+		float c = dot(oc, oc) - radius * radius;
+		float h = b * b - c;
+
+		if (h < 0.0) return 0.0; // 未击中
+
+		float sqrtH = sqrt(h);
+		float tEnter = max(-b - sqrtH, 0.0);
+		float tExit  = -b + sqrtH;
+
+		if (tExit <= 0.0 || dist <= tEnter) return 0.0;
+
+		float tEnd = min(tExit, dist);
+		float lenInside = max(0.0, tEnd - tEnter);
+
+		return saturate(lenInside * (0.5 / radius)); 
+	}
+
+	float3 DoExplosionBlur(float2 uv, float2 center, float strength, float Aberration, float RayLength, float JitterIntensity)
+	{
+		float dist = length(uv - center);
+		float range = 0.001f;
+		float centerMask = smoothstep(0.0, range, dist);
+		strength *= centerMask;
+
+		if (strength <= 1e-3) 
+		{
+			return S_BackbufferTex.Sample(S_BackbufferTexSamplerState, uv).rgb;
+		}		
+
+		float2 dir = uv - center;
+		float len = length(dir);
+
+		if (len < 1e-4) 
+			dir = float2(0,0);
+		else 
+			dir /= len;
+
+		float  noise = SimpleRand(uv); 
+		float3 sum = 0;
+		float  totalW = 0;
+		float2 maxOffset = dir * RayLength * strength; 
+
+		[unroll]
+		for(int i=0; i < LOCAL_RADIALBLUR_SAMPLE_COUNT; i++)
+		{
+			float  t = float(i) / float(LOCAL_RADIALBLUR_SAMPLE_COUNT - 1);
+			float  jitterT = t + (noise - 0.5) * JitterIntensity * t;
+			float2 offsetBase = maxOffset * jitterT;
+
+			float3 sColor;
+			#ifdef LOCAL_RADIALBLUR_ABERRATION
+				sColor.r = S_BackbufferTex.Sample(S_BackbufferTexSamplerState, uv - offsetBase).r;
+				sColor.g = S_BackbufferTex.Sample(S_BackbufferTexSamplerState, uv - offsetBase * (1.0 + Aberration * 0.2)).g;
+				sColor.b = S_BackbufferTex.Sample(S_BackbufferTexSamplerState, uv - offsetBase * (1.0 + Aberration)).b;
+			#else
+				sColor = S_BackbufferTex.Sample(S_BackbufferTexSamplerState, uv - offsetBase).rgb;
+			#endif
+			float lum = dot(sColor, float3(0.3, 0.59, 0.11));
+			float w = 1.0 + lum * 2.0; 
+
+			sum += sColor * w;
+			totalW += w;
+		}
+		return sum / max(totalW, 1e-4);
+	}
+
+
+	float4 GetExplosisonBlurResult(float2 screen_uv, float3 InCenterPos, float2 InCenterUV, float sphereRadius, float3 worldPos)
+	{
+		float4 resultColor;
+
+		//这里应该是粒子的世界位置
+		float3 SphereCenter = InCenterPos;
+		float2 CenterUV = InCenterUV;
+
+		//这里应该是面片的半径
+		float  SphereRadius = sphereRadius;
+
+		//毛刺幅度
+		float  JitterIntensity = U_PSGeneralRegister27.x ;
+
+		// 控制中心亮斑衰减
+		float CenterHotspot = U_PSGeneralRegister27.y;
+
+		//中心清晰区域的大小, 这个是屏幕级别的
+		//float  HollowRange = U_PSGeneralRegister27.z;
+
+		//色散强度
+		float  Aberration = U_PSGeneralRegister27.z;
+
+		//射线长度
+		float  RayLength = U_PSGeneralRegister27.w;
+		float  BlurStrength = U_PSGeneralRegister28.x;	
+
+		float4 baseColor = S_BackbufferTex.Sample(S_BackbufferTexSamplerState, screen_uv);
+		//float  mask = SphereThicknessMask(U_PS_CameraPosition.xyz, worldPos, SphereCenter, SphereRadius);
+		//衰减
+		//mask = 1.0f;
+		float  distance = length(worldPos - SphereCenter);
+		float  mask = distance/SphereRadius;
+		if (mask <= 1e-4 || mask >= 1.0f) 
+		{
+			resultColor = baseColor;
+			return resultColor;
+    	}
+		
+		
+		// 3. 计算最终强度
+		float curvePower = 1.0 / max(CenterHotspot, 0.01); 
+		float finalStrength = BlurStrength * pow(mask, curvePower);
+
+		// 4. 执行爆炸模糊
+		float3 blurColor = DoExplosionBlur(screen_uv, CenterUV, finalStrength, Aberration, RayLength, JitterIntensity);
+
+		// 5. 混合 (修复亮度断层)
+		float3 blendedColor = lerp(baseColor.rgb, blurColor, saturate(finalStrength));
+		float3 finalRGB = lerp(baseColor.rgb, blurColor, saturate(finalStrength));
+
+		resultColor = float4(finalRGB, baseColor.a);
+
+		return resultColor;
+	}
+
+#endif
+
+//-------------------------------------------------
+#ifdef USEINSTANCE
+	uniform float4 U_PSCustom10[MAX_UNIFORM_COUNT];
+#else
+
+	uniform float4 U_PSCustom10[PS_Common_Data_Float4Array_Size];
+
+#endif
+	uniform float4 U_PSCustom11;
+
+#if defined(EFFECT_TRAIL) && defined(TRAIL_COLOR)
+	#define COLOR_TABLE_SIZE 31
+	uniform float4 U_PSCustom12[COLOR_TABLE_SIZE];
+	#ifdef SAMPLE_TRAILCOLOR_BYDISTANCE
+		uniform float4 U_PSGeneralRegister23;
+	#endif
+
+
+	float4 GetColorFromTable(float u)
+	{
+		float4 value;
+		if (u >= 1.0f)
+		{
+			value = U_PSCustom12[COLOR_TABLE_SIZE - 1];
+			return value;
+		}	
+
+		if (u <= 0.0f)
+		{
+			value = U_PSCustom12[0];
+			return value;
+		}
+		float fIdx = u * (COLOR_TABLE_SIZE - 1);
+		int iIdx = int(fIdx);
+		float component = fIdx - iIdx;
+		value.r = lerp(U_PSCustom12[iIdx].r, U_PSCustom12[iIdx + 1].r, component);
+		value.g = lerp(U_PSCustom12[iIdx].g, U_PSCustom12[iIdx + 1].g, component);
+		value.b = lerp(U_PSCustom12[iIdx].b, U_PSCustom12[iIdx + 1].b, component);
+		value.a = lerp(U_PSCustom12[iIdx].a, U_PSCustom12[iIdx + 1].a, component);
+		return value;
+	}
+#endif
+
+
+struct PS_INPUT
+{
+    float4 i_PosInClipTmp	: SV_POSITION;
+	float4 i_Diffuse        : COLOR0;
+	float4 i_UV		        : TEXCOORD0;
+	float4 i_Rand0          : TEXCOORD1;
+
+#ifdef DOUBLETEX            
+	float2 i_UV2	        : TEXCOORD2;
+#endif
+
+#if defined(SCREENDISTORT) || defined(DEPTH_FADE) || defined(LOCAL_RADIALBLUR) || defined(BASE_MAP1_USE_SCREEN_UV)
+	float4 i_PosInClip      : TEXCOORD3;
+#endif
+
+	float4 i_Fog	        : TEXCOORD4;
+
+#ifdef 	EFFECT_TRAIL
+	float4 i_EyeDir			: TEXCOORD5;	
+	float4 i_AlphaDis		: TEXCOORD6;
+#endif	
+
+#ifdef EnableAlphaDistance
+	float4 cam_to_obj_len : TEXCOORD7;
+#endif
+
+#ifdef DISTURBANCE_TEXTURE
+	float4 disturbance_texture_params0 : TEXCOORD8;
+	float4 disturbance_texture_params1 : TEXCOORD9;
+#endif
+
+#ifdef DISTORT
+	float4 Custom_Params : TEXCOORD10;
+#endif
+
+	nointerpolation float4 CurrentObjIndex : TEXCOORD11;
+#ifdef 	EFFECT_TRAIL
+	float4  i_ParticleU: TEXCOORD12;
+#endif
+	float4	i_WPos	:TEXCOORD13;
+
+#ifdef PARTICLE_FRESNEL
+	float4  i_WNormal: TEXCOORD14;
+#endif
+
+#ifdef SIX_LIGHT_MAP
+	float4	i_Normal			: TEXCOORD16;
+	float4	i_Tangent			: TEXCOORD17;
+	float4	i_Binormal			: TEXCOORD18;
+#endif
+
+#ifdef LOCAL_RADIALBLUR
+	float4	i_CenterPos			: TEXCOORD19;
+	float4	i_CenterUV		    : TEXCOORD20;
+#endif
+
+#ifdef SEGMENT_COLOR
+	float4	i_SegColor			: COLOR1;
+#endif
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+#ifdef DISTORT
+ 
+float3 mod289(float3 x)
+{
+    return x - floor(x / 289.0) * 289.0;
+}
+
+float2 mod289(float2 x)
+{
+    return x - floor(x / 289.0) * 289.0;
+}
+
+float3 permute(float3 x)
+{
+    return mod289((x * 34.0 + 1.0) * x);
+}
+
+float3 taylorInvSqrt(float3 r)
+{
+    return 1.79284291400159 - 0.85373472095314 * r;
+}
+
+float snoise(float2 v)
+{
+    const float4 C = float4( 0.211324865405187,  // (3.0-sqrt(3.0))/6.0
+                             0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
+                            -0.577350269189626,  // -1.0 + 2.0 * C.x
+                             0.024390243902439); // 1.0 / 41.0
+    // First corner
+    float2 i  = floor(v + dot(v, C.yy));
+    float2 x0 = v -   i + dot(i, C.xx);
+
+    // Other corners
+    float2 i1;
+    i1.x = step(x0.y, x0.x);
+    i1.y = 1.0 - i1.x;
+
+    // x1 = x0 - i1  + 1.0 * C.xx;
+    // x2 = x0 - 1.0 + 2.0 * C.xx;
+    float2 x1 = x0 + C.xx - i1;
+    float2 x2 = x0 + C.zz;
+
+    // Permutations
+    i = mod289(i); // Avoid truncation effects in permutation
+    float3 p =
+      permute(permute(i.y + float3(0.0, i1.y, 1.0))
+                    + i.x + float3(0.0, i1.x, 1.0));
+
+    float3 m = max(0.5 - float3(dot(x0, x0), dot(x1, x1), dot(x2, x2)), 0.0);
+    m = m * m;
+    m = m * m;
+
+    // Gradients: 41 points uniformly over a line, mapped onto a diamond.
+    // The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
+    float3 x = 2.0 * frac(p * C.www) - 1.0;
+    float3 h = abs(x) - 0.5;
+    float3 ox = floor(x + 0.5);
+    float3 a0 = x - ox;
+
+    // Normalise gradients implicitly by scaling m
+    m *= taylorInvSqrt(a0 * a0 + h * h);
+
+    // Compute final noise value at P
+    float3 g;
+    g.x = a0.x * x0.x + h.x * x0.y;
+    g.y = a0.y * x1.x + h.y * x1.y;
+    g.z = a0.z * x2.x + h.z * x2.y;
+    return 130.0 * dot(m, g);
+}
+
+float3 snoise_grad(float2 v)
+{
+    const float4 C = float4( 0.211324865405187,  // (3.0-sqrt(3.0))/6.0
+                             0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
+                            -0.577350269189626,  // -1.0 + 2.0 * C.x
+                             0.024390243902439); // 1.0 / 41.0
+    // First corner
+    float2 i  = floor(v + dot(v, C.yy));
+    float2 x0 = v -   i + dot(i, C.xx);
+
+    // Other corners
+    float2 i1;
+    i1.x = step(x0.y, x0.x);
+    i1.y = 1.0 - i1.x;
+
+    // x1 = x0 - i1  + 1.0 * C.xx;
+    // x2 = x0 - 1.0 + 2.0 * C.xx;
+    float2 x1 = x0 + C.xx - i1;
+    float2 x2 = x0 + C.zz;
+
+    // Permutations
+    i = mod289(i); // Avoid truncation effects in permutation
+    float3 p =
+      permute(permute(i.y + float3(0.0, i1.y, 1.0))
+                    + i.x + float3(0.0, i1.x, 1.0));
+
+    float3 m = max(0.5 - float3(dot(x0, x0), dot(x1, x1), dot(x2, x2)), 0.0);
+    float3 m2 = m * m;
+    float3 m3 = m2 * m;
+    float3 m4 = m2 * m2;
+
+    // Gradients: 41 points uniformly over a line, mapped onto a diamond.
+    // The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
+    float3 x = 2.0 * frac(p * C.www) - 1.0;
+    float3 h = abs(x) - 0.5;
+    float3 ox = floor(x + 0.5);
+    float3 a0 = x - ox;
+
+    // Normalise gradients
+    float3 norm = taylorInvSqrt(a0 * a0 + h * h);
+    float2 g0 = float2(a0.x, h.x) * norm.x;
+    float2 g1 = float2(a0.y, h.y) * norm.y;
+    float2 g2 = float2(a0.z, h.z) * norm.z;
+
+    // Compute noise and gradient at P
+    float2 grad =
+      -6.0 * m3.x * x0 * dot(x0, g0) + m4.x * g0 +
+      -6.0 * m3.y * x1 * dot(x1, g1) + m4.y * g1 +
+      -6.0 * m3.z * x2 * dot(x2, g2) + m4.z * g2;
+    float3 px = float3(dot(x0, g0), dot(x1, g1), dot(x2, g2));
+    return 130.0 * float3(grad, dot(m4, px));
+}
+#endif	
+
+#ifdef CONE_UV	
+	float2 CalConeUV(in float2 _uv)
+	{
+		float u = _uv.x;
+		float v = _uv.y;
+		float radians = u * 2.0 * 3.141592653;
+		float cosU = cos(radians);
+		float sinU = sin(radians);
+	
+		return float2(cosU * v * 0.5 + 0.5, sinU * v * 0.5 + 0.5);
+	}
+#endif
+
+
+float4 cal_color(float4 color1, float4 color1_coefficient, float4 color2, float4 color2_coefficient)
+{
+	return color1 * color1_coefficient * color2 * color2_coefficient;
+}
+
+
+float3 rotate (float4 qvec, float3 v) 
+{
+	float3 uv, uuv;
+	 
+	uv = cross(qvec.xyz, v);
+	uuv = cross(qvec.xyz, uv);
+	uv *= (2.0 * qvec.w);
+	uuv *= 2.0;
+		
+	return v + uv + uuv;
+}
+
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1;
+	float2 viewOffset = float2(U_ViewParam.x, U_ViewParam.y);
+	//int data_index = round(IN.CurrentObjIndex.x) * PS_Common_Data_Float4_Size;
+	int data_index = IN.CurrentObjIndex.x * PS_Common_Data_Float4_Size;
+
+	float2 uv = IN.i_UV.xy;
+	float2 in_UV = IN.i_UV.xy;
+#ifdef DOUBLETEX
+	float2 in_UV2 = IN.i_UV2.xy;
+#endif
+
+#ifdef POLAR_COORDINATES
+	float2 InPolarUV = in_UV;
+	#ifdef DOUBLETEX
+		float2 InPolarUV2 = in_UV2;
+	#endif
+#endif
+
+#ifdef POLAR_COORDINATES
+{
+	float2 center = float2(U_PSGeneralRegister26.x, U_PSGeneralRegister26.y);
+	float  radialScale = U_PSGeneralRegister26.z;
+	float  lengthScale = U_PSGeneralRegister26.w;
+	InPolarUV = PolarCoordinates_float(in_UV, center, radialScale, lengthScale);
+#ifdef DOUBLETEX
+	InPolarUV2 = PolarCoordinates_float(in_UV2, center, radialScale, lengthScale);
+#endif
+}
+#endif
+
+{
+#if defined(BASE_MAP1_ENABLE_POLAR) && defined(POLAR_COORDINATES)
+	float2 diffuse_uv = InPolarUV;
+#else
+	float2 diffuse_uv = uv;
+#endif
+	#ifdef BASE_MAP1_USE_SCREEN_UV
+	{
+		diffuse_uv = (IN.i_PosInClip.xy / IN.i_PosInClip.w) * 0.5f + 0.5f;
+		diffuse_uv.y = 1.0f - diffuse_uv.y;
+		diffuse_uv = diffuse_uv * viewOffset;		
+	}
+	#endif
+	float diffuse_uv_tilling_u = U_PSCustom5.x;
+	float diffuse_uv_tilling_v = U_PSCustom5.y;
+	float diffuse_uv_offset_u = U_PSCustom10[data_index].z;
+	float diffuse_uv_offset_v = U_PSCustom10[data_index].w;
+	float diffuse_uv_rotate_angle = U_PSCustom5.z;
+
+	CalculateUVFunctionParam param;
+	param.mSourceUV = diffuse_uv;
+	param.mTillingUV.x = diffuse_uv_tilling_u;
+	param.mTillingUV.y = diffuse_uv_tilling_v;
+	param.mOffsetUV.x = diffuse_uv_offset_u;
+	param.mOffsetUV.y = diffuse_uv_offset_v;
+	param.mAngle = diffuse_uv_rotate_angle;
+
+	CalculateUVFunctionResult res = CalculateUVFunction(param);
+	uv = res.mResUV;
+}
+
+	
+	
+#ifdef STIPPLE
+	float4x4 thresholdMatrix =
+	{  1.0 / 17.0,  9.0 / 17.0,  3.0 / 17.0, 11.0 / 17.0,
+		13.0 / 17.0,  5.0 / 17.0, 15.0 / 17.0,  7.0 / 17.0,
+		4.0 / 17.0, 12.0 / 17.0,  2.0 / 17.0, 10.0 / 17.0,
+		16.0 / 17.0,  8.0 / 17.0, 14.0 / 17.0,  6.0 / 17.0
+	};
+	float2 pos = IN.i_PosInClipTmp.xy;
+	
+	
+	pos.xy = pos.xy/U_MaterialCustomParam1.z;
+	
+	int xindex = fmod(pos.x, 4);
+	int yindex =fmod(pos.y, 4);
+	
+	float alpha = thresholdMatrix[xindex][yindex];//* _RowAccess[yindex];
+	
+	if(alpha < U_MaterialCustomParam1.y)
+		discard;
+
+#endif	
+
+#ifdef CONE_UV	
+	uv = CalConeUV(uv);
+#endif
+
+#if defined(SCREENDISTORT) ||  defined(LOCAL_RADIALBLUR)
+	//屏幕扰动, uv重新计算
+	uv = (IN.i_PosInClip.xy / IN.i_PosInClip.w) * 0.5f + 0.5f;
+	uv.y = 1.0f - uv.y;
+	uv = uv * viewOffset;
+#endif
+	 
+// 扰动贴图
+#ifdef DISTURBANCE_TEXTURE
+float2 disturbance_texture_to_diffuse_texture_strength_uv_offset = float2(0.0f, 0.0f); 
+{
+	//原先扰动贴图的uv跟着basemap1的走的，这里拆出来，加个参数让它不跟着basemap1走，然后在这个基础上再去转极坐标
+	#ifdef DISTURBANCE_TEXTURE_SINGLE_UV
+		#ifdef DISTURBANCE_TEXTURE_ENABLE_POLAR
+			float2 disturbance_texture_uv = InPolarUV;
+		#else
+			float2 disturbance_texture_uv = in_UV;
+		#endif
+	#else
+		float2 disturbance_texture_uv = uv;
+	#endif
+	// float disturbance_texture_to_mask_texture_strength = IN.disturbance_strength.z;
+	float disturbance_texture_uv_offset_u = IN.disturbance_texture_params0.w;
+	float disturbance_texture_uv_offset_v = IN.disturbance_texture_params1.x;
+	float disturbance_texture_uv_tilling_u = U_PSGeneralRegister11.x;
+	float disturbance_texture_uv_tilling_v = U_PSGeneralRegister11.y;
+
+	disturbance_texture_uv.x *= disturbance_texture_uv_tilling_u;
+	disturbance_texture_uv.y *= disturbance_texture_uv_tilling_v;
+
+	disturbance_texture_uv.x += disturbance_texture_uv_offset_u;
+	disturbance_texture_uv.y += disturbance_texture_uv_offset_v;
+
+	float disturbance_noise = S_2DExt6.Sample(S_2DExt6SamplerState, disturbance_texture_uv).r;
+
+	// 对漫反射uv的影响
+	float disturbance_texture_to_diffuse_texture_strength = IN.disturbance_texture_params0.x;
+	uv += disturbance_noise * disturbance_texture_to_diffuse_texture_strength;
+
+	// 对溶解uv的影响
+	float disturbance_texture_to_disolve_texture_strength = IN.disturbance_texture_params0.y;
+	float temp_val = float(disturbance_noise * disturbance_texture_to_disolve_texture_strength);
+	disturbance_texture_to_diffuse_texture_strength_uv_offset = float2(temp_val, temp_val);
+}
+#endif 
+
+
+#ifdef DISTORT
+	float distort_strength = IN.Custom_Params.x;
+	float _distortAmt = distort_strength.x / 10.0;
+	float _distortScale = U_PSCustom0.y;
+	float _distortSpeed = U_PSCustom0.z;
+	float Time = U_PSCustom0.x;
+ 
+	#ifdef CONE_UV	
+		float noise = snoise(uv * _distortScale + float2(Time *_distortSpeed, - Time *_distortSpeed) + IN.i_Rand0.xy);
+	#else
+		float noise = snoise(IN.i_UV.zw * _distortScale + float2(Time *_distortSpeed, - Time *_distortSpeed) + IN.i_Rand0.xy);
+	#endif
+	
+	#if defined(SCREENDISTORT) ||  defined(LOCAL_RADIALBLUR) 
+		uv += noise * _distortAmt * viewOffset;		
+	#else
+		uv += noise * _distortAmt;		
+	#endif	
+#endif
+
+#ifdef SIX_LIGHT_MAP
+{
+	float4 cola = IN.i_Diffuse;
+	float4 lightMap1 =  S_2DExt0.Sample(S_2DExt0SamplerState, uv);
+	float4 lightMap2 =  S_2DExt7.Sample(S_2DExt7SamplerState, uv);
+
+	psOut.o_Color.rgb = cola.rgb;
+	psOut.o_Color.a = lightMap1.a * cola.a;
+
+	//通过上下左右方向，近似计算前后权重
+	half3 nn = normalize(IN.i_Normal.xyz);
+	half3 tn = normalize(IN.i_Tangent.xyz);
+	half3 bn = normalize(IN.i_Binormal.xyz);
+	tn = normalize(tn - nn * dot(tn, nn));
+	bn = normalize(bn - nn * dot(bn, nn));	
+	half3x3 tbn = 
+	{
+		tn.x, bn.x, nn.x,
+		tn.y, bn.y, nn.y,
+		tn.z, bn.z, nn.z 
+	};
+	tbn = transpose(tbn);
+
+	{
+		float3 mainLightDir = U_MainLightDirection.xyz;
+		mainLightDir = normalize(mul(tbn, mainLightDir));
+
+		float hMap = (mainLightDir.x > 0.0f) ? (lightMap2.x) : (lightMap1.x);
+		//判断并取Top/Bottom方向灯光
+		float vMap = (mainLightDir.y > 0.0f) ? (lightMap2.y) : (lightMap1.y);
+
+		//判断并取Front/Back方向灯光
+		float dMap = (mainLightDir.z > 0.0f) ? (lightMap1.z) : (lightMap2.z);
+		//float  weight = hMap * mainLightDir.x * mainLightDir.x + vMap * mainLightDir.y * mainLightDir.y + dMap * mainLightDir.z * mainLightDir.z;
+		float  weight = hMap * abs(mainLightDir.x) + vMap * abs(mainLightDir.y) + dMap * abs(mainLightDir.z);
+		weight = weight * U_PSGeneralRegister25.x;
+		float3  mainLightColor = U_MainLightColor.rgb * weight;
+		psOut.o_Color.rgb += mainLightColor;
+	}
+
+	#ifdef CLUSTER_POINT_LIGHT
+	{
+		float3 lightMapColor = calculateClusterPointLightForLightMap(IN.i_PosInClipTmp.xy, IN.i_WPos.xyz, tbn, lightMap1, lightMap2, U_PSGeneralRegister25.y);
+		psOut.o_Color.rgb += lightMapColor;
+	}
+	#endif
+
+}
+#else
+{
+	float4 cola = IN.i_Diffuse;
+	#ifdef SCREENDISTORT
+		float4 colb = S_BackbufferTex.Sample(S_BackbufferTexSamplerState, uv);	
+		//屏幕扰动的情况下直接取输入的uv
+		colb.a = S_2DExt0.Sample(S_2DExt0SamplerState, in_UV).a;
+		colb = pow(colb, U_PSCustom11.x);
+	#elif defined(LOCAL_RADIALBLUR)
+		float4 colb = GetExplosisonBlurResult(uv, IN.i_CenterPos.xyz, IN.i_CenterUV.xy, IN.i_CenterPos.w, IN.i_WPos);
+		colb.a = S_2DExt0.Sample(S_2DExt0SamplerState, in_UV).a;
+		colb = pow(colb, U_PSCustom11.x);
+	#else
+		float4 colb = S_2DExt0.Sample(S_2DExt0SamplerState, uv);	
+		colb = pow(colb, U_PSCustom11.x);
+	#endif
+	
+	#ifdef LIGHTNING_TRAIL
+		if(uv.x > 1.0)
+		{
+			colb.a = 0.0;
+		}
+	#endif
+
+	//径向模糊
+	#ifdef RADIALBLUR
+		//径向模糊的情况下直接取输入的uv
+		uv = in_UV;
+		uv.x = 1.0f - uv.x;
+		
+		float2 dir = float2(0.5,0.5) - uv;  
+		float dist = length(dir);
+		dir /= dist;
+		dir *= U_PSCustom3.y; 
+		dir *= 1.0; 
+			
+		float2 newLocalUV1 = uv - dir*0.01;
+		float2 newLocalUV2 = uv + dir*0.01;
+	
+		float2 newScreenUV1;
+		newScreenUV1.x = lerp( U_PSCustom2.x , U_PSCustom2.z , newLocalUV1.x);
+		newScreenUV1.y = U_PSCustom2.y + (U_PSCustom2.w - U_PSCustom2.y) * newLocalUV1.y;
+		newScreenUV1.y = 1.0f - newScreenUV1.y;
+		
+		float2 newScreenUV2;
+		newScreenUV2.x = lerp( U_PSCustom2.x , U_PSCustom2.z , newLocalUV2.x);
+		newScreenUV2.y = U_PSCustom2.y + (U_PSCustom2.w - U_PSCustom2.y) * newLocalUV2.y;
+		newScreenUV2.y = 1.0f - newScreenUV2.y;
+			
+		float3 result=S_BackbufferTex.Sample(S_BackbufferTexSamplerState, newScreenUV1 * viewOffset).rgb;
+		result += S_BackbufferTex.Sample(S_BackbufferTexSamplerState, newScreenUV2 * viewOffset).rgb;	
+		result /= 2;
+		
+		float originalAlpha = S_2DExt0.Sample(S_2DExt0SamplerState, in_UV).a;
+		
+		colb = float4(result,saturate(U_PSCustom3.x * dist));
+		colb.a *= originalAlpha;
+	#endif
+
+	cola.rgb *= U_PSCustom1[0].x;
+	cola.a *= U_PSCustom1[0].y;
+	
+	
+	colb.rgb *= U_PSCustom1[0].z;
+	colb.a *= U_PSCustom1[0].w;
+	
+	float alphaAMutilB = cola.a * colb.a;
+	float alphaAAddB = cola.a + colb.a;
+	
+	float3 colorAMutilB = cola.rgb * colb.rgb;
+	float3 colorAAddB = cola.rgb + colb.rgb;
+	
+	float3 colorFinal = lerp(colorAMutilB, colorAAddB, U_PSCustom1[1].z);
+	float alphaFinal = lerp(alphaAMutilB, alphaAAddB, U_PSCustom1[1].w);
+	
+	colorFinal += U_PSCustom1[1].x;
+	alphaFinal += U_PSCustom1[1].y;
+	
+	alphaFinal = clamp(alphaFinal, 0.0, 1.0f);
+	
+	#ifndef SCREENDISTORT
+		#ifdef EFFECT_TRAIL
+			float len = sqrt(dot(IN.i_EyeDir.xyz,IN.i_EyeDir.xyz));
+			len = len - IN.i_AlphaDis.x;
+			float alphaLen = IN.i_AlphaDis.y - IN.i_AlphaDis.x;
+			alphaLen = max(alphaLen,0.00001f);
+			len = len/alphaLen;
+			len = clamp(len,0.0,1.0f);
+			alphaFinal *= len;	
+		#endif
+	#endif	
+	
+	#ifdef DOUBLETEX
+	{
+		float4 colc;
+		colc.rgb = colorFinal;
+		colc.a = alphaFinal;
+		
+		#ifdef DOUBLETEX_ENABLE_POLAR
+			float2 double_tex_uv = InPolarUV2;
+		#else
+			float2 double_tex_uv = in_UV2;
+		#endif
+		float offset_u = U_PSCustom10[data_index].x;
+		float offset_v = U_PSCustom10[data_index].y;
+		double_tex_uv.x += offset_u;
+		double_tex_uv.y += offset_v;
+		float4 cold = S_2DExt1.Sample(S_2DExt1SamplerState, double_tex_uv);	
+		cold = pow(cold, U_PSCustom11.y);
+
+		colc.rgb *= U_PSCustom1[2].x;
+		colc.a *= U_PSCustom1[2].y;
+		
+		cold.rgb *= U_PSCustom1[2].z;
+		cold.a *= U_PSCustom1[2].w;
+		
+		float alphaCMutilD = colc.a * cold.a;
+		float alphaCAddD = colc.a + cold.a;
+		
+		float3 colorCMutilD = colc.rgb * cold.rgb;
+		float3 colorCAddD = colc.rgb + cold.rgb;
+		
+		colorFinal = lerp(colorCMutilD, colorCAddD, U_PSCustom1[3].z);
+		alphaFinal = lerp(alphaCMutilD, alphaCAddD, U_PSCustom1[3].w);
+		
+		colorFinal += U_PSCustom1[3].x;
+		alphaFinal += U_PSCustom1[3].y;
+	}
+	#endif
+	psOut.o_Color =  float4(colorFinal, alphaFinal);
+}
+#endif
+
+
+#ifdef BILLBOARD_MASK_TEXTURE_1
+{
+	float tilling_u = U_PSGeneralRegister2.x;
+	float tilling_v = U_PSGeneralRegister2.y;
+	//float offset_u = U_PSGeneralRegister2.z;
+	//float offset_v = U_PSGeneralRegister2.w;
+	float offset_u = U_PSCustom10[data_index + 1].w;
+	float offset_v = U_PSCustom10[data_index + 2].x;
+
+	float rotate_angle = U_PSGeneralRegister3.x;
+
+	float4 diffuse_coefficient = U_PSGeneralRegister4;
+	float4 mask_coefficient = U_PSGeneralRegister5;
+	#ifdef BILLBOARD_MASK_TEXTURE_1_ENABLE_POLAR
+		float2 mask_texture_uv = InPolarUV;
+	#else
+		float2 mask_texture_uv = in_UV;
+	#endif
+	mask_texture_uv = cal_uvNoWrap(mask_texture_uv, tilling_u, tilling_v, offset_u, offset_v, rotate_angle);
+	float4 mask_val = S_2DExt4.Sample(S_2DExt4SamplerState, mask_texture_uv);
+
+	psOut.o_Color = cal_color(psOut.o_Color, diffuse_coefficient, mask_val, mask_coefficient);
+}
+#endif
+
+#ifdef BILLBOARD_MASK_TEXTURE_2
+{
+	float tilling_u = U_PSGeneralRegister6.x;
+	float tilling_v = U_PSGeneralRegister6.y;
+	//float offset_u = U_PSGeneralRegister6.z;
+	//float offset_v = U_PSGeneralRegister6.w;
+	float offset_u = U_PSCustom10[data_index + 2].y;
+	float offset_v = U_PSCustom10[data_index + 2].z;
+
+	float rotate_angle = U_PSGeneralRegister7.x;
+
+	float4 diffuse_coefficient = U_PSGeneralRegister8;
+	float4 mask_coefficient = U_PSGeneralRegister9;
+	#ifdef BILLBOARD_MASK_TEXTURE_2_ENABLE_POLAR
+		float2 mask_texture_uv2 = InPolarUV;
+	#else
+		float2 mask_texture_uv2 = in_UV;
+	#endif
+	mask_texture_uv2 = cal_uvNoWrap(mask_texture_uv2, tilling_u, tilling_v, offset_u, offset_v, rotate_angle);
+	float4 mask_val = S_2DExt5.Sample(S_2DExt5SamplerState, mask_texture_uv2);
+
+	psOut.o_Color = cal_color(psOut.o_Color, diffuse_coefficient, mask_val, mask_coefficient);
+}
+#endif
+
+
+		// Fresnel
+#ifdef PARTICLE_FRESNEL
+{
+	float3 world_normal = IN.i_WNormal.xyz;
+	float3 view_dir = normalize(U_PS_CameraPosition.xyz - IN.i_WPos.xyz);
+	float fresnel_reverse = U_PSGeneralRegister12.x;
+	float fresnel_width = U_PSGeneralRegister12.y;
+	float fresnel_light = U_PSGeneralRegister12.z;
+	float fresnel_base_light = U_PSGeneralRegister12.w;
+	float pow_num = lerp(abs(1.0f - dot(world_normal, view_dir)), abs(dot(world_normal, view_dir)), fresnel_reverse);
+	float fresnel = clamp(pow(pow_num, fresnel_width), 0.0f, 1.0f) * fresnel_light + fresnel_base_light;
+	psOut.o_Color *= fresnel;
+}
+#endif
+
+
+#if defined(EFFECT_TRAIL) && defined(TRAIL_COLOR)
+{
+	float4 trailColor = float4(1.0f, 1.0f, 1.0f, 1.0f);
+	#ifdef SAMPLE_TRAILCOLOR_BYDISTANCE
+		float trailColorStartDistance = U_PSGeneralRegister23.x;
+		float trailColorEndDistance = U_PSGeneralRegister23.y;
+		float trailColorStartUV= U_PSGeneralRegister23.z;
+		float trailColorEndUV= U_PSGeneralRegister23.w;
+
+		float trailTotalLength = IN.i_ParticleU.y;
+		float currentDistanceByStart = trailTotalLength*IN.i_ParticleU.x;
+		float currentDistanceByEnd = trailTotalLength - currentDistanceByStart;	
+		float trailColorU = 0.0f;
+		float sampleTable = 0.0f;
+		if(currentDistanceByStart <= trailColorStartDistance)
+		{
+			trailColorU = currentDistanceByStart/trailColorStartDistance;
+			trailColorU *= trailColorStartUV;
+			sampleTable = 1.0f;
+		}
+		else if(currentDistanceByEnd <= trailColorEndDistance)
+		{
+			trailColorU = currentDistanceByEnd/trailColorEndDistance;
+			trailColorU *= trailColorEndUV;
+			trailColorU = 1.0f - trailColorU;
+			sampleTable = 1.0f;
+		}
+		trailColor = sampleTable * GetColorFromTable(trailColorU) + (1.0f - sampleTable) * trailColor;
+	#else
+		trailColor = GetColorFromTable(IN.i_ParticleU.x);
+	#endif
+	psOut.o_Color = psOut.o_Color * trailColor;
+	
+}
+#endif
+
+#if defined(EFFECT_TRAIL) && defined(SEGMENT_COLOR)
+{
+	psOut.o_Color = psOut.o_Color * IN.i_SegColor;
+}
+#endif
+
+	psOut.o_Color.rgb = psOut.o_Color.rgb * IN.i_Fog.a + IN.i_Fog.rgb;
+#ifndef SCREENEFFECT
+	#ifndef UIEFFECT
+	{
+		half3 V = normalize(U_PS_CameraPosition.xyz - IN.i_WPos.xyz);
+		float4 sphFog = ComputeSphFogBlocked(
+						IN.i_WPos.xyz,
+						U_PS_CameraPosition.xyz,
+						-V,
+						IN.i_PosInClipTmp.xy
+					);
+		psOut.o_Color.rgb = lerp(psOut.o_Color.rgb, sphFog.rgb, sphFog.a);
+	}
+	#endif
+#endif
+
+#ifdef DISSOLVE
+{
+	float tilling_u = U_PSGeneralRegister14.x;
+	float tilling_v = U_PSGeneralRegister14.y;
+	float offset_u = U_PSCustom10[data_index + 1].y;
+	float offset_v = U_PSCustom10[data_index + 1].z;
+	float rotate_angle = U_PSGeneralRegister15.x;
+
+	#ifdef DISSOLVE_TEXTURE_ENABLE_POLAR
+		float2 dissolve_base_uv = InPolarUV;
+	#else
+		float2 dissolve_base_uv = in_UV;
+	#endif
+
+	float2 dissolve_uv = cal_uv(dissolve_base_uv, tilling_u, tilling_v, offset_u, offset_v, rotate_angle);
+	#ifdef DISTURBANCE_TEXTURE
+	{
+		dissolve_uv += disturbance_texture_to_diffuse_texture_strength_uv_offset;
+	}
+	#endif
+	float dissolve_noise = S_2DExt2.Sample(S_2DExt2SamplerState, dissolve_uv).r;
+	float4 dissolve_edge_color = U_PSGeneralRegister0;
+	dissolve_edge_color *= U_PSGeneralRegister22.x;
+	float dissolve_edge_width = U_PSGeneralRegister1.x;
+	float dissolve_soft_value = U_PSCustom10[data_index + 1].x;
+	float dissolve_val = IN.i_Rand0.w;
+
+	#ifdef BILLBOARD_DISSOLVE_DIRECT
+		float dissolve_direct = S_2DExt3.Sample(S_2DExt3SamplerState, dissolve_base_uv).r;
+		dissolve_noise = (dissolve_noise + dissolve_direct) / 2.0f;
+	#endif
+
+	clip(dissolve_noise - dissolve_val);
+
+	float dissolve_switch =	step(0.00001f, dissolve_val);
+
+	float edge_max_val = dissolve_val + dissolve_edge_width;
+	float edge_val_01 = smoothstep(dissolve_val, edge_max_val, dissolve_noise);
+	float3 out_with_edge_color = lerp(dissolve_edge_color.rgb, psOut.o_Color.rgb, edge_val_01);
+	psOut.o_Color.rgb = lerp(psOut.o_Color.rgb, out_with_edge_color, dissolve_switch);
+
+	float dissolve_soft_max_val = dissolve_val + dissolve_soft_value;
+	float dissolve_soft_val_01 = smoothstep(dissolve_val, dissolve_soft_max_val, dissolve_noise);
+	psOut.o_Color.a = lerp(psOut.o_Color.a, psOut.o_Color.a * dissolve_soft_val_01, dissolve_switch);
+}
+#endif
+	
+#ifdef EnableAlphaDistance
+{
+	float alphaDistanceFar = U_PSGeneralRegister13.x;
+	float alphaDistanceStrength = U_PSGeneralRegister13.y;
+	float alphaDistanceStart = U_PSGeneralRegister13.z;
+	float alphaFactor = 0.0f;
+	#ifdef ALPHA_DISTANCE_TWOWAY
+		//一条梯形曲线 
+		float alphaBridgeDistance = U_PSGeneralRegister13.w;
+		float alphaSmoothDistance = alphaDistanceFar - alphaDistanceStart;
+		float cameraAlphaDistance = IN.cam_to_obj_len.x - (alphaDistanceFar + alphaBridgeDistance);
+		float alphaNeedTwoWay = sign(cameraAlphaDistance);
+		alphaNeedTwoWay = max(0.0f, alphaNeedTwoWay);
+		float currentAlphaStart = alphaDistanceStart + (alphaSmoothDistance + alphaBridgeDistance) *alphaNeedTwoWay;
+		float currentAlphaEnd = alphaDistanceFar + (alphaSmoothDistance + alphaBridgeDistance) * alphaNeedTwoWay;
+		alphaFactor = smoothstep(currentAlphaStart, currentAlphaEnd, IN.cam_to_obj_len.x);
+		alphaFactor = alphaNeedTwoWay* (1.0f - alphaFactor) + (1.0f- alphaNeedTwoWay) * alphaFactor;
+	#else
+		alphaFactor = smoothstep(alphaDistanceStart, alphaDistanceFar, IN.cam_to_obj_len.x);
+	#endif
+
+	#ifdef ALPHA_DISTANCE_REVERSE
+		alphaFactor = 1.0f - alphaFactor;
+	#endif
+ 	psOut.o_Color.a = psOut.o_Color.a * lerp((1.0f - alphaDistanceStrength), 1.0f, alphaFactor);
+}
+#endif
+
+#ifdef DEPTH_FADE
+{
+	float2 depth_uv;
+	depth_uv.x = ((IN.i_PosInClip.x / IN.i_PosInClip.w) + 1) * 0.5f;
+	depth_uv.y = 1 - ((IN.i_PosInClip.y / IN.i_PosInClip.w) + 1) * 0.5f;
+
+	float depth_val = S_Depth.Sample(S_DepthSamplerState, depth_uv).r;
+
+	float4 target_ndc_pos = float4(IN.i_PosInClip.x / IN.i_PosInClip.w, IN.i_PosInClip.y / IN.i_PosInClip.w, depth_val, 1.0f);
+
+	float4 target_view_pos; 
+	//target_view_pos.x = dot(U_InvProjectMatrix[0], target_ndc_pos);
+	//target_view_pos.y = dot(U_InvProjectMatrix[1], target_ndc_pos);
+	target_view_pos.z = dot(U_InvProjectMatrix[2], target_ndc_pos);
+	target_view_pos.w = dot(U_InvProjectMatrix[3], target_ndc_pos);
+	target_view_pos.z = target_view_pos.z / target_view_pos.w;
+
+	float4 view_pos;
+	view_pos.z = dot(U_InvProjectMatrix[2], IN.i_PosInClip);
+	view_pos.w = dot(U_InvProjectMatrix[3], IN.i_PosInClip);
+	view_pos.z = view_pos.z / view_pos.w;
+
+	float distance = U_PSGeneralRegister20.x;
+	
+
+	float factor = smoothstep(0.0f, distance, abs(view_pos.z - target_view_pos.z));
+	
+	#ifdef DEPTH_FADE_REVERSE
+		factor = 1.0f - factor;
+	#endif
+	
+	#ifdef DEPTH_FADE_OPACITY
+		float opacity = U_PSGeneralRegister20.y;
+		psOut.o_Color.a = psOut.o_Color.a * factor + psOut.o_Color.a*opacity ;
+	#else 
+		psOut.o_Color.a = psOut.o_Color.a * factor;
+	#endif
+	#ifdef DEPTH_FADE_COLOR
+		psOut.o_Color.rgb += U_PSGeneralRegister21.xyz * factor * U_PSGeneralRegister20.z;
+		//psOut.o_Color.rgba *= U_PSGeneralRegister21.xyzw;
+		//psOut.o_Color.rgba *= U_PSGeneralRegister20.z * factor;
+	#endif
+}
+#endif
+	psOut.o_Color.a = min(1.0, psOut.o_Color.a);
+ 	float overdrawlerp = ceil(U_PS_Time.w);	
+	psOut.o_Color = psOut.o_Color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+	return psOut;
+}

@@ -1,0 +1,521 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+#include <Light_Function_PS.inl>
+#include <EnvironmentLight_Function.inl>
+//SampleHair_PS 
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4	U_MaterialDiffuse;
+		Texture2D	S_Diffuse;
+		SamplerState S_DiffuseSamplerState;
+		
+		float4 texDiffuse(float2 vUV) 
+		{ 
+			return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+		}
+	#endif
+#else
+
+	float4	U_MaterialDiffuse;
+	float4	U_MaterialSpecular;
+	float4	U_MaterialFresnel;
+	float4	U_MaterialCustomParam;
+	float4	U_MaterialCustomParam1;
+
+	float4	U_LightPower;	//x for lightpower, y for specular offset
+
+
+	float4	U_PSGeneralRegister0;
+	float4	U_PSGeneralRegister1;
+	float4	U_PSGeneralRegister2;
+	float4	U_PSGeneralRegister3;
+	float4	U_PSGeneralRegister4;
+	float4	U_PSGeneralRegister5;
+	float4	U_PSGeneralRegister6;
+	float4	U_PSGeneralRegister7;
+	float4	U_PSGeneralRegister8;
+	float4	U_PSGeneralRegister9;
+	float4	U_PSGeneralRegister30;	
+	Texture2D	S_Diffuse;
+	SamplerState S_DiffuseSamplerState;
+	float4 texDiffuse(float2 vUV) 
+	{ 
+		return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+	}	
+	#ifdef DISSOLVE
+		Texture2D S_Custom7;
+		SamplerState S_Custom7SamplerState;
+	#endif		
+	#ifdef SPECULAR_MAP
+		Texture2D	S_Specular;
+		SamplerState S_SpecularSamplerState;
+	#endif
+	
+	//#ifdef ANISOTROPIC
+	   Texture2D	S_Bump;
+	   SamplerState S_BumpSamplerState;
+	//#endif
+	
+	#ifdef TEXTURE_MASK
+		Texture2D	S_Environment;
+		SamplerState S_EnvironmentSamplerState;
+	#endif
+	
+	#ifdef CLUSTER_POINT_LIGHT
+		#include "Shadow_Light_Function_PS.inl"
+	#endif
+
+#endif
+	#ifdef DISTORT
+ 
+		float3 mod289(float3 x)
+		{
+			return x - floor(x / 289.0) * 289.0;
+		}
+		
+		float2 mod289(float2 x)
+		{
+			return x - floor(x / 289.0) * 289.0;
+		}
+		
+		float3 permute(float3 x)
+		{
+			return mod289((x * 34.0 + 1.0) * x);
+		}
+		
+		float3 taylorInvSqrt(float3 r)
+		{
+			return 1.79284291400159 - 0.85373472095314 * r;
+		}
+		
+		float snoise(float2 v)
+		{
+			const float4 C = float4( 0.211324865405187,  // (3.0-sqrt(3.0))/6.0
+									0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
+									-0.577350269189626,  // -1.0 + 2.0 * C.x
+									0.024390243902439); // 1.0 / 41.0
+			// First corner
+			float2 i  = floor(v + dot(v, C.yy));
+			float2 x0 = v -   i + dot(i, C.xx);
+		
+			// Other corners
+			float2 i1;
+			i1.x = step(x0.y, x0.x);
+			i1.y = 1.0 - i1.x;
+		
+			// x1 = x0 - i1  + 1.0 * C.xx;
+			// x2 = x0 - 1.0 + 2.0 * C.xx;
+			float2 x1 = x0 + C.xx - i1;
+			float2 x2 = x0 + C.zz;
+		
+			// Permutations
+			i = mod289(i); // Avoid truncation effects in permutation
+			float3 p =
+			permute(permute(i.y + float3(0.0, i1.y, 1.0))
+							+ i.x + float3(0.0, i1.x, 1.0));
+		
+			float3 m = max(0.5 - float3(dot(x0, x0), dot(x1, x1), dot(x2, x2)), 0.0);
+			m = m * m;
+			m = m * m;
+		
+			// Gradients: 41 points uniformly over a line, mapped onto a diamond.
+			// The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
+			float3 x = 2.0 * frac(p * C.www) - 1.0;
+			float3 h = abs(x) - 0.5;
+			float3 ox = floor(x + 0.5);
+			float3 a0 = x - ox;
+		
+			// Normalise gradients implicitly by scaling m
+			m *= taylorInvSqrt(a0 * a0 + h * h);
+		
+			// Compute final noise value at P
+			float3 g;
+			g.x = a0.x * x0.x + h.x * x0.y;
+			g.y = a0.y * x1.x + h.y * x1.y;
+			g.z = a0.z * x2.x + h.z * x2.y;
+			return 130.0 * dot(m, g);
+		}
+
+	#endif
+
+void PhoneLightModel(
+    //output
+    out half3 diffuseLighting, out half3 specLighting, out half ndl, out half ndh,
+    //input lighting property
+    half3 lightDir, half3 lightColor, 
+    //input
+    half3 normal,half3 viewDir, half3 diffuseColor, half gloss, half3 specColor, half shadow)
+{
+    //const preparation
+    half3 h = normalize(lightDir+viewDir);
+    ndh = clamp(dot(normal, h), 0.0001f, 1.0f);
+    ndl = clamp(dot(lightDir, normal), 0.0001f, 1.0f);
+
+    half3 spec = 0.0f;
+	spec = pow(ndh,gloss)*specColor;
+	
+    //diffuse calc
+    half3 dif = max(0.0f, 0.75f*ndl+0.25f)*diffuseColor*0.4f;
+
+    //light calc
+    half3 lighting = shadow*lightColor;
+
+    //this code will be optimized if not used
+    diffuseLighting = dif*lighting;
+    specLighting = spec*lighting;	
+}
+
+void KajiyaKayPhyDirLighting(
+    //output
+    out half3 diffuseLighting, out half3 specLighting,out half ndl, out half ndh,
+    //input lighting property
+    half3 lightDir, half3 lightColor, 
+    //input
+    half3 normal, half3 tangent, half3 viewDir, half3 diffuseColor, half gloss, half3 specColor,half shadow)
+{
+    //const preparation
+    half3 h = normalize(lightDir+viewDir);
+    ndh = clamp(dot(normal, h), 0.0001f, 1.0f);
+    ndl = clamp(dot(lightDir, normal), 0.0001f, 1.0f);
+
+    half3 spec = 0.0f;
+    spec = KajiyaKaySpec(tangent, h, gloss)*specColor;	
+	//spec += KajiyaKaySpec(tangentSec, h, glossSec)*specColorSec;
+
+    //diffuse calc
+    //adjustedDiffuse = diffuseColor*0.4f;
+    half3 dif = max(0.0f, 0.75f*ndl+0.25f)*diffuseColor*0.4f;
+
+    //light calc
+    half3 lighting = shadow*lightColor;
+
+    //final
+    //finalLighting = (dif+spec)*lighting;	
+
+    //this code will be optimized if not used
+    diffuseLighting = dif*lighting;
+    specLighting = spec*lighting;	
+}
+
+struct PS_INPUT
+{
+    float4	i_PosInClip			: SV_POSITION;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 	i_UV				: TEXCOORD0;
+	#endif
+#else
+	float4 	i_UV				: TEXCOORD0;
+	float4 	i_Fog				: TEXCOORD1;
+	float4	i_Normal			: TEXCOORD2;
+	float4	i_WPos				: TEXCOORD3;
+	
+	float4	i_Tangent			: TEXCOORD4;
+	float4	i_Binormal			: TEXCOORD5;
+	float4	i_EyeDir			: TEXCOORD6;
+	#ifdef USESHADOWMAP
+		float	i_ViewSpaceZ					: TEXCOORD7;
+	#endif
+	
+	#ifdef VERTEX_COLOR
+		float4	i_Diffuse		: COLOR0;
+	#endif
+	#ifdef MOTIONBLUR
+		float4  i_VelUV     : TEXCOORD15;
+	#endif
+#endif
+#ifdef PARABOLOID_MAPPING
+	float	i_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+struct PS_OUTPUT
+{
+#ifndef SHADOWPASS
+	float4 color : SV_TARGET;
+#endif
+};
+
+PS_OUTPUT main(PS_INPUT IN, bool isFrontFacing : SV_IsFrontFace)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+#ifdef PARABOLOID_MAPPING
+	clip(IN.i_ClipDepth);
+#endif
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 color = texDiffuse(IN.i_UV.xy);
+		clip(color.a - U_MaterialDiffuse.a);
+	#endif
+#else
+	#ifdef MOTIONBLUR
+		float2 vQX = IN.i_VelUV.xy;
+	
+		float fLenQX = length(vQX);
+		vQX /= (fLenQX+0.01f);
+		float fWeight = max(0.5f, min(fLenQX, 20.0f));
+		vQX *= fWeight;
+		psOut.color.xy = vQX;
+		return psOut;
+	#endif
+	float2 uv = IN.i_UV.xy;
+	
+	#ifdef DISTORT
+		float _distortAmtMin = U_PSGeneralRegister3.y;
+		float _distortAmtMax = U_PSGeneralRegister9.x;
+		float _distortAmtPre = U_PSGeneralRegister9.y;
+		float _distortAmt = lerp(_distortAmtMin, _distortAmtMax, _distortAmtPre);
+		float _distortScaleMin = U_PSGeneralRegister3.z;
+		float _distortScaleMax = U_PSGeneralRegister9.z;
+		float _distortScalePre = U_PSGeneralRegister9.w;
+		float _distortScale = lerp(_distortScaleMin, _distortScaleMax, _distortScalePre);
+		float _distortSpeed = U_PSGeneralRegister3.x;
+		float Time = U_PS_Time.z;
+ 
+		float noise = snoise(uv * _distortScale + float2(Time *_distortSpeed, - Time *_distortSpeed));
+		
+		uv += noise * _distortAmt;
+		uv.x = IN.i_UV.x;
+	#endif
+	
+	#ifdef DISSOLVE
+	
+		if(U_MaterialCustomParam1.y > 0)
+		{
+			float4x4 thresholdMatrix =
+			{  1.0 / 17.0,  9.0 / 17.0,  3.0 / 17.0, 11.0 / 17.0,
+			  13.0 / 17.0,  5.0 / 17.0, 15.0 / 17.0,  7.0 / 17.0,
+			   4.0 / 17.0, 12.0 / 17.0,  2.0 / 17.0, 10.0 / 17.0,
+			  16.0 / 17.0,  8.0 / 17.0, 14.0 / 17.0,  6.0 / 17.0
+			};
+			float2 pos = IN.i_PosInClip.xy;
+			
+			
+			pos.xy = pos.xy/U_MaterialCustomParam1.z;
+			
+			int xindex = fmod(pos.x, 4);
+			int yindex =fmod(pos.y, 4);
+			
+			float alpha = thresholdMatrix[xindex][yindex];//* _RowAccess[yindex];
+			
+			if(alpha < U_MaterialCustomParam1.y)
+				discard;
+		}
+		else
+		{
+			if(S_Custom7.Sample(S_Custom7SamplerState, uv).a < U_MaterialFresnel.y)
+			discard;	
+		}
+	#endif
+	half4 diffuseColor = S_Diffuse.Sample(S_DiffuseSamplerState, uv);
+	#ifdef ALPHA_TEST
+		clip(diffuseColor.a - U_MaterialDiffuse.a);
+		diffuseColor.a = 1.0;
+	#endif
+	diffuseColor.a += U_PSGeneralRegister8.w;
+	diffuseColor.a = max(0.0, diffuseColor.a);
+
+	half3 normal = normalize(IN.i_Normal.xyz);
+	normal *= sign(float(isFrontFacing));
+	
+	#ifdef USESHADOWMAP
+		float4 shadowSpacePos[SHADOWSPLITE];
+		ProjectToLightSpace(shadowSpacePos, IN.i_WPos.xyz, N, IN.i_ViewSpaceZ);
+	#endif
+
+    	half3 nn = normal;
+    	half3 tn = normalize(IN.i_Tangent.xyz);
+    	half3 bn = normalize(IN.i_Binormal.xyz);
+    	
+    	tn = normalize(tn - nn * dot(tn, nn));
+    	bn = normalize(bn - nn * dot(bn, nn));
+    
+    	half3x3 tbn = 
+    	{
+    		tn.x, bn.x, nn.x,
+    		tn.y, bn.y, nn.y,
+    		tn.z, bn.z, nn.z 
+    	};
+    	
+    	half4 bumpColor = S_Bump.Sample(S_BumpSamplerState, uv);
+
+    	half3 bump = half3(0.0, 0.0, 1.0);
+    	bump.xy = bumpColor.xy * 2.0 - 1.0;
+    	bump.z = 1.0f - sqrt(dot(bump.xy, bump.xy));
+    	bump = normalize(bump);
+    	normal = normalize(mul(tbn, bump));
+	#ifdef ANISOTROPIC
+    	half shiftAmount = bumpColor.b;
+    	half3 specTangent = normalize(tn + normal * (shiftAmount-0.5f) * U_PSGeneralRegister1.y);
+    #endif
+
+	half3 specularColor = U_MaterialSpecular.rgb;	
+	half glossiness = U_MaterialFresnel.z;
+	
+	#ifdef SPECULAR_MAP
+		half4 specularMap = S_Specular.Sample(S_SpecularSamplerState, uv);
+		float specularOffset = U_LightPower.y;
+		half3 specularColorOffset = half3(U_LightPower.y*0.3f, U_LightPower.y*0.3f, U_LightPower.y*0.3f);
+		
+		specularMap.rgb = pow(specularMap.rgb, 2.2);
+		
+		specularColorOffset += specularMap.rgb*U_PSGeneralRegister3.w;
+		specularOffset += specularMap.w;
+		specularOffset = clamp(specularOffset, 0, 1.0);
+		specularColorOffset = clamp(specularColorOffset, 0, 1.0);
+		
+		specularColor *= specularColorOffset;
+		glossiness *= specularOffset;
+	#endif
+
+	glossiness += 1e-6;
+	
+	float ndl, ndh;
+	half3 viewDir = normalize(IN.i_EyeDir.xyz);
+	half3 mainLightDir = -U_MainLightDirection.xyz;
+	
+	half3 cDiffuse = 0.0f;
+	half3 cSpecular = 0.0f;
+	half3 cDiffuseMain = 0.0f;
+	half3 cSpecularMain = 0.0f;
+	
+	diffuseColor.rgb = pow(diffuseColor.rgb, 2.2);
+	diffuseColor.rgb *= U_MaterialDiffuse.rgb;
+	
+	#ifdef TEXTURE_MASK
+		half4 mask = S_Environment.Sample(S_EnvironmentSamplerState, uv, 0.0f, 0.0f);
+		half3 colorR = pow(U_PSGeneralRegister6.rgb, 2.2) * mask.r;
+		half3 colorG = pow(U_PSGeneralRegister4.rgb, 2.2) * mask.g;
+		half3 colorB = pow(U_PSGeneralRegister5.rgb, 2.2) * mask.b;
+		half3 colorA = pow(U_PSGeneralRegister7.rgb, 2.2) * mask.a;
+		float f = min(mask.r + mask.g + mask.b + mask.a, 1.0);
+		half3 colorF = colorR + colorG + colorB + colorA;
+		diffuseColor.rgb = lerp(diffuseColor.rgb, diffuseColor.rgb * colorF, f);
+		specularColor = specularColor.rgb + colorF * U_PSGeneralRegister7.w;
+	#endif
+	
+	#ifdef COVER_WEATHER
+		float coverLerp = dot(normal, U_PS_GravityDirection.xyz);
+		coverLerp += U_PSGeneralRegister8.x;
+		coverLerp = clamp(coverLerp, 0.0, 1.0);
+		
+		half3 coverMap = U_WeatherParam0.xyz;
+		coverLerp *= U_WeatherParam0.w * (1.0 - U_PSGeneralRegister30.x);
+		
+		float r = U_WeatherParam1.x;
+		glossiness = lerp(glossiness, r * 1024.0, coverLerp);
+
+		diffuseColor.rgb = lerp(diffuseColor.rgb, coverMap, coverLerp);
+		float m = U_WeatherParam1.y;
+		half3 weatherspecular = coverMap * m;
+		specularColor = lerp(specularColor, weatherspecular, coverLerp);
+	#endif
+	
+	half3 grayColor = diffuseColor.rgb * half3(0.333, 0.333, 0.333);
+	grayColor.rgb = grayColor.r + grayColor.g + grayColor.b;
+	diffuseColor.rgb = lerp(diffuseColor.rgb,grayColor,U_MaterialCustomParam.x);	
+	
+	
+	half4 mainLightColor   = 0.0;
+	half4 skyLightColor    = 0.0;
+	half4 groundLightColor = 0.0;
+	half  blendThreshold   = 0.0h;
+
+	#ifdef ALONE_ROLE_LIGHT
+		mainLightColor   = U_RoleMainLightColor;
+		skyLightColor    = U_RoleSkyLightColor;
+		groundLightColor = U_RoleGroundLightColor;
+		blendThreshold	 = U_PS_AmbientBlendThreshold.z;
+	#else
+		mainLightColor   = U_PBR_MainLightColor;
+		skyLightColor    = U_PBR_SkyLightColor;
+		groundLightColor = U_PBR_GroundLightColor;
+		blendThreshold	 = U_PS_AmbientBlendThreshold.y;
+	#endif
+
+	#ifdef ANISOTROPIC
+	    KajiyaKayPhyDirLighting(
+	    //output
+	     cDiffuseMain, cSpecularMain, ndl, ndh,
+	    //light property
+	    mainLightDir, mainLightColor.xyz * 0.8,
+	    //material property
+	    normal, specTangent, viewDir.xyz, diffuseColor.xyz, glossiness, specularColor, 1.0f
+	);
+	#else
+	PhoneLightModel(
+		//output
+		cDiffuseMain, cSpecularMain, ndl, ndh,
+		//light property
+		mainLightDir, mainLightColor.xyz * 0.8,
+		//material property
+		normal, viewDir.xyz, diffuseColor.xyz, glossiness, specularColor, 1.0f
+		);
+	#endif	
+	cSpecularMain *= clamp(mainLightColor.a,0.0f,1.5f);
+	half3 colorMain = cDiffuseMain + cSpecularMain;
+	
+	#ifdef USESHADOWMAP
+		float shadowFactor = calcShadowFactor(
+			shadowSpacePos, 
+			IN.i_ViewSpaceZ);
+		shadowFactor = min(shadowFactor, 1.0);
+		colorMain *= shadowFactor;
+	#endif
+	
+	half3 ambientColor = ComputeAmbientLight(skyLightColor.xyz, groundLightColor.xyz, normal, blendThreshold, U_PS_GravityDirection.xyz);
+
+	half3 cDiffuseAcc = 0;
+	half3 cSpecularAcc = 0;
+
+#ifdef CLUSTER_POINT_LIGHT
+		PointLightAndSpecularOutput shadowLightResult = calculateShadowPointLightAndSpecular(
+			IN.i_WPos, normal, viewDir, glossiness);
+		cDiffuseAcc += shadowLightResult.color;
+		cSpecularAcc += shadowLightResult.specular;
+	
+        PointLightAndSpecularOutput lightResult = 
+            calculateClusterPointLightAndSpecular(IN.i_PosInClip.xy,
+                                                  IN.i_WPos.xyz,
+                                                  normal,
+                                                  glossiness,
+                                                  viewDir);
+        cDiffuseAcc += lightResult.color;
+        cSpecularAcc += lightResult.specular;
+#endif
+	
+	cDiffuse += (cDiffuseAcc + ambientColor) * diffuseColor.rgb;
+	
+	cSpecular += cSpecularAcc * U_MaterialFresnel.w * specularColor.rgb; 
+	
+	cSpecular *= clamp(mainLightColor.a,0.0f,1.5f);
+	psOut.color.rgb = cSpecular + cDiffuse + colorMain.rgb;
+	
+	#ifdef VERTEX_COLOR
+		psOut.color.rgb *= IN.i_Diffuse.rgb;
+	#endif
+
+	psOut.color.rgb *= U_MaterialCustomParam1.x;
+	psOut.color.rgb = psOut.color.rgb * IN.i_Fog.a + IN.i_Fog.rgb;
+	psOut.color.rgb = pow(psOut.color.rgb, 1.0 / 2.2);
+	psOut.color.a = diffuseColor.a;
+
+	#ifdef EditorHelp
+		psOut.color.rgb = psOut.color.rgb * 0.00001 + float3(1.0,0.0,0.0);
+		psOut.color.a = 1.0;
+	#endif
+	#ifdef EDITOR_MODE
+		if(U_MaterialCustomParam.w > 0)
+			psOut.color.rgb = U_MaterialCustomParam.xyz;
+		
+	#endif
+	float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.color = psOut.color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+#endif
+	
+	return psOut;
+}

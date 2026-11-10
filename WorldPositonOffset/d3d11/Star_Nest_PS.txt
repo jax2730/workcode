@@ -1,0 +1,112 @@
+#include <Common_Uniform_PS.inl>
+
+//cbuffer UniformBlock_Common_PS : register(b6)
+//{
+//    float4 U_MainLightDirection;
+//    float4 U_MainLightColor; //linear
+//    float4 U_AuxiliaryLightDirection;
+//    float4 U_AuxiliaryLightColor; //linear
+//    float4 U_SkyLightColor; //linear
+//    float4 U_GroundLightColor; //linear
+//    float4 U_PBR_MainLightColor; //linear
+//    float4 U_PBR_SkyLightColor; //linear
+//    float4 U_PBR_GroundLightColor; //linear
+//    float4 U_RoleMainLightColor; //linear
+//    float4 U_RoleSkyLightColor; //linear
+//    float4 U_RoleGroundLightColor; //linear
+//    float4 U_SunColor; //linear
+//    float4 U_WaterShallowColor; //gamma
+//    float4 U_WaterDeepColor; //gamma
+//    float4 U_WaterFoamColor; //gamma
+//    float4 U_WaterFoamParams;
+//    float4 U_WaterReflectColor; //gamma
+//    float4 U_UnderWaterColor; //gamma
+//    float4 U_ViewParam;
+//    float4 U_EnvironmentCubeMapMipLevels;
+//    float4 U_DepthRTParam;
+//    float4 U_InvProjectMatrix[4];
+//    float4 U_PS_CameraPosition;
+//    float4 U_PS_ViewDirection;
+//    float4 U_PS_Time;
+//    float4 U_PS_WindParams;
+//    float4 U_WeatherParam0; //linear
+//    float4 U_WeatherParam1;
+//    float4 U_WeatherParam2;
+//    float4 U_CoverColorParams;
+//    float4 U_CoverColorRotation;
+//    float4 U_GlobalAgingColour; //gamma
+//    float4 U_ShadowSplit; //xyz for distance of each split, w for shadowfadeout distance;
+//    float4 U_ShadowTexOffset; //xyz for texture sample offset, w for shadow strenth
+//    float4 U_ShadowEdgeFactor; //x:shadow edge
+//    float4 U_PS_CloudCollision;
+//    float4 U_PS_GravityDirection;
+//    float4 U_PS_GravityRotationMatrix[4];
+//    float4 U_PS_AmbientBlendThreshold; // .y->pbr_light .z->role_light
+//    float4 U_ForwardSSREnable;
+//    float4 U_PS_ViewLightPercent;
+//}
+
+float4 U_ProjectMatrix[4];
+
+Texture2D S_Custom;
+SamplerState S_CustomSamplerState;
+
+#define iterations 17
+#define formuparam 0.53
+
+#define volsteps 10
+#define stepsize 0.1
+
+#define zoom   0.800
+#define tile   0.850
+#define speed  0.010 
+
+#define brightness 0.0015
+#define darkmatter 0.300
+#define distfading 0.730
+#define saturation 0.850
+
+struct PS_INPUT
+{
+    float4 i_PosInClip	   : SV_POSITION;
+    float3 i_UV            : TEXCOORD0;
+    float3 i_PositionWS    : TEXCOORD1;
+};
+
+float4 main(PS_INPUT IN): SV_TARGET
+{
+	//get coords and direction
+    float2 uv = IN.i_UV.xy - 0.5;
+    uv.y = -uv.y;
+    float3 dir = float3(uv * zoom, 1.);
+    float time = U_PS_Time.x * speed + 0.25;
+    float3 from = float3(1., 0.5, 0.5);
+	
+	//volumetric rendering
+    float s = 0.1, fade = 1;
+    float3 v = 0;
+    for (int r = 0; r < volsteps; r++)
+    {
+        float3 p = from + s * dir * .5;
+        p = abs(tile - (p % (tile * 2.0))); // tiling fold
+        float pa, a = pa = 0.;
+        for (int i = 0; i < iterations; i++)
+        {
+            p = abs(p) / dot(p, p) - formuparam; // the magic formula
+            a += abs(length(p) - pa); // absolute sum of average change
+            pa = length(p);
+        }
+        float dm = max(0., darkmatter - a * a * .001); //dark matter
+        a *= a * a; // add contrast
+        if (r > 6)
+            fade *= 1. - dm; // dark matter, don't render near
+		//v+=float3(dm,dm*.5,0.);
+        v += fade;
+        v += float3(s, s * s, s * s * s * s) * a * brightness * fade; // coloring based on distance
+        fade *= distfading; // distance fading
+        s += stepsize;
+    }
+    v = lerp(length(v), v, saturation); //color adjust
+    float4 fragColor = float4(v * .01, 1.);
+    return fragColor;
+}

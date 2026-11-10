@@ -1,0 +1,83 @@
+Cmdline: net.pixelgame.padbo2
+pid: 20919, tid: 20948, name: MainThread  >>> net.pixelgame.padbo2 <<<
+Abort message: '==20919==ERROR: HWAddressSanitizer: tag-mismatch on address 0x00449e617968 at pc 0x007305730d88
+WRITE of size 4 at 0x00449e617968 tags: f5/08(f5) (ptr/mem) in thread T24
+    #0 0x7305730d88  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x3aa8d88) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #1 0x7304775e18  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x2aede18) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #2 0x7303dfc6c0  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x21746c0) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #3 0x7303e0aa20  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x2182a20) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #4 0x7303e0a740  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x2182740) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #5 0x7303f8ef4c  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x2306f4c) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #6 0x7303fa85dc  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x23205dc) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #7 0x7303fa8030  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x2320030) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #8 0x7303fa1a78  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x2319a78) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #9 0x7303fa99f0  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x23219f0) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #10 0x7303fa94e0  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x23214e0) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #11 0x7303f8f5a0  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x23075a0) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #12 0x7303fa193c  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x231993c) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #13 0x740138f97c  (/apex/com.android.runtime/lib64/bionic/hwasan/libc.so+0x15597c) (BuildId: c5b579d7b8cd921d7161bec6f01b0861)
+    #14 0x74012f6ef0  (/apex/com.android.runtime/lib64/bionic/hwasan/libc.so+0xbcef0) (BuildId: c5b579d7b8cd921d7161bec6f01b0861)
+
+[0x00449e617940,0x00449e617980) is a small allocated heap chunk; size: 64 offset: 40
+
+Cause: heap-buffer-overflow
+0x00449e617968 is located 0 bytes after a 40-byte region [0x00449e617940,0x00449e617968)
+allocated here:
+    #0 0x73ed46c244  (/apex/com.android.runtime/lib64/bionic/libclang_rt.hwasan-aarch64-android.so+0x24244) (BuildId: 558b5c131872716737ddc0a62f3382dd3df70b9a)
+    #1 0x740129918c  (/apex/com.android.runtime/lib64/bionic/hwasan/libc.so+0x5f18c) (BuildId: c5b579d7b8cd921d7161bec6f01b0861)
+    #2 0x7305730cf4  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x3aa8cf4) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #3 0x7304775e18  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x2aede18) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #4 0x7303dfc6c0  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x21746c0) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #5 0x7303e0aa20  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x2182a20) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #6 0x7303e0a740  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x2182740) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #7 0x7303f8ef4c  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x2306f4c) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #8 0x7303fa85dc  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x23205dc) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #9 0x7303fa8030  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x2320030) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #10 0x7303fa1a78  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x2319a78) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #11 0x7303fa99f0  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x23219f0) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #12 0x7303fa94e0  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x23214e0) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #13 0x7303f8f5a0  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x23075a0) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #14 0x7303fa193c  (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x231993c) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+    #15 0x740138f97c  (/apex/com.android.runtime/lib64/bionic/hwasan/libc.so+0x15597c) (BuildId: c5b579d7b8cd921d7161bec6f01b0861)
+    #16 0x74012f6ef0  (/apex/com.android.runtime/lib64/bionic/hwasan/libc.so+0xbcef0) (BuildId: c5b579d7b8cd921d7161bec6f01b0861)
+
+Thread: T0 0x006a00002000 stack: [0x007fd663e000,0x007fd6e3e000) sz: 8388608 tls: [0x00740f9a1fc0,0x00740f9a5000)
+Thread: T1 0x006a00006000 stack: [0x007403528000,0x007403539cb0) sz: 72880 tls: [0x007403539fc0,0x00740353d000)
+Thread: T2 0x006a0000a000 stack: [0x0074015ca000,0x0074015dbcb0) sz: 72880 tls: [0x0074015dbfc0,0x0074015df000)
+Thread: T3 0x006a0000e000 stack: [0x007346558000,0x007346651cb0) sz: 1023152 tls: [0x007346651fc0,0x007346655000)
+Thread: T4 0x006a00012000 stack: [0x00734befa000,0x00734bffbcb0) sz: 1055920 tls: [0x00734bffbfc0,0x00734bfff000)
+Thread: T5 0x006a00016000 stack: [0x00740120e000,0x00740121fcb0) sz: 72880 tls: [0x00740121ffc0,0x007401223000)
+Thread: T6 0x006a0001a000 stack: [0x007401224000,0x007401235cb0) sz: 72880 tls: [0x007401235fc0,0x007401239000)
+Thread: T7 0x006a0001e000 stack: [0x00734128c000,0x007341391cb0) sz: 1072304 tls: [0x007341391fc0,0x007341395000)
+Thread: T8 0x006a00022000 stack: [0x007341396000,0x00734148fcb0) sz: 1023152 tls: [0x00734148ffc0,0x007341493000)
+Thread: T9 0x006a00026000 stack: [0x007341182000,0x007341287cb0) sz: 1072304 tls: [0x007341287fc0,0x00734128b000)
+Thread: T10 0x006a0002a000 stack: [0x007340078000,0x00734017dcb0) sz: 1072304 tls: [0x00734017dfc0,0x007340181000)
+Thread: T11 0x006a0002e000 stack: [0x00733ef6e000,0x00733f073cb0) sz: 1072304 tls: [0x00733f073fc0,0x00733f077000)
+Thread: T12 0x006a00032000 stack: [0x00733bd72000,0x00733be6bcb0) sz: 1023152 tls: [0x00733be6bfc0,0x00733be6f000)
+Thread: T13 0x006a00036000 stack: [0x00733ac74000,0x00733ad6dcb0) sz: 1023152 tls: [0x00733ad6dfc0,0x00733ad71000)
+Thread: T14 0x006a0003a000 stack: [0x00731d522000,0x00731d61bcb0) sz: 1023152 tls: [0x00731d61bfc0,0x00731d61f000)
+Thread: T15 0x006a0003e000 stack: [0x00731c31a000,0x00731c41fcb0) sz: 1072304 tls: [0x00731c41ffc0,0x00731c423000)
+    x8  000000000000000a  x9  0200006b00000000  x10 f50000449e617940  x11 000000000000000a
+    x12 000000730befa150  x13 0000000000000002  x14 000000730befb498  x15 0000046edc38aaa7
+    x16 00000073ed497918  x17 00000073ed471330  x18 00000069bb87c000  x19 610000730beff3f0
+    x20 000000730beff3f0  x21 600000730beff410  x22 000000730beff410  x23 620000730beff430
+    x24 0000000730beff63  x25 660000730beff630  x26 000000730beff630  x27 6e0000730beff640
+    x28 000000730beff640  x29 000000730bf00f60  x30 0000007305730d8c   sp 000000730befb8f0
+Learn more about HWASan reports: https://source.android.com/docs/security/test/memory-safety/hwasan-reports
+SUMMARY: HWAddressSanitizer: tag-mismatch (/data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so+0x3aa8d88) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78) '
+      #08 pc 0000000003aa8d88  /data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so (Echo::Root::setRenderSystem(Echo::ECHO_GRAPHIC_PARAM const*, char const*)+12012) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+      #09 pc 0000000002aede18  /data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so (Echo::IEchoEngine::setRenderSystem(Echo::ECHO_GRAPHIC_PARAM const*, std::__ndk1::basic_string<char, std::__ndk1::char_traits<char>, std::__ndk1::allocator<char> > const&, unsigned int, unsigned int)+88) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+      #10 pc 00000000021746c0  /data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so (AsyncApp::AsyncApp(char const*, char const*, Echo::ECHO_GRAPHIC_PARAM const*, unsigned int, bool, unsigned int, unsigned int)+1596) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+      #11 pc 0000000002182a20  /data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so (std::__ndk1::unique_ptr<AsyncApp, std::__ndk1::default_delete<AsyncApp> > make_unique_ptr<AsyncApp, char const*&, char const*&, Echo::ECHO_GRAPHIC_PARAM const*&, unsigned int&, bool&, unsigned int&, unsigned int&>(char const*&, char const*&, Echo::ECHO_GRAPHIC_PARAM const*&, unsigned int&, bool&, unsigned int&, unsigned int&)+544) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+      #12 pc 0000000002182740  /data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so (InitAsyncApp(char const*, char const*, Echo::ECHO_GRAPHIC_PARAM const*, bool, unsigned int, unsigned int)+708) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+      #13 pc 0000000002306f4c  /data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so (init_appview(bool, bool, char const*, char const*, Echo::ECHO_GRAPHIC_PARAM const*, unsigned int, unsigned int)+312) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+      #14 pc 00000000023205dc  /data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so (EchoVk::EchoVkNativePlatform::resize(unsigned int, unsigned int)+580) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+      #15 pc 0000000002320030  /data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so (EchoVk::on_app_cmd(android_app*, int)+420) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+      #16 pc 0000000002319a78  /data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+      #17 pc 00000000023219f0  /data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so (EchoVk::process_android_events(android_app*)+272) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+      #18 pc 00000000023214e0  /data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so (EchoVk::EchoVkNativePlatform::init()+2584) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+      #19 pc 00000000023075a0  /data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so (android_main+132) (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+      #20 pc 000000000231993c  /data/app/~~qOa8wXUyvjliirfU8iqnmg==/net.pixelgame.padbo2-QAYs2-zh2tvHaas7KwiQxQ==/lib/arm64/libPadBO2.so (BuildId: a2ca3a60e91d76673cacb1ad3dc5db21867b2f78)
+onAnimationStart:   target=RemoteAnimationTargetCompat{taskId=1402, mode=1, isTranslucent=false, clipRect=Rect(0, 0 - 0, 0), position=Point(0, 0), sourceContainerBounds=Rect(0, 0 - 2712, 1220), prefixOrderIndex=3, isNotInRecents=true, contentInsets=Rect(0, 0 - 0, 0), activityType=1, packageName=net.pixelgame.padbo2, startBounds=Rect(0, 0 - 2712, 1220), windowType=-1}
+------------
+getRecentTasks: mainTaskId=1402   userId=0   windowMode=1   baseIntent=Intent { act=android.intent.action.MAIN flag=270532608 cmp=ComponentInfo{net.pixelgame.padbo2/net.pixelgame.padbo2.MainActivity} }

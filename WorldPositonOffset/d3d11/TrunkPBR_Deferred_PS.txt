@@ -1,0 +1,437 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+#include <Light_Function_PS.inl>
+#include <EnvironmentLight_Function.inl>
+#include <Common_Function_PS.inl>
+#include <Common_GBuffers.inl> // Include GBuffer utils
+
+#ifndef BUMP_MAP
+	#undef RIPPLE
+#endif
+
+#ifdef DETAIL_BUMP
+    #undef TEXTURE_FLOW
+#endif
+
+#ifdef TEXTURE_FLOW
+    #undef DETAIL_BUMP
+#endif	
+    
+#ifdef DISTORT
+    #undef DETAIL_BUMP
+#endif
+
+//-----------------------------------------------------------------------------
+// Uniforms & Textures
+//-----------------------------------------------------------------------------
+float4	U_MaterialDiffuse;
+float4	U_MaterialSpecular;
+float4  U_MaterialFresnel;	
+float4	U_MaterialCustomParam;
+float4	U_MaterialCustomParam1;
+
+float4	U_LightPower; //x for lightpower, y for specular offset
+
+float4	U_PSGeneralRegister0;
+float4	U_PSGeneralRegister1;
+float4	U_PSGeneralRegister2;
+float4	U_PSGeneralRegister3;
+float4	U_PSGeneralRegister4;
+float4	U_PSGeneralRegister5;
+float4	U_PSGeneralRegister6;
+float4	U_PSGeneralRegister7;
+float4	U_PSGeneralRegister8;
+float4	U_PSGeneralRegister30;
+float4	U_PSGeneralRegister29;
+
+Texture2D	S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+Texture2D	S_Specular;
+SamplerState S_SpecularSamplerState;
+
+Texture2D	S_Bump;
+SamplerState S_BumpSamplerState;
+
+#ifdef RIPPLE
+    Texture2D	S_Ripple;
+    SamplerState S_RippleSamplerState;
+    
+    float4 ComputeRipple(float2 uv, float t)
+    {
+        float4 ripple = S_Ripple.Sample(S_RippleSamplerState, uv);
+        float gloss = ripple.y;
+        ripple.yz = ripple.yz * 2.0 - 1.0;
+        float dropFrac = frac(ripple.a + t);
+        float timeFrac = dropFrac - 1.0 + ripple.x;
+        float dropFactor = 1.0f-saturate( dropFrac);
+        float final = dropFactor* sin(clamp(timeFrac * 9.0, 0.0, 4.0) * 3.1415926);
+        return float4(ripple.yz * final, 1.0, (final ) * 0.2);
+    }
+#endif
+
+#ifdef DISSOLVE
+    Texture2D S_Custom7;
+    SamplerState S_Custom7SamplerState;
+#endif	
+
+#if defined(DETAIL_BUMP) || defined(TEXTURE_FLOW)
+    Texture2D	S_Custom;
+    SamplerState S_CustomSamplerState;
+#endif
+
+#ifdef TEXTURE_MASK
+    Texture2D	S_Custom2;
+    SamplerState S_Custom2SamplerState;
+#endif
+
+//-----------------------------------------------------------------------------
+// Noise Functions (Distort)
+//-----------------------------------------------------------------------------
+#ifdef DISTORT
+    float3 mod289(float3 x) { return x - floor(x / 289.0) * 289.0; }
+    float2 mod289(float2 x) { return x - floor(x / 289.0) * 289.0; }
+    float3 permute(float3 x) { return mod289((x * 34.0 + 1.0) * x); }
+    float3 taylorInvSqrt(float3 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+
+    float snoise(float2 v)
+    {
+        const float4 C = float4( 0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+        float2 i  = floor(v + dot(v, C.yy));
+        float2 x0 = v -   i + dot(i, C.xx);
+        float2 i1;
+        i1.x = step(x0.y, x0.x);
+        i1.y = 1.0 - i1.x;
+        float2 x1 = x0 + C.xx - i1;
+        float2 x2 = x0 + C.zz;
+        i = mod289(i);
+        float3 p = permute(permute(i.y + float3(0.0, i1.y, 1.0)) + i.x + float3(0.0, i1.x, 1.0));
+        float3 m = max(0.5 - float3(dot(x0, x0), dot(x1, x1), dot(x2, x2)), 0.0);
+        m = m * m; m = m * m;
+        float3 x = 2.0 * frac(p * C.www) - 1.0;
+        float3 h = abs(x) - 0.5;
+        float3 ox = floor(x + 0.5);
+        float3 a0 = x - ox;
+        m *= taylorInvSqrt(a0 * a0 + h * h);
+        float3 g;
+        g.x = a0.x * x0.x + h.x * x0.y;
+        g.y = a0.y * x1.x + h.y * x1.y;
+        g.z = a0.z * x2.x + h.z * x2.y;
+        return 130.0 * dot(m, g);
+    }
+#endif
+
+//-----------------------------------------------------------------------------
+// Input Struct
+//-----------------------------------------------------------------------------
+struct PS_INPUT
+{
+    float4	i_PosInClip		: SV_POSITION;
+	float4 	i_UV			: TEXCOORD0;	// w: ViewSpaceZ if USESHADOWMAP
+	float4 	i_Fog			: TEXCOORD1;
+	float4	i_Normal		: TEXCOORD2;
+	float4	i_WorldPos		: TEXCOORD3;
+	
+	float4	i_Tangent		: TEXCOORD4;
+	float4	i_Binormal		: TEXCOORD5;
+	
+	#ifdef VERTEX_COLOR
+		float4	i_Diffuse	: COLOR0;
+	#endif
+	#ifdef SOFTBOARD
+		float4 i_ClipPos    : TEXCOORD8;
+	#endif
+	#ifdef MOTIONBLUR
+		float4  i_VelUV     : TEXCOORD15;
+	#endif
+
+    #ifdef PARABOLOID_MAPPING
+        float	i_ClipDepth			: TEXCOORD12;
+    #endif
+    float4  i_PosInModel	: TEXCOORD13;
+    float4  i_BoundBoxRange     : TEXCOORD14;
+};
+
+#define PS_OUTPUT GBuffers
+
+//-----------------------------------------------------------------------------
+// Main
+//-----------------------------------------------------------------------------
+PS_OUTPUT main(PS_INPUT IN, bool isFrontFacing : SV_IsFrontFace)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+    #ifdef PARABOLOID_MAPPING
+        clip(IN.i_ClipDepth);
+    #endif
+
+    // 1. UV Logic
+	float2 uv = IN.i_UV.xy;
+
+	{
+		//dither discard
+		if(ComputeDitherCullMask(IN.i_PosInClip.xy,U_MaterialCustomParam1.y,U_MaterialCustomParam1.z))
+			discard;
+		
+		bool needDiscard = ComputeBitmapCullMask(U_PSGeneralRegister29, IN.i_BoundBoxRange, 
+		U_MaterialCustomParam1.z, IN.i_PosInModel.xyz, IN.i_PosInClip.xyz);
+		if(needDiscard)
+			discard;
+	}
+
+	#ifdef DISSOLVE
+		if(S_Custom7.Sample(S_Custom7SamplerState, uv).a < U_MaterialFresnel.y)
+			discard;	
+	#endif
+
+	#ifdef UV_ROLL
+		uv += frac(U_PS_Time.z * float2(U_PSGeneralRegister1.z, U_PSGeneralRegister1.w));
+	#endif
+	
+	#ifdef DISTORT
+		float _distortAmt = U_PSGeneralRegister2.y;
+		float _distortScale = U_PSGeneralRegister2.z;
+		float _distortSpeed = U_PSGeneralRegister1.y;
+		float Time = U_PS_Time.z;
+		float noise = snoise(uv * _distortScale + float2(Time *_distortSpeed, - Time *_distortSpeed));
+		uv += noise * _distortAmt;
+	#endif
+
+	#ifdef UV_TILLING
+		uv *= U_PSGeneralRegister2.x;
+	#endif
+		
+    // 2. Base Color
+	half4 diffuseColor = S_Diffuse.Sample(S_DiffuseSamplerState, uv);
+				
+	#ifdef ALPHA_TEST
+		clip(diffuseColor.a - U_MaterialDiffuse.a);
+	#endif
+
+	#ifdef VERTEX_COLOR
+		diffuseColor.rgb *= IN.i_Diffuse.rgb;
+	#endif
+	
+	half3 baseMap = pow(diffuseColor.rgb, 2.2);
+	baseMap = baseMap * U_MaterialDiffuse.rgb;
+		
+	#ifdef TEXTURE_MASK
+		half4 mask = S_Custom2.Sample(S_Custom2SamplerState, uv);
+		half3 colorR = pow(U_PSGeneralRegister4.rgb, 2.2) * mask.r;
+		half3 colorG = pow(U_PSGeneralRegister5.rgb, 2.2) * mask.g;
+		half3 colorB = pow(U_PSGeneralRegister6.rgb, 2.2) * mask.b;
+		float f = min(mask.r + mask.g + mask.b, 1.0);
+		half3 colorF = colorR + colorG + colorB;
+		baseMap = lerp(baseMap, baseMap * colorF, f);
+	#endif
+	
+    // 3. Normal Map & Ripple
+	half3 N = normalize(IN.i_Normal.xyz);
+    
+	#ifdef USESHADOWMAP
+		float4 shadowSpacePos[SHADOWSPLITE];
+		ProjectToLightSpace(shadowSpacePos, IN.i_WorldPos.xyz, N, IN.i_UV.w);
+	#endif
+
+    // V is usually not needed for pure G-Buffer filling unless for parallax/view-dependent effects,
+    // but Ripple uses WorldPos, and we might need View vector for other logic.
+	half3 V = normalize(U_PS_CameraPosition.xyz - IN.i_WorldPos.xyz);
+
+    half4 bumpColor = half4(0.5, 0.5, 1.0, 1.0);
+
+	#ifdef BUMP_MAP
+		half3 nn = N;
+		half3 tn = normalize(IN.i_Tangent.xyz);
+		half3 bn = normalize(IN.i_Binormal.xyz);
+		tn = normalize(tn - nn * dot(tn, nn));
+		bn = normalize(bn - nn * dot(bn, nn));
+		half3x3 tbn = 
+		{
+			tn.x, bn.x, nn.x,
+			tn.y, bn.y, nn.y,
+			tn.z, bn.z, nn.z 
+		};
+		
+		bumpColor = S_Bump.Sample(S_BumpSamplerState, uv);
+		half3 bump = bumpColor.rgb * 2.0 - 1.0;	
+		bump *= half3(U_PSGeneralRegister2.w, U_PSGeneralRegister2.w, 1.0);
+		bump.z = 1.h;
+
+		#ifdef DETAIL_BUMP
+			float2 detailUV = U_PSGeneralRegister2.y;
+			#ifdef UV_TILLING
+				detailUV /= U_PSGeneralRegister2.x;
+			#endif
+			half4 detailBumpColor = S_Custom.Sample(S_CustomSamplerState, uv * detailUV);
+            bump.xy += (detailBumpColor.xy - half2(0.5, 0.5)) * U_PSGeneralRegister2.z;
+		#endif
+
+		#ifdef RIPPLE
+			float s = clamp(dot(N, float3(0.0,1.0,0.0)), 0.0, 1.0) ;
+			s = pow(s, 5.0);
+			s *= (1.f - U_PSGeneralRegister30.x);
+			bump.xy  *= (1.0 - s * 0.9f);
+			double time = U_PS_Time.x;
+			float time01 = U_PS_Time.y * 0.1591549; 
+			float2 rUV = IN.i_WorldPos.xz * 0.25f;
+			float rOffset = floor(U_PS_Time.x * 0.5f) * 0.1f;
+			float4 ripple = ComputeRipple(rUV + rOffset, time01 * 3.0f);
+			rUV = IN.i_WorldPos.xz * 0.25f + 0.25f;
+			rOffset = floor(U_PS_Time.x * 0.5f + 0.25f) * 0.1f;
+			float4 ripple2 = ComputeRipple(rUV + float2(rOffset, -rOffset), time01 * 3.0f);
+			float rLerp1 =  sin(time01 * 3.1415);
+			float rLerp2 =  1.0 - rLerp1;
+			bump.xy += rLerp1 * ripple.xy * s;
+			bump.xy += rLerp2 * ripple2.xy * s;
+		#endif
+
+		bump = normalize(bump);		
+		N = mul(tbn, bump);
+	#endif
+	
+    // 4. PBR Parameters
+	half metallic = 0.0;
+	half roughness = 1.0;
+    half ao = 1.0;
+	
+	#ifdef PBR_ROUGHNESS
+		#ifdef BUMP_MAP
+			roughness = bumpColor.b;
+		#endif
+	#else
+		roughness = U_PSGeneralRegister6.w;
+	#endif
+	
+	float wetFinal = U_PSGeneralRegister8.w;
+	roughness -= wetFinal;
+
+	#ifdef RIPPLE
+		roughness = clamp(roughness - 0.4f * (1.f - U_PSGeneralRegister30.x), 0.0, 1.0);
+	#endif
+	roughness = max(roughness , 1e-6);
+	metallic = lerp(metallic, 0.5, wetFinal);
+	
+    #ifdef COVER_WEATHER
+        #ifdef COVER_WEATHER_ALPHA
+            float coverLerp = diffuseColor.a;
+        #else
+            float coverLerp = dot(N, U_PS_GravityDirection.xyz);
+        #endif
+        coverLerp = clamp(coverLerp + U_PSGeneralRegister8.x, 0.0, 1.0);
+        coverLerp *= U_WeatherParam0.w * (1.f - U_PSGeneralRegister30.x);
+        baseMap = lerp(baseMap, U_WeatherParam0.xyz, coverLerp);
+        roughness = lerp(roughness, U_WeatherParam1.x, coverLerp);
+        metallic = lerp(metallic, U_WeatherParam1.y, coverLerp);		
+    #endif
+	
+    // 5. Emission Accumulation
+	half3 emission = 0.0;
+	
+    #ifdef EMISSIVE
+		half3 missiveColor = diffuseColor.rgb * U_PSGeneralRegister0.xyz * diffuseColor.a;
+		half3 minMissiveColor = missiveColor * U_PSGeneralRegister0.w;
+
+		#ifdef TOD_EMISSIVE
+			half todFactor = U_LightPower.x;		
+			#ifdef DYNAMIC_EMISSIVE
+				half3 maxMissiveColor = missiveColor * U_PSGeneralRegister1.x;
+				half factor = U_MaterialSpecular.w;	
+				emission += lerp(minMissiveColor, maxMissiveColor, half3(factor, factor, factor)) * todFactor;
+			#else
+				emission += minMissiveColor * todFactor;
+			#endif
+		#else
+			#ifdef DYNAMIC_EMISSIVE
+				half3 maxMissiveColor = missiveColor * U_PSGeneralRegister1.x;
+				half factor = U_MaterialSpecular.w;	
+				emission += lerp(minMissiveColor, maxMissiveColor, half3(factor, factor, factor));
+			#else
+				emission += minMissiveColor;
+			#endif
+		#endif
+	#endif
+	
+	#ifdef TEXTURE_FLOW
+        float2 flowUV = uv;
+		flowUV *= U_PSGeneralRegister3.z;
+		flowUV += frac(U_PS_Time.z * float2(U_PSGeneralRegister3.x, U_PSGeneralRegister3.y));
+		half3 flowTextureColor = pow(S_Custom.Sample(S_CustomSamplerState, flowUV).rgb, 2.2);
+		
+		#ifdef TEXTURE_FLOW_WITHOUT_CHANNEL
+			emission += lerp(flowTextureColor, flowTextureColor * U_PSGeneralRegister3.w, U_LightPower.x);
+		#else
+			emission += lerp(flowTextureColor, flowTextureColor * U_PSGeneralRegister3.w, U_LightPower.x) * diffuseColor.a;
+		#endif
+	#endif
+
+    // 6. G-Buffer Output
+    float shadowFactor = 1.0;
+    #ifdef USESHADOWMAP
+        // Use ViewSpaceZ stored in i_UV.w
+        shadowFactor = calcShadowFactor(shadowSpacePos, IN.i_UV.w);
+        shadowFactor = min(shadowFactor, 1.0);
+    #endif
+
+    half3 encodedNormal = EncodeNormal(N);
+    // Assuming U_PSGeneralRegister7.w stores role/main light switch as seen in other shaders, 
+    // but in TrunkPBR it wasn't explicitly used for switching unless implied. 
+    // We'll assume standard lit.
+    
+    #ifdef USESHADOWMAP
+        uint receiveShadow = 1;
+    #else
+        uint receiveShadow = 0;
+    #endif
+
+    #ifdef ENVIRONMENT_MAP
+        uint useEnvironmentMap = 1;
+    #else
+        uint useEnvironmentMap = 0;
+    #endif
+
+    uint usePointLight = 0;
+    #ifdef CLUSTER_POINT_LIGHT
+        usePointLight = 1;
+    #endif
+
+    half shadingModel = EncodeShadingModel(
+        1, // useRoleMainLight (Defaulting to 1 as likely main character/obj)
+        receiveShadow,
+        useEnvironmentMap,
+        usePointLight,
+        1); // ShadingModelID = 1
+
+    psOut.g0.xyz = pow(baseMap.xyz, 1.0 / 2.2); // Gamma encoding for Albedo
+    psOut.g0.w = diffuseColor.a;
+
+    psOut.g1.xyz = encodedNormal;
+    psOut.g1.w = shadowFactor;
+
+    psOut.g2.x = metallic;
+    psOut.g2.y = roughness;
+    psOut.g2.z = ao;
+    psOut.g2.w = shadingModel;
+
+    // EDITOR_MODE override
+	#ifdef EDITOR_MODE
+		if(U_MaterialCustomParam.w > 0) {
+            // Visualize CustomParam color, disable lighting
+			emission = U_MaterialCustomParam.xyz;
+            psOut.g0.xyz = 0;
+            psOut.g2.w = 0;
+        }
+	#endif
+	
+	#ifdef EditorHelp
+		psOut.g0.rgb = psOut.g0.rgb * 0.00001 + float3(1.0,0.0,0.0);
+		psOut.g0.w = 1.0;
+        psOut.g2.w = 0;
+	#endif
+
+    psOut.sc.xyz = emission;
+    psOut.sc.w = 1.0;
+
+	return psOut;
+}

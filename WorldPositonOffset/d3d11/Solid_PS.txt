@@ -1,0 +1,22 @@
+struct PS_INPUT
+{
+    float4	i_PosInClip			: SV_POSITION;
+};
+
+struct PS_OUTPUT{
+	float4 albedo			: SV_TARGET0;
+};
+	
+PS_OUTPUT main(PS_INPUT IN, bool isFrontFacing : SV_IsFrontFace)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+	if(isFrontFacing)
+	{
+		psOut.albedo = float4(0.23f, 0.45f, 0.33f, 1.0f);
+	}
+	else
+	{
+		psOut.albedo = float4(1.0f, 1.0f, 1.0f, 1.0f);
+	}
+    return psOut;
+}

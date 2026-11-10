@@ -1,0 +1,157 @@
+#include "CubeSphereMapping.inl"
+#include "SimplexNoise3D.inl"
+
+struct LonLatArea
+{
+	float minLon;
+	float maxLon;
+	float minLat;
+	float maxLat;
+};
+
+uniform int U_CSCustom0; // sliceIndex
+uniform LonLatArea U_CSCustom1[16]; //areas
+uniform int4 U_CSCustom2[4]; //16 areaBiomeSlotIndexes (packed as int4)
+
+//humidity
+Texture2D<float> S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+Texture2D<float> S_2DExt1;
+SamplerState S_2DExt1SamplerState;
+
+Texture2DArray<uint> S_2DArrayExt0; // lutArray
+
+RWTexture2D<uint> S_2DExt3;
+
+#define sliceIndex U_CSCustom0
+#define areas U_CSCustom1
+#define areaBiomeSlotIndexesPacked U_CSCustom2
+
+#define humidity S_2DExt0
+#define humiditySampler S_2DExt0SamplerState
+
+#define temperature S_2DExt1
+#define temperatureSampler S_2DExt1SamplerState
+
+
+//lut 横坐标温度、纵坐标是湿度
+#define lutArray S_2DArrayExt0
+#define indexMap S_2DExt3
+
+float2 DirectionToLonLat(float3 dir)
+{
+	float lon = atan2(dir.z, dir.x);
+	float lat = asin(dir.y);
+	lon = lon / 3.1415926 * 180.0;
+	lat = lat / 3.1415926 * 180.0;
+	return float2(lon, lat);
+}
+
+bool InLongitudeRange(float lon, float minLon, float maxLon)
+{
+    // 未跨越 +-180° 的常规情况，例如：30° ~ 120°
+    if (minLon <= maxLon)
+    {
+        return lon >= minLon && lon <= maxLon;
+    }
+
+    // 跨越日期变更线，例如：170° ~ -170°
+    // 逻辑为：lon ∈ [minLon, 180] 或 lon ∈ [-180, maxLon]
+    return (lon >= minLon && lon <= 180.0) ||
+           (lon >= -180.0 && lon <= maxLon);
+}
+
+bool InLatitudeRange(float lat, float minLat, float maxLat)
+{
+    return lat >= minLat && lat <= maxLat;
+}
+
+float2 computeLonLat(int face, uint2 pixelCoord, uint2 faceDimension)
+{
+	float2 uv = float2(pixelCoord) / (float2(faceDimension) - 1.0);
+	float3 cubeVertex = GetCubeVertex(face, uv * 2.0 - 1.0);
+	float3 direction  = normalize(cubeVertex);
+	return DirectionToLonLat(direction);
+}
+
+float2 computeDistortedLonLat(int face, uint2 pixelCoord, uint2 faceDimension)
+{
+	float2 lonLat = computeLonLat(face, pixelCoord, faceDimension);
+
+	float noise = SimplexFBM(float3(lonLat, 0), 3);
+
+	lonLat += noise * float2(4.0f, 2.0f);
+
+	if (lonLat.x > 180.0)
+		lonLat.x -= 360.0;
+	else if (lonLat.x < -180.0)
+		lonLat.x += 360.0;
+	lonLat.y = clamp(lonLat.y, -90.0, 90.0);
+
+	return lonLat;
+}
+
+
+uint computeLutIndex(float2 lonLat)
+{
+    int3 lutDims;
+    lutArray.GetDimensions(lutDims.x, lutDims.y, lutDims.z);
+
+    for (uint i = 0; i < 16; i++)
+    {
+        int slot = areaBiomeSlotIndexesPacked[i / 4][i % 4];
+
+        if (slot < 0)
+            break;
+
+        if (slot >= lutDims.z)
+            continue;
+
+        LonLatArea area = areas[i];
+
+        if (InLongitudeRange(lonLat.x, area.minLon, area.maxLon) &&
+            InLatitudeRange(lonLat.y, area.minLat, area.maxLat))
+        {
+            return slot;
+        }
+    }
+
+    return 0;
+}
+
+
+//计算在索引图上采样的纹素坐标
+int2 computeTexLocation(float2 uv, int2 textureDimension)
+{
+    float2 cst = uv * textureDimension;
+    float2 temp = clamp(floor(cst), 0, textureDimension - 1);
+    return int2(temp);
+}
+
+[numthreads(16, 16, 1)]
+void main(uint3 udtId : SV_DispatchThreadID){
+	int3 dtId = udtId;
+
+	uint2 indexMapSize;
+	indexMap.GetDimensions(indexMapSize.x, indexMapSize.y);
+
+	if (any(udtId.xy > indexMapSize)) return;
+
+	//根据当前像素在indexMap中的XY采样温度湿度
+	float humidityValue = humidity.Load(int3(udtId.xy, 0)).r;
+	float temperatureValue = temperature.Load(int3(udtId.xy, 0)).r;
+
+	float2 distortedLonLat = computeDistortedLonLat(sliceIndex, udtId.xy, indexMapSize);
+
+	uint2 lutSize;
+	uint lutNum;
+	lutArray.GetDimensions(lutSize.x, lutSize.y, lutNum);
+	int4 lutLocation;
+	lutLocation.xy = computeTexLocation(float2(temperatureValue, humidityValue), lutSize);
+	lutLocation.z = computeLutIndex(distortedLonLat);
+	lutLocation.w = 0;
+	//根据温度湿度值采样lut获取当前像素的材质索引
+	uint matIndex = lutArray.Load(lutLocation).r;
+	S_2DExt3[dtId.xy] = matIndex;
+}

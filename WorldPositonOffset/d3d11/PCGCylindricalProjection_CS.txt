@@ -1,0 +1,82 @@
+#include "CubeSphereMapping.inl"
+
+uniform float4 U_CSCustom0;
+#define valMul U_CSCustom0.x
+#define valAdd U_CSCustom0.y
+
+#ifdef OUTPUT_UNORM
+RWTexture2D<unorm float> S_2DExt0;
+#endif
+#ifdef OUTPUT_FLOAT
+RWTexture2D<float> S_2DExt0;
+#endif
+#define worldMap S_2DExt0
+
+Texture2D<float> S_2DExt1;
+SamplerState S_2DExt1SamplerState;
+Texture2D<float> S_2DExt2;
+Texture2D<float> S_2DExt3;
+Texture2D<float> S_2DExt4;
+Texture2D<float> S_2DExt5;
+Texture2D<float> S_2DExt6;
+#define face0 S_2DExt1
+#define face1 S_2DExt2
+#define face2 S_2DExt3
+#define face3 S_2DExt4
+#define face4 S_2DExt5
+#define face5 S_2DExt6
+#define linearClamp S_2DExt1SamplerState
+#define Pi 3.14159265359
+
+[numthreads(16, 16, 1)]
+void main(uint3 dtId : SV_DispatchThreadID)
+{
+    uint2 mapWh;
+    worldMap.GetDimensions(mapWh.x, mapWh.y);
+
+	float2 uv = (float2(dtId.xy) + 0.5f) / float2(mapWh);
+
+    float longitude = (uv.x * 2.0 - 1.0) * Pi;
+    float latitude  = -(uv.y * 2.0 - 1.0) * (Pi / 2.0);
+
+    float3 unitSphere = normalize(
+        float3(
+            sin(longitude) * cos(latitude),
+            sin(latitude),
+            cos(longitude) * cos(latitude)));
+
+    float2 xy;
+    uint face;
+    MapToCube(unitSphere, face, xy);
+
+    float val = -999999.0;
+    switch (face)
+    {
+    case 0:
+        val = face0.SampleLevel(linearClamp, xy * 0.5 + 0.5, 0.0).r;
+        break;
+    case 1:
+        val = face1.SampleLevel(linearClamp, xy * 0.5 + 0.5, 0.0).r;
+        break;
+    case 2:
+        val = face2.SampleLevel(linearClamp, xy * 0.5 + 0.5, 0.0).r;
+        break;
+    case 3:
+        val = face3.SampleLevel(linearClamp, xy * 0.5 + 0.5, 0.0).r;
+        break;
+    case 4:
+        val = face4.SampleLevel(linearClamp, xy * 0.5 + 0.5, 0.0).r;
+        break;
+    case 5:
+        val = face5.SampleLevel(linearClamp, xy * 0.5 + 0.5, 0.0).r;
+        break;
+    default:
+        break;
+    }
+#ifdef OUTPUT_UNORM
+    worldMap[dtId.xy] = saturate(val * valMul + valAdd);
+#endif
+#ifdef OUTPUT_FLOAT
+    worldMap[dtId.xy] = val * valMul + valAdd;
+#endif
+}

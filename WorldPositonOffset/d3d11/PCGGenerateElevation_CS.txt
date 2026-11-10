@@ -1,0 +1,151 @@
+#include "CubeSphereMapping.inl"
+#include "SimplexNoise.inl"
+#include "HeightMapStamp.inl"
+
+struct GridUniforms
+{
+    float2 offset;
+    float2 gridSize;
+    uint slice;
+    float minorRadius;
+	float2 padding;
+};
+uniform GridUniforms U_CSCustom1;
+
+RWTexture2D<float> S_2DExt0;
+#define elevationMap S_2DExt0
+
+#ifdef SAMPLE_HEIGHTMAP_GENERATETERRAIN
+Texture2DArray S_2DArrayExt1;
+float _sampleTerrainHeight(int2 uv, int width, int height, int index)
+{
+    int2 clampUV = clamp(uv, 0, int2(width-1, height-1));
+    int4 coord = int4(clampUV.y, clampUV.x,index, 0);
+    return S_2DArrayExt1.Load(coord);
+}
+float _generateTerrainHeight(uint _face, float2 _gridOffset)
+{
+    uint tface = _face;
+    float2 tgridOffset = _gridOffset;
+    if(_gridOffset.x < -1.0 || _gridOffset.y < -1.0 || _gridOffset.x > 1.0 || _gridOffset.y > 1.0){
+        float3 cubeVertex = GetCubeVertex(_face, _gridOffset);
+        float3 unitSphere = normalize(cubeVertex);
+	    MapToCube(unitSphere,tface,tgridOffset);
+    }
+    float width, height, elements;
+    S_2DArrayExt1.GetDimensions(width, height, elements);
+
+    uint index = tface;
+	float2 uv = (tgridOffset + 1.0) * 0.5;
+    float2 uv0 = uv * float2(width-1, height-1);
+    float2 texf = floor(uv0);
+    float2 delta = uv0 - texf;
+    int2 texLoc = int2(texf);
+    float4 v4;
+    v4.w = _sampleTerrainHeight(texLoc, width, height, index);
+    texLoc.x += 1;
+    v4.z = _sampleTerrainHeight(texLoc, width, height, index);
+    texLoc.y += 1;
+    v4.y = _sampleTerrainHeight(texLoc, width, height, index);
+    texLoc.x -= 1;
+    v4.x = _sampleTerrainHeight(texLoc, width, height, index);
+    float posTerrainHeight = delta.y * ((1.0f-delta.x)*v4.x+delta.x*v4.y)+(1.0f-delta.y)*((1.0f-delta.x)*v4.w+delta.x*v4.z);
+    return posTerrainHeight;
+}
+#endif
+
+#ifdef SAMPLE_BORDERMAP_GENERATETERRAIN
+
+uniform float4 U_CSCustom2;
+#define terrainMinBorder U_CSCustom2.x
+#define terrainBorderSize U_CSCustom2.y
+#define oneOverTerrainBorderSize U_CSCustom2.z
+#define terrainBorderHeight U_CSCustom2.w
+
+Texture2DArray S_2DArrayExt2;
+float _sampleTerrainBorder(int2 uv, int width, int height, int index)
+{
+    int2 clampUV = clamp(uv, 0, int2(width-1, height-1));
+    int4 coord = int4(clampUV.y, clampUV.x,index, 0);
+    return S_2DArrayExt2.Load(coord);
+}
+float _generateTerrainBorder(uint _face, float2 _gridOffset)
+{
+    uint tface = _face;
+    float2 tgridOffset = _gridOffset;
+    if(_gridOffset.x < -1.0 || _gridOffset.y < -1.0 || _gridOffset.x > 1.0 || _gridOffset.y > 1.0){
+        float3 cubeVertex = GetCubeVertex(_face, _gridOffset);
+        float3 unitSphere = normalize(cubeVertex);
+	    MapToCube(unitSphere,tface,tgridOffset);
+    }
+    float width, height, elements;
+    S_2DArrayExt2.GetDimensions(width, height, elements);
+
+    uint index = tface;
+	float2 uv = (tgridOffset + 1.0) * 0.5;
+    float2 uv0 = uv * float2(width-1, height-1);
+    float2 texf = floor(uv0);
+    float2 delta = uv0 - texf;
+    int2 texLoc = int2(texf);
+    float4 v4;
+    v4.w = _sampleTerrainBorder(texLoc, width, height, index);
+    texLoc.x += 1;
+    v4.z = _sampleTerrainBorder(texLoc, width, height, index);
+    texLoc.y += 1;
+    v4.y = _sampleTerrainBorder(texLoc, width, height, index);
+    texLoc.x -= 1;
+    v4.x = _sampleTerrainBorder(texLoc, width, height, index);
+    float posTerrainBorder = delta.y * ((1.0f-delta.x)*v4.x+delta.x*v4.y)+(1.0f-delta.y)*((1.0f-delta.x)*v4.w+delta.x*v4.z);
+    return posTerrainBorder;
+}
+#endif
+
+[numthreads(16, 16, 1)]
+void main(uint3 dtId : SV_DispatchThreadID)
+{
+	uint2 wh;
+	elevationMap.GetDimensions(wh.x, wh.y);
+	if (any(dtId.xy >= wh))
+	{
+		return;
+	}
+	
+	float3 position = 0;
+	float2 gridOffset = U_CSCustom1.offset + dtId.xy * U_CSCustom1.gridSize;
+#ifdef PROCEDURAL_SPHERE
+	uint face = U_CSCustom1.slice;
+	float3 cubeVertex = GetCubeVertex(face, gridOffset);
+	position = normalize(cubeVertex);
+#ifdef SAMPLE_HEIGHTMAP_GENERATETERRAIN
+	position = position * _generateTerrainHeight(face, gridOffset);
+#endif
+#endif
+#ifdef PROCEDURAL_TORUS
+    float r = U_CSCustom1.minorRadius;
+	position = MapToTorus(r, gridOffset.x, gridOffset.y);
+#endif
+	
+	float elevation = UberNoiseFbm(position);
+#ifdef ENABLE_STAMP_TERRAIN
+	elevation = EvaluateVal(elevation, normalize(position));
+#endif
+#ifdef SAMPLE_BORDERMAP_GENERATETERRAIN
+    if (terrainMinBorder >= 1)
+    {
+        elevation = max(terrainBorderHeight, elevation);
+    }
+    else if (terrainMinBorder + terrainBorderSize > -1)
+    {
+	    float border = _generateTerrainBorder(face, gridOffset) - terrainMinBorder;
+        if (border < 0.0)
+        {
+            elevation = max(terrainBorderHeight, elevation);
+        }
+        else if(terrainBorderSize > 0.0 && border < terrainBorderSize)
+        {
+            elevation = max(lerp(terrainBorderHeight, elevation, border * oneOverTerrainBorderSize), elevation);
+        }
+    }
+#endif    
+	elevationMap[dtId.xy] = elevation;
+}

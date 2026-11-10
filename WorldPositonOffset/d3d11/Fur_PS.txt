@@ -1,0 +1,337 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+#include <Common_Function.inl>
+#include <EnvironmentLight_Function.inl>
+
+#define _FUR 1
+#define _FABRIC 1
+
+#undef USESHADOWMAP
+
+#ifndef SHADOWPASS
+	// #ifdef USESHADOWMAP
+	// 	#if SHADOWSPLITE > 0
+	// 		Texture2D S_ShadowMap0;
+	// 		SamplerComparisonState S_ShadowMap0SamplerState;
+	// 	#endif
+	// 	#if SHADOWSPLITE > 1
+	// 		Texture2D S_ShadowMap1;
+	// 		SamplerComparisonState S_ShadowMap1SamplerState;
+	// 	#endif
+	// 	#if SHADOWSPLITE > 2
+	// 		Texture2D S_ShadowMap2;
+	// 		SamplerComparisonState S_ShadowMap2SamplerState;
+	// 	#endif
+	// 	#if SHADOWSPLITE > 3
+	// 		Texture2D S_ShadowMap3;
+	// 		SamplerComparisonState S_ShadowMap3SamplerState;
+	// 	#endif
+	// #endif
+#endif
+
+struct PS_INPUT
+{
+	float4 in_Position	: SV_POSITION;
+
+#ifndef SHADOWPASS
+	float2 in_UV			: TEXCOORD0;
+	float3 in_WorldPos		: TEXCOORD1;
+	float3 in_WorldNormal	: NORMAL0;
+	float4 in_FurOffset     : TEXCOORD3;
+	float4 in_Fog			: TEXCOORD6;
+	#ifdef USESHADOWMAP
+		float	i_ViewSpaceZ					: TEXCOORD7;
+	#endif
+	#ifdef VERTEX_COLOR
+		float4 i_Diffuse	: COLOR0;
+	#endif
+#endif
+};
+
+struct PS_OUTPUT
+{
+#ifndef SHADOWPASS
+	float4 FragColor : SV_TARGET;
+#endif
+};
+
+float4	U_MaterialDiffuse;
+float4  U_MaterialFresnel;
+						 
+float4 U_PSGeneralRegister0; // U_PSGeneralRegister0.x=_CutoffStart;
+							 // U_PSGeneralRegister0.y=_CutoffEnd;
+							 // U_PSGeneralRegister0.z=_EdgeFade;
+							 
+float4 U_PSGeneralRegister1; // 
+							 // U_PSGeneralRegister1.y=NoiseScaleX
+							 // U_PSGeneralRegister1.z=NoiseScaleY
+							 
+float4  U_PSGeneralRegister2;
+float4	U_PSGeneralRegister3;
+float4	U_PSGeneralRegister4;
+float4	U_PSGeneralRegister5;
+float4	U_PSGeneralRegister6;
+float4	U_PSGeneralRegister7;
+//float4	U_PSGeneralRegister8;
+float4	U_PSGeneralRegister11;
+float4	U_PSGeneralRegister13;
+
+float4	U_PSGeneralRegister12;
+
+Texture2D	S_Custom;
+SamplerState S_CustomSamplerState;
+
+Texture2D	S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+	
+#ifndef PBR_SIMPLE
+	Texture2D	S_Specular;
+	SamplerState S_SpecularSamplerState;
+#endif
+
+#ifdef TEXTURE_MASK
+	Texture2D S_Custom2;
+	SamplerState S_Custom2SamplerState;
+#endif
+
+#if _FABRIC
+float FabricD (float NdotH, float roughness)
+{
+    return 0.96 * pow(1.0 - NdotH, 2.0) + 0.057; 
+}
+
+float FabricScatterFresnelLerp(float cosTheta, float scale)
+{
+    float t0 = pow(1.0 - cosTheta, 4.0f); 
+    float t1 = 0.4 * (1.0 - cosTheta);
+    return (t1 - t0) * scale + t0;
+}
+#endif
+
+float3 calculateLightPower(float3 N, float3 V, float3 L, float3 lightPower, float3 albedo, float roughness, float metallic)
+{
+	float3 H    = normalize(L+V);
+	float NdotH = max(dot(N, H), 0.0);
+	float LdotH = max(dot(L,H),0.0);
+	float NdotL = max(dot(N, L), 0.0);
+	
+    float a2    = roughness*roughness;
+	float a4    = a2*a2;
+    
+	float NdotH2 = NdotH*NdotH;
+	float LdotH2 = LdotH*LdotH;
+	  
+    //float denom = 4.0f*3.1415926f*pow(NdotH2*(a4-1.f)+1.f,2.f)*(LdotH2*(1.0f-a2)+a2);
+	float denom = 4.0f * FabricD(NdotH, roughness) * (LdotH2 * (1.0f - a2) + a2);
+	denom = max(denom, 0.00001f);
+    float brdf  = a4/denom;
+	float3 F0 = float3(0.04, 0.04, 0.04);
+	F0 = lerp(F0, albedo, metallic);
+	
+	float3 kd    = 1.0f - min(F0/(LdotH + 0.00001f), 1.0f);
+	kd = kd * (1.0f-metallic);
+	
+	return (albedo*kd / 3.141592654 + brdf*F0) * NdotL * lightPower;	
+}
+
+float3 envBRDFApprox(float3 specularColor, float roughness, float NoV)
+{
+	float4 c0 = float4(-1.0,	-0.0275,	-0.572,		0.022);
+	float4 c1 = float4(1.0,		0.0425,		1.04,		-0.04);
+	
+	float4 r = roughness * c0 + c1;
+	float a004 = min(r.x * r.x, exp2(-9.28 * NoV)) * r.x + r.y;
+	float2 AB = float2(-1.04, 1.04) * a004 + r.zw;
+	return specularColor * AB.x + AB.y;
+}
+
+float3 thinTranslucency(float3 N, float3 L, float3 transmittanceColor)
+{
+	float transmittance = saturate(dot(-N, L) + 0.2);
+	float fresnel = (1.0 - transmittance) * (1.0 - transmittance);
+	fresnel *= fresnel;
+	
+	return transmittance * (1.0 - fresnel) * transmittanceColor;
+}
+
+PS_OUTPUT main(PS_INPUT IN)											
+{	
+	PS_OUTPUT psOut = (PS_OUTPUT)0.f;
+
+#ifdef SHADOWPASS
+	return psOut;
+#else
+	float2 uv = IN.in_UV.xy;
+	
+	uv *= U_PSGeneralRegister2.x;
+
+	float4 diffuseColor = S_Diffuse.Sample(S_DiffuseSamplerState, uv);
+
+
+	float3 N = normalize(IN.in_WorldNormal.xyz);
+
+	#ifdef USESHADOWMAP
+		float4 shadowSpacePos[SHADOWSPLITE];
+		ProjectToLightSpace(shadowSpacePos, IN.i_WPos.xyz, N, IN.i_ViewSpaceZ);
+	#endif
+	
+	float3 V = normalize(U_PS_CameraPosition.xyz - IN.in_WorldPos.xyz);
+	float3 L = normalize(-U_MainLightDirection.xyz);
+
+	float4 outColor = float4(1.0f,1.0f,1.0f,1.0f);
+	outColor.a = diffuseColor.a * U_MaterialFresnel.r;
+
+	#if _FUR
+		float FUR_OFFSET = IN.in_FurOffset.x; //i_InstanceID * 0.05f;
+		float _CutoffStart = U_PSGeneralRegister0.x;
+		float _CutoffEnd = U_PSGeneralRegister0.y;
+		float _EdgeFade = U_PSGeneralRegister0.z;
+
+        float2 noise_uv = uv * U_PSGeneralRegister1.yz;
+        float noise_mip_lod_bias = -3.0f;//U_PSGeneralRegister12.y;
+		float alpha = S_Custom.SampleBias(S_CustomSamplerState, noise_uv, noise_mip_lod_bias).r;
+		alpha = step(lerp(_CutoffStart, _CutoffEnd, FUR_OFFSET*FUR_OFFSET), alpha);
+
+		outColor.a = 1.0 - FUR_OFFSET*FUR_OFFSET;
+		outColor.a += dot(V, N) - _EdgeFade;
+		//outColor.a = max(0.0, outColor.a);
+		outColor.a *= alpha;
+	#endif
+	
+	#ifdef ALPHA_TEST
+        #ifdef VERTEX_COLOR
+		outColor.a *= IN.i_Diffuse.a;
+	    #endif
+        
+		clip(outColor.a - 0.01f);
+		//return psOut;
+	#endif
+	float3 baseMap = pow(diffuseColor.rgb, 2.2);
+	
+	#ifdef VERTEX_COLOR
+		baseMap.rgb *= IN.i_Diffuse.rgb;
+	#endif	
+
+	#ifdef TEXTURE_MASK
+		half4 mask = S_Custom2.Sample(S_Custom2SamplerState, uv);
+		half3 colorR = pow(U_PSGeneralRegister4.rgb, 2.2) * mask.r;
+		half3 colorG = pow(U_PSGeneralRegister5.rgb, 2.2) * mask.g;
+		half3 colorB = pow(U_PSGeneralRegister6.rgb, 2.2) * mask.b;
+		half3 colorA = pow(U_PSGeneralRegister7.rgb, 2.2) * mask.a;
+		float f = min(mask.r + mask.g + mask.b + mask.a,U_PSGeneralRegister2.z);
+		half3 colorF = colorR + colorG + colorB + colorA;
+		baseMap.rgb = lerp(baseMap.rgb, baseMap * colorF, f);
+	#endif
+
+	float metallic = 1.0;
+	float roughness = 0.0001;
+	//float ao = 1.0;
+	#ifndef PBR_SIMPLE
+		float3 mixMap = S_Specular.Sample(S_SpecularSamplerState, uv).rgb;
+		metallic = mixMap.r;
+		//roughness = clamp(mixMap.g + U_PSGeneralRegister6.w, 0.0, 1.0);
+		//ao = mixMap.b;
+	#endif
+	
+	roughness = max(roughness , 1e-6);
+	
+	float3 color = 0.0;
+	
+	#ifdef	THIN_TRANSLUCENCY
+		color += thinTranslucency(N, L, U_PSGeneralRegister13.xyz) * metallic;
+		metallic = 0.0;
+	#endif
+	
+	float4 mainLightColor = lerp(U_PBR_MainLightColor, U_RoleMainLightColor,
+			U_PSGeneralRegister13.w);
+	float4 skyLightColor = lerp(U_PBR_SkyLightColor, U_RoleSkyLightColor,
+			U_PSGeneralRegister13.w);
+	float4 groundLightColor = lerp(U_PBR_GroundLightColor,
+			U_RoleGroundLightColor, U_PSGeneralRegister13.w);
+	float blendThreshold = lerp(U_PS_AmbientBlendThreshold.y, U_PS_AmbientBlendThreshold.z, U_PSGeneralRegister13.w);
+	float viewLightPercent = lerp(U_PS_ViewLightPercent.x, U_PS_ViewLightPercent.y, U_PSGeneralRegister13.w);
+
+	float3 albedo = baseMap * (1.0 - metallic);
+	float3 specularColor = lerp(float3(0.04, 0.04, 0.04), baseMap, metallic);
+	
+	color += calculateLightPower(N, V, L, mainLightColor.xyz * (1.0 -
+				viewLightPercent), baseMap, roughness, metallic);
+	color = color * U_MaterialDiffuse.rgb;
+	
+	color += calculateLightPower(N, V, -U_PS_ViewDirection.xyz,
+			mainLightColor.xyz * viewLightPercent, baseMap, roughness, metallic);
+	float3 _FabricScatterColor = U_PSGeneralRegister3.xyz;
+	float _FabricScatterScale = U_PSGeneralRegister3.w;
+	color += _FabricScatterColor * (max(dot(N, L), 0.0) * 0.5 + 0.5) * FabricScatterFresnelLerp(max(dot(N, V), 0.0), _FabricScatterScale);
+	
+	float3 envBRDF = envBRDFApprox(specularColor, roughness, max(dot(N, V), 0.0));
+	
+
+	float3 ambientColor = ComputeAmbientLight(skyLightColor.xyz, groundLightColor.xyz, N, blendThreshold, U_PS_GravityDirection.xyz);
+	envBRDF *= normalize(max(ambientColor, 0.001));
+	
+	color += (albedo + envBRDF) * ambientColor;
+	//color *= ao;
+	
+	outColor.rgb = pow(color, 0.454545);
+	outColor.rgb = outColor.rgb * IN.in_Fog.a + IN.in_Fog.rgb;
+
+	//outColor.a += lerp(U_PSGeneralRegister8.y,
+	//U_PSGeneralRegister8.z,FUR_OFFSET*FUR_OFFSET) * U_PSGeneralRegister11.x * FUR_OFFSET;
+
+	#ifdef USESHADOWMAP
+		Texture2D ShadowMaps[SHADOWSPLITE];
+		SamplerComparisonState ShadowSamplers[SHADOWSPLITE];
+	#if SHADOWSPLITE > 0
+		ShadowMaps[0] = S_ShadowMap0;
+		ShadowSamplers[0] = S_ShadowMap0SamplerState;
+	#endif
+	#if SHADOWSPLITE > 1
+		ShadowMaps[1] = S_ShadowMap1;
+		ShadowSamplers[1] = S_ShadowMap1SamplerState;
+	#endif
+	#if SHADOWSPLITE > 2
+		ShadowMaps[2] = S_ShadowMap2;
+		ShadowSamplers[2] = S_ShadowMap2SamplerState;
+	#endif
+	#if SHADOWSPLITE > 3
+		ShadowMaps[3] = S_ShadowMap3;
+		ShadowSamplers[3] = S_ShadowMap3SamplerState;
+	#endif
+	
+		float shadowFactor = calcShadowFactor(
+			shadowSpacePos, 
+			IN.i_ViewSpaceZ);
+	
+		shadowFactor = clamp(shadowFactor,0.8,1.0);
+		outColor.rgb *= shadowFactor;
+        
+		//psOut.FragColor = float4(shadowFactor,0.0,0.0,1.0);
+	#endif	
+
+    #ifdef VERTEX_COLOR
+		outColor.a *= IN.i_Diffuse.a;
+	#endif
+        
+    //IMPORTANT(yanghang):The alpha value will out of range [0 ~ 1.0f].
+    // Now the alpha be greater than 1.0f. In HDR mode, this will be disaster,
+    // it will flip color of background.
+    outColor.a = clamp(outColor.a, 0.0f, 1.0f);
+
+	psOut.FragColor += outColor;
+
+    #ifdef DEBUG
+        float2 noise_uv = uv * U_PSGeneralRegister1.yz;
+        float noise_sample_LOD = S_Custom.CalculateLevelOfDetail(S_CustomSamplerState, noise_uv);
+        float noise_mip_lod_bias = U_PSGeneralRegister12.y;
+        noise_sample_LOD -= noise_mip_lod_bias;
+    
+        float t_c = noise_sample_LOD / 8.0f;
+        float test_blend = U_PSGeneralRegister12.x;
+        psOut.FragColor = lerp(float4(t_c,t_c,t_c,1.0f), psOut.FragColor, test_blend);
+    #endif
+#endif
+
+	return psOut;
+}												                                                                           

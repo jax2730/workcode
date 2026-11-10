@@ -1,0 +1,107 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+uniform float4 U_WorldMatrix[3];
+uniform float4 U_InvWorldMatrix[3];
+uniform float4 U_WorldViewProjectMatrix[4];
+uniform	float4 U_InvTransposeWorldMatrix[3];
+
+struct VS_INPUT
+{
+	float4 i_Position	: POSITION0;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float2 i_UV		: TEXCOORD0;
+	#endif
+#else
+	float4 i_Normal		: NORMAL0;
+	float4 i_Tangent	: TANGENT0;
+	float2 i_UV			: TEXCOORD0;
+#endif
+};
+
+struct VS_OUTPUT
+{
+	float4 o_PosInClip	: SV_POSITION;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float2 o_UV		: TEXCOORD0;
+	#endif
+#else
+	float3 o_UVW		: TEXCOORD0;
+	float3 o_ViewDir	: TEXCOORD1;
+	float2 o_UV			: TEXCOORD2;
+	float4 o_FogColor	: TEXCOORD3;
+	float4 o_WNormal	: TEXCOORD4;
+	float4 o_WPos		: TEXCOORD5;
+#endif
+};
+
+#ifdef MULTIWINDOW
+	#undef USEOBJECTSPACE
+#endif
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0.f;
+	float4 pos =  float4(IN.i_Position.xyz, 1.0f);
+	vsOut.o_PosInClip = mul((float4x4)U_WorldViewProjectMatrix, IN.i_Position);
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		vsOut.o_UV = IN.i_UV;
+	#endif
+#else
+	vsOut.o_UV = IN.i_UV.xy;
+	#ifdef USEOBJECTSPACE
+		vsOut.o_UVW = IN.i_Position * 0.999;//avoid extreme case
+		// get object space camera vector
+		float3 CamPosL = mul((float3x4)U_InvWorldMatrix, float4(U_VS_CameraPosition.xyz, 1.f));
+		vsOut.o_ViewDir = IN.i_Position.xyz - CamPosL.xyz;
+
+	#else
+		// get object space camera vector
+		float3 CamPosL = mul((float3x4)U_InvWorldMatrix, float4(U_VS_CameraPosition.xyz, 1.f));
+		float3 Binormal = cross(IN.i_Tangent.xyz, IN.i_Normal.xyz) * IN.i_Tangent.w;
+
+		float3 viewDir = IN.i_Position.xyz - CamPosL;
+		vsOut.o_ViewDir = float3(
+			dot(viewDir, IN.i_Tangent.xyz),
+			dot(viewDir,Binormal),
+			dot(viewDir,IN.i_Normal.xyz)
+		);
+	#endif
+
+	float4 InvTransposeWorldMatrix[3];
+	InvTransposeWorldMatrix[0] = U_InvTransposeWorldMatrix[0];
+	InvTransposeWorldMatrix[1] = U_InvTransposeWorldMatrix[1];
+	InvTransposeWorldMatrix[2] = U_InvTransposeWorldMatrix[2];
+	vsOut.o_WNormal.xyz = mul((float3x4)InvTransposeWorldMatrix, float4(IN.i_Normal.xyz, 0.0f));
+
+	float4 WorldMatrix[3];
+	WorldMatrix[0] = U_WorldMatrix[0];
+	WorldMatrix[1] = U_WorldMatrix[1];
+	WorldMatrix[2] = U_WorldMatrix[2];
+	vsOut.o_WPos.xyz = mul((float3x4)WorldMatrix, pos);
+	vsOut.o_WPos.w = 1.0;
+
+	float3 camToWorld = U_VS_CameraPosition.xyz - vsOut.o_WPos.xyz;
+
+	float4x4 gravityRotatePosMatrix;	
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+	
+	vsOut.o_FogColor = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+	
+	#ifdef EDITOR_MODE
+		#ifdef HierarchicalLOD
+			vsOut.o_PosInClip = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+		#endif
+	#endif
+#endif
+
+	return vsOut;
+}

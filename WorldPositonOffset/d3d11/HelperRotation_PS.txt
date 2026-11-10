@@ -1,0 +1,33 @@
+#include<Common_Uniform_PS.inl>
+
+#ifdef MATERIAL_DIFFUSE
+float4 U_MaterialDiffuse;
+#endif
+
+struct PS_INPUT
+{
+    float4	o_PosInClip			: SV_POSITION;
+    float4 o_worldPos     :TEXCOORD0;
+	float4 o_worldCenter  :TEXCOORD1;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color		: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1;
+#ifdef MATERIAL_DIFFUSE
+	psOut.o_Color *= U_MaterialDiffuse;
+#endif
+  float3 v1 = normalize(U_PS_CameraPosition.xyz - IN.o_worldCenter.xyz);
+  float3 v2 = normalize(IN.o_worldPos.xyz - IN.o_worldCenter.xyz);  
+  float f = dot(v1,v2);
+  if(f>=0)
+    psOut.o_Color*=1;
+  else
+    psOut.o_Color*=0;
+	return psOut;
+}

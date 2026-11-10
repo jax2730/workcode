@@ -1,0 +1,23 @@
+Texture2D S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+struct PS_INPUT
+{
+    float4 o_PosInClip	: SV_POSITION;
+	float4 v_texCoord : TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 FragColor : SV_TARGET;
+};
+
+
+PS_OUTPUT main(PS_INPUT IN)											
+{		
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+	float2 uv = IN.v_texCoord.xy;
+	float4 bloomBlurColor = S_2DExt0.Sample(S_2DExt0SamplerState,uv);
+	psOut.FragColor = bloomBlurColor;
+	return psOut;
+}												                                                                           

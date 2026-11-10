@@ -1,0 +1,72 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+#ifdef USEINSTANCE
+	float4 	U_VSCustom0[InstanceCount * UniformCount];
+#else
+	float4	U_WorldViewProjectMatrix[4];
+#endif
+
+struct VS_INPUT
+{
+	float4 i_Position	: POSITION0;
+#ifdef DIFFUSE_TEX
+	float4 i_UV		: TEXCOORD0;
+#endif
+#ifdef VERTEX_COLOR
+	float4 i_Diffuse	: COLOR0;
+#endif
+};
+
+struct VS_OUTPUT
+{
+	float4 o_PosInClip	: SV_POSITION;
+#ifdef DIFFUSE_TEX
+	float4 o_UV		: TEXCOORD0;
+#endif
+#ifdef VERTEX_COLOR
+	float4 o_Diffuse	: COLOR0;
+#endif
+};
+
+VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID : SV_InstanceID)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	IN.i_Position.w = 1.0;
+
+#ifdef USEINSTANCE
+	uint idxInst = i_InstanceID * UniformCount;
+	float3 vPosition =    U_VSCustom0[idxInst + 0];
+	float3 vScale =       U_VSCustom0[idxInst + 1];
+	float4 vOrientation = U_VSCustom0[idxInst + 2];
+	vPosition -= U_VS_CameraPosition.xyz;
+	float4x4 matWorld = MakeTransform(vPosition, vScale, vOrientation);
+	vsOut.o_PosInClip = mul(matWorld, IN.i_Position);
+	vsOut.o_PosInClip = mul((float4x4)U_ZeroViewProjectMatrix, vsOut.o_PosInClip);
+#else
+	vsOut.o_PosInClip.x = dot( IN.i_Position , U_WorldViewProjectMatrix[0] );
+	vsOut.o_PosInClip.y = dot( IN.i_Position , U_WorldViewProjectMatrix[1] );
+	vsOut.o_PosInClip.z = dot( IN.i_Position , U_WorldViewProjectMatrix[2] );
+	vsOut.o_PosInClip.w = dot( IN.i_Position , U_WorldViewProjectMatrix[3] );
+#endif
+	
+	#ifdef DEPTHOFFSETMANUAL
+		vsOut.o_PosInClip.z -= 0.0001 * vsOut.o_PosInClip.w;
+	#endif
+
+#ifdef DIFFUSE_TEX
+	vsOut.o_UV = IN.i_UV;
+#endif
+
+#ifdef VERTEX_COLOR
+	vsOut.o_Diffuse = IN.i_Diffuse;
+#endif
+#ifdef DIFFUSE_TEX
+	#ifdef EDITOR_MODE
+		#ifdef HierarchicalLOD
+			vsOut.o_PosInClip = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+		#endif
+	#endif
+#endif
+	return vsOut;
+}

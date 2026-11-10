@@ -1,0 +1,251 @@
+#define thread_group_size_x 8
+#define thread_group_size_y 8
+
+struct SnowData
+{
+	float SnowHeight;
+	float Tile;
+	float normalIntensity;
+	float normalOffset;
+};
+
+struct ObjData
+{
+	float4 viewMat0;
+	float4 viewMat1;
+	float4 viewMat2;
+	float4 viewMat3;
+    float cameraNear;
+	float cameraFar;
+	float CameraExtend;
+    uint textureSize;
+	uint floatPow;
+    uint shouldCleanHistory;
+
+};
+
+struct SnowShapeData
+{
+	float p0;
+	float p1;
+	float p2;
+	float p3;
+	float p4;
+	float st;
+	float steepNess;
+	float range;
+	float scale;
+	float smoothStart;
+	float smoothScale;
+};
+
+
+struct AtlasData{
+    float2 rtBegin;
+    float2 rtSize;
+};
+
+SnowData U_CSCustom0[16];
+ObjData U_CSCustom1;
+SnowShapeData U_CSCustom2[16];
+
+//[0] - SnowTerrain Atlas / [1] - SnowObjectAtlas
+AtlasData U_CSCustom3[2];
+#define SnowTerrainAtlas U_CSCustom3[0]
+#define MatIdAtlas U_CSCustom3[0]
+#define SnowObjectAtlas U_CSCustom3[1]
+
+
+Texture2D S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+Texture2D S_2DExt1;
+SamplerState S_2DExt1SamplerState;
+
+
+#define AtlasDepth S_2DExt0
+#define AtlasDepthSampler S_2DExt0SamplerState
+
+
+#define AtlasIdMap S_2DExt1
+#define AtlasIdSampler S_2DExt1SamplerState
+
+RWByteAddressBuffer B_CSCustom0;
+RWByteAddressBuffer B_CSCustom1;
+#define TrailsBuffer B_CSCustom0
+#define HistoryBuffer B_CSCustom1
+RWByteAddressBuffer B_CSCustom2;
+#define HistoryDiffHeight B_CSCustom2
+
+float2 getUVByDtIdAtlas(uint2 id,uint2 textureSize,in AtlasData atlas){
+    uint2 uvInAtlas = id + (uint2)(atlas.rtBegin * textureSize);
+    float2 uv = float2(float(uvInAtlas.x)/float(textureSize.x),float(uvInAtlas.y)/float(textureSize.y));
+    uv = float2(uv.x,1.0f - uv.y);
+    return uv;
+}
+
+int getMatIdAtlas(uint2 id,uint2 textureSize,in AtlasData atlas){
+    float2 uv = getUVByDtIdAtlas(id,textureSize,atlas);
+    int matId = int(AtlasIdMap.SampleLevel(AtlasIdSampler, uv, 0).r * 16.0f);
+    return matId;
+}
+
+bool isIdInRangeAtlas(uint2 id,uint2 textureSize,in AtlasData atlas){
+    if(id.x >= uint(atlas.rtBegin.x + atlas.rtSize.x) * textureSize.x || id.y >= uint(atlas.rtBegin.y + atlas.rtSize.y) * textureSize.y){
+        return false;
+    }
+    return true;
+}
+
+float4 sampleAtlas(Texture2D tex,SamplerState _sampler,uint2 textureSize,float2 uv,in AtlasData atlas){
+    float2 uvAtlas;
+    uvAtlas.x = uv.x * atlas.rtSize.x + (atlas.rtBegin.x);
+    uvAtlas.y = uv.y * atlas.rtSize.y + (atlas.rtBegin.y);
+    return tex.SampleLevel(_sampler,uvAtlas,0);
+}
+
+
+#define PHI 1.61803398874989484820459 // Φ = Golden Ratio 
+float gold_noise(in float2 xy, in float seed)
+{
+    return frac(tan(distance(xy*PHI, xy)*seed)*xy.x);
+}
+
+bool InTexRange(int x,int y,int textureSize)
+{
+    return x>=0&&x<textureSize && y>=0&&y<textureSize;
+}
+float calNeigHeight_v2(float footHeight,int2 intUv,int textureSize,float range,int matId)
+{
+    float disx = (float)intUv.x / float(textureSize) *  U_CSCustom1.CameraExtend;
+    float disy = (float)intUv.y / float(textureSize) *  U_CSCustom1.CameraExtend;
+    float distance = sqrt((disx * disx) + (disy * disy));
+    
+    if(distance > range)
+        return -1.0f;
+    float curSnowHeight = U_CSCustom0[matId].SnowHeight;
+    float divid = footHeight/ curSnowHeight;
+    float s = (max(abs(distance),U_CSCustom2[matId].smoothStart * (1.0f - divid)) - U_CSCustom2[matId].smoothStart* (1.0f - divid)) * U_CSCustom2[matId].smoothScale/(1.0f - divid) + 1.0f;
+    float d1 = distance * U_CSCustom2[matId].steepNess * curSnowHeight/(curSnowHeight - footHeight + 1e-5)/s + U_CSCustom2[matId].st;
+    float res = U_CSCustom2[matId].scale * (curSnowHeight - footHeight)  * float(U_CSCustom2[matId].p0 * pow(d1, 4.0f) + U_CSCustom2[matId].p1 * pow(d1, 3.0f) + U_CSCustom2[matId].p2 * pow(d1, 2.0f) + U_CSCustom2[matId].p3 * d1 + U_CSCustom2[matId].p4) + footHeight;
+    return res;
+}
+float calNeigHeight(float depth,int2 intUv,int textureSize,float scale)
+{
+    float disx = (float)intUv.x / float(textureSize) *  U_CSCustom1.CameraExtend;
+    float disy = (float)intUv.y / float(textureSize) *  U_CSCustom1.CameraExtend;
+    float distance = sqrt((disx * disx) + (disy * disy));
+
+    //return depth -12.3853 * pow(distance,4) + 20.3267 * pow(distance,3) - 7.29197 * pow(distance,2) - 0.00420949 * distance + 0.20974;
+    return depth + (distance * distance * scale);
+}
+[numthreads(thread_group_size_x, thread_group_size_y, 1)]
+void main(uint3 gtId : SV_GroupThreadID,
+			uint3 groupID : SV_GroupID,
+			uint groupIndex : SV_GroupIndex,
+			uint3 dtId : SV_DispatchThreadID
+)
+{
+    uint2 rtSize;
+    AtlasDepth.GetDimensions(rtSize.x,rtSize.y);
+
+    uint textureSize = U_CSCustom1.textureSize;
+    float CameraExtend = U_CSCustom1.CameraExtend;
+    int2 intUvNow     = int2(dtId.x,dtId.y);
+    int2 intUvHistory = int2(dtId.x,dtId.y);
+    float2 uv = float2(float(dtId.x)/float(textureSize),float(dtId.y)/float(textureSize));
+    uv = float2(uv.x,1.0f - uv.y);
+    int matId     = uint(sampleAtlas(AtlasIdMap,AtlasIdSampler,rtSize,uv,SnowTerrainAtlas).r * 16.f);
+
+    float SnowHeight = U_CSCustom0[matId].SnowHeight;
+    float floatPow = pow(10.f,float(U_CSCustom1.floatPow));
+    float reallyBigFloatPow = pow(10.0f,float(U_CSCustom1.floatPow) + 3.0f);
+
+    
+    float camNear = U_CSCustom1.cameraNear;
+    float camFar = U_CSCustom1.cameraFar;
+    float ShInCamSpace = SnowHeight / abs(camFar - camNear);
+    float d       = sampleAtlas(AtlasDepth,AtlasDepthSampler,rtSize,uv,SnowObjectAtlas).r;
+    float objectD = sampleAtlas(AtlasDepth,AtlasDepthSampler,rtSize,uv,SnowTerrainAtlas).r;
+
+    float footHeight = (1.0f - d) * abs(camFar - camNear);
+    float objHeight  = (1.0f - objectD) * abs(camFar - camNear);
+    if(objectD<1e-5)
+    {
+        objHeight = 0.0f;
+    }
+
+    if(d<1e-5)
+    {
+        footHeight = objHeight + SnowHeight + 1e-5;
+    }
+
+    uint historyindex = intUvHistory.y * textureSize + intUvHistory.x;
+    uint index = intUvNow.y * textureSize + intUvNow.x;
+
+    uint offset = index * 4;
+
+    uint historyoffset = historyindex * 4;
+
+    float hd = pow(10.0f,float(U_CSCustom1.floatPow) + 3.0f);
+    if(InTexRange(intUvHistory.x,intUvHistory.y,textureSize))
+    {
+        hd = HistoryBuffer.Load(historyoffset);
+    }
+
+    uint hdUint = uint(hd);
+    TrailsBuffer.InterlockedMin(offset,hdUint);
+    //The Buffer has the initial value of 0, when there is no Snow, there should always be 0
+    if(SnowHeight < 1e-5)
+    {
+        return;
+    }
+
+    bool shouldUpdataSnow = U_CSCustom1.shouldCleanHistory > 0;
+    float difHeight = footHeight - objHeight;
+
+    if(!shouldUpdataSnow){
+        float historyDiffHeight =asfloat(HistoryDiffHeight.Load(offset));
+        [branch]
+        if(historyDiffHeight == difHeight){
+            return;
+        }
+    }
+    HistoryDiffHeight.Store(offset,asuint(difHeight));
+
+    if(d>1e-5)
+    {
+        if(difHeight > SnowHeight)
+            return;
+        difHeight = clamp(difHeight,0,SnowHeight);
+
+        float fRang = U_CSCustom2[matId].range/ (U_CSCustom1.CameraExtend/ float(textureSize));
+        fRang = (SnowHeight - difHeight)/SnowHeight * fRang;
+        int intRang = int(fRang);
+
+        float worldRange = (SnowHeight - difHeight)/SnowHeight * U_CSCustom2[matId].range;
+
+        for(int i = -intRang; i<= intRang;i++)
+        {
+            for(int j = -intRang; j<= intRang;j++)
+            {
+                int2 localThreadUv = int2(i,j);
+                int2 neigUv = int2(dtId.x,dtId.y) + localThreadUv;
+                if(InTexRange(neigUv.x,neigUv.y,textureSize))
+                {
+                    float sumHeight = calNeigHeight_v2(difHeight,localThreadUv,textureSize,worldRange,matId);
+                    uint value = uint(sumHeight * floatPow);
+                    if(sumHeight < 0)
+                    {
+                        value = reallyBigFloatPow;
+                    }
+                    
+                    uint neigIndex = neigUv.y * textureSize + neigUv.x;
+                    uint neigOffset = neigIndex * 4;
+                    TrailsBuffer.InterlockedMin(neigOffset,value);
+                }
+
+            }
+        }
+    }
+    
+}

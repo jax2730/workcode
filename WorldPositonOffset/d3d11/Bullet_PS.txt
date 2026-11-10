@@ -1,0 +1,32 @@
+#include <Common_Uniform_PS.inl>
+
+Texture2D S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+struct PS_INPUT
+{
+    float4 i_PosInClip	: SV_POSITION;
+	float4 i_Diffuse: COLOR0;
+	float4 i_UV		: TEXCOORD0;
+ 
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1;
+	float2 uv = IN.i_UV.xy;
+
+	float4 cola = IN.i_Diffuse;
+	float4 colb = S_2DExt0.Sample(S_2DExt0SamplerState,uv);	
+
+	psOut.o_Color = colb * cola+U_ShadowEdgeFactor*0.000000001;
+	
+	min(1.0, psOut.o_Color.a);
+ 
+	return psOut;
+}

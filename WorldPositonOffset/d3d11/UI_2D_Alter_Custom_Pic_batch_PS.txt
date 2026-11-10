@@ -1,0 +1,172 @@
+// Author: yanghang
+// Date:  2021-03-14
+#include <Common_Uniform_PS.inl>
+#include <SphericalFog_Function.inl>
+#define ALPHA_EPSILON  0.0001
+
+float4 U_MaterialCustomParam1;
+
+uniform float4 U_PSCustom1;
+
+struct PS_INPUT
+{
+    float4 i_Position	        : SV_POSITION;
+    float4 i_worldPos           : TEXCOORD0;
+    float4 i_vertexColor        : TEXCOORD1;
+#ifdef UI3D_STYLE_COVER_WEATHER
+    float4 i_fogColor			: TEXCOORD2;
+#endif
+    float i_percent             : TEXCOORD3;
+    float2 i_clipPos            : COLOR1;
+    float3 i_softness           : COLOR2;
+    uint i_instanceID           : COLOR3;
+};
+
+struct PS_OUTPUT
+{
+	float4 color : SV_TARGET;
+};
+
+struct PSInstanceData
+{
+    float alpha;
+    float grayed;
+    float hdr_factor;
+    float dissolve;
+
+    float dashSwitch;
+    float dashDensity;
+    float dashInterval;
+    float dashOffset;
+
+    float solubility;
+    float3 padding_0;
+};
+
+StructuredBuffer<PSInstanceData> B_CSCustom1;
+#define PS_INSTANCE_BATCH_DATA B_CSCustom1
+
+#define batch_dissolve_strength U_PSCustom1.x
+
+#define HDRFactor           psInstanceData.hdr_factor
+#define Alpha               psInstanceData.alpha
+#define gray                psInstanceData.grayed // NOTE: 1.0f == gray, 0 == normal.   
+#define dissolve_strength   psInstanceData.dissolve
+
+#define dash_switch         psInstanceData.dashSwitch
+#define dash_density        psInstanceData.dashDensity
+#define dash_interval       psInstanceData.dashInterval
+#define dash_offset         psInstanceData.dashOffset
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+    PSInstanceData psInstanceData = PS_INSTANCE_BATCH_DATA[IN.i_instanceID];
+
+    //虚线判断
+    float sinTheta = sin((IN.i_percent + 2.0f * dash_offset) * 3.14159f * dash_density);
+    if(sinTheta < dash_interval - (1.0f - dash_switch) * (10.0f))//(1.0f - dash_switch) * (10.0f) change open dash
+        discard;
+
+    //点阵剔除
+    float final_dissolve_strength = batch_dissolve_strength + (1.0f - batch_dissolve_strength)* dissolve_strength;
+	if(final_dissolve_strength > 0)
+	{
+		float4x4 thresholdMatrix =
+		{  1.0 / 17.0,  9.0 / 17.0,  3.0 / 17.0, 11.0 / 17.0,
+			13.0 / 17.0,  5.0 / 17.0, 15.0 / 17.0,  7.0 / 17.0,
+			4.0 / 17.0, 12.0 / 17.0,  2.0 / 17.0, 10.0 / 17.0,
+			16.0 / 17.0,  8.0 / 17.0, 14.0 / 17.0,  6.0 / 17.0
+		};
+
+		float2 pos = IN.i_Position.xy;
+			
+		pos.xy = pos.xy/U_MaterialCustomParam1.z;
+
+		int xindex = fmod(pos.x, 4);
+		int yindex = fmod(pos.y, 4);
+		
+		float alpha_dissolve = thresholdMatrix[xindex][yindex];//* _RowAccess[yindex];
+			
+		if(alpha_dissolve < final_dissolve_strength)
+			discard;
+	}
+
+    float clip_alpha = 1.0f;
+    //NOTE: Clip.
+    // TODO(yanghang): Optimize, blend_verge relative calculate can be constant.
+
+    if(IN.i_softness.z > 0.0f)
+    {
+        float2 factor = float2(0.0f, 0.0f);
+        if(IN.i_clipPos.x < 0.0f)
+            factor.x = (1.0f - abs(IN.i_clipPos.x)) * IN.i_softness.x;
+        else
+            factor.x = (1.0f - IN.i_clipPos.x) * IN.i_softness.x;
+        if(IN.i_clipPos.y < 0.0f)
+            factor.y = (1.0f - abs(IN.i_clipPos.y)) * IN.i_softness.y;
+        else
+            factor.y = (1.0f - IN.i_clipPos.y) * IN.i_softness.y;
+
+        clip_alpha = clamp(min(factor.x, factor.y), 0.0f, 1.0f);
+    }
+    else
+    {
+        float2 factor = abs(IN.i_clipPos);
+        float max_factor = max(factor.x, factor.y);
+        float blend_verge = 0.005f;
+        float blend_verge_inv = 1.0f / blend_verge; 
+        if(max_factor > 1.0f)
+        {
+            // Edge blend
+        
+            float verge_value = clamp(max_factor, 1.0f, (1.0f + blend_verge));
+            verge_value -= 1.0f;
+            verge_value = blend_verge - verge_value;
+            
+            clip_alpha = verge_value * blend_verge_inv; 
+        } 
+    }
+
+    psOut.color = IN.i_vertexColor;
+    psOut.color.rgb = pow(psOut.color.rgb, 2.2);
+
+    if(clip_alpha < ALPHA_EPSILON)
+        discard;
+    psOut.color.a *= clip_alpha;
+
+    psOut.color.a *= Alpha;
+    psOut.color.rgb *= HDRFactor;
+
+#ifdef UI3D_STYLE_WRITE_MASK
+    if(psOut.color.a < ALPHA_EPSILON)
+        discard;
+#endif
+
+#ifdef UI3D_STYLE_COVER_WEATHER
+    psOut.color.rgb = psOut.color.rgb * IN.i_fogColor.a + IN.i_fogColor.rgb;
+
+    half3 V = normalize(U_PS_CameraPosition.xyz - IN.i_worldPos.xyz);
+
+    float4 sphFog = ComputeSphFogBlocked(
+    IN.i_worldPos.xyz,
+    U_PS_CameraPosition.xyz,
+    -V,
+    IN.i_Position.xy
+    );
+	psOut.color.rgb = lerp(psOut.color.rgb, sphFog.xyz, sphFog.a);
+#endif
+	if(gray == 1.0f)
+	{
+    	float color_gray = (psOut.color.r + psOut.color.g + psOut.color.b) * 0.33333333333333f;
+    	psOut.color.rgb = lerp(psOut.color.rgb, float3(color_gray, color_gray, color_gray), gray);
+    }
+
+    psOut.color.rgb = pow(psOut.color.rgb, 1.0 / 2.2);
+
+    //TODO(yanghang):Overdraw debug effect,maybe need remove.
+    float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.color = psOut.color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+    return psOut;
+}

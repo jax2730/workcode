@@ -1,0 +1,600 @@
+#define NUM_THREADS_X 8
+#define NUM_THREADS_Y 8
+
+uniform RWTexture2D<float4> S_2DExt0;//VolumetricTracingRT
+uniform RWTexture2D<float2> S_2DExt1;//VolumetricTracingRTDepth
+
+Texture2D S_2DExt2;//bluenoise 
+SamplerState S_2DExt2SamplerState;
+Texture3D S_2DExt3; //basicNoise
+SamplerState S_2DExt3SamplerState;
+Texture2D	S_2DExt4;//depth
+SamplerState S_2DExt4SamplerState;
+
+struct VolumetricCloudSceneShaderParameters
+{
+	int    		FrameIndex;
+	float  		GameTime;
+	float  		StepSizeOnZeroConservativeDensity;
+	float  		padding1;
+	float4 		CameraPosition;
+	float4 		ViewSizeAndInvSize;
+	float4 		TracingCoordToZbufferCoordScaleBias;
+	float4 		AtmosphereLightColorGlobalPostTransmittance;
+	float4 		SunDir;
+	float4x4 	invViewProj;
+};
+
+struct VolumetricCloudCommonShaderParameters
+{ 
+	float  PlanetRadiusKm;
+	float  BottomRadiusKm;
+	float  TopRadiusKm;
+	float  TracingStartMaxDistance;
+
+	int    SampleCountMin;
+	int    SampleCountMax;
+	float  TracingMaxDistance;
+	float  InvDistanceToSampleCountMax;
+
+	int    ShadowSampleCountMax;
+	float  ShadowTracingMaxDistance;
+	float  StopTracingTransmittanceThreshold;
+	float  SkyLightCloudBottomVisibility;
+
+	float4 CloudLayerCenterKm;
+};
+
+struct VolumetricCloudMaterialShaderParameters
+{
+	float CloudPhaseG;
+	float CloudPhaseG2;
+	float CloudPhaseMixFactor;
+	float MsScattFactor;
+
+	float MsExtinFactor;
+	float MsPhaseFactor;
+	float CloudWeatherUVScaleX;
+	float CloudWeatherUVScaleY;
+
+	float CloudBasicNoiseScale;
+	float StratusCoverage;
+	float StratusContrast;
+	float MaxDensity;
+
+	float4 WindOffset;
+	float4 CloudAlbedo;
+};
+
+VolumetricCloudSceneShaderParameters    U_CSCustom0;
+VolumetricCloudCommonShaderParameters   U_CSCustom1;
+VolumetricCloudMaterialShaderParameters U_CSCustom2;
+
+#define METER_TO_CENTIMETER		1.0f  // m
+#define KILOMETER_TO_METER  	1000.0f //km
+#define METER_TO_KILOMETER	(1.0f / KILOMETER_TO_METER)
+
+// Multi scattering approximation based on http://magnuswrenninge.com/wp-content/uploads/2010/03/Wrenninge-OzTheGreatAndVolumetric.pdf
+// 1 is for the default single scattering look. Then [2,N] is for extra "octaves"
+#define MSCOUNT 2
+
+const static float PI = 3.1415926535897932f;
+const static float MaxHalfFloat = 65504.0f;
+
+uint3 Rand3DPCG16(int3 p)
+{
+	// taking a signed int then reinterpreting as unsigned gives good behavior for negatives
+	uint3 v = uint3(p);
+
+	// Linear congruential step. These LCG constants are from Numerical Recipies
+	// For additional #'s, PCG would do multiple LCG steps and scramble each on output
+	// So v here is the RNG state
+	v = v * 1664525u + 1013904223u;
+
+	// PCG uses xorshift for the final shuffle, but it is expensive (and cheap
+	// versions of xorshift have visible artifacts). Instead, use simple MAD Feistel steps
+	//
+	// Feistel ciphers divide the state into separate parts (usually by bits)
+	// then apply a series of permutation steps one part at a time. The permutations
+	// use a reversible operation (usually ^) to part being updated with the result of
+	// a permutation function on the other parts and the key.
+	//
+	// In this case, I'm using v.x, v.y and v.z as the parts, using + instead of ^ for
+	// the combination function, and just multiplying the other two parts (no key) for 
+	// the permutation function.
+	//
+	// That gives a simple mad per round.
+	v.x += v.y*v.z;
+	v.y += v.z*v.x;
+	v.z += v.x*v.y;
+	v.x += v.y*v.z;
+	v.y += v.z*v.x;
+	v.z += v.x*v.y;
+
+	// only top 16 bits are well shuffled
+	return v >> 16u;
+}
+
+float hash(float n)
+{
+    return frac(sin(n) * 43758.5453);
+}
+
+float remap(float original_value, float original_min, float original_max, float new_min, float new_max)
+{
+	return new_min + (((original_value - original_min) / (original_max - original_min)) * (new_max - new_min));
+}
+
+float3 ConvertScreenUVToPosWS(float2 uv, float depth)
+{
+    float4 posCS = float4(uv.x * 2.0f - 1.0f, 1.0f - uv.y * 2.0f, depth, 1.0);
+    float4 posHWS = mul(posCS, U_CSCustom0.invViewProj); //posCS -> posHWS
+    float3 posWS = posHWS.xyz / posHWS.w; //posHWS -> posWS
+    return posWS;
+}
+
+/**
+ * Spatiotemporal Blue Noise lookup texture with scalar output.  
+ * Returns a uniformly distributed random variable in [0, 1] that is blue (no low frequencies) in both xy (screen space) and in z (frame index), which is designed to work with temporal accumulation.
+ * The texture is 128x128x64 and tiled, based on "Spatiotemporal Blue Noise Masks" [Wolfe et al 2022] and 
+ * https://developer.nvidia.com/blog/rendering-in-real-time-with-spatiotemporal-blue-noise-textures-part-1/
+ */
+float BlueNoiseScalar(uint2 ScreenCoord)
+{
+	uint3 WrappedCoordinate = uint3(ScreenCoord, U_CSCustom0.FrameIndex) & uint3(127,127,63);
+	uint3 TextureCoordinate = uint3(WrappedCoordinate.x, WrappedCoordinate.z * 128 + WrappedCoordinate.y, 0);
+	return S_2DExt2.Load(TextureCoordinate, 0).x;
+}
+
+float IsotropicPhase()
+{
+	return 1.0f / (4.0f * PI);
+}
+
+float HgPhase(float G, float CosTheta)
+{
+	float Numer = 1.0f - G * G;
+	float Denom = 1.0f + G * G + 2.0f * G * CosTheta;
+	return Numer / (4.0f * PI * Denom * sqrt(Denom));
+}
+
+float SamplePhaseFunction(in float PhaseCosTheta, in float PhaseG, in float PhaseG2, in float PhaseBlend)
+{
+	PhaseG = clamp(PhaseG, -0.999f, 0.999f);
+	PhaseG2 = clamp(PhaseG2, -0.999f, 0.999f);
+	PhaseBlend = clamp(PhaseBlend, 0.0f, 1.0f);
+	float MiePhaseValueLight0 = HgPhase(PhaseG, -PhaseCosTheta);
+	float MiePhaseValueLight1 = HgPhase(PhaseG2, -PhaseCosTheta);
+	const float Phase = MiePhaseValueLight0 + PhaseBlend * (MiePhaseValueLight1 - MiePhaseValueLight0);
+	return Phase;
+}
+
+struct ParticipatingMediaPhaseContext
+{
+	float Phase0[MSCOUNT];
+};
+
+ParticipatingMediaPhaseContext SetupParticipatingMediaPhaseContext(float BasePhase0, float BasePhase1, float MsPhaseFactor)
+{
+	ParticipatingMediaPhaseContext PMPC;
+	PMPC.Phase0[0] = BasePhase0;
+
+	[unroll]
+	for (int ms = 1; ms < MSCOUNT ; ++ms)
+	{
+		PMPC.Phase0[ms] = lerp(IsotropicPhase(), PMPC.Phase0[0], MsPhaseFactor);
+		MsPhaseFactor *= MsPhaseFactor;
+	}
+	return PMPC;
+}
+
+struct FCloudLayerParameters
+{
+	float3 CloudLayerCenter;
+	float PlanetRadius;
+	float BottomRadius;
+	float TopRadius;
+	float ToNormAltitude;
+};
+
+FCloudLayerParameters GetCloudLayerParams(
+	float3 CloudLayerCenterKm,
+	float PlanetRadiusKm,
+	float BottomRadiusKm,
+	float TopRadiusKm)
+{
+	FCloudLayerParameters CloudLayerParams;
+	CloudLayerParams.CloudLayerCenter = CloudLayerCenterKm * KILOMETER_TO_METER;
+	CloudLayerParams.PlanetRadius = PlanetRadiusKm * KILOMETER_TO_METER;
+	CloudLayerParams.BottomRadius = BottomRadiusKm * KILOMETER_TO_METER;
+	CloudLayerParams.TopRadius = TopRadiusKm * KILOMETER_TO_METER;
+	CloudLayerParams.ToNormAltitude = 1.0 / (CloudLayerParams.TopRadius - CloudLayerParams.BottomRadius);
+	return CloudLayerParams;
+}
+
+float CheapContrast(float In, float Contrast)
+{
+	return saturate(lerp(-Contrast, 1 + Contrast, In));
+}
+
+float3 SampleDensity(float NormAltitude, float3 SampleWorldPos)
+{
+	float3 BaseNoiseUVW = SampleWorldPos;
+	BaseNoiseUVW = BaseNoiseUVW * U_CSCustom2.CloudBasicNoiseScale * 0.005f + U_CSCustom0.GameTime * U_CSCustom2.WindOffset.xyz;
+    float BaseNoise = S_2DExt3.SampleLevel(S_2DExt3SamplerState, BaseNoiseUVW, 0.0f).r;
+	BaseNoise= (saturate(BaseNoise) - 0.5f) * 2.0f + lerp(-1,1, U_CSCustom2.StratusCoverage);
+ 	float Density = CheapContrast(BaseNoise, U_CSCustom2.StratusContrast);
+	Density = saturate(Density) * U_CSCustom2.MaxDensity;
+	return float3(Density, BaseNoise, NormAltitude);
+}
+
+float3 SampleExtinctionCoefficients(float3 SampleWorldPos, float3 DensityParameters)
+{
+    float density = DensityParameters.x;
+	float NormAltitude = DensityParameters.z;
+	float3 extinction = lerp(float3(0.802f,0.802f,0.802f),float3(0.379f,0.412f,0.479f), NormAltitude);
+	extinction = extinction * NormAltitude * density;
+ 	extinction = clamp(extinction, 0.0f, 65000.0f);
+	return extinction;
+}
+
+float3 SampleEmissive()
+{
+	float3 Emissive = 0.0f;
+	return  Emissive;
+}
+
+float3 SampleAlbedo()
+{
+	float3 Albedo = U_CSCustom2.CloudAlbedo.xyz;
+	return Albedo;
+}
+
+bool RayIntersectSphereSolution(float3 RayOrigin, float3 RayDirection, float4 Sphere, inout float2 Solutions)
+{
+	float3 LocalPosition = RayOrigin - Sphere.xyz;
+	float LocalPositionSqr = dot(LocalPosition, LocalPosition);
+
+	float3 QuadraticCoef;
+	QuadraticCoef.x = dot(RayDirection, RayDirection);
+	QuadraticCoef.y = 2 * dot(RayDirection, LocalPosition);
+	QuadraticCoef.z = LocalPositionSqr - Sphere.w * Sphere.w;
+
+	float Discriminant = QuadraticCoef.y * QuadraticCoef.y - 4 * QuadraticCoef.x * QuadraticCoef.z;
+
+	[flatten]
+	if (Discriminant >= 0)
+	{
+		float SqrtDiscriminant = sqrt(Discriminant);
+		Solutions = (-QuadraticCoef.y + float2(-1, 1) * SqrtDiscriminant) / (2 * QuadraticCoef.x);
+		return true;
+	}
+
+	return false;
+}
+
+// WorldSpace in centimeters
+// returns UV in [0,1]
+// returns UV in [0,1]
+float2 CloudShadowWorldSpaceToUv(in float3 WorldSpace, in float4x4 WorldToLightClipShadowMatrix, inout float z)
+{
+	float4 ClipSpace = mul(float4(WorldSpace, 1.0f), WorldToLightClipShadowMatrix);
+	ClipSpace /= ClipSpace.wwww;
+	z = ClipSpace.z;
+	float2 UVs = ClipSpace.xy;
+	UVs = 0.5f + float2(0.5f, -0.5f) * UVs;
+	return UVs;
+}
+
+// WorldSpace in centimeters
+// returns transmittance
+float GetCloudVolumetricShadow(in float3 WorldSpace, in float4x4 CloudShadowmapWorldToLightClipMatrix, in float ShadowmapFarDepthKm,
+	Texture2D<float3> VolumetricCloudShadowMapTexture, SamplerState VolumetricCloudShadowMapTextureSampler, inout float OutOpticalDepth)
+{
+	float CloudShadowSampleZ = 0.0f;
+	float2 UVs = CloudShadowWorldSpaceToUv(WorldSpace, CloudShadowmapWorldToLightClipMatrix, CloudShadowSampleZ);
+	const float3 CloudShadowData = VolumetricCloudShadowMapTexture.SampleLevel(VolumetricCloudShadowMapTextureSampler, UVs.xy, 0).rgb;
+	const float ShadowFrontDepthKm = CloudShadowData.r;	// unit kilometer
+	const float MeanExtinction = CloudShadowData.g;		// unit 1/m
+	const float MaxOpticalDepth = CloudShadowData.b;	// unitless
+	const float SampleDepthKm = saturate(1.0f - CloudShadowSampleZ) * ShadowmapFarDepthKm;
+	OutOpticalDepth = MeanExtinction * (max(0.0f, SampleDepthKm - ShadowFrontDepthKm) * KILOMETER_TO_METER);
+	OutOpticalDepth = min(MaxOpticalDepth, OutOpticalDepth);
+	const float CloudShadowFactor = saturate(exp(-OutOpticalDepth));
+	return CloudShadowFactor;
+}
+
+struct ParticipatingMediaContext
+{
+	float3 ScatteringCoefficients[MSCOUNT];
+	float3 ExtinctionCoefficients[MSCOUNT];
+	float3 TransmittanceToLight0[MSCOUNT];
+};
+
+ParticipatingMediaContext SetupParticipatingMediaContext(float3 BaseAlbedo, float3 BaseExtinctionCoefficients, float MsSFactor, float MsEFactor, float3 InitialTransmittanceToLight0)
+{
+	const float3 ScatteringCoefficients = BaseAlbedo * BaseExtinctionCoefficients;
+
+	ParticipatingMediaContext PMC;
+	PMC.ScatteringCoefficients[0] = ScatteringCoefficients;
+	PMC.ExtinctionCoefficients[0] = BaseExtinctionCoefficients;
+	PMC.TransmittanceToLight0[0] = InitialTransmittanceToLight0;//SunSingleScattering
+
+	[unroll]
+	for (int ms = 1; ms < MSCOUNT; ++ms)//SunMultiScattering
+	{
+		PMC.ScatteringCoefficients[ms] = PMC.ScatteringCoefficients[ms - 1] * MsSFactor;
+		PMC.ExtinctionCoefficients[ms] = PMC.ExtinctionCoefficients[ms - 1] * MsEFactor;
+		MsSFactor *= MsSFactor;
+		MsEFactor *= MsEFactor;
+		PMC.TransmittanceToLight0[ms] = InitialTransmittanceToLight0;
+	}
+	return PMC;
+}
+
+[numthreads(NUM_THREADS_X, NUM_THREADS_Y, 1)]
+void main(uint2 DispatchThreadId : SV_DispatchThreadID)
+{
+	float4 SvPosition = float4(DispatchThreadId.x + 0.5, DispatchThreadId.y + 0.5, 0.5, 1);
+	float2 uv = SvPosition.xy * U_CSCustom0.ViewSizeAndInvSize.zw;
+	uint2 PixPos = uint2(SvPosition.xy);
+    float3 worldPos =  ConvertScreenUVToPosWS(uv, 0.0f);
+    float3 worldDir = normalize(worldPos - U_CSCustom0.CameraPosition.xyz);
+
+	float3 RayOrigin = U_CSCustom0.CameraPosition.xyz;
+	float3 RayOriginKm = RayOrigin * METER_TO_KILOMETER;
+    float3 Raydir = worldDir;
+    float TMin = -999999999.0f;
+	float TMax = -999999999.0f;
+
+    float3 Luminance = 0.0f;
+	float3 TransmittanceToView = 1.0f;
+	float tAPWeightedSum = 0.0f;
+	float tAPWeightsSum = 0.0f;
+
+	float4 OutColor0 = float4(0.0f, 0.0f, 0.0f, 1.0f);
+	float2 OutColor1					= MaxHalfFloat;
+    float2 tTop2 = -1.0f;
+	float2 tBottom2 = -1.0f;
+	if (RayIntersectSphereSolution(RayOriginKm, Raydir, float4(U_CSCustom1.CloudLayerCenterKm.xyz, U_CSCustom1.TopRadiusKm), tTop2))
+	{
+		if (RayIntersectSphereSolution(RayOriginKm, Raydir, float4(U_CSCustom1.CloudLayerCenterKm.xyz, U_CSCustom1.BottomRadiusKm), tBottom2))
+		{
+
+			float TempTop = all(tTop2 > 0.0f) ? min(tTop2.x, tTop2.y) : max(tTop2.x, tTop2.y);
+			float TempBottom = all(tBottom2 > 0.0f) ? min(tBottom2.x, tBottom2.y) : max(tBottom2.x, tBottom2.y);
+
+			if (all(tBottom2 > 0.0f))
+			{
+				TempTop = max(0.0f, min(tTop2.x, tTop2.y));
+			}
+
+			TMin = min(TempBottom, TempTop);
+			TMax = max(TempBottom, TempTop);
+		}
+		else
+		{
+
+			// Only intersecting with the top atmosphere, we have our min and max t
+			TMin = tTop2.x;
+			TMax = tTop2.y;
+		}
+	}
+	else
+	{
+		// No intersection with at least the top of the atmosphere
+		//OutColor0 = float4(1.0f, 0.0f, 0.0f, 1.0f);
+		S_2DExt0[DispatchThreadId] = OutColor0;
+		S_2DExt1[DispatchThreadId] = OutColor1;
+	    return;
+	}
+	TMin = max(0.0f, TMin) *  KILOMETER_TO_METER;
+	TMax = max(0.0f, TMax) *  KILOMETER_TO_METER;
+
+	if (TMax <= TMin || TMin > U_CSCustom1.TracingStartMaxDistance)
+	{
+		S_2DExt0[DispatchThreadId] = OutColor0;
+		S_2DExt1[DispatchThreadId] = OutColor1;
+	    return;
+	}
+
+    float safeDepthZ = S_2DExt4.Load(uint3(uint2(PixPos - 0.5) * U_CSCustom0.TracingCoordToZbufferCoordScaleBias.xy + U_CSCustom0.TracingCoordToZbufferCoordScaleBias.zw, 0)).r;
+	//safeDepthZ = max(0.000000000001, safeDepthZ);
+    worldPos = ConvertScreenUVToPosWS(uv, safeDepthZ);
+	float3 ScreenTranslatedWorldPosition = worldPos;
+	float TDepthBuffer   = length(RayOrigin - ScreenTranslatedWorldPosition);
+	OutColor1.y = safeDepthZ < 0.000000000001f ? MaxHalfFloat :TDepthBuffer * METER_TO_KILOMETER;//min(TDepthBuffer * METER_TO_KILOMETER, MaxHalfFloat);
+
+	if ( TDepthBuffer < TMin)
+	{
+		S_2DExt0[DispatchThreadId] = OutColor0;
+		S_2DExt1[DispatchThreadId] = OutColor1;
+	    return ;
+	}
+
+    TMax = min(TMax, TDepthBuffer);
+
+	const float MarchingDistance = min(U_CSCustom1.TracingMaxDistance, TMax - TMin);
+	TMax = TMin + MarchingDistance;
+
+		// Account for the tracing start distance
+	TMin = max(TMin, 0.0f);
+	TMax = max(TMin, TMax);
+
+	const uint IStepCount = max(U_CSCustom1.SampleCountMin, U_CSCustom1.SampleCountMax * saturate((TMax - TMin) * U_CSCustom1.InvDistanceToSampleCountMax));
+	const float StepCount = float(IStepCount);
+	const float StepT = (TMax - TMin) / StepCount;
+	const float dtMeters = StepT;
+
+	float3 DistantSkyLightLuminance = float3(0.0f, 0.0f, 0.0f);//float3(0.02954, 0.05322, 0.0918);
+
+	FCloudLayerParameters CloudLayerParams = GetCloudLayerParams(U_CSCustom1.CloudLayerCenterKm.xyz, U_CSCustom1.PlanetRadiusKm, U_CSCustom1.BottomRadiusKm, U_CSCustom1.TopRadiusKm);
+
+	float t = TMin + 0.5f * StepT;
+	t = TMin + (float(Rand3DPCG16(int3(SvPosition.xy, U_CSCustom0.FrameIndex)).x) * rcp(65536.0)) * StepT;
+
+	const float3 Light0Illuminance = U_CSCustom0.AtmosphereLightColorGlobalPostTransmittance;
+	const float3 AtmosphericLightCloudScatteredLuminanceScale = 1.0f;
+	const float3 Light0IlluminanceFinal = Light0Illuminance *  AtmosphericLightCloudScatteredLuminanceScale;
+	const float3 Light0Direction = normalize(U_CSCustom0.SunDir.xyz);
+
+    const float3 wi0 = Light0Direction;
+	const float3 wo = Raydir;
+	const float Phase0CosTheta = dot(wi0, wo);
+
+    const float PhaseG = U_CSCustom2.CloudPhaseG;
+	const float PhaseG2 = U_CSCustom2.CloudPhaseG2;
+	const float PhaseBlend = U_CSCustom2.CloudPhaseMixFactor;
+	const float Phase0 = SamplePhaseFunction(Phase0CosTheta, PhaseG, PhaseG2, PhaseBlend);
+
+    const float Phase1 = IsotropicPhase();
+
+	ParticipatingMediaPhaseContext PMPC = SetupParticipatingMediaPhaseContext(Phase0, Phase1, U_CSCustom2.MsPhaseFactor);
+
+	for (uint i = 0; i < IStepCount; ++i)
+	{
+		int ms;
+		float3 SampleWorldPosition = RayOrigin + t * Raydir;
+
+		float CloudSampleAltitude = length(SampleWorldPosition - CloudLayerParams.CloudLayerCenter);
+		float CloudSampleAltitudeInLayer = CloudSampleAltitude - CloudLayerParams.BottomRadius;
+		float CloudSampleNormAltitudeInLayer = saturate(CloudSampleAltitudeInLayer * CloudLayerParams.ToNormAltitude);
+
+		float3 VolumeSampleConservativeDensity = SampleDensity(CloudSampleNormAltitudeInLayer, SampleWorldPosition);
+
+		if (VolumeSampleConservativeDensity.x <= 0.0f)
+		{
+			i += uint(U_CSCustom0.StepSizeOnZeroConservativeDensity) - 1;
+			t += uint(U_CSCustom0.StepSizeOnZeroConservativeDensity) * StepT;
+			continue;
+		}
+
+		const  float3  ExtinctionCoefficients = SampleExtinctionCoefficients(SampleWorldPosition, VolumeSampleConservativeDensity);
+		const  float3  EmissiveLuminance =  SampleEmissive();
+		const  float3  Albedo = SampleAlbedo();
+		const float3 AtmosphereTransmittanceToLight0 = 1.0f;
+		ParticipatingMediaContext PMC = SetupParticipatingMediaContext(Albedo, ExtinctionCoefficients, U_CSCustom2.MsScattFactor, U_CSCustom2.MsExtinFactor, AtmosphereTransmittanceToLight0);
+
+		float3 DistantLightLuminance = DistantSkyLightLuminance;
+		DistantLightLuminance *= saturate(U_CSCustom1.SkyLightCloudBottomVisibility + CloudSampleNormAltitudeInLayer);
+
+		if (any(PMC.ScatteringCoefficients[0] > 0.0f))
+		{	
+			float3 ExtinctionAcc[MSCOUNT];
+			const float ShadowLengthTest = U_CSCustom1.ShadowTracingMaxDistance;
+			const float ShadowStepCount = float(U_CSCustom1.ShadowSampleCountMax);
+			const float InvShadowStepCount = 1.0f / ShadowStepCount;
+			const float ShadowJitterNorm = 0.5f;
+
+			#ifdef USE_CLOUD_SHADOWMAP
+				float OutOpticalDepth = 0.0f;
+				float CloudShadow = 0.0f;
+				[unroll]
+				for (ms = 0; ms < MSCOUNT; ++ms)
+				{
+					PMC.TransmittanceToLight0[ms] *= exp(-OutOpticalDepth * (ms == 0 ? 1.0f : pow(U_CSCustom2.MsExtinFactor, ms)));
+				}
+			#else
+				[unroll]
+				for (ms = 0; ms < MSCOUNT; ++ms)
+				{
+					ExtinctionAcc[ms] = 0.0f;
+				}
+				const float ShadowDtMeter = ShadowLengthTest;
+				float PreviousNormT = 0.0f;
+
+				for (float ShadowT = InvShadowStepCount; ShadowT <= 1.0; ShadowT += InvShadowStepCount)
+				{
+					float CurrentNormT = ShadowT * ShadowT;
+					const float DetlaNormT = CurrentNormT - PreviousNormT;
+					const float ExtinctionFactor = DetlaNormT;
+					const float ShadowSampleDistance = ShadowLengthTest * (PreviousNormT + DetlaNormT * ShadowJitterNorm);
+
+					float3 ShadowSampleWorldPosition = SampleWorldPosition + Light0Direction * ShadowSampleDistance;
+					float ShadowCloudSampleAltitude = length(ShadowSampleWorldPosition -  CloudLayerParams.CloudLayerCenter);
+        			float ShadowCloudSampleAltitudeInLayer = ShadowCloudSampleAltitude - CloudLayerParams.BottomRadius;
+        			float ShadowCloudSampleNormAltitudeInLayer = saturate(ShadowCloudSampleAltitudeInLayer *  CloudLayerParams.ToNormAltitude);
+
+					float3 ShadowVolumeSampleConservativeDensity = SampleDensity(ShadowCloudSampleNormAltitudeInLayer, ShadowSampleWorldPosition);
+
+					PreviousNormT = CurrentNormT;
+					if (ShadowVolumeSampleConservativeDensity.x <= 0.0f)
+					{
+						continue;
+					}
+
+					if (ShadowCloudSampleNormAltitudeInLayer < 0.0f || ShadowCloudSampleNormAltitudeInLayer > 1.0f)
+					{
+						break;
+					}
+
+					float3  ShadowExtinctionCoefficients = SampleExtinctionCoefficients(ShadowSampleWorldPosition, ShadowVolumeSampleConservativeDensity);
+					ParticipatingMediaContext ShadowPMC = SetupParticipatingMediaContext(0.0f, ShadowExtinctionCoefficients, U_CSCustom2.MsScattFactor, U_CSCustom2.MsExtinFactor, 0.0f);
+
+    				[unroll]
+					for (ms = 0; ms < MSCOUNT; ++ms)
+					{
+						ExtinctionAcc[ms] += ShadowPMC.ExtinctionCoefficients[ms] * ExtinctionFactor;
+					}
+				}
+
+				[unroll]
+				for (ms = 0; ms < MSCOUNT; ++ms)
+				{
+					PMC.TransmittanceToLight0[ms] *= exp(-ExtinctionAcc[ms] * ShadowDtMeter);
+				}
+			#endif
+		}
+
+		if (any(PMC.ExtinctionCoefficients[0] > 0.0))
+		{
+			float tAPWeight = min(TransmittanceToView.r, min(TransmittanceToView.g, TransmittanceToView.b));
+			tAPWeightedSum += t * tAPWeight;
+			tAPWeightsSum += tAPWeight;
+		}
+
+		[unroll]
+		for (ms =  MSCOUNT - 1; ms >= 0; --ms)
+		{
+			const  float3  ScatteringCoefficients = PMC.ScatteringCoefficients[ms];
+			const  float3  ExtinctionCoefficients = PMC.ExtinctionCoefficients[ms];
+
+          	const float3 TransmittanceToLight0 = PMC.TransmittanceToLight0[ms];
+			float3 SunSkyLuminance = TransmittanceToLight0 * Light0IlluminanceFinal * PMPC.Phase0[ms];
+			SunSkyLuminance += (ms == 0 ? DistantLightLuminance : float3(0.0f, 0.0f, 0.0f));
+
+			const float3 ScatteredLuminance = SunSkyLuminance * ScatteringCoefficients + EmissiveLuminance;
+
+			float3  SafeExtinctionThreshold = 0.000001f;
+			const  float3  SafeExtinctionCoefficients = max(SafeExtinctionThreshold, ExtinctionCoefficients);
+			const  float3  SafePathSegmentTransmittance = exp(-SafeExtinctionCoefficients * dtMeters);
+			float3 LuminanceIntegral = (ScatteredLuminance - ScatteredLuminance * SafePathSegmentTransmittance) / SafeExtinctionCoefficients;
+			Luminance += TransmittanceToView * LuminanceIntegral;
+
+			if (ms == 0)
+			{
+				TransmittanceToView *= SafePathSegmentTransmittance;
+			}
+		}
+
+		if (all(TransmittanceToView < U_CSCustom1.StopTracingTransmittanceThreshold))
+		{
+			break;
+		}
+
+		t += StepT;
+	}
+
+    const float NoCloudDepth = TMax;
+
+	const float tAP = tAPWeightsSum==0.0f ? NoCloudDepth : tAPWeightedSum / max(0.0000000001f, tAPWeightsSum);
+	float MeanTransmittance = dot(TransmittanceToView. rgb , 1.0f / 3.0f);
+
+	float GrayScaleTransmittance = MeanTransmittance < U_CSCustom1.StopTracingTransmittanceThreshold ? 0.0f : MeanTransmittance;
+	OutColor0 = float4(Luminance, GrayScaleTransmittance);
+	OutColor1.x = ((GrayScaleTransmittance > 0.99) ? NoCloudDepth : tAP) * METER_TO_KILOMETER; // using a small threshold on transmittance
+
+	S_2DExt0[DispatchThreadId] = OutColor0;
+	S_2DExt1[DispatchThreadId] = OutColor1;
+}
+

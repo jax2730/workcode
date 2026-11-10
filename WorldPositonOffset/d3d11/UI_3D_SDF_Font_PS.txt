@@ -1,0 +1,214 @@
+#include <Common_Uniform_PS.inl>
+
+// NOTE(yanghang): SDF Font Atlas texture
+Texture2D	S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+float4 texPseudoSDF(float2 vUV) 
+{ 
+   return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+}
+
+// NOTE(yanghang): Dissolve noise texture
+Texture2D	S_Custom;
+SamplerState S_CustomSamplerState;
+
+#define Noise_Texture S_Custom
+#define Noise_Texture_SamplerState S_CustomSamplerState
+
+float texDissolve(float2 vUV)
+{
+    return S_Custom.Sample(S_CustomSamplerState, vUV);
+}
+
+// NOTE(yanghang): Distort noise texture
+Texture2D	S_Custom2;
+SamplerState S_Custom2SamplerState;
+
+#define Distort_Texture S_Custom2
+#define Distort_Texture_SamplerState S_Custom2SamplerState
+
+float texDistort(float2 vUV)
+{
+    return S_Custom2.Sample(S_Custom2SamplerState, vUV);
+}
+
+
+struct PS_INPUT
+{
+    float4 i_Position	: SV_POSITION;
+	float2 	i_UV				: TEXCOORD0;
+    float2 	i_UV_1				: TEXCOORD1;
+};
+
+struct PS_OUTPUT
+{
+	float4 color : SV_TARGET;
+};
+
+float median(float3 c)
+{
+    return max(min(c.x, c.y), min(max(c.x, c.y), c.z));
+}
+
+float4 U_PSCustom0;
+float4 U_PSCustom1;
+float4 U_PSCustom2;
+float4 U_PSCustom3;
+float4 U_PSCustom4;
+float4 U_PSCustom5;
+float4 U_PSCustom6;
+float4 U_PSCustom7;
+
+#define distort_scroll_speed_x U_PSCustom0.x
+#define distort_scroll_speed_y U_PSCustom0.y
+#define debug_mode U_PSCustom0.z
+
+#define BaseColor U_PSCustom1
+
+#define HDRFactor U_PSCustom2.x
+#define dissolve_threshold U_PSCustom2.y
+#define distortion_degree  U_PSCustom2.z
+#define dissolve_verge     U_PSCustom2.w
+
+#define dissolve_verge_color U_PSCustom3
+
+#define glow_color_0 U_PSCustom4.xyz //float3(1,0,1)
+#define glow_color_0_HDR U_PSCustom4.w  // 1.0f 
+    
+#define glow_color_1 U_PSCustom5.xyz
+// TODO:Optimize move it to CPU.
+#define glow_range (U_PSCustom5.w * (1.0f - outline_width_range))
+
+#define outline_width_range U_PSCustom6.x //(0.0f)
+#define outline_solid_width_range (U_PSCustom6.y * outline_width_range) // (0.3f * outline_width_range)
+#define outline_smooth_width_range (outline_width_range - outline_solid_width_range)
+#define outline_color U_PSCustom7.xyz//float3(1,1,0)
+#define outline_HDR_factor U_PSCustom7.w //1.0f
+
+
+// TODO(yanghang): Remove this on release.
+#define pseudo_d_debug_mode 1.0f
+#define true_d_debug_mode 2.0f
+
+#define SDF_Atlas_UV IN.i_UV
+#define Normal_UV  IN.i_UV_1
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+    // NOTE(yanghang): Distortion
+    // animate along time.
+    float2 distort_uv = Normal_UV;
+    distort_uv.x += U_PS_Time * distort_scroll_speed_x;
+    distort_uv.y += U_PS_Time * distort_scroll_speed_y;
+    
+    float distort_value = texDistort(distort_uv);
+    
+    float2 sdf_atlas_uv = SDF_Atlas_UV;
+    //sdf_atlas_uv.x += distort_value * distortion_degree;
+    //sdf_atlas_uv.y += distort_value * distortion_degree;
+
+    // TODO(yanghang): Optimize by constant from CPU.
+    float4 base_color = float4(BaseColor.rgb * HDRFactor, BaseColor.a);
+    
+    float4 sdf = texPseudoSDF(sdf_atlas_uv);
+    // IMPORTANT(yanghang): Pseudo signed distance    
+    float pseudo_d = median(sdf.rgb);
+    // NOTE: Scale to range[-1.0f ~ 1.0f]
+    pseudo_d = (pseudo_d * 2.0f - 1.f);
+    
+    // IMPORTANT(yanghang): True signed distance
+	float d = (sdf.a * 2.0f - 1.f);
+
+    
+    // NOTE(yanghang): Outline. Psudo distance is better effect that true distance.
+    
+    // NOTE: Soft edge of glow effect, clamp [-pxRang ~ 0 ~ pxRang] to [-1 ~ 0 ~ 0].
+    // Map [-pxRang ~ -outline_width_range] to [0 ~ 1] as alpha value.
+    // with AA effect.
+
+    // TODO(yanghang): optimize
+    float w = clamp(((pseudo_d + outline_width_range) / glow_range), -1.0f, 0);
+    // Scale to range  [0 - 1.0f]
+    w = (w + 1.0f);
+    psOut.color.a = base_color.a * w;
+    
+    // NOTE: All distance effect.
+    float abs_d = abs(pseudo_d);
+    if(abs_d < outline_width_range)
+    {
+        // outline color 
+        if(abs_d <= outline_solid_width_range)
+        {
+            psOut.color.rgb = outline_color;
+        }
+        else
+        {
+            float lerp_factor = (abs_d - outline_solid_width_range) / outline_smooth_width_range;        
+            if(pseudo_d < 0)
+            {
+                // blend with glow color
+                psOut.color.rgb = lerp(outline_color, glow_color_0, lerp_factor);
+            }
+            else
+            {
+                // blend with font color
+                psOut.color.rgb = lerp(outline_color, base_color.rgb, lerp_factor);
+            }
+        }
+    }
+    else
+    {
+        // Glow color
+        if(pseudo_d < 0)
+        {
+            psOut.color.rgb = lerp(glow_color_1, glow_color_0, w);
+        }
+        else
+        {
+            // Font color.
+            psOut.color.rgb = base_color.rgb;
+        }
+    }
+    
+    // TODO(yanghang): Drop shadow effect
+    
+    
+    // NOTE: Dissolve.
+    float2 dissolve_uv = Normal_UV;
+    dissolve_uv.x += distort_value * distortion_degree;
+    dissolve_uv.y += distort_value * distortion_degree;
+    float dissolve_value = texDissolve(dissolve_uv);
+    
+    // TODO(yanghang): Optimize, use contant value instead of [dissolve_threshold - dissolve_verge]
+    // Optimize the divide use constant instead of 1.0f/dissolve_verge.
+    if(dissolve_value < (dissolve_threshold - dissolve_verge))
+    {
+        psOut.color.a = 0;
+    }
+    else if(dissolve_value < dissolve_threshold)
+    {
+        float delta_dissolve_value = abs(dissolve_value - dissolve_threshold) / dissolve_verge;
+        psOut.color.rgb = lerp(psOut.color.rgb, dissolve_verge_color.rgb, delta_dissolve_value);
+    }
+
+    // Debug
+
+    //psOut.color = float4(w, w, w, 1.0f);
+    //psOut.color = float4(d, d, d, 1.0f);
+    //psOut.color = float4(sdf.a, sdf.a, sdf.a, 1.0f);    
+
+
+    if(debug_mode == pseudo_d_debug_mode)
+    {
+        psOut.color = float4(pseudo_d, pseudo_d, pseudo_d, 1.0f);
+    }
+    else if(debug_mode == true_d_debug_mode)
+    {
+        psOut.color = float4(d, d, d, 1.0f);
+    }
+    
+    return psOut;
+}

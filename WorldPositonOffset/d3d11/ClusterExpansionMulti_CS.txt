@@ -1,0 +1,53 @@
+#include <Common_GpuCull_CS.inl>
+
+#define thread_group_size_x 64u
+#define thread_group_size_y 1u
+
+StructuredBuffer<uint> B_CSCustom0;				//InstanceID
+StructuredBuffer<InstanceData> B_CSCustom1;		//InstanceData
+StructuredBuffer<MeshData> B_CSCustom2;			//MeshData
+StructuredBuffer<ChunkData> B_CSCustom3;		//ChunkData
+RWByteAddressBuffer B_CSCustom4;				//m_clusterArgBufferHandle
+RWByteAddressBuffer B_CSCustom5;				//InstClusterID
+
+cbuffer UniformBlock_Private_CS// : register( b6 )
+{
+    //float4 U_CSCustom0[6];//FrustumPlanes
+	//int4 U_CSCustom1;//ClusterCountPerPepeline
+	uint U_CSCustom2;//InstanceCount
+};
+
+					
+[numthreads(thread_group_size_x, thread_group_size_y, 1)]
+void main(uint3 threadIDInGroup : SV_GroupThreadID,
+			uint3 groupID : SV_GroupID,
+			uint groupIndex : SV_GroupIndex,
+			uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+	uint instanceIdx = groupID.x;
+	if (instanceIdx >= U_CSCustom2)
+		return;
+	
+	
+	uint instID = B_CSCustom0[instanceIdx];
+	uint meshID = B_CSCustom1[instID].MeshID;
+	
+	MeshData meshData = B_CSCustom2[meshID];
+	
+	for(uint chunkIdx = 0; chunkIdx < meshData.ChunkCount; ++chunkIdx)
+	{
+		uint chunkID = meshData.ChunkID[chunkIdx];
+		ChunkData chunkData = B_CSCustom3[chunkID];
+		
+		uint clusterCount = chunkData.ClusterCount;
+		if(groupIndex < clusterCount)
+		{
+			uint clusterID = chunkData.ClusterID[groupIndex];
+			
+			uint argIdx;
+			RawInterlockedAdd(B_CSCustom4, 0, 1u, argIdx); //InterlockedAdd(B_CSCustom4[0], 1u, argIdx);
+			InstClusterIDStore(B_CSCustom5, argIdx, instID, clusterID);
+			
+		}
+	}
+}

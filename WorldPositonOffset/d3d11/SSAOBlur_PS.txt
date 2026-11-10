@@ -1,0 +1,64 @@
+Texture2D S_2DExt0;//x is AOcolor，y is scene depth
+SamplerState S_2DExt0SamplerState;
+Texture2D S_2DExt1;//mainRTColor
+SamplerState S_2DExt1SamplerState;
+float4 U_PSCustom0;//blurR,1/RTwidth ,1/RTwidth,x
+#define KERNEL_RADIUS 6.0f
+struct PS_INPUT
+{
+    float4 i_Position	: SV_POSITION; 
+	float4 i_UV	        : TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 color : SV_TARGET;
+};
+
+float GToVSZ(float z)
+{
+  return z*65536.f-10000.f;
+}	
+
+float BlurFunction(float2 uv, float r, float center_d, inout float w_total)
+{
+  float3  aoz = S_2DExt0.Sample(S_2DExt0SamplerState,uv).xyz;
+  float c = aoz.x;
+  float d = GToVSZ(aoz.y);
+  
+  const float BlurSigma = float(KERNEL_RADIUS) * 0.5;
+  const float BlurFalloff = 1.0 / (2.0*BlurSigma*BlurSigma);
+  
+  float ddiff = (d - center_d) * U_PSCustom0.x;
+  float w = exp2(-r*r*BlurFalloff - ddiff*ddiff);
+  w_total += w;
+
+  return c*w;
+}
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+  PS_OUTPUT psout=(PS_OUTPUT)0;
+  float2 texCoord=IN.i_UV.xy;
+  float3  aoz = S_2DExt0.Sample(S_2DExt0SamplerState,texCoord).xyz;
+  float center_c = aoz.x;
+  float center_d =  GToVSZ(aoz.y);
+  float c_total = center_c;
+  float w_total = 1.0;
+  [unroll]
+  for (float r = 1.f; r <= KERNEL_RADIUS; ++r)
+  {
+    float2 uv = texCoord + U_PSCustom0.yz * r;
+    c_total += BlurFunction(uv, r, center_d, w_total);  
+  }
+  [unroll]
+  for (float r = 1.f; r <= KERNEL_RADIUS; ++r)
+  {
+    float2 uv = texCoord - U_PSCustom0.yz * r;
+    c_total += BlurFunction(uv, r, center_d, w_total);  
+  }
+  float ao = c_total/w_total;
+  float4 color = S_2DExt1.Sample(S_2DExt1SamplerState,texCoord);
+  psout.color = float4(ao*color.xyz,color.w);
+  return psout;
+}

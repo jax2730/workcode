@@ -1,0 +1,129 @@
+//Lighting_PBR
+/*
+* shadingModel:
+* 0x01
+* 0: use U_PBR_*
+* 1: use U_Role*
+*
+* 0x02
+* 0: no emissive
+* 1: emissive
+*
+* 0x04
+* 0: no shadow
+* 1: receive shadow
+*
+* 0x08
+* 0: no environment map
+* 1: use environment map
+*
+* 0xf0 reserve for identify PBR model
+*/
+
+#include "SSSRCommon.h"
+#include <Common_Function_Lighting.inl>
+#include <PBR_Function.inl>
+
+//Note: Gbuffer与SceneColor的sampler为点采样
+Texture2D S_GBuffer0;
+Texture2D S_GBuffer1;
+Texture2D S_GBuffer2;
+
+Texture2D<float> S_Depth;
+SamplerState S_DepthSamplerState;
+
+Texture2D<float3> S_2DExt0;
+#define g_reflection_result S_2DExt0
+
+Texture2D<float> S_2DExt1;
+#define SSAOOutput S_2DExt1
+
+float4 U_PSCustom1; // x: ssao enable
+
+struct PS_INPUT
+{
+	float4 Position : SV_POSITION;
+	float4 TexCoord : TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 color : SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+    
+	int3 screenLocation;
+	screenLocation.x = int(IN.Position.x);
+	screenLocation.y = int(IN.Position.y);
+	screenLocation.z = 0;
+    
+	float2 uv = IN.TexCoord.xy;
+
+	float3 wPos = InvProjectPosition(float3((IN.Position.xy + 0.5) * g_sssr_constants.g_inv_buffer_dimensions, 
+		S_Depth.Load(screenLocation).x), g_sssr_constants.g_inv_view_proj);
+
+    float4 gBuffer2Data = S_GBuffer2.Load(screenLocation);        // shading model / roughness / metalness / diffuseAO
+    ShadingModelInfo shadingModel = DecodeShadingModel(gBuffer2Data.w);
+    
+    // Unlit
+	if (shadingModel.emptyGBuffer || !shadingModel.useEnvironmentMap ||
+		shadingModel.lightModel != LightModel_PBR_HDR_Environment)
+    {
+        return psOut;
+    }
+
+	float4 gBuffer0Data = S_GBuffer0.Load(screenLocation);        // baseColor & alpha
+    float4 gBuffer1Data = S_GBuffer1.Load(screenLocation);        // normal & custom data
+
+   	SurfaceData surface = (SurfaceData)0;
+    // extrct data from gBuffer and fill surface info   
+    {
+		surface.worldPos = wPos;
+        surface.N = DecodeNormal(gBuffer1Data.xyz);
+		surface.V = normalize(g_sssr_constants.g_camera_position.xyz - wPos.xyz);
+        surface.baseColor = pow(gBuffer0Data.xyz, 2.2);
+        surface.NdotV = saturate(dot(surface.N, surface.V));
+        surface.metalness = gBuffer2Data.x;
+        surface.roughness = gBuffer2Data.y;
+		surface.diffuseAO = gBuffer2Data.z;
+        
+        surface.preIntegratedBRDF = 1.f;
+    }
+
+    // environment lighting
+    float3 environmentLighting = 0.f;
+    
+    ApproxBrdfIntegral(surface);
+	float3 ssrResult = g_reflection_result.Load(screenLocation);
+	environmentLighting = ssrResult;
+
+	if (g_sssr_constants.g_show_reflection)
+	{
+		psOut.color.rgb = environmentLighting;
+		psOut.color.a = 1;
+		
+		return psOut;
+	}
+	
+	environmentLighting *= surface.preIntegratedBRDF;
+    
+	// dirrectly multiply ao factor to both direct lighting and indirect lighting 
+    // SUPER incorrect but cheap and our artist team favors this effect
+    // TODO::applying of SSAO and all indirect lighting might be moved to another pass(save some bandwidth maybe ?)
+    // apply ssao
+	if (U_PSCustom1.x > 0.0)
+	{
+		float ssao = SSAOOutput.Load(screenLocation);
+		surface.diffuseAO = min(ssao, surface.diffuseAO); // use "darker" AO effect
+	}
+	// ApproxSpecularAO(surface);
+	environmentLighting *= surface.diffuseAO;
+	
+	psOut.color.rgb = environmentLighting;
+	psOut.color.a = 1.0;
+
+	return psOut;
+}

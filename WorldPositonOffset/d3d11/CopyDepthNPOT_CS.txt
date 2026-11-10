@@ -1,0 +1,62 @@
+#include <Common_GpuCull_CS.inl>
+
+#define thread_group_size_x 8u
+#define thread_group_size_y 8u
+
+
+cbuffer UniformBlock_Private_CS
+{
+    uint4 U_CSCustom0;//srcWidth. srcHeight, dstWidth, dstHeight
+	uint3 U_CSCustom1;//srcLevel, dstLevel
+};
+
+Texture2D<float> S_2DExt0;
+RWTexture2D<float> S_2DExt1;
+RWTexture2D<float> S_2DExt2;
+
+
+float loadTex(uint2 uv, uint level)
+{
+	if(U_CSCustom1.z != 0)
+	{
+		return S_2DExt2.Load(uint3(uv, level)).r;
+	}
+	return S_2DExt0.Load(uint3(uv, level)).r;
+}
+
+			
+[numthreads(thread_group_size_x, thread_group_size_y, 1)]
+void main(uint3 threadIDInGroup : SV_GroupThreadID,
+			uint3 groupID : SV_GroupID,
+			uint groupIndex : SV_GroupIndex,
+			uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+	uint2 dstUV = dispatchThreadID.xy;
+	int level = U_CSCustom1.x;
+	uint2 uv = dstUV << 1u;
+	
+	if(dstUV.x < U_CSCustom0.z && dstUV.y < U_CSCustom0.w)
+	{
+		float depth = loadTex(uv, level);
+		depth = CompFunc(depth, loadTex(uv + uint2(0, 1), U_CSCustom1.x));
+		depth = CompFunc(depth, loadTex(uv + uint2(1, 0), U_CSCustom1.x));
+		depth = CompFunc(depth, loadTex(uv + uint2(1, 1), U_CSCustom1.x));
+		if((dstUV.x+1u) * 2u + 1u == U_CSCustom0.x)
+		{
+			depth = CompFunc(depth, loadTex(uv + uint2(2, 0), U_CSCustom1.x));
+			depth = CompFunc(depth, loadTex(uv + uint2(2, 1), U_CSCustom1.x));
+			
+			if((dstUV.y+1u) * 2u + 1u == U_CSCustom0.y)
+			{
+				depth = CompFunc(depth, loadTex(uv + uint2(2, 2), U_CSCustom1.x));
+			}
+		}
+		if((dstUV.y+1u) * 2u + 1u == U_CSCustom0.y)
+		{
+			depth = CompFunc(depth, loadTex(uv + uint2(0, 2), U_CSCustom1.x));
+			depth = CompFunc(depth, loadTex(uv + uint2(1, 2), U_CSCustom1.x));
+		}
+		S_2DExt1[dstUV] = depth;
+	}
+}
+

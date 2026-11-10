@@ -1,0 +1,88 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+float4 U_WorldMatrix[3];
+float4 U_WorldViewProjectMatrix[4];
+
+
+struct VS_INPUT
+{
+    float4 i_Pos            : POSITION0;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 i_UV		    : TEXCOORD0;	
+	#endif
+#else
+    float3 i_Normal         : NORMAL0;
+    float4 i_UV			    : TEXCOORD0;
+#endif
+};
+
+struct VS_OUTPUT
+{
+    float4 o_Position       : SV_POSITION;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 o_UV		    : TEXCOORD0;	
+	#endif
+#else
+    float4 o_WorldPos       : TEXCOORD0;
+    float4 o_ViewPos        : TEXCOORD1;
+    float4 o_ClipPos        : TEXCOORD2;
+    float o_NDV             : TEXCOORD3;
+    float o_InnerPow        : TEXCOORD4;
+    float3 o_WorldNormal    : TEXCOORD5;
+    float4 o_Fog            : TEXCOORD6;
+    float4 o_UV             : TEXCOORD7;
+#endif
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+    VS_OUTPUT vsOut = (VS_OUTPUT) 0;
+    float4 pos = float4(IN.i_Pos.xyz, 1.0f);
+    vsOut.o_Position.x = dot(pos, U_WorldViewProjectMatrix[0]);
+    vsOut.o_Position.y = dot(pos, U_WorldViewProjectMatrix[1]);
+    vsOut.o_Position.z = dot(pos, U_WorldViewProjectMatrix[2]);
+    vsOut.o_Position.w = dot(pos, U_WorldViewProjectMatrix[3]);
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		o_UV.xy = IN.i_UV;
+	#endif
+#else
+    float4 vPosInWorld = pos;
+    vPosInWorld.x = dot(pos, U_WorldMatrix[0]);
+    vPosInWorld.y = dot(pos, U_WorldMatrix[1]);
+    vPosInWorld.z = dot(pos, U_WorldMatrix[2]);
+    vPosInWorld.w = 1.0f;
+    vsOut.o_UV = IN.i_UV;
+
+    vsOut.o_WorldPos.xyz = vPosInWorld.xyz;
+    vsOut.o_WorldPos.w = 1.0f;
+    
+    vsOut.o_ViewPos = vsOut.o_Position;
+    vsOut.o_ViewPos.z = saturate(1.0f - 0.15f * sqrt(saturate(vsOut.o_ViewPos.w)));
+
+    vsOut.o_ClipPos = vsOut.o_Position;
+    
+    vsOut.o_WorldNormal = normalize(mul((float3x4) U_WorldMatrix, float4(IN.i_Normal.xyz, 0.0f)));
+    
+    float3 camToWorld = U_VS_CameraPosition.xyz - vsOut.o_WorldPos.xyz;
+    
+    float3 viewDir = normalize(camToWorld.xyz);
+    
+    vsOut.o_NDV = 1.0f - saturate(dot(viewDir, vsOut.o_WorldNormal));
+    vsOut.o_InnerPow = saturate(dot(viewDir, vsOut.o_WorldNormal));
+
+    float4x4 gravityRotatePosMatrix;
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+
+    vsOut.o_Fog = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+#endif
+    return vsOut;
+}

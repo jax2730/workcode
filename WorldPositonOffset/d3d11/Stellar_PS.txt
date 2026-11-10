@@ -1,0 +1,87 @@
+#include <Common_Uniform_PS.inl>
+
+#ifndef SHADOWPASS
+	float4 U_MaterialCustomParam;
+	float4 U_MaterialCustomParam1;
+
+	Texture2D	S_Diffuse;
+	SamplerState S_DiffuseSamplerState;
+#endif
+
+struct PS_INPUT
+{
+	float4 o_Position	: SV_POSITION;
+#ifndef SHADOWPASS
+	float2 o_UV			: TEXCOORD0;
+	float3 o_WorldPos	: TEXCOORD1;
+	float3 o_WorldNormal: NORMAL0;
+	float3 o_3DUV		: TEXCOORD2;
+#endif
+#ifdef PARABOLOID_MAPPING
+	float	i_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+struct PS_OUTPUT
+{
+#ifndef SHADOWPASS
+	float4 FragColor : SV_TARGET;
+#endif
+};
+
+float4 U_PSGeneralRegister0;
+float4 U_PSGeneralRegister1;
+
+Texture3D S_Noise3DTex128; // /asset/Editor/CloudNoise3DTexR8_128
+SamplerState S_Noise3DTex128SamplerState;
+
+Texture2D S_Custom;
+SamplerState S_CustomSamplerState;
+
+PS_OUTPUT main(PS_INPUT IN)											
+{	
+	PS_OUTPUT psOut = (PS_OUTPUT)0.f;
+
+#ifdef PARABOLOID_MAPPING
+	clip(IN.i_ClipDepth);
+#endif
+
+	#ifdef SHADOWPASS
+		return psOut;
+	#else
+
+	float3 flowUV = IN.o_3DUV.xyz;
+
+	float noise = S_Noise3DTex128.Sample(S_Noise3DTex128SamplerState, flowUV.xyz).x;
+	flowUV += U_PS_Time.x * U_PSGeneralRegister0.y * 0.01f;
+	flowUV += noise * 0.03f;
+	noise = S_Noise3DTex128.Sample(S_Noise3DTex128SamplerState, flowUV.xyz * U_PSGeneralRegister0.x);
+
+	float3 baseMap = S_Diffuse.Sample(S_DiffuseSamplerState, float2(noise, 0.5f));
+
+	//fresnel effect
+	float fresnelPower = 5.0f - U_PSGeneralRegister1.z;
+    fresnelPower = pow(fresnelPower, 2.2);
+    float3 w_viewDir = normalize(U_PS_CameraPosition.xyz - IN.o_WorldPos.xyz);
+    float3 w_normal = normalize(IN.o_WorldNormal.xyz);
+    float fresnel = pow(1.0f - dot(w_normal, w_viewDir), fresnelPower);
+	float fresnelIntensity = U_PSGeneralRegister1.w;
+	baseMap += baseMap * fresnel * fresnelIntensity;
+
+	psOut.FragColor.rgb = pow(baseMap.rgb, 2.2f) * U_PSGeneralRegister0.z;
+
+	float4 effectColor = S_Custom.Sample(S_CustomSamplerState,
+							IN.o_UV +
+							float2(U_PS_Time.x * U_PSGeneralRegister1.x * 0.01f, 0.0f)) *
+							U_PSGeneralRegister1.y;
+	psOut.FragColor.rgb += effectColor.rgb * effectColor.a;
+	psOut.FragColor.rgb *= U_MaterialCustomParam1.x;
+
+	#ifdef EDITOR_MODE
+	if(U_MaterialCustomParam.w > 0)
+		psOut.FragColor.rgb = U_MaterialCustomParam.xyz;			
+	#endif
+#endif
+
+	return psOut;
+}												                                                                           

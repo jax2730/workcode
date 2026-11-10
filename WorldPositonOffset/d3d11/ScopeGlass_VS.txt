@@ -1,0 +1,99 @@
+//ScopeGlass_VS
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+uniform float4 U_WorldMatrix[3];
+uniform	float4 U_InvTransposeWorldMatrix[4]; //Note:(changziheng)This mat might be 4x4 or 4x3.
+uniform float4 U_WorldViewProjectMatrix[4];
+uniform float4 U_WorldScale;
+
+struct VS_INPUT
+{
+	float4 i_Position	: POSITION0;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float2 i_UV		: TEXCOORD0;
+	#endif
+#else
+	float4 i_Normal		: NORMAL0;
+	float4 i_Tangent	: TANGENT0;
+	float2 i_UV			: TEXCOORD0;
+#endif
+};
+
+struct VS_OUTPUT
+{
+	float4 o_PosInClip	: SV_POSITION;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float2 o_UV		: TEXCOORD0;
+	#endif
+#else
+	float2 o_UV		    : TEXCOORD0;
+	float3 o_LPos		: TEXCOORD1;
+	float4 o_ScaleW		: TEXCOORD2;
+	float4 o_WPos		: TEXCOORD3;
+	float4 o_WNormal	: TEXCOORD4;
+	float4 o_ClipPos	: TEXCOORD5;
+	float4 o_Binormal	: TEXCOORD6;
+	float4 o_Tangent	: TEXCOORD7;
+	float4 o_Normal		: TEXCOORD8;
+#endif
+#ifdef PARABOLOID_MAPPING
+	float	o_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+    VS_OUTPUT vsOut = (VS_OUTPUT)0.f;
+
+    vsOut.o_PosInClip = mul((float4x4)U_WorldViewProjectMatrix, IN.i_Position);
+
+#ifdef PARABOLOID_MAPPING
+	vsOut.o_ClipDepth = vsOut.o_PosInClip.z;
+	ParaboloidMapping(vsOut.o_PosInClip, U_ShadowLightDepthMulAdd.x, U_ShadowLightDepthMulAdd.z, U_ShadowLightDepthMulAdd.w);
+#endif
+
+    float4 pos = float4(IN.i_Position.xyz, 1.0f);
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		vsOut.o_UV = IN.i_UV;
+	#endif
+#else
+	float4 WorldMatrix[3];
+	float4 InvTransposeWorldMatrix[3];
+
+	WorldMatrix[0] = U_WorldMatrix[0];
+	WorldMatrix[1] = U_WorldMatrix[1];
+	WorldMatrix[2] = U_WorldMatrix[2];
+
+	InvTransposeWorldMatrix[0] = U_InvTransposeWorldMatrix[0];
+	InvTransposeWorldMatrix[1] = U_InvTransposeWorldMatrix[1];
+	InvTransposeWorldMatrix[2] = U_InvTransposeWorldMatrix[2];
+
+	vsOut.o_WPos.xyz = mul((float3x4)WorldMatrix, pos);
+	vsOut.o_WPos.w = 1.0;
+
+	float4 normal =  float4(IN.i_Normal.xyz, 0.0f);
+	vsOut.o_WNormal.xyz = mul((float3x4)InvTransposeWorldMatrix, normal);
+
+	vsOut.o_UV = IN.i_UV.xy;
+	vsOut.o_ScaleW = U_WorldScale;
+	vsOut.o_ClipPos = vsOut.o_PosInClip;
+	
+	vsOut.o_LPos = pos.xyz;
+	float4 tangent = float4(IN.i_Tangent.xyz, 0.0f);
+	vsOut.o_Tangent.xyz = tangent.xyz;
+	vsOut.o_Binormal.xyz = cross(vsOut.o_Tangent.xyz, normal.xyz) * IN.i_Tangent.w;
+	vsOut.o_Normal.xyz = normal;
+
+	#ifdef EDITOR_MODE
+		#ifdef HierarchicalLOD
+			vsOut.o_PosInClip = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+		#endif
+	#endif	
+#endif
+
+    return vsOut;
+}

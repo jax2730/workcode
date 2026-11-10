@@ -1,0 +1,8 @@
+{
+  "files.associations": {
+    "*.instructions.md": "instructions",
+    "*.prompt.md": "prompt",
+    "*.agent.md": "chatagent",
+    "**/skills/**/SKILL.md": "markdown"
+  }
+}

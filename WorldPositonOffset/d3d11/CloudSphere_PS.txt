@@ -1,0 +1,92 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Light_Function_PS.inl>
+#include <Common_ShadowFiltering.inl>
+
+uniform Texture2D S_Custom;//MainTex
+SamplerState S_CustomSamplerState;
+
+#ifdef DISSOLVE
+    Texture2D S_Custom7;
+    SamplerState S_Custom7SamplerState;
+#endif
+float4 U_PSGeneralRegister0;//xyz:MainColor
+float4 U_PSGeneralRegister1; //x:CloudOpacity,y:CloudSpeed
+float4 U_PSGeneralRegister2;
+float4 U_PSGeneralRegister3;
+float4 U_MaterialCustomParam1; //HDR��
+float4  U_MaterialFresnel;
+
+
+struct PS_INPUT
+{
+    float4 i_PosInClip  : SV_POSITION;
+    float4 i_ObjPos     : TEXCOORD0;
+    float3 i_WNormal    : TEXCOORD1;
+    float4 i_WorldPos   : TEXCOORD2;
+    float4 i_ViewPos    : TEXCOORD3;
+    float4 i_UV         : TEXCOORD4;
+    float4 i_EyeDir     : TEXCOORD5;
+    float4 o_Fog        : TEXCOORD6;
+};
+
+struct PS_OUTPUT
+{
+    float4 color        : SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN, bool isFrontFacing : SV_IsFrontFace)
+{
+    PS_OUTPUT psOut = (PS_OUTPUT) 1.f;    
+    float2 uv = IN.i_UV.xy * U_PSGeneralRegister2.z;
+
+#ifdef DISSOLVE
+    if(U_MaterialCustomParam1.y > 0)
+    {
+        float4x4 thresholdMatrix =
+        {  1.0 / 17.0,  9.0 / 17.0,  3.0 / 17.0, 11.0 / 17.0,
+            13.0 / 17.0,  5.0 / 17.0, 15.0 / 17.0,  7.0 / 17.0,
+            4.0 / 17.0, 12.0 / 17.0,  2.0 / 17.0, 10.0 / 17.0,
+            16.0 / 17.0,  8.0 / 17.0, 14.0 / 17.0,  6.0 / 17.0
+        };
+        float2 pos = IN.i_PosInClip.xy;
+        
+        
+        pos.xy = pos.xy/U_MaterialCustomParam1.z;
+        
+        int xindex = fmod(pos.x, 4);
+        int yindex =fmod(pos.y, 4);
+        
+        float alphaDissolve = thresholdMatrix[xindex][yindex];//* _RowAccess[yindex];
+        
+        if(alphaDissolve < U_MaterialCustomParam1.y)
+            discard;
+    }
+    else
+    {
+        if(S_Custom7.Sample(S_Custom7SamplerState, uv).a < U_MaterialFresnel.y)
+        discard;	
+    }
+#endif
+    float3 normal = normalize(IN.i_WNormal);
+    float4 col = texSample2D(S_Custom, uv * 2.0f + U_PS_Time.x * U_PSGeneralRegister1.y * 0.01f, S_CustomSamplerState) * float4(U_PSGeneralRegister0.xyz, 1.0f);
+    float3 viewDir = normalize(IN.i_EyeDir.xyz);
+    float rim = 1.0f - dot(normalize(IN.i_WorldPos.xyz), viewDir);
+    rim = 1.0f - pow(saturate(rim), 5.0);
+    col.rgb += 0.2f * rim;
+    
+    col.r = saturate(col.r);
+    col.g = saturate(col.g);
+    col.b = saturate(col.b);
+    
+    half nl = dot(normal, -U_MainLightDirection.xyz);
+    half value = nl * 0.5f + 0.5f;
+    value = pow(abs(value), U_PSGeneralRegister2.x);
+    
+    col.rgb = lerp(col.rgb, U_PSGeneralRegister3.xyz, pow(1.0f - value, U_PSGeneralRegister2.y));
+    
+    float alpha = saturate((col.a - U_PSGeneralRegister0.w) / U_PSGeneralRegister1.x);
+    psOut.color = float4(col.rgb, alpha);
+    psOut.color.rgb = pow(pow(psOut.color.rgb, 2.2) * IN.o_Fog.a + IN.o_Fog.rgb, 1.0 / 2.2);
+    return psOut;
+}

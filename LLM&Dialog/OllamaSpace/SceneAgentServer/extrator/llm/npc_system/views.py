@@ -44,8 +44,9 @@ def get_npc_manager():
         
         # 尝试初始化LLM
         try:
-            from langchain_ollama import ChatOllama
-            _llm = ChatOllama(model="qwen2.5", temperature=0.7)
+            from ..model_factory import create_chat_model
+
+            _llm = create_chat_model()
             print("[NPC Views] LLM初始化成功")
         except Exception as e:
             print(f"[NPC Views] LLM初始化失败: {e}")

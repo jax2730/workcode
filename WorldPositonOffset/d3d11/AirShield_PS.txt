@@ -1,0 +1,462 @@
+// 目前PBR材质一共9张贴图
+// 主光阴影一共4张贴图
+// 环境光照一共1张贴图
+// 点光源一共1张贴图
+// 不考虑点光源阴影， 至少会用到15张图
+
+
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Light_Function_PS.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+#include <EnvironmentLight_Function.inl>
+
+#ifndef SHADOWPASS
+
+//delta and m parameters reference to chapter 5 of <Voxel-Based Terrain for Real-Time Virtual Simulations>
+    float4 U_PSGeneralRegister0; // xy ---- uv tilling
+                        // z  ---- delta
+                        // w  ---- m
+
+    float4 U_PSGeneralRegister1; //xy ---- COVER_WEATHER
+                                 //z ---- DetialBump uv tilling
+                                 //w ---- DetialBump Strength
+
+    float4 U_PSGeneralRegister2;
+    float4 U_PSGeneralRegister3;
+
+    float4 U_MaterialCustomParam1;
+    float4 U_MaterialDiffuse;
+
+    float4 U_PSGeneralRegister4;
+    float4 U_PSGeneralRegister5;
+
+    float4 U_PSGeneralRegister6;
+    float4 U_PSGeneralRegister7;
+
+#define reg4 U_PSGeneralRegister4
+#define reg5 U_PSGeneralRegister5
+
+#define edgeColor  U_PSGeneralRegister6.rgb
+#define edgeColorHDR U_PSGeneralRegister6.a
+
+#define depth_range  U_PSGeneralRegister7.x
+#define edge_alpha  U_PSGeneralRegister7.y
+#define softBoarderDepthRange U_PSGeneralRegister7.z
+
+
+
+#define baseWorleyColor U_PSGeneralRegister2.rgb
+#define worleyDensity U_PSGeneralRegister2.w
+
+#define worleyScrollDir U_PSGeneralRegister3.xyz
+#define worleyScrollSpeed U_PSGeneralRegister3.w
+
+#define HDR U_MaterialCustomParam1.x
+#define Alpha U_MaterialDiffuse.a
+
+    TextureCube S_GlobalEnvironmentCubeMap;
+    SamplerState S_GlobalEnvironmentCubeMapSamplerState;
+    float4 U_GlobalEnvironmentCubeMipMapLevels;
+
+	Texture2D S_Depth;
+	SamplerState S_DepthSamplerState;
+
+    float4x4 U_PBR_RMatrix;
+    float4x4 U_PBR_GMatrix;
+    float4x4 U_PBR_BMatrix;
+
+    float4 U_PBR_Environment_Explosure;
+
+Texture3D S_Noise3DTex128; // /asset/Editor/CloudNoise3DTexR8_128
+SamplerState S_Noise3DTex128SamplerState;
+
+#endif
+
+struct PS_INPUT
+{
+    float4 i_PosInClip  : SV_POSITION;
+    #ifndef SHADOWPASS
+        float3 i_Normal     : TEXCOORD0;
+        float3 i_WorldPos   : TEXCOORD1;
+        float3 i_Blend      : TEXCOORD2;
+        uint2  i_Index      : TEXCOORD3;
+        float3 i_ModelP     : TEXCOORD4;
+        float3 i_ModelN     : TEXCOORD5;
+        float3 i_Tangent1   : TEXCOORD6;
+        float3 i_Tangent2   : TEXCOORD7;
+        float3 i_Bitangent1 : TEXCOORD8;
+        float3 i_Bitangent2 : TEXCOORD9;
+
+        float4 clipPos : POSITION1;
+    
+        #ifdef TRIPLANAR_WEIGHT
+            float3 i_FModelN     : TEXCOORD17;
+        #endif
+        float4 i_Fog   : TEXCOORD11;
+
+        #ifdef USESHADOWMAP
+            float   i_ViewSpaceZ                    : TEXCOORD12;
+        #endif
+    //float3 o_localPos : POSITION0;
+    #endif
+    #ifdef PARABOLOID_MAPPING
+        float i_ClipDepth           : TEXCOORD10;
+    #endif
+};
+
+struct PS_OUTPUT
+{
+#ifndef SHADOWPASS
+    float4 o_Color : SV_TARGET;
+#endif
+};
+
+#ifndef SHADOWPASS
+
+float getSceneDepth(in float4 clipPos, in float2 uv)
+{
+	float4 tempPos = float4(uv, 0.0, 1.0);
+	tempPos.z = S_Depth.Sample(S_DepthSamplerState, uv).r;
+	
+	tempPos.x = clipPos.x;
+	tempPos.y = clipPos.y;
+	
+	float4 viewSpacePos;
+	viewSpacePos.x = dot(U_InvProjectMatrix[0], tempPos);
+	viewSpacePos.y = dot(U_InvProjectMatrix[1], tempPos);
+	viewSpacePos.z = dot(U_InvProjectMatrix[2], tempPos);
+	viewSpacePos.w = dot(U_InvProjectMatrix[3], tempPos);
+	float depth = viewSpacePos.z / viewSpacePos.w;
+	return depth;
+}
+
+//Dx only need to sample one times.
+float calcSceneDepth(in float4 clipPos)
+{	
+	float2 screenTC = clipPos.xy / clipPos.w;
+	screenTC.x = (screenTC.x + 1.0) * 0.5;//+ U_ViewParam.z;
+	screenTC.y = 1.0 - (screenTC.y + 1.0) * 0.5;//+ U_ViewParam.w;
+    
+	screenTC *= U_ViewParam.xy;	
+	float depth = getSceneDepth(clipPos / clipPos.w, screenTC);
+	
+	return depth;
+}
+
+#endif
+
+float3
+calculateLightPower(float NdotL, float NdotH, float3 H, float3 L, float3 lightPower, float3 albedo, float roughness, float metallic)
+{
+	float LdotH = max(dot(L,H), 0.0);
+
+    //https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf
+	//Burley在2012年的分享中提到disney在计算NDF时做了一个alpha = roughness * roughness的 mapping，目的是为了让美术在调整粗糙度时让材质在视觉上有一个更加线性的粗糙度变化
+    //所以此处代码的a2应该对应NDF公式中的a = roughness * roughness， a4应该对应a2
+    float a2    = roughness * roughness;
+    float a4    = a2 * a2;
+
+    float NdotH2 = NdotH * NdotH;
+    float LdotH2 = LdotH * LdotH;
+
+    //GGX NDF
+    //G使用微表面法线计算
+    float denom = 4.0 * 3.1415926 * pow(NdotH2 * (a4 - 1.0) + 1.0, 2.0) * (LdotH2 * (1.0 - a2) + a2);//G with shadowing and shadowing;
+    denom = max(denom, 0.0001);//note by hejiwei: clamp的数值与安卓平台对齐
+    float brdf  = a4 / denom;
+
+    float3 F0 = float3(0.04, 0.04, 0.04);
+
+    //在schlick
+    //F0用金属度简单进行插值
+	F0 = lerp(F0, albedo, metallic);
+
+    float3 kd    = 1.0 - min(F0/(LdotH + 0.00001), 1.0);
+    kd = kd * (1.0- float(metallic));
+
+    return (albedo * kd / 3.141592654 + brdf * F0) * NdotL * lightPower;
+}
+
+// 三个值插值
+float3 VoxelTripleLerp(float3 val1, float3 val2, float3 val3, float3 blend )
+{
+    float sum = max(blend.x + blend.y + blend.z,1e-5f);
+
+    float blend1 = blend.x / sum;
+    float blend2 = blend.y / sum;
+    float blend3 = blend.z / sum;
+
+    return val1 * blend1 + val2 * blend2 + val3 * blend3;
+}
+float4 VoxelTripleLerp(float4 val1, float4 val2, float4 val3, float3 blend )
+{
+    float sum = max(blend.x + blend.y + blend.z,1e-5f);
+
+    float blend1 = blend.x / sum;
+    float blend2 = blend.y / sum;
+    float blend3 = blend.z / sum;
+
+    return val1 * blend1 + val2 * blend2 + val3 * blend3;
+}
+
+//完整的三平面映射，每个方向两层材质贴图混合
+float3 fetchAndMixTexture(in Texture2DArray tex, in SamplerState texSampler, in float2 uv, in uint2 arrayIndex, float blendParam)
+{
+    float3 cTex1 = tex.Sample(texSampler, float3(uv, arrayIndex.x)).xyz;
+    float3 cTex2 = tex.Sample(texSampler, float3(uv, arrayIndex.y)).xyz;
+    return lerp(cTex1, cTex2, blendParam);
+}
+
+float3 fetchAndMixTexture(in Texture2D tex1,  in SamplerState texSampler1, in Texture2D tex2, in SamplerState texSampler2, in float2 uv, float blendParam)
+{
+    float3 cTex1 = tex1.Sample(texSampler1, uv).xyz;
+    float3 cTex2 = tex2.Sample(texSampler2, uv).xyz;
+    return lerp(cTex1, cTex2, blendParam);
+}
+
+float3 fetchAndMixTexture(in Texture2D tex1,  in SamplerState texSampler1, in Texture2D tex2, in SamplerState texSampler2, in Texture2D tex3, in SamplerState texSampler3,in float2 uv, float3 blendParam)
+{
+    float3 cTex1 = tex1.Sample(texSampler1, uv).xyz;
+    float3 cTex2 = tex2.Sample(texSampler2, uv).xyz;
+    float3 cTex3 = tex3.Sample(texSampler3, uv).xyz;
+    return VoxelTripleLerp(cTex1, cTex2, cTex3 ,blendParam);
+}
+
+float4 TriplanarProjectionSampleMap(in Texture2DArray tex, in SamplerState texSampler, in uint3 arrayIndex,
+    in float2 UVXZ, in float2 UVXY, in float2 UVYZ,
+    in float weightXZ, in float weightXY, in float weightYZ){
+
+    //note by hejiwei: when do we perform gamma correction ? 
+    //gamma corecct imdiately after sampling or after all texture samples are blended
+    float4 cTexXZ = weightXZ * tex.Sample(texSampler, float3(UVXZ, arrayIndex.x));
+    float4 cTexXY = weightXY * tex.Sample(texSampler, float3(UVXY, arrayIndex.y));
+    float4 cTexYZ = weightYZ * tex.Sample(texSampler, float3(UVYZ, arrayIndex.z));
+
+    return (cTexXZ + cTexXY + cTexYZ);
+}
+
+//考虑到三个平面可能采样不同的贴图，所以这里传入三个纹理参数，大概率是同一张贴图
+float4 TriplanarProjectionSampleMap(in Texture2D texXZ, in SamplerState texSamplerXZ, 
+    in Texture2D texXY, in SamplerState texSamplerXY, in Texture2D texYZ, in SamplerState texSamplerYZ,
+    in float2 UVXZ, in float2 UVXY, in float2 UVYZ, in float weightXZ, in float weightXY, in float weightYZ)
+{
+    float4 cTexXZ = weightXZ * texXZ.Sample(texSamplerXZ, UVXZ);
+    float4 cTexXY = weightXY * texXY.Sample(texSamplerXY, UVXY);
+    float4 cTexYZ = weightYZ * texYZ.Sample(texSamplerYZ, UVYZ);
+
+    return (cTexXZ + cTexXY + cTexYZ);
+}
+
+float3 CalculateDefaultEnvColor(float  NdotV,
+                               float3 baseColor,
+                               float  metallic,
+                               float  roughness,
+                               float  ao,
+                               float  wetFinal)
+{
+    float3 specularColor = lerp(0.04h, baseColor, metallic);
+    float  specularAO    = lerp(ao, 1.0f, metallic * (1.0f - roughness) * (1.0f - roughness));
+    float3 filteredBRDF  = max(ApproxGlossyBRDF(specularColor, roughness, NdotV), 1e-6f);
+
+    float3 albedo = baseColor * (1.0f - metallic);
+
+    return albedo * ao + filteredBRDF * specularAO;
+}
+
+
+float3 unpackNormal(in float3 sampledNormal){
+    float3 n = 2.f * sampledNormal - 1.f;
+    n.z = sqrt(saturate(1.f - n.x * n.x - n.y * n.y));
+    return normalize(n);
+}
+
+float3 UDNBlendNormal(in float3 sampledNormal, in float3 detailNormal, float weight)
+{
+    float3 n1 = 2.f * sampledNormal - 1.f;
+    float3 n2 = 2.f * detailNormal - 1.f;
+    n1.z = sqrt(saturate(1.f - n1.x * n1.x - n1.y * n1.y));
+    n2.z = 1.f;
+    float3 n = float3(n1.xy + n2.xy * weight, n1.z);
+    return n;
+}
+
+
+float noise3D(float3 p)
+{
+	return frac(sin(dot(p ,float3(12.9898,78.233,126.7235))) * 43758.5453);
+}
+
+float worley3D(float3 p)
+{					 					 
+	float r = 3.0;
+    float3 f = floor(p);
+    float3 x = frac(p);
+	for(int i = -1; i<=1; i++)
+	{
+		for(int j = -1; j<=1; j++)
+		{
+			for(int k = -1; k<=1; k++)
+			{
+                float3 q = float3(float(i),float(j),float(k));
+    			float3 v = q + float3(noise3D((q+f)*1.11), noise3D((q+f)*1.14), noise3D((q+f)*1.17)) - x;
+    			float d = dot(v, v);
+				r = min(r, d);
+			}
+		}
+	}
+    return sqrt(r);
+}
+
+
+PS_OUTPUT main(PS_INPUT IN, bool isFrontFacing : SV_IsFrontFace){
+    PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+    #ifdef PARABOLOID_MAPPING
+	    clip(IN.i_ClipDepth);
+    #endif
+
+    #ifndef SHADOWPASS
+
+        float3 V = normalize(U_PS_CameraPosition.xyz - IN.i_WorldPos.xyz);
+        float3 L = normalize(-U_MainLightDirection.xyz);
+
+        float3 n = normalize(IN.i_Normal.xyz);
+        
+        #ifdef TWO_SIDES
+            float frontValue = isFrontFacing ? 1.0f : -1.0f;
+            n *= frontValue;
+        #endif
+        //采样贴图并混合-----------------------------------------------------------------------------------------------------------------
+
+        float3 color = 0.f;
+
+        float3 mainLightColor = U_PBR_MainLightColor.xyz;
+        float3 skyLightColor = U_PBR_SkyLightColor.xyz;
+        float3 groundLightColor = U_PBR_GroundLightColor.xyz;
+
+        float roughness;
+        float metallic;
+        float ao;
+
+        float3 baseColor = float3(1.f, 1.f, 1.f);
+        roughness = 1.0f;
+        metallic = 0.0f;
+        ao = 1.0f;
+            
+        //依次进行主光的着色、计算阴影、点光源着色-------------------------------------------------------------------------------------
+        color += calculateLightPower(n, V, L, mainLightColor * (1.f - U_PS_ViewLightPercent.x), baseColor, roughness, metallic);
+        color += calculateLightPower(n, V, -U_PS_ViewDirection.xyz, mainLightColor * U_PS_ViewLightPercent.x, baseColor, roughness, metallic);
+
+        //依次进行主光的着色、计算阴影、点光源着色-------------------------------------------------------------------------------------
+        float3 envColor = 0.f;
+
+		float3 ambientColor =
+            ComputeAmbientLight(U_PBR_SkyLightColor.xyz, U_PBR_GroundLightColor.xyz, n, U_PS_AmbientBlendThreshold.y, U_PS_GravityDirection.xyz);
+	    //未打开环境光宏时，环境光照默认为1
+	    // envColor += CalculateDefaultEnvColor(NdotV, baseColor, metallic, roughness, ao, 0.f);
+        envColor += CalculateGlossyEnvColor(n, V, baseColor, metallic, roughness, ao, 0.f,
+           0.f, U_GlobalEnvironmentCubeMipMapLevels.x, S_GlobalEnvironmentCubeMap,
+            S_GlobalEnvironmentCubeMapSamplerState);
+
+        envColor += CalculateDiffuseEnvColor(n, baseColor, metallic, ao, U_PBR_RMatrix, U_PBR_GMatrix, U_PBR_BMatrix, 0.f);
+
+        envColor *= U_PBR_Environment_Explosure.x;
+        color += envColor * ambientColor;
+
+        color = color * IN.i_Fog.a + IN.i_Fog.rgb;
+
+        {
+            //const float3 baseWorleyColor = float3(0.6, 1.0, 0.1);
+        
+            float3 worleyColor;
+            float o_worleyNoise;
+            {
+                
+                //float3 noiseUV = IN.o_localPos.xyz;
+                float3 noiseUV = IN.i_WorldPos.xyz;
+			
+                //const float worleyDensity = 3.0f;
+                noiseUV.xyz *= worleyDensity;
+                //const float worleyScrollSpeed = 0.3f;
+                float3 scrollDir = normalize(worleyScrollDir);
+                noiseUV += U_PS_Time.x * worleyScrollSpeed * scrollDir; 
+
+                float worleyNoise; 
+                float3 uv = noiseUV;
+                worleyNoise = worley3D(uv);
+                o_worleyNoise = worleyNoise;
+                worleyNoise = worleyNoise * worleyNoise * worleyNoise;
+                worleyColor = float3(worleyNoise,worleyNoise,worleyNoise);
+                worleyColor *= baseWorleyColor * HDR;
+                //worleyColor *= exp(float3(1.0f,1.0f,1.0f) - worleyColor);
+            }
+            float gray = (color.r + color.g + color.b)/3.0f;
+            color = float3(gray, gray, gray);
+            //worleyColor = float3(o_worleyNoise, o_worleyNoise, o_worleyNoise);
+            //worleyColor = IN.i_WorldPos.xyz;
+            psOut.o_Color.rgb = color * worleyColor;
+
+            const float baseWorleyAlpha = 0.7f;
+            float worleyNoiseAlpha = saturate(pow(o_worleyNoise, 2.) * baseWorleyAlpha * 2);
+            psOut.o_Color.a = worleyNoiseAlpha;
+            psOut.o_Color.a *= Alpha;
+        }
+
+        //Depth edge.
+        {
+            float4 clipPos = IN.clipPos;
+            float4 vp;
+            vp.x = dot(U_InvProjectMatrix[0], clipPos);
+            vp.y = dot(U_InvProjectMatrix[1], clipPos);
+            vp.z = dot(U_InvProjectMatrix[2], clipPos);
+            vp.w = dot(U_InvProjectMatrix[3], clipPos);
+		
+            float pixelDepth = vp.z / vp.w;			
+            float depth_delta;
+            {
+                float sceneDepth = calcSceneDepth(clipPos);
+                depth_delta = abs(pixelDepth - sceneDepth);
+            }
+
+            //const float softBoarderDepthRange = 0.1f;
+            float nearEdgeBlend = saturate(depth_delta / softBoarderDepthRange);
+            
+            depth_delta = (depth_delta / depth_range);
+
+            float blend = (1.0f - saturate(depth_delta));
+
+
+         
+            float3 foamColor = edgeColor * edgeColorHDR;
+            
+            float noise;
+            {
+                float3 flowUV = IN.i_WorldPos;
+                noise = S_Noise3DTex128.Sample(S_Noise3DTex128SamplerState,
+                                                     flowUV.xyz * reg4.x).x;
+
+                flowUV *= reg4.w;
+                flowUV += U_PS_Time.x * reg4.y * normalize(reg5.xyz);
+                flowUV += noise * reg4.z;
+                
+                noise = S_Noise3DTex128.Sample(S_Noise3DTex128SamplerState,
+                                               flowUV.xyz).x;
+            }
+            
+            psOut.o_Color.rgb = lerp(psOut.o_Color.rgb, foamColor.rgb * noise, blend);
+            psOut.o_Color.a += blend * edge_alpha * noise;
+
+            psOut.o_Color.a *= nearEdgeBlend;
+        }
+        
+        psOut.o_Color.rgb = pow(psOut.o_Color.rgb, 1.0 / 2.2);
+
+        // float overDrawLerp = ceil(U_PS_Time.w);//?
+        // psOut.o_Color.rgb = psOut.o_Color.rgb * (1.0 - overDrawLerp) + U_PS_Time.w * overDrawLerp;
+        //psOut.o_Color.w = rgba_baseMap.a;
+    #endif
+    return psOut;
+}
+

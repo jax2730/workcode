@@ -1,0 +1,233 @@
+// Author: yanghang
+// Date:  2021-03-14
+#include <Common_Uniform_PS.inl>
+
+float4	U_MaterialCustomParam1;
+Texture2D	S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+Texture2D	S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+Texture2D	S_2DExt1;
+SamplerState S_2DExt1SamplerState;
+
+float4 texDiffuse(float2 vUV)
+{
+    return S_Diffuse.Sample(S_DiffuseSamplerState, vUV);
+}
+
+float4 texAnotherDiffuse(float2 vUV)
+{
+    return S_2DExt0.Sample(S_2DExt0SamplerState, vUV);
+}
+
+float4 texMedia(float2 vUV)
+{
+    return S_2DExt1.Sample(S_2DExt1SamplerState, vUV);
+}
+
+Texture2D	S_Custom;
+SamplerState S_CustomSamplerState;
+
+// NOTE(yanghang): Dissolve noise texture
+float texDissolve(float2 vUV)
+{
+    return S_Custom.Sample(S_CustomSamplerState, vUV);
+}
+
+Texture2D	S_Custom2;
+SamplerState S_Custom2SamplerState;
+
+// NOTE(yanghang): Distort noise texture
+float texDistort(float2 vUV)
+{
+    return S_Custom2.Sample(S_Custom2SamplerState, vUV);
+}
+
+Texture2DArray	S_Custom3;
+SamplerState S_Custom3SamplerState;
+
+//NOTE(changziheng): Fill mask texture
+float texFillMask(float3 vUV)
+{
+    return S_Custom3.Sample(S_Custom3SamplerState, vUV);
+}
+
+struct PS_INPUT
+{
+    float4 i_Position	 : SV_POSITION;
+    float2 i_atlas_uv    : TEXCOORD0;
+	float2 i_UV	     : TEXCOORD1;
+#ifdef UI3D_STYLE_COVER_WEATHER
+    float4 i_fogColor				: TEXCOORD2;
+#endif
+    // NOTE: Use to multiply alpha value of color for blend with background.
+    float  i_alphaFactor : COLOR0;
+    float2 i_clipPos     : COLOR1;
+};
+
+struct PS_OUTPUT
+{
+	float4 color : SV_TARGET;
+};
+
+float4 U_PSCustom0[3];
+
+#define HDRFactor U_PSCustom0[0].x
+#define alpha     U_PSCustom0[0].y
+#define u_gray                   U_PSCustom0[0].w // NOTE: 1.0f == gray, 0 == normal.   
+#define image_color U_PSCustom0[1].rgb
+#define fillTexLayer U_PSCustom0[0].z
+#define fillAmount U_PSCustom0[1].a
+#define multiSceneEnable U_PSCustom0[2].x
+#define dissolve_strength U_PSCustom0[2].y
+#define mediaPlayEnable U_PSCustom0[2].z
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+    //点阵剔除
+	if(dissolve_strength > 0)
+	{
+		float4x4 thresholdMatrix =
+		{  1.0 / 17.0,  9.0 / 17.0,  3.0 / 17.0, 11.0 / 17.0,
+			13.0 / 17.0,  5.0 / 17.0, 15.0 / 17.0,  7.0 / 17.0,
+			4.0 / 17.0, 12.0 / 17.0,  2.0 / 17.0, 10.0 / 17.0,
+			16.0 / 17.0,  8.0 / 17.0, 14.0 / 17.0,  6.0 / 17.0
+		};
+		float2 pos = IN.i_Position.xy;
+
+		pos.xy = pos.xy/U_MaterialCustomParam1.z;
+
+		int xindex = fmod(pos.x, 4);
+		int yindex = fmod(pos.y, 4);
+
+		float alpha_dissolve = thresholdMatrix[xindex][yindex];//* _RowAccess[yindex];
+
+		if(alpha_dissolve < dissolve_strength)
+			discard;
+	}
+
+    float2 atlas_uv = IN.i_atlas_uv;
+    float4 diffuseColor;
+    if(mediaPlayEnable > 0.5f)
+    {
+        diffuseColor = texMedia(atlas_uv);
+    }
+    else
+    {
+        if(multiSceneEnable == 1.0f)
+        {
+            diffuseColor = texAnotherDiffuse(atlas_uv);
+        }
+        else
+        {
+            diffuseColor = texDiffuse(atlas_uv);
+        }
+    }
+    psOut.color.rgb = pow(diffuseColor.rgb, 2.2);
+    psOut.color.a = diffuseColor.a;
+
+    //NOTE: Clip.
+    // TODO(yanghang): Optimize, blend_verge relative calculate can be constant.
+    float2 factor = IN.i_clipPos;
+
+    float right_bottom_clip_alpha;
+    float max_factor = max(factor.x, factor.y);
+    float blend_verge = 0.005f;
+    float blend_verge_inv = 1.0f / blend_verge; 
+    if(max_factor > 1.0f)
+    {
+        // Edge blend
+    
+        float verge_value = clamp(max_factor, 1.0f, (1.0f + blend_verge));
+        verge_value -= 1.0f;
+        verge_value = blend_verge - verge_value;
+        
+        right_bottom_clip_alpha = verge_value * blend_verge_inv; 
+    }
+    else
+    {
+        // Pass test.
+        right_bottom_clip_alpha = 1.0f;
+    }
+    
+    float left_top_clip_alpha;
+    float min_factor = min(factor.x, factor.y);
+    if(min_factor < 0)
+    {
+        // Edge blend
+        float verge_value = clamp(min_factor, -blend_verge, 0);
+        verge_value = blend_verge + verge_value;
+        left_top_clip_alpha = verge_value * blend_verge_inv;
+    }
+    else
+        left_top_clip_alpha = 1.0f;
+    
+    psOut.color.a *= right_bottom_clip_alpha * left_top_clip_alpha;
+
+    if(fillAmount != 1.0f)
+    {
+        float3 fillMaskUV;
+        fillMaskUV.xy = IN.i_UV;
+        fillMaskUV.z = fillTexLayer;
+        float mask_value = texFillMask(fillMaskUV);
+        psOut.color.a *= mask_value < fillAmount ? 1.0f : 0.0f;
+    }
+
+    float anti_aliasing_alpha = IN.i_alphaFactor;
+    psOut.color.a *= anti_aliasing_alpha;
+
+    psOut.color.rgb *= HDRFactor;
+    psOut.color.rgb *= pow(image_color, 2.2);
+    psOut.color.a *= alpha;
+
+#ifdef UI3D_STYLE_COVER_WEATHER
+    psOut.color.rgb = psOut.color.rgb * IN.i_fogColor.a + IN.i_fogColor.rgb;
+#endif
+
+    if(u_gray == 1.0f)
+    {
+        float color_gray = (psOut.color.r + psOut.color.g + psOut.color.b) * 0.33333333333333f;
+        psOut.color.rgb = lerp(psOut.color.rgb, float3(color_gray, color_gray, color_gray), u_gray);
+    }
+
+    //psOut.color = float4(factor.x, factor.y, 0,1.0f);
+    //psOut.color = float4(clip_alpha_0, clip_alpha_0, clip_alpha_0, 1.0f);
+    //psOut.color = float4(clip_alpha_1, clip_alpha_1, clip_alpha_1, 1.0f);
+
+    //NOTE: Clip Debug
+#if 0
+    float2 d_color;
+    if(factor.x > 1.0f)
+        d_color.r = factor.x - 1.0f;
+    else if(factor.x < 0)
+        d_color.r = -factor.x;
+    else
+        d_color.r = 0;
+
+    if(factor.y > 1.0f)
+        d_color.g = factor.y - 1.0f;
+    else if(factor.y < 0)
+        d_color.g = -factor.y;
+    else
+        d_color.g = 0;
+            
+    psOut.color = float4(d_color.r, d_color.g, 0, 1.0f);
+#endif
+
+    //NOTE: Noise sample debug
+#if 0
+    psOut.color = float4(dissolve_value, dissolve_value, dissolve_value, 1.0f);
+#endif
+
+    psOut.color.rgb = pow(psOut.color.rgb, 1.0 / 2.2);
+
+    //TODO(yanghang):Overdraw debug effect,maybe need remove.
+    float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.color = psOut.color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+    
+    return psOut;
+}

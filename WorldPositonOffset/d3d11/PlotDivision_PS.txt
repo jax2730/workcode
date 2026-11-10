@@ -1,0 +1,35 @@
+#include <Common_Uniform_PS.inl>
+
+//input & output------------------------------------------------------------------------------------------
+struct PS_INPUT
+{
+    float4 i_Position	    : SV_POSITION;
+    float2 i_MatIDUV        : TEXCOORD0;    // texcoord on  cube
+
+    nointerpolation float i_faceIndex : TEXCOORD1;
+
+    float3 o_WorldNormal: NORMAL0;
+    float3 o_WorldPos	: NORMAL1;
+};
+
+struct PS_OUTPUT
+{
+    float4 color : SV_TARGET;
+};
+
+Texture2DArray S_Custom;  
+SamplerState S_CustomSamplerState;
+uniform float4 U_PSCustom0;
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+    PS_OUTPUT psOut;
+   
+    float3 cubeUV;
+    cubeUV.xy = IN.i_MatIDUV * U_PSCustom0.xy;
+    cubeUV.z = IN.i_faceIndex;
+    
+    psOut.color = S_Custom.Sample(S_CustomSamplerState, cubeUV);
+    psOut.color.rgb = pow(psOut.color.rgb,2.2);
+    return psOut;
+}

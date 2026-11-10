@@ -1,0 +1,132 @@
+
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+// NOTE: UI Item MVP or MP transform matrix.
+uniform float4 U_VSCustom0[4];
+// NOTE: UI Item to screen coordinate transform matrix for clip.
+uniform float4 U_VSCustom1[4];
+//NOTE: UI item clip rectangle in 2D screen-coordinate.
+uniform float4 U_VSCustom2;
+
+uniform float2 U_VSCustom4;
+
+uniform float4 U_VS_InvProjectMatrix[4];
+
+// TODO(yanghang): MVP for world scence UI, MP for screen UI that always follow camera.
+#define WorldMatrix U_VSCustom0
+#define localToScreenMatrix U_VSCustom1
+//IMPORTANT: Optimize. width and height is inverse from CPU side to elimate divide op.
+#define Screen2DClipRect U_VSCustom2
+
+#define ScreenParams U_VSCustom4
+
+#ifdef UI3D_STYLE_SCENE
+uniform float4 U_WorldViewProjectMatrix[4];
+#else
+#define ViewProjectMatrix U_ProjectMatrix
+#define InvProjectMatrix U_VS_InvProjectMatrix
+#endif
+
+struct VS_INPUT
+{
+    // NOTE(yanghang): w-component used to blend of color for anti-aliasing,
+    // need interpolation
+	float2 i_pos		    : POSITION0;
+    float4 i_vertexColor    : TEXCOORD0;
+};
+
+struct VS_OUTPUT
+{
+	float4	o_posInClip			: SV_POSITION;
+    // NOTE: Use to multiply alpha value of color.
+    float4 o_vertexColor        : TEXCOORD0;
+#ifdef UI3D_STYLE_COVER_WEATHER
+    float4	o_fogColor				: TEXCOORD1;
+#endif
+    float2 o_clipPos            : COLOR0;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut;
+    float4 screen_pos;
+    // NOTE: Local to logic 2D UI screen transfrom.
+    // Don't affect z.
+    float4 pos = float4(IN.i_pos.xy, 0, 1.0f);
+    screen_pos.x = dot(localToScreenMatrix[0].xyzw, pos);
+    screen_pos.y = dot(localToScreenMatrix[1].xyzw, pos);
+    screen_pos.z = dot(localToScreenMatrix[2].xyzw, pos);
+    screen_pos.w = 1.0f;
+
+#ifdef UI3D_STYLE_CURVE
+    float half_screen_width = ScreenParams.x;
+    float radius = half_screen_width / sin(ScreenParams.y);
+
+    float2 circle = radius * float2(sin(ScreenParams.y), cos(ScreenParams.y));
+    float t = screen_pos.x / (2.0f * half_screen_width);
+    float2 oa = -circle;
+    float2 ob = float2(2.0f * half_screen_width, 0.0f) - circle;
+    float2 offset =  (sin((1 - t) * 2.0f * ScreenParams.y)* oa + sin(t * 2.0f * ScreenParams.y) * ob) / sin(2.0f * ScreenParams.y);
+    screen_pos.x = offset.x + circle.x;
+    screen_pos.z = offset.y + circle.y;
+#endif
+
+#ifdef UI3D_STYLE_COVER_WEATHER
+    float4 Wpos;
+    Wpos.x = dot(WorldMatrix[0], screen_pos);
+	Wpos.y = dot(WorldMatrix[1], screen_pos);
+	Wpos.z = dot(WorldMatrix[2], screen_pos);
+	Wpos.w = dot(WorldMatrix[3], screen_pos);
+#endif
+
+#ifdef UI3D_STYLE_SCENE
+    vsOut.o_posInClip.x = dot(U_WorldViewProjectMatrix[0], screen_pos);
+	vsOut.o_posInClip.y = dot(U_WorldViewProjectMatrix[1], screen_pos);
+	vsOut.o_posInClip.z = dot(U_WorldViewProjectMatrix[2], screen_pos);
+	vsOut.o_posInClip.w = dot(U_WorldViewProjectMatrix[3], screen_pos);
+#else
+    float4 world_pos;
+	world_pos.x = dot(WorldMatrix[0], screen_pos);
+	world_pos.y = dot(WorldMatrix[1], screen_pos);
+	world_pos.z = dot(WorldMatrix[2], screen_pos);
+	world_pos.w = dot(WorldMatrix[3], screen_pos);
+
+    float4 project_pos = (1.0f, 1.0f, 0.1f, 1.0f);
+
+    float half_width_of_ui_screen = dot(InvProjectMatrix[0], project_pos);
+	float half_height_of_ui_screen = dot(InvProjectMatrix[1], project_pos);
+    float camera_space_screen_z = dot(InvProjectMatrix[2], project_pos);
+    world_pos *= float4(half_width_of_ui_screen * 4.0f * U_VS_ViewParam.z, half_height_of_ui_screen * 4.0f * U_VS_ViewParam.w, half_height_of_ui_screen * 4.0f * U_VS_ViewParam.w,1.0f);
+    world_pos += float4(-half_width_of_ui_screen, half_height_of_ui_screen, camera_space_screen_z, 0.0f);
+
+    vsOut.o_posInClip.x = dot(ViewProjectMatrix[0], world_pos);
+	vsOut.o_posInClip.y = dot(ViewProjectMatrix[1], world_pos);
+	vsOut.o_posInClip.z = dot(ViewProjectMatrix[2], world_pos);
+	vsOut.o_posInClip.w = dot(ViewProjectMatrix[3], world_pos);
+#endif
+
+#ifdef UI3D_STYLE_COVER_WEATHER
+    float4	vCamPos				=	U_VS_CameraPosition;
+    float3 camToWorld =  vCamPos.xyz - Wpos.xyz;
+	
+	//vsOut.o_EyeDir.xyz = camToWorld;
+
+	float4x4 gravityRotatePosMatrix;	
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+	vsOut.o_fogColor = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+#endif
+
+    vsOut.o_vertexColor = IN.i_vertexColor;
+
+    //IMPORTANT: Clip rect
+    // x = real_x/real_w, z = 1.0f/real_w,
+    // y = real_y/real_h, w = 1.0f/-real_h
+    vsOut.o_clipPos = (screen_pos.xy * Screen2DClipRect.zw) - (Screen2DClipRect.xy);
+
+    return vsOut;
+}

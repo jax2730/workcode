@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mini Wiki"
+  short_description: "Generate and update a structured project wiki under .mini-wiki with source links, diagrams, and plugin guidance."
+  default_prompt: "Generate or update the project wiki in .mini-wiki using the mini-wiki workflow. Analyze the codebase deeply, create cross-linked documentation with Mermaid diagrams and source references, and keep plugin instructions text-only."

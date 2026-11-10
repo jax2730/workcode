@@ -1,0 +1,72 @@
+
+float4 U_PSCustom0; //x:hue
+                    //y:saturation
+                    //z:lightness
+                    //w:shade
+
+float4 U_PSCustom1; //x:contrast
+                    //y:reverseColor
+
+Texture2D       S_2DExt0;
+SamplerState    S_2DExt0SamplerState;
+
+struct PS_INPUT
+{
+    float4	i_PosInClip			: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+half3 HslToRgb(half3 c)
+{
+	half4 K = half4(1.0h, 2.0h / 3.0h, 1.0h / 3.0h, 3.0h);
+	half3 p = abs(frac(c.xxx + K.xyz) * 6.0h - K.www);
+	return c.z * lerp(K.xxx, clamp(p - K.xxx, 0.0h, 1.0h), c.y);
+}
+
+half3 RgbToHsl(half3 c)
+{
+	half4 K = half4(0.0h, -1.0h / 3.0h, 2.0h / 3.0h, -1.0h);
+	half4 p = lerp(half4(c.bg, K.wz), half4(c.gb, K.xy), step(c.b, c.g));
+	half4 q = lerp(half4(p.xyw, c.r), half4(c.r, p.yzx), step(p.x, c.r));
+
+	half d = q.x - min(q.w, q.y);
+	half e = 1.0e-6h;
+	return half3(abs(q.z + (q.w - q.y) / (6.0h * d + e)), d / (q.x + e), q.x);
+}
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+    PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+    float2 uv = IN.i_UV.xy * U_PSCustom1.zw;
+
+    half3 hslAdjust = half3(U_PSCustom0.xyz);
+    half shade = half(U_PSCustom0.w);
+
+    half contrast = half(U_PSCustom1.x);
+    half reverseColor = half(U_PSCustom1.y);
+
+    half3 color = half3(pow(S_2DExt0.Sample(S_2DExt0SamplerState, uv).rgb, 2.2));
+    half3 hsl = RgbToHsl(color);
+    if(shade < 0.5h)
+    {
+        hsl.x += hslAdjust.x;
+        hsl.y = hslAdjust.y > 0 ? lerp(hsl.y, 1.0h, clamp(hslAdjust.y, 0.0h, 1.0h)) : lerp(hsl.y, 0.0h, clamp(abs(hslAdjust.y), 0.0h, 1.0h));
+        hsl.z = hslAdjust.z > 0 ? lerp(hsl.z, 1.0h, clamp(hslAdjust.z, 0.0h, 1.0h)) : lerp(hsl.z, 0.0h, clamp(abs(hslAdjust.z), 0.0h, 1.0h));
+    }
+    else
+    {
+        hsl.x = hslAdjust.x;
+        hsl.y = hslAdjust.y;
+        hsl.z = hslAdjust.z > 0 ? lerp(hsl.z, 1.0h, clamp(hslAdjust.z, 0.0h, 1.0h)) : lerp(hsl.z, 0.0h, clamp(abs(hslAdjust.z), 0.0h, 1.0h));
+    }
+    color = HslToRgb(hsl);
+    color = clamp((color - 0.5h) * contrast + 0.5h, 0.0h, 1.0h);
+    color = color * (1.0h - reverseColor) + (1.0h - color) * reverseColor;
+    psOut.o_Color.rgb = pow(color, 1.0 / 2.2);
+    return psOut;
+}

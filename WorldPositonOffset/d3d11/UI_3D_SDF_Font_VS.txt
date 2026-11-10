@@ -1,0 +1,35 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+float4	U_WorldViewProjectMatrix[4];	
+float4  U_WorldMatrix[3];
+
+struct VS_INPUT
+{
+	float4 i_Pos		: POSITION0;
+	float2 i_UV			: TEXCOORD0;
+    float2 i_UV_1			: TEXCOORD1;
+};
+
+struct VS_OUTPUT
+{
+	float4	t_pos			: SV_POSITION;
+	float2 	o_UV				: TEXCOORD0;
+    float2 	o_UV_1				: TEXCOORD1;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	float4  pos =  float4(IN.i_Pos.xyz, 1.0f);
+
+	float4 WorldMatrix[3];
+	
+	vsOut.t_pos.x = dot(U_WorldViewProjectMatrix[0], pos);
+	vsOut.t_pos.y = dot(U_WorldViewProjectMatrix[1], pos);
+	vsOut.t_pos.z = dot(U_WorldViewProjectMatrix[2], pos);
+	vsOut.t_pos.w = dot(U_WorldViewProjectMatrix[3], pos);	
+	vsOut.o_UV = IN.i_UV;
+    vsOut.o_UV_1 = IN.i_UV_1;
+ 	return vsOut;
+}

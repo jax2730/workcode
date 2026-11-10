@@ -1,0 +1,49 @@
+
+float4 U_PSCustom0;
+
+Texture2D   S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+struct PS_INPUT
+{
+    float4 i_Position	: SV_POSITION; 
+	float4 i_UV	: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+float2 textureSize(Texture2D tex)
+{
+	uint width, height;
+	tex.GetDimensions(width, height);
+	return float2(width, height);
+}
+
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+    PS_OUTPUT psOut=(PS_OUTPUT)1.f;
+	psOut.o_Color.xyz = float3(0,0,0);
+	
+	float2 texCoordBase = IN.i_UV.xy * U_PSCustom0.xy;
+	float2 texCoordIncrement = float2(1.0f, 1.0f) / textureSize(S_2DExt0);
+	float fMaxMagnitudeSquared = 0.0f;
+	for (int s = -1; s <= 1; ++s)
+	{
+		for (int t = -1; t <= 1; ++t)
+		{
+			float2 texCoords = texCoordBase + float2(s, t) * texCoordIncrement;
+			float2 velocity = S_2DExt0.SampleLevel(S_2DExt0SamplerState, texCoords, 0).xy;
+			float fMagitudeSquard = dot(velocity, velocity);
+			if (fMaxMagnitudeSquared < fMagitudeSquard)
+			{
+				psOut.o_Color.xy = velocity;
+				fMaxMagnitudeSquared = fMagitudeSquard;	
+			}
+		}
+	}	
+	
+    return psOut;
+}

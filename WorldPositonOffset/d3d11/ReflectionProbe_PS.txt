@@ -1,0 +1,32 @@
+
+TextureCube 	S_ReflectCubeMap;
+SamplerState    S_ReflectCubeMapSamplerState;
+
+struct PS_INPUT
+{
+    float4	i_PosInClip			: SV_POSITION;
+	float4  i_Normal			: TEXCOORD0;
+	float3  eyeVector			: TEXCOORD1;
+};
+
+struct PS_OUTPUT
+{
+	float4 color : SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+	float3 E = normalize(IN.eyeVector);
+	float3 N = normalize(IN.i_Normal.xyz);
+	float4 R;
+	R.xyz = reflect(-E, N);
+	// conversion for cube map lookup
+	R.z = -R.z;
+	R.w = 0;//reflectionBlur;
+	float4 reflection = S_ReflectCubeMap.Sample(S_ReflectCubeMapSamplerState, R.xyz,R.w);
+	psOut.color = reflection;
+			
+	return psOut;
+}

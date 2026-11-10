@@ -1,0 +1,145 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+#include <Light_Function_PS.inl>
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4	U_MaterialDiffuse;
+		Texture2D	S_Diffuse;
+		SamplerState S_DiffuseSamplerState;
+		
+		float4 texDiffuse(float2 vUV) 
+		{ 
+			return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+		}
+	#endif
+#else
+
+	float4	U_MaterialDiffuse;
+
+	#ifdef CLUSTER_POINT_LIGHT
+		#include "Shadow_Light_Function_PS.inl"
+	#endif
+
+	Texture2D	S_Diffuse;
+	SamplerState S_DiffuseSamplerState;
+	float4 texDiffuse(float2 vUV) 
+	{ 
+		return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+	}
+#endif
+
+struct PS_INPUT
+{
+    float4	i_PosInClip			: SV_POSITION;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 	i_UV				: TEXCOORD0;
+	#endif
+#else
+	float4 	i_UV				: TEXCOORD0;
+	float4 	i_Fog				: TEXCOORD1;
+	float4	i_WNormal			: TEXCOORD2;
+	float4	i_WPos				: TEXCOORD3;
+	
+	#ifdef USESHADOWMAP
+		float	i_ViewSpaceZ					: TEXCOORD4;
+	#endif
+#endif
+#ifdef PARABOLOID_MAPPING
+	float	i_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+struct PS_OUTPUT
+{
+#ifndef SHADOWPASS
+	float4 color : SV_TARGET;
+#endif
+};
+
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+#ifdef PARABOLOID_MAPPING
+	clip(IN.i_ClipDepth);
+#endif
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 color = texDiffuse(IN.i_UV.xy);
+		clip(color.a - U_MaterialDiffuse.a);
+	#endif
+	
+#else
+	float4	vLightDiffuseDir	=	U_MainLightDirection;
+	float4	cLightDiffuseColor	=	U_MainLightColor;
+	
+	#ifdef USESHADOWMAP
+		float4 shadowSpacePos[SHADOWSPLITE];
+		ProjectToLightSpace(shadowSpacePos, IN.i_WPos.xyz, normalize(IN.i_WNormal.xyz), IN.i_ViewSpaceZ);
+	#endif
+
+	float f = IN.i_WNormal.y * 0.5 + 0.5;
+	float4	cLightAmbientColor	= U_GroundLightColor * (1.0-f) + U_SkyLightColor * f;
+	float vNDotL = clamp( dot(IN.i_WNormal.xyz, -vLightDiffuseDir.xyz), 0.f, 1.f);
+	
+	float3 auxiliaryLightDir = -U_AuxiliaryLightDirection.xyz;
+	float3 auxiliaryLightColor = U_AuxiliaryLightColor.rgb;
+	float  a_fNDotL = clamp(dot(IN.i_WNormal.xyz, auxiliaryLightDir), 0.f, 1.f);
+	float3 cDiffuseAcc = a_fNDotL * auxiliaryLightColor;
+	
+	float4 lightColor = 1.0;	
+	lightColor.rgb = vNDotL * cLightDiffuseColor.rgb + cDiffuseAcc + cLightAmbientColor.rgb;
+	
+	lightColor.a = 1.f;
+	float4 auxiliaryLight = 0.0f;
+
+#ifdef CLUSTER_POINT_LIGHT
+		auxiliaryLight.rgb += calculateShadowPointLight(IN.i_WPos, IN.i_WNormal.xyz);
+
+        float3 clusterLightColor =
+            calculateClusterPointLight(IN.i_PosInClip.xy,
+                                       IN.i_WPos.xyz,
+                                       IN.i_WNormal.xyz);
+        auxiliaryLight.rgb += clusterLightColor;
+#endif
+        
+	psOut.color = texDiffuse(IN.i_UV.xy);
+	
+	#ifdef ALPHA_TEST
+		clip(psOut.color.a - U_MaterialDiffuse.a);
+	#endif
+
+	psOut.color.rgb = pow(psOut.color.rgb, 2.2);
+	float3 auxiliaryColor = auxiliaryLight.rgb * psOut.color.rgb;
+	psOut.color.rgb *= U_MaterialDiffuse.rgb;
+	psOut.color.rgb *= lightColor.rgb;
+	psOut.color.rgb += auxiliaryColor;
+	
+#ifdef USESHADOWMAP
+
+	float shadowFactor = calcShadowFactor(
+		shadowSpacePos, 
+		IN.i_ViewSpaceZ.x);
+
+		shadowFactor = min(shadowFactor, 1.0);
+	psOut.color.rgb *= shadowFactor;
+#endif
+
+	psOut.color.rgb = psOut.color.rgb * IN.i_Fog.a + IN.i_Fog.rgb;
+	psOut.color.rgb = pow(psOut.color.rgb, 1.0 / 2.2);
+	psOut.color.a = 1.f;
+	
+	#ifdef EditorHelp
+		psOut.color.rgb = psOut.color.rgb * 0.00001 + float3(1.0,0.0,0.0);
+	#endif
+#endif
+
+
+	return psOut;
+}

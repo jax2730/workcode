@@ -1,0 +1,39 @@
+#pragma enable_d3d11_debug_symbols
+#include "PrecomputeAtmosphereFuncs.inl"
+
+StructuredBuffer<AtmosphereParameters> B_CSCustom0;
+RWTexture3D<float4> S_2DExt0;
+RWTexture3D<float4> S_2DExt1;
+
+Texture2D<float4> S_2DExt2;
+Texture3D<float4> S_2DExt3;
+
+SamplerState S_2DExt2SamplerState;
+
+cbuffer Global
+{
+    column_major float4x4 U_CSCustom0;
+}
+
+#define luminance_from_radiance U_CSCustom0
+
+#define atmosphere_params B_CSCustom0
+#define linear_sampler S_2DExt2SamplerState
+
+#define delta_multiple_scattering_texture S_2DExt0
+#define scattering_texture S_2DExt1
+
+#define transmittance_texture S_2DExt2
+#define scattering_density_texture S_2DExt3
+
+[numthreads(COMPUTE_GROUP_SIZE_X, COMPUTE_GROUP_SIZE_Y, COMPUTE_GROUP_SIZE_Z)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    float nu;
+    float3 delta_multiple_scattering = ComputeMultipleScatteringTexture(
+        atmosphere_params[0], transmittance_texture, scattering_density_texture, linear_sampler, float3(id.xyz) + 0.5f, nu);
+    float4 scattering = float4(delta_multiple_scattering / RayleighPhaseFunction(nu), 0.0);
+
+    delta_multiple_scattering_texture[id.xyz] = float4(delta_multiple_scattering, 1.f);
+    scattering_texture[id.xyz] = float4(scattering + scattering_texture[id.xyz].xyz, 1.0f);
+}

@@ -1,0 +1,9 @@
+G:\Echo_SU_Develop\Samples\X-XanaduWorld\Project\AndroidStudio\xxsj\.cxx\Debug\1d3f1a4x\prefab\arm64-v8a\prefab\lib\aarch64-linux-android\cmake\game-activity\game-activityConfig.cmake
+G:\Echo_SU_Develop\Samples\X-XanaduWorld\Project\AndroidStudio\xxsj\CMakeLists.txt
+G:\Echo_SU_Develop\Samples\X-XanaduWorld\Project\AndroidStudio\xxsj\EchoCommon\CMakeLists.txt
+G:\Echo_SU_Develop\Samples\X-XanaduWorld\Project\AndroidStudio\xxsj\EchoComponent\CMakeLists.txt
+G:\Echo_SU_Develop\Samples\X-XanaduWorld\Project\AndroidStudio\xxsj\EchoCore\CMakeLists.txt
+G:\Echo_SU_Develop\Samples\X-XanaduWorld\Project\AndroidStudio\xxsj\EchoEngine\CMakeLists.txt
+G:\Echo_SU_Develop\Samples\X-XanaduWorld\Project\AndroidStudio\xxsj\EchoGame\CMakeLists.txt
+G:\Echo_SU_Develop\Samples\X-XanaduWorld\Project\AndroidStudio\xxsj\EchoPhysics\CMakeLists.txt
+G:\Echo_SU_Develop\Samples\X-XanaduWorld\Project\AndroidStudio\xxsj\PrecompiledHeader.cmake

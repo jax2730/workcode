@@ -1,0 +1,72 @@
+#include<Common_Uniform_PS.inl>
+
+Texture2D 	S_Bump;
+SamplerState S_BumpSamplerState;
+Texture2D 	S_Custom;
+SamplerState S_CustomSamplerState;
+
+float4		U_PSCustom0; //distanceReflectionWaveRefractionWaveFresnelBias
+float4		U_PSCustom1; //fresnelPowerFresnelScaleReflecttypeSpecularPower
+float4		U_PSCustom2; //waterColor
+float4		U_PSCustom3; //deepWaterColor
+
+float4 main(float4	o_PosInClip			: SV_POSITION,
+			float4	o_NoiseCoord0 		: TEXCOORD0,
+			float4	o_NoiseCoord1 		: TEXCOORD1,
+			float4	o_EyeDir			: TEXCOORD2,
+			float4	o_ViewPos			: TEXCOORD3,	
+			float4	o_ProjCoord			: TEXCOORD4,
+			float4 	o_DepthParams		: TEXCOORD5,
+			float4  o_FogParams         : TEXCOORD6
+#ifdef PARABOLOID_MAPPING
+			,float	o_ClipDepth			: TEXCOORD12
+#endif
+) : SV_TARGET
+{
+#ifdef PARABOLOID_MAPPING
+	clip(o_ClipDepth);
+#endif
+
+	half3 normal0 	= S_Bump.Sample(S_BumpSamplerState, o_NoiseCoord0.xy).xyz;
+	half3 normal1 	= S_Bump.Sample(S_BumpSamplerState, o_NoiseCoord0.zw).xyz;
+	half3 normal2 	= S_Bump.Sample(S_BumpSamplerState, o_NoiseCoord1.xy).xyz;
+	half3 normal3 	= S_Bump.Sample(S_BumpSamplerState, o_NoiseCoord1.zw).xyz;
+	half3 normal 	= (normal0*1.3 + normal1*1.1 + normal2*0.9 + normal3*0.7 ) * 0.5h - 1.0h;
+	
+	normal.y *= U_PSCustom0.x;
+	o_EyeDir.xyz 		= normalize(o_EyeDir.xyz);
+	half2 refl_tex		= normal.xy * U_PSCustom0.y * o_ViewPos.z;
+	float2 final 		= o_ProjCoord.xy / o_ProjCoord.w;
+	float2 depthlerp = 0;
+
+	depthlerp.x = (1- exp(-o_DepthParams.x* o_DepthParams.z))* o_DepthParams.w;
+	depthlerp.y = saturate(o_DepthParams.x);
+
+    float4 uv=float4(saturate(final + refl_tex),0,0);
+	half4 refl_color 	= S_Custom.Sample(S_CustomSamplerState,uv.xy,uv.z);
+	refl_color.rgb = pow(refl_color.rgb, 2.2);
+
+	normal = normal.xzy;
+	normal=normalize(normal);
+	
+	half ndtl = saturate(dot(o_EyeDir.xyz, normal));
+	half facg = 1.0f - ndtl;
+	half frsl = U_PSCustom0.w + U_PSCustom1.y * pow(facg, U_PSCustom1.x);
+	
+	half3 ldir = normalize(-U_MainLightDirection.xyz);
+	half4 litk=lit(dot(ldir,normal),dot(normalize(o_EyeDir.xyz+ldir),normal),U_PSCustom1.w);
+	
+	half3 depth_color = U_PSCustom2.xyz * (1.0h-depthlerp.x) + depthlerp.x * U_PSCustom3.xyz * U_SkyLightColor.rgb;
+	
+	refl_color.rgb = refl_color.rgb * depth_color.xyz + U_SkyLightColor.rgb * normal.y;
+
+	float4 o_Color =half4(lerp(depth_color,refl_color,frsl),1.0f);
+
+	o_Color.rgb += U_MainLightColor.xyz * litk.z * litk.y * frsl * 5.0;
+	o_Color.a = depthlerp.y;
+	o_Color.rgb = o_Color.rgb * o_FogParams.a + o_FogParams.rgb;
+	o_Color.rgb = pow(o_Color.rgb, 1.0 / 2.2);
+	float overdrawlerp = ceil(U_PS_Time.w);
+	o_Color = o_Color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp); 
+	return o_Color;
+}

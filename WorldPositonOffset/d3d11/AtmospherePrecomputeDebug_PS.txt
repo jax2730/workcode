@@ -1,0 +1,32 @@
+uniform Texture2D S_2DExt0;
+uniform Texture3D S_2DExt1;
+uniform Texture2D S_2DExt2;
+uniform Texture3D S_2DExt3;
+
+SamplerState S_2DExt0SamplerState;
+
+#define transmittance_texture S_2DExt0
+#define scattering_texture S_2DExt1
+#define irradiance_texture S_2DExt2
+#define single_mie_scattering_texture S_2DExt3
+
+#define linear_sampler S_2DExt0SamplerState
+
+struct PS_INPUT
+{
+    float4 positionHCS  : SV_POSITION;
+    float2 uv           : TEXCOORD;
+};
+
+float4 main(PS_INPUT IN) : SV_TARGET
+{
+    float2 uv = frac(IN.uv * 2);
+    float4 transmittance = transmittance_texture.Sample(linear_sampler, uv);
+    float4 scattering = scattering_texture.Sample(linear_sampler, float3(uv, 0));
+    float4 irradiance = irradiance_texture.Sample(linear_sampler, uv);
+    float4 single_mie_scattering = single_mie_scattering_texture.Sample(linear_sampler, float3(uv, 0));
+    float3 u0 = IN.uv.x > 0.5f ? scattering.xyz : transmittance.xyz;
+    float3 u1 = IN.uv.x > 0.5f ? single_mie_scattering.xyz : irradiance.xyz;
+
+    return float4(u0 + u1, 1.0f);
+}

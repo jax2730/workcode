@@ -1,0 +1,37 @@
+#define AoQuad S_2DExt0
+#define LinearClamp S_2DExt0SamplerState
+
+// U_PSCustom0.xy : HalfViewportPixelSize
+uniform float4 U_PSCustom0;
+Texture2D<float> AoQuad;
+SamplerState LinearClamp;
+
+struct PS_INPUT
+{
+    float4 Position : SV_POSITION;
+    float4 TexCoord : TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+    float Occlusion : SV_TARGET;
+};
+
+// edge-ignorant blur in x and y directions, 9 pixels touched (for the lowest quality)
+PS_OUTPUT main(PS_INPUT pIn)
+{
+    PS_OUTPUT pOut;
+
+    const float2 halfPixel = U_PSCustom0.xy * 0.5f;
+    const float2 uv = pIn.TexCoord.xy;
+    const float centre = AoQuad.SampleLevel(LinearClamp, uv, 0).r;
+
+    float4 val;
+    val.x = AoQuad.SampleLevel(LinearClamp, uv + float2(-halfPixel.x * 3, -halfPixel.y), 0).r;
+    val.y = AoQuad.SampleLevel(LinearClamp, uv + float2(+halfPixel.x, -halfPixel.y * 3), 0).r;
+    val.z = AoQuad.SampleLevel(LinearClamp, uv + float2(-halfPixel.x, +halfPixel.y * 3), 0).r;
+    val.w = AoQuad.SampleLevel(LinearClamp, uv + float2(+halfPixel.x * 3, +halfPixel.y), 0).r;
+
+    pOut.Occlusion = dot(val, float4(0.2, 0.2, 0.2, 0.2)) + centre * 0.2;
+    return pOut;
+}

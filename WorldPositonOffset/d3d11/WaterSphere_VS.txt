@@ -1,0 +1,94 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl> 
+
+float4 U_WorldViewProjectMatrix[4];
+float4 U_InvTransposeWorldMatrix[3];
+float4 U_WorldMatrix[3];
+
+struct VS_INPUT
+{
+    float4 i_Pos        : POSITION0;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 i_UV		    : TEXCOORD0;	
+	#endif
+#else
+    float4 i_Normal     : NORMAL0;
+    float4 i_UV         : TEXCOORD0;
+    float4 i_Tangent    : TANGENT0;
+#endif
+};
+
+struct VS_OUTPUT
+{
+    float4 o_PosInClip  : SV_POSITION;
+#ifdef SHADOWPASS
+    #ifdef ALPHA_TEST
+		float4 o_UV		    : TEXCOORD0;	
+	#endif
+#else
+    float3 o_WNormal    : TEXCOORD0;
+    float4 o_WorldPos   : TEXCOORD1;
+    float4 o_EyeDir     : TEXCOORD2;
+    float4 o_UV         : TEXCOORD3;
+    float4 o_Tangent    : TEXCOORD4;
+    float4 o_Binormal   : TEXCOORD5;
+    float4 o_Fog        : TEXCOORD6;
+#endif
+
+#ifdef PARABOLOID_MAPPING
+    float	o_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID : SV_InstanceID)
+{
+    VS_OUTPUT vsOut = (VS_OUTPUT) 0;
+    float4 pos = float4(IN.i_Pos.xyz, 1.0f);
+    
+    vsOut.o_PosInClip.x = dot(U_WorldViewProjectMatrix[0], pos);
+    vsOut.o_PosInClip.y = dot(U_WorldViewProjectMatrix[1], pos);
+    vsOut.o_PosInClip.z = dot(U_WorldViewProjectMatrix[2], pos);
+    vsOut.o_PosInClip.w = dot(U_WorldViewProjectMatrix[3], pos);        
+    
+#ifdef PARABOLOID_MAPPING
+	vsOut.o_ClipDepth = vsOut.o_PosInClip.z;
+	ParaboloidMapping(vsOut.o_PosInClip, U_ShadowLightDepthMulAdd.x, U_ShadowLightDepthMulAdd.z, U_ShadowLightDepthMulAdd.w);
+#endif
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		o_UV.xy = IN.i_UV;
+	#endif
+#else
+    float4 normal = float4(IN.i_Normal.xyz, 0.0f);
+    vsOut.o_WNormal = mul((float3x4) U_WorldMatrix, float4(IN.i_Normal.xyz, 0.0f));
+    vsOut.o_WorldPos.xyz = mul((float3x4) U_WorldMatrix, pos);
+    vsOut.o_WorldPos.w = 1.0;
+     
+    float4 vCamPos = U_VS_CameraPosition;
+    float3 camToWorld = vCamPos.xyz - vsOut.o_WorldPos.xyz;
+	
+    vsOut.o_EyeDir.xyz = camToWorld;
+    vsOut.o_UV = IN.i_UV;
+    
+    
+    float4 tangent = float4(IN.i_Tangent.xyz, 0.0f);
+    vsOut.o_Tangent.xyz = mul((float3x4) U_WorldMatrix, float4(tangent.xyz, 0.0f));
+    vsOut.o_Binormal.xyz = cross(vsOut.o_Tangent.xyz, vsOut.o_WNormal.xyz) * IN.i_Tangent.w;
+
+    float4x4 gravityRotatePosMatrix;	
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+
+    vsOut.o_Fog = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+#endif
+#ifdef EDITOR_MODE
+	#ifdef HierarchicalLOD
+		vsOut.o_PosInClip = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+	#endif
+#endif
+    return vsOut;
+}

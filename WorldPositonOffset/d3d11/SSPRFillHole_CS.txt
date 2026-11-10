@@ -1,0 +1,36 @@
+#define NUM_THREADS_X 8
+#define NUM_THREADS_Y 8
+
+uniform RWTexture2D<float4> S_2DExt0;
+uniform Texture2D S_2DExt1;
+#define Output S_2DExt0
+#define Input S_2DExt1
+
+[numthreads(NUM_THREADS_X, NUM_THREADS_Y, 1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    //fill holes inside each 2*2
+    id.xy *= 2;
+	uint w, h;
+	Output.GetDimensions(w, h);
+	if (id.x >= w || id.y >= h)
+		return;
+
+    //cache read
+	float4 center = Input[id.xy + uint2(0, 0)];
+	float4 right = Input[id.xy + uint2(0, 1)];
+	float4 bottom = Input[id.xy + uint2(1, 0)];
+	float4 bottomRight = Input[id.xy + uint2(1, 1)];
+
+    //find best inside 2*2
+    float4 best = center;
+    best = right.a > best.a + 0.5 ? right : best;
+    best = bottom.a > best.a + 0.5 ? bottom : best;
+    best = bottomRight.a > best.a + 0.5 ? bottomRight : best;
+    
+    //write better rgba
+    Output[id.xy + uint2(0, 0)] = best.a > center.a + 0.5 ? best : center;
+    Output[id.xy + uint2(0, 1)] = best.a > right.a + 0.5 ? best : right;
+    Output[id.xy + uint2(1, 0)] = best.a > bottom.a + 0.5 ? best : bottom;
+    Output[id.xy + uint2(1, 1)] = best.a > bottomRight.a + 0.5 ? best : bottomRight;
+}

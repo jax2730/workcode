@@ -1,0 +1,239 @@
+#include <Common_Uniform_PS.inl>
+#include <Light_Function_PS.inl>
+#include <EnvironmentLight_Function.inl>
+#include <Common_Function_PS.inl>
+
+Texture2D       S_Diffuse;
+SamplerState    S_DiffuseSamplerState;
+
+Texture2D	    S_Depth;
+SamplerState    S_DepthSamplerState;
+
+uniform float4 	U_InvViewProjectMatrix[4];
+uniform float4 	U_InvTransposeWorldMatrix[4];
+
+#ifdef BUMP_MAP
+	uniform Texture2D S_Bump;
+	SamplerState S_BumpSamplerState;
+	float4 U_PSGeneralRegister2;
+#endif
+
+
+
+//glossy info
+TextureCube	S_GlobalEnvironmentCubeMap;
+SamplerState S_GlobalEnvironmentCubeMapSamplerState;
+float4 U_GlobalEnvironmentCubeMipMapLevels;	//Note by hejiwei ：
+											//与U_PBR_Environment_Explosure应该合并在一起
+//diffuse info
+float4x4 U_PBR_RMatrix;
+float4x4 U_PBR_GMatrix;
+float4x4 U_PBR_BMatrix;
+//total luminance
+float4  U_PBR_Environment_Explosure;
+
+
+
+struct PS_INPUT
+{
+    float4      i_clip_position : SV_POSITION;
+	float4      i_world_normal : TEXCOORD0;
+    float4      i_ps_clip_position : TEXCOORD1;
+	float4 		i_inv_world_matrix[4] : TEXCOORD2;
+	float4 		i_diffuse_tilling_uv : TEXCOORD6;
+	float4 		i_fog_color : TEXCOORD7;
+	float4 		i_emissive_color : TEXCOORD8;
+};
+
+struct PS_OUTPUT
+{
+	float4      o_color : SV_TARGET;
+};
+
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	float4 clip_position = IN.i_ps_clip_position;
+	float4 inv_world_matrix[4];
+	inv_world_matrix[0] = IN.i_inv_world_matrix[0];
+	inv_world_matrix[1] = IN.i_inv_world_matrix[1];
+	inv_world_matrix[2] = IN.i_inv_world_matrix[2];
+	inv_world_matrix[3] = IN.i_inv_world_matrix[3];
+	float4 diffuse_tilling_uv = IN.i_diffuse_tilling_uv;
+	float4 fog_color = IN.i_fog_color;
+
+	float3 world_normal = normalize(IN.i_world_normal.xyz);
+	float4 emissive_color = IN.i_emissive_color;
+	//-----------------------------------------------
+    float2 screen_tc = clip_position.xy / clip_position.w;
+	screen_tc.x = (screen_tc.x + 1.0) * 0.5 + U_ViewParam.z;
+	screen_tc.y = 1.0 - (1.0 + screen_tc.y) * 0.5 + U_ViewParam.w;
+    screen_tc *= U_ViewParam.xy;
+
+    float depth = S_Depth.Sample(S_DepthSamplerState, screen_tc).r;
+
+	float4 target_clip_pos = float4(clip_position.x / clip_position.w, clip_position.y / clip_position.w, depth, 1.0f);
+
+	float4 target_world_pos = float4(0.0f, 0.0f, 0.0f, 1.0f);
+	target_world_pos.x = dot(U_InvViewProjectMatrix[0], target_clip_pos);
+	target_world_pos.y = dot(U_InvViewProjectMatrix[1], target_clip_pos);
+	target_world_pos.z = dot(U_InvViewProjectMatrix[2], target_clip_pos);
+	target_world_pos.w = dot(U_InvViewProjectMatrix[3], target_clip_pos);
+
+
+	float4 target_local_pos = float4(0.0f, 0.0f, 0.0f, 1.0f);
+	target_local_pos.x = dot(inv_world_matrix[0], target_world_pos);
+	target_local_pos.y = dot(inv_world_matrix[1], target_world_pos);
+	target_local_pos.z = dot(inv_world_matrix[2], target_world_pos);
+	target_local_pos.w = dot(inv_world_matrix[3], target_world_pos);
+
+	target_local_pos.xyz /= target_local_pos.w;
+	target_world_pos.xyz /= target_world_pos.w;
+
+	if (0.5 < abs(target_local_pos.x) ||
+		0.5 < abs(target_local_pos.y) ||
+		0.5 < abs(target_local_pos.z))
+	{
+		discard;
+	}	
+    
+	// ------------------- diffuse ------------------------
+    float2 raw_uv = target_local_pos.xz + 0.5;
+
+    float2 diffuse_uv = raw_uv;
+	float diffuse_tilling_u = diffuse_tilling_uv.x;
+	float diffuse_tilling_v = diffuse_tilling_uv.y;
+	
+	diffuse_uv.x *= diffuse_tilling_u;
+	diffuse_uv.y *= diffuse_tilling_v;
+
+    float4 diffuse_color = S_Diffuse.Sample(S_DiffuseSamplerState, diffuse_uv);
+	diffuse_color.rgb = pow(diffuse_color.rgb, 2.2);
+
+	float4 final_color = diffuse_color;
+	float metallic = 0.0f;
+	float roughness = 1.0f;
+	
+#ifdef BUMP_MAP
+	float normal_strength = diffuse_tilling_uv.w;
+	float3 bump = S_Bump.Sample(S_BumpSamplerState, diffuse_uv).xyz;
+	bump.xy = normal_strength * (2.h * bump.xy - 1.h);
+	bump.z = sqrt(1.0 - (bump.x * bump.x + bump.y * bump.y));
+
+	float tempY = bump.z;
+	bump.z = -bump.y;
+	bump.y = tempY;
+	bump = normalize(bump);
+
+	float3 _WNormal;
+	float4  invTransposeWorldMatrix[3];
+	invTransposeWorldMatrix[0] = float4(inv_world_matrix[0].x, inv_world_matrix[1].x, inv_world_matrix[2].x, inv_world_matrix[3].x);
+	invTransposeWorldMatrix[1] = float4(inv_world_matrix[0].y, inv_world_matrix[1].y, inv_world_matrix[2].y, inv_world_matrix[3].y);
+	invTransposeWorldMatrix[2] = float4(inv_world_matrix[0].z, inv_world_matrix[1].z, inv_world_matrix[2].z, inv_world_matrix[3].z);
+
+	_WNormal.x = dot(invTransposeWorldMatrix[0], bump);
+	_WNormal.y = dot(invTransposeWorldMatrix[1], bump);
+	_WNormal.z = dot(invTransposeWorldMatrix[2], bump);
+
+	world_normal = normalize(world_normal + _WNormal);
+#endif
+
+#ifdef WEATHER_COVER
+	// tod effects: weather cover, aging cover 
+	float coverMask = 1.0; 
+	{
+		half cosTheta_Normal_WorldUp = dot(world_normal, U_PS_GravityDirection.xyz);
+		ComputeWeatherCover(
+			half4(U_WeatherParam0),				// 每个shader的前七个参数固定填这些
+			half4(U_WeatherParam1),				//
+			U_CoverColorParams,					//
+			U_CoverColorRotation,				//
+			target_world_pos.xyz,						//
+			coverMask,
+			0.0h,		//
+			cosTheta_Normal_WorldUp,			//
+			0.8f,
+			1.0f,
+			final_color.rgb,
+			roughness,
+			metallic
+		);
+	}	
+#endif
+
+
+	float3 emission = float3(0.0f, 0.0f, 0.0f);
+#ifdef EMISSIVE
+	float3 missiveColor = diffuse_color.rgb * emissive_color.xyz ;
+	float3 minMissiveColor = missiveColor * emissive_color.w;
+	emission = minMissiveColor;
+#endif
+
+	// ------------------- illum ------------------------
+#ifdef ILLUM
+	
+	float4 main_light_color = U_PBR_MainLightColor;
+	float3 view_dir = U_PS_CameraPosition.xyz - target_world_pos.xyz;
+	float3 N = world_normal;
+	float3 V = normalize(view_dir);
+	float3 L = normalize(-U_MainLightDirection.xyz);
+
+
+	float3 lo = 0.0f; // output scarttered
+	// directional light
+	float3 direction_light_lo = 0.0f;
+
+	direction_light_lo += calculateLightPower(N, V, L, main_light_color.xyz, final_color.rgb, roughness, metallic);
+
+	lo += direction_light_lo;
+
+	// point light & spot light
+	float3 point_light_lo = 0.0f;
+
+	#ifdef CLUSTER_POINT_LIGHT
+		float3 cluster_light_color = calculateClusterPBRPointLight(IN.i_clip_position.xy, target_world_pos.xyz, N, V, final_color.rgb, roughness, metallic);
+		point_light_lo += cluster_light_color;
+	#endif // CLUSTER_POINT_LIGHT	
+	lo += point_light_lo;
+	
+	// environment light
+	{
+		half3 environmentLo = 0.0h;
+		half3 ambientColor = ComputeAmbientLight(U_PBR_SkyLightColor.xyz, U_PBR_GroundLightColor.xyz, N, U_PS_AmbientBlendThreshold.y, U_PS_GravityDirection.xyz);
+		environmentLo += CalculateGlossyEnvColor(N, 
+                                            V, 
+                                            final_color.rgb, 
+                                            metallic, 
+                                            roughness, 
+                                            1.0h, 
+                                            0.f,
+                                            0.f, 
+                                            U_GlobalEnvironmentCubeMipMapLevels.x, 
+                                            S_GlobalEnvironmentCubeMap,
+                                            S_GlobalEnvironmentCubeMapSamplerState);
+        environmentLo += CalculateDiffuseEnvColor(half3(N),
+                                             half3( final_color.rgb), 
+                                             half(metallic), 
+                                             half(1.0h), 
+                                             half4x4(U_PBR_RMatrix),
+                                             half4x4(U_PBR_GMatrix), 
+                                             half4x4(U_PBR_BMatrix), 0.h);
+        environmentLo *= U_PBR_Environment_Explosure.x;
+		lo += environmentLo * ambientColor;
+	}
+	
+	final_color.rgb = lo;
+#endif
+
+	final_color.rgb += emission.rgb;
+
+	//---------------------- out -------------------------
+	PS_OUTPUT ps_out;
+    ps_out.o_color = final_color;
+
+	// fog
+	ps_out.o_color.rgb = ps_out.o_color.rgb * fog_color.a + fog_color.rgb;
+	ps_out.o_color.rgb = pow(ps_out.o_color.rgb, 1.0 / 2.2);
+ 
+	return ps_out;
+}

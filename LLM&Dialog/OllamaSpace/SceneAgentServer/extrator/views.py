@@ -3,12 +3,57 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse, JsonResponse
 import uuid
 import json
+import os
+import importlib.util
+from pathlib import Path
 from .llm import llm, test_chat_z,test_chat,llm_3_args,general_chat
 from .llm.chat_interface import chat_interface, ChatRequest
 
 # llm.init()
 # llm_3_args.init()
 test_chat_z.init()
+
+
+def add_cors_headers(response):
+    """为统一API添加CORS响应头。"""
+    response["Access-Control-Allow-Origin"] = "*"
+    response["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response["Access-Control-Max-Age"] = "3600"
+    return response
+
+
+def _to_bool(value, default=False):
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _is_model_test_enabled() -> bool:
+    """模型测试接口开关：环境变量优先，其次读取项目 config.py。"""
+    env_value = os.getenv("ENABLE_MODEL_TEST_ENDPOINT")
+    if env_value is not None:
+        return _to_bool(env_value, default=True)
+
+    try:
+        project_root = Path(__file__).resolve().parent.parent
+        config_path = project_root / "config.py"
+        if not config_path.exists():
+            return True
+
+        spec = importlib.util.spec_from_file_location("scene_agent_runtime_config", str(config_path))
+        if not spec or not spec.loader:
+            return True
+
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return _to_bool(getattr(module, "ENABLE_MODEL_TEST_ENDPOINT", True), default=True)
+    except Exception:
+        return True
+
+
 def getIpAddr(request):
     ip_address = request.META.get('REMOTE_ADDR')
     forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -162,6 +207,12 @@ def test_clear(request):
 
 @csrf_exempt
 def unified_chat(request, backend: str):
+    """统一对话接口 - 支持所有后端
+    支持 OPTIONS 预检请求（CORS）
+    """
+    if request.method == "OPTIONS":
+        response = JsonResponse({"status": "ok"})
+        return add_cors_headers(response)
     """
     统一对话接口 - 支持所有后端
     
@@ -194,18 +245,22 @@ def unified_chat(request, backend: str):
     if response_data.session_id and response_data.session_id != cookie_session_id:
         result.set_cookie(f"{backend}_session_id", response_data.session_id)
     
-    return result
+    return add_cors_headers(result)
 
 
 @csrf_exempt
 def unified_connect(request, backend: str):
     """
     统一连接接口
+    支持 OPTIONS 预检请求（CORS）
     
     URL: /connect/<backend>/
-
+    URL: /api/<backend>/connect/
     persona : 指定npc
     """
+    if request.method == "OPTIONS":
+        response = JsonResponse({"status": "ok"})
+        return add_cors_headers(response)
     ipAddr = getIpAddr(request)
     persona = None
     if request.body:
@@ -226,16 +281,20 @@ def unified_connect(request, backend: str):
     result.set_cookie(f"{backend}_session_id", response_data.session_id)
     
     print(f"[{backend}] New session: {response_data.session_id}, persona:{persona}")
-    return result
+    return add_cors_headers(result)
 
 
 @csrf_exempt
 def unified_clear(request, backend: str):
     """
     统一清除历史接口
+    支持 OPTIONS 预检请求（CORS）
     
     URL: /clear/<backend>/
     """
+    if request.method == "OPTIONS":
+        response = JsonResponse({"status": "ok"})
+        return add_cors_headers(response)
     session_id = request.COOKIES.get(f"{backend}_session_id")
     
     # 也支持从请求体获取session_id
@@ -250,17 +309,76 @@ def unified_clear(request, backend: str):
         return JsonResponse({"success": False, "reply": "没有活动会话", "session_id": ""})
     
     response_data = chat_interface.handle_clear(backend, session_id)
-    return JsonResponse(response_data.to_dict())
+    result = JsonResponse(response_data.to_dict())
+    return add_cors_headers(result)
 
 
 @csrf_exempt
 def list_chat_backends(request):
     """列出所有可用的对话后端"""
     from .llm.chat_interface import list_backends
+    from .llm.model_factory import get_chat_model_info
+    backends = list_backends()
+    routes = {
+        backend: {
+            "chat": f"/api/{backend}/chat/",
+            "connect": f"/api/{backend}/connect/",
+            "clear": f"/api/{backend}/clear/",
+        }
+        for backend in backends
+    }
     return JsonResponse({
         "success": True,
-        "backends": list_backends()
+        "backends": backends,
+        "routes": routes,
+        "model_info": get_chat_model_info(),
+        "npc_system_routes": {
+            "connect": "/npc/connect/",
+            "chat": "/npc/chat/",
+            "status": "/npc/status/",
+        }
     })
+
+
+@csrf_exempt
+def model_info(request):
+    """返回当前生效的模型配置。"""
+    from .llm.model_factory import get_chat_model_info
+    return JsonResponse({
+        "success": True,
+        "model_info": get_chat_model_info(),
+    })
+
+
+@csrf_exempt
+def model_test(request):
+    """直接在当前 Django 进程里测试模型是否可对话。"""
+    if not _is_model_test_enabled():
+        return JsonResponse({"success": False, "error": "model_test 接口已禁用"}, status=404)
+
+    if request.method not in ("GET", "POST"):
+        return JsonResponse({"success": False, "error": "仅支持 GET/POST"}, status=405)
+
+    try:
+        from .llm.model_factory import create_chat_model, get_chat_model_info
+
+        llm = create_chat_model()
+        response = llm.invoke([
+            {"role": "system", "content": "你是一个测试助手。"},
+            {"role": "user", "content": "请用一句话回复：hello"},
+        ])
+        reply = getattr(response, "content", str(response))
+        return JsonResponse({
+            "success": True,
+            "model_info": get_chat_model_info(),
+            "reply": reply,
+        })
+    except Exception as exception:
+        return JsonResponse({
+            "success": False,
+            "model_info": get_chat_model_info(),
+            "error": str(exception),
+        }, status=500)
 
 
 # ==================== Persona API - 人设管理接口 ====================
@@ -476,3 +594,53 @@ def persona_detail(request, persona_id: str):
         }, status=405)
     
     return JsonResponse(response.to_dict(), status=response.code)
+
+
+# ==================== Travel Assistant - 简易旅行助手 ====================
+@csrf_exempt
+def travel_assistant_chat(request):
+    """
+    简易旅行对话助手。
+
+    POST /api/travel/chat/
+    Body(JSON):
+    {
+      "message": "我在 x=-365853.58 y=432198.31，城市 Beijing/Beijing，推荐路线",
+      "x": -365853.58,              # 可选（优先于message解析）
+      "y": 432198.31,               # 可选
+    "radius": null,               # 可选，不传则自动从1000开始扩圈
+      "state": "Beijing",          # 可选（优先于message解析）
+    "city": "Beijing",           # 可选
+    "debug": false                # 可选，true 时返回 input/search_meta/poi_sample
+    }
+    """
+    if request.method == "OPTIONS":
+        response = JsonResponse({"success": True})
+        return add_cors_headers(response)
+
+    if request.method != "POST":
+        response = JsonResponse({
+            "success": False,
+            "error": "仅支持 POST",
+            "hint": "POST /api/travel/chat/",
+        }, status=405)
+        return add_cors_headers(response)
+
+    data, error = parse_request_data(request)
+    if error:
+        response = JsonResponse({"success": False, "error": error}, status=400)
+        return add_cors_headers(response)
+
+    cookie_session_id = request.COOKIES.get("travel_session_id")
+    if cookie_session_id and not data.get("session_id"):
+        data["session_id"] = cookie_session_id
+
+    from Travel_Agent.travel_assistant_service import handle_travel_chat
+
+    payload, status_code = handle_travel_chat(data)
+    result = JsonResponse(payload, status=status_code)
+
+    if payload.get("session_id"):
+        result.set_cookie("travel_session_id", payload["session_id"])
+
+    return add_cors_headers(result)

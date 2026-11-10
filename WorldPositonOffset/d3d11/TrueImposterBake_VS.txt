@@ -1,0 +1,43 @@
+// imposter bake tool 
+
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+uniform float4 U_WorldViewProjectMatrix[4];
+uniform float4 U_InvTransposeWorldMatrix[3];
+
+struct VS_INPUT
+{
+	float4 position		: POSITION0;
+	float3 normal		: NORMAL0;
+	float2 uv			: TEXCOORD0;
+};
+
+struct VS_OUTPUT
+{
+	float4 position		: SV_POSITION;
+	float3 normal		: TEXCOORD0;
+	float2 uv			: TEXCOORD1;
+};
+
+VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID: SV_InstanceID)
+{
+
+	VS_OUTPUT vsOut = (VS_OUTPUT)1;
+	float4  pos =  float4(IN.position.xyz, 1.0f);
+	#ifdef  HWSKINNED
+		pos = float4(dot(BoneMatC0,pos),dot(BoneMatC1,pos),dot(BoneMatC2,pos),1.0f);		
+	#endif
+
+	float4  normal =  float4(IN.normal.xyz, 0.0f);
+	#ifdef  HWSKINNED
+		normal = float4(dot(BoneMatC0,normal),dot(BoneMatC1,normal),dot(BoneMatC2,normal),0.0f);
+	#endif
+	
+	vsOut.position.x = dot(U_WorldViewProjectMatrix[0], pos);
+	vsOut.position.y = dot(U_WorldViewProjectMatrix[1], pos);
+	vsOut.position.z = dot(U_WorldViewProjectMatrix[2], pos);
+	vsOut.position.w = dot(U_WorldViewProjectMatrix[3], pos);	
+	vsOut.normal.xyz = mul((float3x4)U_InvTransposeWorldMatrix, float4(normal.xyz, 0.0f));
+	return vsOut;
+}

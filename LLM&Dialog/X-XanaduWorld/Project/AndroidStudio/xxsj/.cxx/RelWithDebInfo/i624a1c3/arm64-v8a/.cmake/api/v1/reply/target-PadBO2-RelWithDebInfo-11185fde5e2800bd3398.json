@@ -1,0 +1,802 @@
+{
+	"artifacts" : 
+	[
+		{
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/build/intermediates/cxx/RelWithDebInfo/i624a1c3/obj/arm64-v8a/libPadBO2.so"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"target_link_libraries",
+			"add_definitions",
+			"include_directories"
+		],
+		"files" : 
+		[
+			"CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 49,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 79,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 80,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 81,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 82,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 83,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 84,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 87,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 148,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 148,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 148,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 148,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 148,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 148,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 148,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 148,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 148,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 148,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 148,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 148,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 148,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 148,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 148,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 148,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 148,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 148,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 148,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 148,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 157,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 164,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 170,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 196,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 196,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 196,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 196,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 196,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 196,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 196,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 44,
+				"parent" : 0
+			},
+			{
+				"command" : 3,
+				"file" : 0,
+				"line" : 59,
+				"parent" : 0
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : "-g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++20 -Wall -frtti -fexceptions -fsigned-char -O2 -g -DNDEBUG -fPIC"
+				}
+			],
+			"defines" : 
+			[
+				{
+					"backtrace" : 39,
+					"define" : "NDEBUG"
+				},
+				{
+					"define" : "PadBO2_EXPORTS"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 40,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/../../../../../EchoSDK/Include/ThirdParty/cjson"
+				},
+				{
+					"backtrace" : 40,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/../../../../../EchoSDK/Include/ThirdParty/tinythread"
+				},
+				{
+					"backtrace" : 40,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/../../../../../EchoEngine/Code/Core/Include"
+				},
+				{
+					"backtrace" : 40,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/../../../../../EchoEngine/Code/Core/Include/Role"
+				},
+				{
+					"backtrace" : 40,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/../../../../../EchoEngine/Code/Core/PrivateInclude"
+				},
+				{
+					"backtrace" : 40,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/../../../../../GameEngine/Include"
+				},
+				{
+					"backtrace" : 40,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/../../../../../GameEngine/PrivateInclude"
+				},
+				{
+					"backtrace" : 40,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/../../../../../EchoCommon/Include"
+				},
+				{
+					"backtrace" : 40,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/../../../../../EchoCommon/PrivateInclude"
+				},
+				{
+					"backtrace" : 40,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/../../../../../EchoPhysics/Include"
+				},
+				{
+					"backtrace" : 40,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/../../../../../EchoPhysics/PrivateInclude"
+				},
+				{
+					"backtrace" : 40,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/../../../../../EchoComponent/Include"
+				},
+				{
+					"backtrace" : 40,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/../../../../../EchoComponent/PrivateInclude"
+				},
+				{
+					"backtrace" : 40,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/../../../../../EchoGame/Include"
+				},
+				{
+					"backtrace" : 40,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/../../../../../EchoGame/PrivateInclude"
+				},
+				{
+					"backtrace" : 40,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/../../../../../EchoEngine/Code/Core/Source/FGUIParser"
+				},
+				{
+					"backtrace" : 40,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/../../../../../EchoEngine/Code/Core/Source/FGUIParser/entt/src"
+				},
+				{
+					"backtrace" : 8,
+					"isSystem" : true,
+					"path" : "C:/Users/Pixel/.gradle/caches/transforms-3/c55f3896fe1d406619238fdd1e7796d2/transformed/games-activity-2.0.2/prefab/modules/game-activity_static/include"
+				}
+			],
+			"language" : "CXX",
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20,
+				21
+			],
+			"sysroot" : 
+			{
+				"path" : "D:/AndroidSDk/NDK/26.1.10909125/toolchains/llvm/prebuilt/windows-x86_64/sysroot"
+			}
+		}
+	],
+	"dependencies" : 
+	[
+		{
+			"backtrace" : 7,
+			"id" : "EchoCommon::@d4f1c738e2a6146cc808"
+		},
+		{
+			"backtrace" : 3,
+			"id" : "EchoComponent::@b0218a90516a3ba88262"
+		},
+		{
+			"backtrace" : 5,
+			"id" : "EchoCore::@678582e5671f465d3ded"
+		},
+		{
+			"backtrace" : 6,
+			"id" : "EchoPhysics::@af15fd6f819d87d4c0c4"
+		},
+		{
+			"backtrace" : 4,
+			"id" : "EchoEngine::@0e49147075b65a8e5843"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "EchoGame::@3090557f1f3a773c08b4"
+		}
+	],
+	"id" : "PadBO2::@6890427a1f51a3e7e1df",
+	"link" : 
+	{
+		"commandFragments" : 
+		[
+			{
+				"fragment" : "-static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments  -Wl,--gc-sections",
+				"role" : "flags"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libEchoGame.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 3,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libEchoComponent.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 4,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libEchoEngine.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 5,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libEchoCore.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 6,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libEchoPhysics.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 7,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libEchoCommon.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 8,
+				"fragment" : "C:\\Users\\Pixel\\.gradle\\caches\\transforms-3\\c55f3896fe1d406619238fdd1e7796d2\\transformed\\games-activity-2.0.2\\prefab\\modules\\game-activity_static\\libs\\android.arm64-v8a\\libgame-activity_static.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 9,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libRenderCommand.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 10,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libRenderCommandGLES3.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 11,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libRenderCommandVulkan.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 12,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libtinythread.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 13,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libEchoJson.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 14,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libfreetype.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 15,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libFreeImage.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 16,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\liblibpng.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 17,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libcpufeatures.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 18,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libmd5.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 19,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libktx.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 20,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libzzip.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 21,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libsqlite.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 22,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libavcodec.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 23,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libavdevice.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 24,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libavfilter.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 25,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libavformat.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 26,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libavutil.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 27,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libswresample.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 28,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libswscale.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 29,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libPhysX.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 30,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libfmod.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 31,
+				"fragment" : "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libfmodstudio.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 32,
+				"fragment" : "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\sysroot\\usr\\lib\\aarch64-linux-android\\24\\libEGL.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 33,
+				"fragment" : "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\sysroot\\usr\\lib\\aarch64-linux-android\\24\\libGLESv3.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 34,
+				"fragment" : "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\sysroot\\usr\\lib\\aarch64-linux-android\\24\\libm.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 35,
+				"fragment" : "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\sysroot\\usr\\lib\\aarch64-linux-android\\24\\libz.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 36,
+				"fragment" : "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\sysroot\\usr\\lib\\aarch64-linux-android\\24\\liblog.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 37,
+				"fragment" : "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\sysroot\\usr\\lib\\aarch64-linux-android\\24\\libandroid.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 38,
+				"fragment" : "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\sysroot\\usr\\lib\\aarch64-linux-android\\24\\libmediandk.so",
+				"role" : "libraries"
+			},
+			{
+				"fragment" : "-latomic -lm",
+				"role" : "libraries"
+			}
+		],
+		"language" : "CXX",
+		"sysroot" : 
+		{
+			"path" : "D:/AndroidSDk/NDK/26.1.10909125/toolchains/llvm/prebuilt/windows-x86_64/sysroot"
+		}
+	},
+	"name" : "PadBO2",
+	"nameOnDisk" : "libPadBO2.so",
+	"paths" : 
+	{
+		"build" : ".",
+		"source" : "."
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20,
+				21
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/AsyncApp.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/AsyncAppBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/Barrier.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/BuildingTest.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/CmdChain.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/EchoMiniMap.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/EchoNPCController.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/EchoPlayerObj.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/EchoPlayerObjManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/EchoRobotObj.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/EchoRobotObjManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/EchoSphericalController.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/EchoTerrainController.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/FrameControl.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/LogicWrapper.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/RewindHeap.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/SceneHeatMap.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/SyncApp.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/appview.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/PlatformAndroid/android_main.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/PlatformAndroid/android_native_glue.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Source/PlatformAndroid/platform_android.cpp",
+			"sourceGroupIndex" : 0
+		}
+	],
+	"type" : "SHARED_LIBRARY"
+}

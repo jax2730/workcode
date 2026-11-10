@@ -1,0 +1,184 @@
+// xy for center uv &&
+// z for loop count
+// w for currentZPos
+float4 U_PSCustom0;
+
+// xy for near and far clip plane &&
+// z for effectLength
+// w for effectWidth
+float4 U_PSCustom2; 
+
+
+struct PS_INPUT
+{
+    float4 i_Position	: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+	float o_Depth  : SV_Depth;
+};
+
+//integer hash
+float hash(int2 p)
+{  
+
+    // 2D -> 1D
+    int n = p.x*3 + p.y*113;
+
+    // 1D hash by Hugo Elias
+	n = (n << 13) ^ n;
+    n = n * (n * n * 15731 + 789221) + 1376312589;
+    return -1.0+2.0*float( n & 0x0fffffff)/float(0x0fffffff);
+}
+
+//2d hash function
+float2 hash2(float2 p ) {
+	p = floor(p);
+    return frac(sin(float2(dot(p,float2(127.1,311.7)),
+                         	dot(p,float2(269.5,183.3))
+                         ))*43758.5453);
+}
+
+PS_OUTPUT main(PS_INPUT i)
+{
+	PS_OUTPUT psOut;
+	psOut.o_Color = float4(0.0,0.0,0.0,1.0);
+	
+	float3 col = float3(0.0,0.0,0.0);
+	
+	float offset = U_PSCustom0.w;									//特效速度
+	float effectLength = U_PSCustom2.z * 0.2f; 		// 特效z方向长度
+	float thickness = U_PSCustom2.w * 0.1f; 			//特效宽度
+	thickness = (32.0 -27.0 * thickness);
+
+	float nearPlane = U_PSCustom2.x;			//近平面距离
+	float farPlane = U_PSCustom2.y;				//远平面距离
+
+	float alpha = U_PSCustom0.z;
+	float2 uv = i.i_UV;
+	
+	float2 center = U_PSCustom0.xy;
+	
+	float linearDepth = min(nearPlane + 100.f, farPlane);
+	float invLinearDepth = 1.f / linearDepth;
+	float invFar = 1.f / farPlane;
+	float invNear = 1.f / nearPlane;
+	float depth = (invLinearDepth - invNear) / (invFar - invNear);
+
+	psOut.o_Depth = depth;
+
+
+	// 光线的xy方向在[-1,1]范围内
+	float3 rayDirection = float3(2.0 * (uv - U_PSCustom0.xy), 1.0f);
+	//rayDirection = normalize(rayDirection);
+
+	//temp与temp2的插值的比值影响粒子长度
+	float temp2 = effectLength;
+	float temp = 1.f / (temp2 + 0.1f); //speed 与 speed2 之间的差值影响光带的长度
+	float t0 =temp2 * 0.5f * temp;
+
+    //光线步长
+	float3 stp = rayDirection / max(abs(rayDirection.x), abs(rayDirection.y));
+
+	//光带起始pos
+	float3 startPos = .5;
+	float3 currentPos = startPos;
+
+	//展开循环--------------------------------------------------------------------------------------
+	//loop1
+	currentPos = 16.f * stp + startPos;
+	float z = hash2(currentPos.xy).x;//noise(pos.xy).x;//随机采样深度
+	z = frac(z - offset);
+	float d = 50.0*z-currentPos.z;
+	float w = max(0.0,1.0-thickness*length(frac(currentPos.xy)-.5));	
+	w = w * w;
+	float t1 = d * temp;
+	float3 c = max(float3(0.0,0.0,0.0), float3(1.0-abs(t1 - t0), 1.0-abs(t1), 1.0-abs(t1 + t0)));
+	float a = saturate(alpha - 0.f); 
+	col += 1.5 * (1.f - z) * c * w * a;
+
+	//loop2
+	currentPos = 8.f * stp + startPos;
+	z = hash2(currentPos.xy);
+	z = frac(z - offset);
+	d = 50.f * z - currentPos.z;
+	w = max(0.f,1.f - thickness * length(frac(currentPos.xy)- 0.5f));
+	w = w * w;
+	t1 = d * temp;
+	c = max(float3(0.f,0.f,0.f), float3(1.f-abs(t1 - t0), 1.0-abs(t1), 1.0 - abs(t1+t0)));
+	a = saturate(alpha - 1.f);
+	col += 1.5 * (1.0 - z) * c * w * a;
+
+	//loop3
+	currentPos = 24.f * stp + startPos;
+	z = hash2(currentPos.xy);
+	z = frac(z - offset);
+	d = 50.f * z - currentPos.z;
+	w = max(0.f,1.f - thickness * length(frac(currentPos.xy)- 0.5f));
+	w = w * w;
+	t1 = d * temp;
+	c = max(float3(0.f,0.f,0.f), float3(1.f-abs(t1 - t0), 1.0-abs(t1), 1.0 - abs(t1+t0)));
+	a = saturate(alpha - 2.f);
+	col += 1.5 * (1.0 - z) * c * w * a;
+
+	//loop4
+	currentPos = 12.f * stp + startPos;
+	z = hash2(currentPos.xy);
+	z = frac(z - offset);
+	d = 50.f * z - currentPos.z;
+	w = max(0.f,1.f - thickness * length(frac(currentPos.xy)- 0.5f));
+	w = w * w;
+	t1 = d * temp;
+	c = max(float3(0.f,0.f,0.f), float3(1.f-abs(t1 - t0), 1.0-abs(t1), 1.0 - abs(t1+t0)));
+	a = saturate(alpha - 3.f);
+	col += 1.5 * (1.0 - z) * c * w * a;
+
+	//loop5
+	currentPos = 20.f * stp + startPos;
+	z = hash2(currentPos.xy);
+	z = frac(z - offset);
+	d = 50.f * z - currentPos.z;
+	w = max(0.f,1.f - thickness * length(frac(currentPos.xy)- 0.5f));
+	w = w * w;
+	t1 = d * temp;
+	c = max(float3(0.f,0.f,0.f), float3(1.f-abs(t1 - t0), 1.0-abs(t1), 1.0 - abs(t1+t0)));
+	a = saturate(alpha - 4.f);
+	col += 1.5 * (1.0 - z) * c * w * a;
+
+	//loop6
+	currentPos = 28.f * stp + startPos;
+	z = hash2(currentPos.xy);
+	z = frac(z - offset);
+	d = 50.f * z - currentPos.z;
+	w = max(0.f,1.f - thickness * length(frac(currentPos.xy)- 0.5f));
+	w = w * w;
+	t1 = d * temp;
+	c = max(float3(0.f,0.f,0.f), float3(1.f-abs(t1 - t0), 1.0-abs(t1), 1.0 - abs(t1+t0)));
+	a = saturate(alpha - 5.f);
+	col += 1.5 * (1.0 - z) * c * w * a;
+
+	//loop7
+	currentPos = 4.f * stp + startPos;
+	z = hash2(currentPos.xy);
+	z = frac(z - offset);
+	d = 50.f * z - currentPos.z;
+	w = max(0.f, 1.f - thickness * length(frac(currentPos.xy)- 0.5f));
+	w = w * w;
+	t1 = d * temp;
+	c = max(float3(0.f,0.f,0.f), float3(1.f-abs(t1 - t0), 1.0-abs(t1), 1.0 - abs(t1+t0)));
+	a = saturate(alpha - 6.f);
+	col += 1.5 * (1.0 - z) * c * w * a;
+	//----------------------------------------------------------------------------------------------
+
+
+	float blend =max(col.x, max(col.y,col.z));
+	col = pow(col, 1.0 / 2.2);
+
+	psOut.o_Color = float4(col,blend);
+	
+	
+	return psOut;
+}

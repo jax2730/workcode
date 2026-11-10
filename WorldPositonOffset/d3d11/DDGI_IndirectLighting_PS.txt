@@ -1,0 +1,101 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function_Lighting.inl>
+#include <PBR_Function.inl>
+
+//Note: Gbuffer与SceneColor的sampler为点采样
+Texture2D S_GBuffer0;
+SamplerState S_GBuffer0SamplerState;
+Texture2D S_GBuffer1;
+SamplerState S_GBuffer1SamplerState;
+Texture2D S_GBuffer2;
+SamplerState S_GBuffer2SamplerState;
+Texture2D S_DeferredSC;
+SamplerState S_DeferredSCSamplerState;
+
+Texture2D S_Depth;
+SamplerState S_DepthSamplerState;
+
+Texture2D<float> S_2DExt0;
+#define SSAOOutput S_2DExt0
+
+float4 U_InvViewProjectMatrix[4];
+float4 U_MainCamViewMatrix;
+
+float4 U_PSCustom0; // xy: viewPortRange, z: SSAOEnable
+#define ViewPortRange U_PSCustom0.xy
+#define SSAOEnable U_PSCustom0.z
+
+float3 Diffuse_Lambert(float3 diffuseColor)
+{
+    return diffuseColor * (1 / PI);
+}
+
+struct PS_INPUT
+{
+    float4 position	: SV_POSITION;
+	float4 uv		: TEXCOORD0;
+	float4 pos 		: TEXCOORD1;
+};
+
+struct PS_OUTPUT
+{
+	float4 color : SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+	float2 uv = IN.uv.xy * U_PSCustom0.xy;
+	float4 pos;
+	pos.xy = IN.pos.xy;
+	pos.z = S_Depth.Sample(S_DepthSamplerState, uv).r;
+	pos.w = 1.0f;
+	pos = pos / pos.z;
+
+	int3 screenLocation;
+	screenLocation.x = int(IN.position.x);
+	screenLocation.y = int(IN.position.y);
+	screenLocation.z = 0;
+
+	float3 wPos;
+	wPos.x = dot(U_InvViewProjectMatrix[0], pos);
+	wPos.y = dot(U_InvViewProjectMatrix[1], pos);
+	wPos.z = dot(U_InvViewProjectMatrix[2], pos);
+	float wPosw = dot(U_InvViewProjectMatrix[3], pos);
+	wPos = wPos / wPosw;
+
+    float4 gBuffer2Data = S_GBuffer2.Load(screenLocation);        // shading model / roughness / metalness / diffuseAO
+    ShadingModelInfo shadingModel = DecodeShadingModel(gBuffer2Data.w);
+    float3 sceneColor = S_DeferredSC.Sample(S_DeferredSCSamplerState, uv).rgb;  // indirect lighting & emission
+    
+    // Unlit
+    if(shadingModel.emptyGBuffer)
+    {
+        discard;
+    }
+
+	float4 gBuffer0Data = S_GBuffer0.Load(screenLocation);        // baseColor & alpha
+    float4 gBuffer1Data = S_GBuffer1.Load(screenLocation);        // normal & custom data
+
+    SurfaceData surface;
+    // extrct data from gBuffer and fill surface info   
+    {
+        surface.worldPos = wPos;
+        surface.N = DecodeNormal(gBuffer1Data.xyz);
+        surface.V = normalize(U_PS_CameraPosition.xyz - wPos.xyz);
+        surface.baseColor = pow(gBuffer0Data.xyz, 2.2);
+        surface.NdotV = saturate(dot(surface.N, surface.V));
+        surface.metalness = gBuffer2Data.x;
+        surface.roughness = gBuffer2Data.y;
+        surface.diffuseAO = gBuffer2Data.z;
+        
+        //the following three params are just default values, real values are computed later
+        surface.specularAO = 1.f;
+        surface.preIntegratedBRDF = 1.f;
+        surface.diffuseAlbedo = 1.f; 
+    }
+
+    psOut.color.rgb = Diffuse_Lambert(surface.baseColor) * surface.diffuseAO;
+	return psOut;
+}

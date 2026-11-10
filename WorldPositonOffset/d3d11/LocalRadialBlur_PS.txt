@@ -1,0 +1,154 @@
+#define SAMPLE_COUNT 10
+
+Texture2D S_2DExt0; // Depth
+SamplerState S_2DExt0SamplerState;
+Texture2D S_2DExt1; // Color
+SamplerState S_2DExt1SamplerState;
+
+float4 U_PSCustom0;    // xy: ViewPort, z: JitterIntensity, w: CenterHotspot
+float4 U_PSCustom1[4]; // InvViewProjectMatrix
+float4 U_PSCustom2;    // xyz: SphereCenter, w: SphereRadius
+float4 U_PSCustom3;    // xyz: CameraPos,   w: BlurStrength(移位)
+float4 U_PSCustom4;    // xy: CenterUV,     z: RayLength,      w: Aberration
+float4 U_PSCustom5;    // x: HollowRange
+
+#define DepthBuffer S_2DExt0
+#define DepthBufferSampler S_2DExt0SamplerState
+#define ColorBuffer S_2DExt1
+#define ColorBufferSampler S_2DExt1SamplerState
+
+#define ViewPortRange    U_PSCustom0.xy
+#define JitterIntensity  U_PSCustom0.z   // 控制毛刺幅度
+#define CenterHotspot    U_PSCustom0.w   // 控制中心亮斑衰减
+#define InvVP            U_PSCustom1
+#define SphereCenter     U_PSCustom2.xyz
+#define SphereRadius     U_PSCustom2.w
+#define CameraPos        U_PSCustom3.xyz
+#define BlurStrength     U_PSCustom3.w 
+#define CenterUV         U_PSCustom4.xy
+#define RayLength        U_PSCustom4.z   // 射线长度
+#define Aberration       U_PSCustom4.w   // 色散强度
+#define HollowRange      U_PSCustom5.x   // 控制中心清晰区域的大小
+
+float Rand(float2 uv) {
+    return frac(sin(dot(uv, float2(12.9898, 78.233))) * 43758.5453);
+}
+
+float3 GetSceneWorldPos(float2 uv)
+{
+    float depth = DepthBuffer.Sample(DepthBufferSampler, uv).r;
+    // 深度保护：防止天空盒/远裁剪面出现错误计算
+    if(depth <= 1e-6) depth = 1e-6; 
+
+    float4 ndc = float4(uv.x * 2.0 - 1.0, (1.0 - uv.y) * 2.0 - 1.0, depth, 1.0);
+    float4 world = float4(dot(InvVP[0], ndc), dot(InvVP[1], ndc), dot(InvVP[2], ndc), dot(InvVP[3], ndc));
+    return world.xyz / world.w;
+}
+
+float SphereThicknessMask(float3 camPos, float3 pixelPos, float3 center, float radius)
+{
+    float3 dir = pixelPos - camPos;
+    float dist = length(dir);
+    if (dist <= 1e-4) return 0.0;
+    dir /= dist;
+
+    float3 oc = camPos - center;
+    float b = dot(dir, oc);
+    float c = dot(oc, oc) - radius * radius;
+    float h = b * b - c;
+
+    if (h < 0.0) return 0.0; // 未击中
+
+    float sqrtH = sqrt(h);
+    float tEnter = max(-b - sqrtH, 0.0);
+    float tExit  = -b + sqrtH;
+
+    if (tExit <= 0.0 || dist <= tEnter) return 0.0;
+
+    float tEnd = min(tExit, dist);
+    float lenInside = max(0.0, tEnd - tEnter);
+
+    return saturate(lenInside * (0.5 / radius)); 
+}
+
+float3 DoExplosionBlur(float2 uv, float2 center, float strength)
+{
+    float dist = length(uv - center);
+    float range = max(HollowRange, 0.001);
+    float centerMask = smoothstep(0.0, range, dist);
+    
+    strength *= centerMask;
+
+    if (strength <= 1e-3) return ColorBuffer.Sample(ColorBufferSampler, uv).rgb;
+
+    float2 dir = uv - center;
+    float len = length(dir);
+    if (len < 1e-4) dir = float2(0,0);
+    else dir /= len;
+
+    float noise = Rand(uv); 
+        
+    float3 sum = 0;
+    float totalW = 0;
+    float2 maxOffset = dir * RayLength * strength; 
+
+    [unroll]
+    for(int i=0; i<SAMPLE_COUNT; i++)
+    {
+        float t = float(i) / float(SAMPLE_COUNT - 1);
+        float jitterT = t + (noise - 0.5) * JitterIntensity * t;
+        float2 offsetBase = maxOffset * jitterT;
+
+        float3 sColor;
+        sColor.r = ColorBuffer.Sample(ColorBufferSampler, uv - offsetBase).r;
+        sColor.g = ColorBuffer.Sample(ColorBufferSampler, uv - offsetBase * (1.0 + Aberration * 0.2)).g;
+        sColor.b = ColorBuffer.Sample(ColorBufferSampler, uv - offsetBase * (1.0 + Aberration)).b;
+
+        float lum = dot(sColor, float3(0.3, 0.59, 0.11));
+        float w = 1.0 + lum * 2.0; 
+
+        sum += sColor * w;
+        totalW += w;
+    }
+    return sum / max(totalW, 1e-4);
+}
+
+struct PS_INPUT {
+    float4 i_PosInClip : SV_POSITION;
+    float4 i_UV : TEXCOORD0;
+};
+struct PS_OUTPUT {
+    float4 o_Color : SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+    PS_OUTPUT psOut = (PS_OUTPUT)0;
+    float2 uv = IN.i_UV.xy * ViewPortRange; 
+
+    // 1. 重建世界坐标
+    float3 worldPos = GetSceneWorldPos(IN.i_UV.xy);
+
+    // 2. 计算 3D 遮罩
+    float mask = SphereThicknessMask(CameraPos, worldPos, SphereCenter, SphereRadius);
+
+    float4 baseColor = ColorBuffer.Sample(ColorBufferSampler, uv);
+    if (mask <= 1e-4) {
+        psOut.o_Color = baseColor;
+        return psOut;
+    }
+
+    // 3. 计算最终强度
+    float curvePower = 1.0 / max(CenterHotspot, 0.01); 
+    float finalStrength = BlurStrength * pow(mask, curvePower);
+
+    // 4. 执行爆炸模糊
+    float3 blurColor = DoExplosionBlur(uv, CenterUV, finalStrength);
+
+    // 5. 混合 (修复亮度断层)
+    float3 blendedColor = lerp(baseColor.rgb, blurColor, saturate(finalStrength));
+    float3 finalRGB = lerp(baseColor.rgb, blurColor, saturate(finalStrength));
+
+    psOut.o_Color = float4(finalRGB, baseColor.a);
+    return psOut;
+}

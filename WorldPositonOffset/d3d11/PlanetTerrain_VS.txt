@@ -1,0 +1,50 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+float4  U_InvTransposeWorldMatrix[3];
+float4 U_WorldViewProjectMatrix[4];
+float4  U_WorldMatrix[3];
+
+struct VS_INPUT
+{
+	float3 i_Pos		: POSITION0;
+    float3 i_normal			: NORMAL0;
+    float3 i_texcoord			: TEXCOORD0;
+    float2 i_texcoord1			: TEXCOORD1;
+};
+
+struct VS_OUTPUT
+{
+	float4	o_PosInClip			: SV_POSITION;
+    float3 o_normal : NORMAL0;
+    float3 o_texcoord : TEXCOORD0;
+    float2 o_texcoord1 : TEXCOORD1;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	float4  pos =  float4(IN.i_Pos.xyz, 1.0f);
+
+    float4 worldPos;
+    worldPos.x = dot(U_WorldMatrix[0], pos);
+    worldPos.y = dot(U_WorldMatrix[1], pos);
+    worldPos.z = dot(U_WorldMatrix[2], pos);
+                     
+	vsOut.o_PosInClip.x = dot(U_WorldViewProjectMatrix[0], pos);
+	vsOut.o_PosInClip.y = dot(U_WorldViewProjectMatrix[1], pos);
+	vsOut.o_PosInClip.z = dot(U_WorldViewProjectMatrix[2], pos);
+	vsOut.o_PosInClip.w = dot(U_WorldViewProjectMatrix[3], pos);	
+
+    float4 InvTransposeWorldMatrix[3];
+    InvTransposeWorldMatrix[0] = U_InvTransposeWorldMatrix[0];
+    InvTransposeWorldMatrix[1] = U_InvTransposeWorldMatrix[1];
+    InvTransposeWorldMatrix[2] = U_InvTransposeWorldMatrix[2];
+	//vsOut.o_normal = mul((float3x4)InvTransposeWorldMatrix, float4(IN.i_normal, 0.0f));
+    
+    vsOut.o_normal = IN.i_normal;
+    
+    vsOut.o_texcoord = IN.i_texcoord;
+    vsOut.o_texcoord1 = IN.i_texcoord1;
+ 	return vsOut;
+}

@@ -1,0 +1,67 @@
+#include <Common_Uniform_VS.inl>
+
+float4	U_WorldViewProjectMatrix[4];
+float4  U_WorldMatrix[3];
+	
+
+struct VS_INPUT
+{
+	float4 i_Position	: POSITION0;
+#ifdef DIFFUSE_TEX
+	float4 i_UV		: TEXCOORD0;
+#endif
+#ifdef VERTEX_COLOR
+	float4 i_Diffuse	: COLOR0;
+#endif
+};
+
+struct VS_OUTPUT
+{
+	float4 o_PosInClip	  : SV_POSITION;
+	float4 o_worldPos     :TEXCOORD1;
+	float4 o_worldCenter  :TEXCOORD2;
+#ifdef DIFFUSE_TEX
+	float4 o_UV		: TEXCOORD0;
+#endif
+#ifdef VERTEX_COLOR
+	float4 o_Diffuse	: COLOR0;
+#endif
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	IN.i_Position.w = 1.0;
+	
+	vsOut.o_PosInClip.x = dot( IN.i_Position , U_WorldViewProjectMatrix[0] );
+	vsOut.o_PosInClip.y = dot( IN.i_Position , U_WorldViewProjectMatrix[1] );
+	vsOut.o_PosInClip.z = dot( IN.i_Position , U_WorldViewProjectMatrix[2] );
+	vsOut.o_PosInClip.w = dot( IN.i_Position , U_WorldViewProjectMatrix[3] );
+	
+	#ifdef DEPTHOFFSETMANUAL
+		vsOut.o_PosInClip.z -= 0.0001 * vsOut.o_PosInClip.w;
+	#endif
+
+#ifdef DIFFUSE_TEX
+	vsOut.o_UV = IN.i_UV;
+#endif
+
+#ifdef VERTEX_COLOR
+	vsOut.o_Diffuse = IN.i_Diffuse;
+#endif
+
+	float3 center = float3(0,0,0);
+	float4 worldPos = float4(0,0,0,0);
+	float4 worldCenter = float4(0,0,0,0);
+	vsOut.o_worldCenter.xyz = mul((float3x4)U_WorldMatrix,center);
+	vsOut.o_worldPos.xyz = mul((float3x4)U_WorldMatrix,IN.i_Position.xyz);  
+
+#ifdef DIFFUSE_TEX
+	#ifdef EDITOR_MODE
+		#ifdef HierarchicalLOD
+			vsOut.o_PosInClip = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+		#endif
+	#endif
+#endif
+	return vsOut;
+}

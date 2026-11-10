@@ -1,0 +1,811 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+#include <Light_Function_PS.inl>
+#include <Common_Function_PS.inl>
+#include <EnvironmentLight_Function.inl>
+
+#include <Common_GBuffers.inl>
+
+#ifdef CLUSTER_POINT_LIGHT
+	#include "Shadow_Light_Function_PS.inl"
+#endif
+
+// #ifdef AGE
+// #undef AGE
+// #endif
+
+// #ifdef SHADOWPASS
+// 	#ifdef ALPHA_TEST
+// 		float4	U_MaterialDiffuse;
+// 		Texture2D	S_Diffuse;
+// 		SamplerState S_DiffuseSamplerState;
+// 		float4 texDiffuse(float2 vUV) 
+// 		{ 
+// 			return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+// 		}
+// 	#endif
+// #else
+
+
+
+	float4	U_MaterialDiffuse;
+	float4	U_MaterialSpecular;
+	float4	U_MaterialFresnel;
+	float4	U_MaterialCustomParam;
+	float4	U_MaterialCustomParam1;
+	
+	float4	U_LightPower;	//x for lightpower, y for specular offset
+	
+	float4	U_PSGeneralRegister0;
+	float4	U_PSGeneralRegister1;
+	float4	U_PSGeneralRegister2;
+	float4	U_PSGeneralRegister3;
+	float4	U_PSGeneralRegister4;
+	float4	U_PSGeneralRegister5;
+	float4	U_PSGeneralRegister6;
+	float4	U_PSGeneralRegister7;	// x --- view light precent
+	float4	U_PSGeneralRegister8;
+	
+	float4  U_PSGeneralRegister9;
+
+	//注释中的mirror对应UV从右脸翻转到左脸
+	//symmetrical对应uv镜像显示
+
+	float4	U_PSGeneralRegister11; // Cover scale
+	// float4	U_PSGeneralRegister12;	//float4 Eyebrow uv transform;	    //xy --- offset, zw --- tilling
+	// float4	U_PSGeneralRegister13;	//float4 Eyebrow effect 			//x  --- alpha
+	// 																	//y  --- symmetrical
+	// 																	//z  --- mirror
+	// 																	//w  --- rotate angle
+	
+	float4	U_PSGeneralRegister14;	//float3 LipsColor;  float LipsScale;
+	float4	U_PSGeneralRegister15;	//float4 Lips uv transform;			//xy --- offset, zw --- tilling
+	float4	U_PSGeneralRegister16;	//float3 LipsColor2;
+	float4  U_PSGeneralRegister17;	//float4  Lips effect; 				//x  --- alpha
+																		//y  --- roughness
+																		//z  --- symmetrical
+																		//w  --- mirror
+
+	float4	U_PSGeneralRegister18;	//float3 EyeShadowColor;	float EyeShadowScale;
+	float4	U_PSGeneralRegister19;	//float4 EyeShadow uv transform;    //xy --- offset, zw --- tilling
+	float4	U_PSGeneralRegister20;	//float3 EyeShadowColor2;
+	float4	U_PSGeneralRegister21;	//float3 EyeShadow effect;			//x  --- alpha
+																		//y  --- roughness
+																		//z  --- symmetrical
+		
+	float4	U_PSGeneralRegister22;	//float3 EyelinerColor;		float EyelinerScale;
+	float4	U_PSGeneralRegister23;	//float4 Eyeliner uv transform;	    //xy --- offset, zw --- tilling
+	float4	U_PSGeneralRegister24;	//float3 Eyeliner effect;			//x  --- alpha
+																		//y  --- symmetrical
+																		//z  --- mirror
+	
+	float4	U_PSGeneralRegister25;	//float4 Tattoo1 uv transform;      //xy --- offset, zw --- tilling
+	float4	U_PSGeneralRegister27;	//float3 Tattoo1 effect;			//x  --- alpha
+																		//y  --- symmetrical
+																		//z  --- mirror
+ 
+	//note by hejiwei: 后面添加的金属度：除去贴花的妆容金属度使用该uniform中的值
+	//贴花中的金属度从贴图中获取
+	//按着顺序排没地方放金属度了，暂时先放26
+	float4	U_PSGeneralRegister26;	//metallic;							//x  --- eyebrow metallic
+																		//y  --- lips metallic
+																		//z  --- eyeshadow metallic
+																		//w  --- eyeliner metallic
+
+	float4	U_PSGeneralRegister29; 	//x ---current mask percentage
+									//y --- if 1 on Lattice Cull Mask
+									//z ---alpha range
+									//w ---direction if w >= 0 Positive elseif w < 0 Reverse
+
+	float4 U_PSGeneralRegister31;	//xyz ---dissolve_edge_color
+									//w ---dissolve_color_strength
+	float4 U_PSGeneralRegister32;	//x ---dissolve tilling U
+									//y ---dissolve tilling V
+ 									//z ---dissolve_edge_width
+									//w ---dissolve_soft_value
+
+	Texture2D	S_Diffuse;
+	SamplerState S_DiffuseSamplerState;
+
+	//if define texture_mask
+	//w --- dye color mask
+	Texture2D	S_Specular;			//Texture2D Mixmap of specular and roughness;
+	SamplerState S_SpecularSamplerState;
+	Texture2D	S_Bump;
+	SamplerState S_BumpSamplerState;
+
+	//Texture2D EyelinerMask
+	// y --- eye liner mask
+	Texture2D S_Custom;				
+	SamplerState S_CustomSamplerState;
+
+
+	//Texture2D EyeShadow and eye liner mix
+	// x --- eye shadow roughness
+	// y --- eye shadow mask1
+    // z --- eye shadow mask2
+	Texture2D S_Custom5;
+	SamplerState S_Custom5SamplerState;
+
+	// note by hejiwei:在开启溶解时禁用贴花，保证贴图通道够用
+	#ifndef DISSOLVE
+		//Texture2D Tattoo1Color;
+		// xyz --- tattoo1 color rgb
+		// w   --- tattoo1 mask
+		Texture2D S_Custom4;
+		SamplerState S_Custom4SamplerState;
+
+		//Texture2D Tattoo1 Mix:
+		// xy --- nor.xy, 
+		// z  --- metallic,
+		// w  --- roughness
+		Texture2D S_Custom6;			
+		SamplerState S_Custom6SamplerState;
+	#else
+		Texture2D S_Custom7;
+		SamplerState S_Custom7SamplerState;
+
+		float2 cal_uv(float2 uv, float tilling_u, float tilling_v, float offset_u, float offset_v, float angle)
+		{
+			float2 new_uv;
+
+			//uv平铺
+			new_uv.x = uv.x * tilling_u;
+			new_uv.y = uv.y * tilling_v;
+
+			//偏移
+			new_uv.x += offset_u;
+			new_uv.y += offset_v;
+
+			//让平铺后偏移的 UV 重新变回 [0,1] 范围，形成平铺循环
+			new_uv.x = fmod(new_uv.x, tilling_u) / tilling_u;
+			new_uv.y = fmod(new_uv.y, tilling_v) / tilling_v;
+
+			//平移到中心
+			float2 temp_uv = new_uv;
+			temp_uv.x = new_uv.x - 0.5;
+			temp_uv.y = new_uv.y - 0.5;
+
+			//旋转
+			float temp_u = temp_uv.x * cos(angle) - temp_uv.y * sin(angle);
+			float temp_v = temp_uv.x * sin(angle) + temp_uv.y * cos(angle);
+
+			//移回中心
+			new_uv.x = temp_u + 0.5;
+			new_uv.y = temp_v + 0.5;
+			//恢复tilling尺寸
+			new_uv.x *= tilling_u;
+			new_uv.y *= tilling_v;
+
+			return new_uv;
+		}
+	#endif
+
+	#ifdef AGE
+		// Texture2D age NormalMap
+		// xy --- age normal.xy
+		// z  --- age normalmask
+		Texture2D S_Custom8;
+		SamplerState S_Custom8SamplerState;
+	#endif
+
+	//Texture2D LipsMaskAndRoughness
+	// x --- roughess
+	// y --- color1 mask
+	// z --- color2 mask
+	Texture2D S_Custom10;			
+	SamplerState S_Custom10SamplerState;
+
+	float4 texDiffuse(float2 vUV) 
+	{ 
+		return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+	}
+
+    float3 envBRDFApprox(float3 specularColor, float roughness, float NoV){
+		float4 c0 = float4(-1.0,	-0.0275,	-0.572,		0.022);
+		float4 c1 = float4(1.0,		0.0425,		1.04,		-0.04);
+	
+	    float4 r = roughness * c0 + c1;
+		float a004 = min(r.x * r.x, exp2(-9.28 * NoV)) * r.x + r.y;
+		float2 AB = float2(-1.04, 1.04) * a004 + r.zw;
+		return specularColor * AB.x + AB.y;
+	}
+
+    #ifdef ENVIRONMENT_MAP
+      //glossy info
+    	TextureCube	S_GlobalEnvironmentCubeMap;
+    	SamplerState S_GlobalEnvironmentCubeMapSamplerState;
+    	float4 U_GlobalEnvironmentCubeMipMapLevels;
+
+      //diffuse info
+    	float4x4 U_PBR_RMatrix;
+    	float4x4 U_PBR_GMatrix;
+    	float4x4 U_PBR_BMatrix;
+    	//total luminance
+    	float4  U_PBR_Environment_Explosure;
+    #endif
+
+// #endif
+
+// 判断当前uv是否在[0,1]空间中
+bool UVInRange(in half2 uv)
+{
+	if (uv.x >= 0.0 && uv.x <= 1.0 &&
+		uv.y >= 0.0 && uv.y <= 1.0)
+		return true;
+	else
+		return false;
+}
+
+// 将面部uv逆变换到妆容的UV空间
+// affine.xy：uv平移
+// affine.zw: uv缩放
+// rotateAngle: uv沿顺时针旋转的角度
+half2 MapUVToMakeUpSpace(in half2 currentUV,in half4 affine,in half rotateAngle)
+{
+	// 逆时针旋转,以眉毛中心为旋转点
+	half2 leftTop = affine.xy;
+	half2 rightBottom = affine.xy + affine.zw;
+	half2 rotateCenter = 0.5h * (leftTop + rightBottom);
+
+	//TODO：现在传的uniform的是0 - 1的参数
+	//妆容的旋转只考虑了眉毛，所以只允许转45度
+	rotateAngle = (rotateAngle - 0.5h) * 90.h;
+
+	float rotateRadians = radians(-rotateAngle);
+	float2x2 rotateMatrix;
+	rotateMatrix[0] = float2(cos(rotateRadians),-sin(rotateRadians));
+	rotateMatrix[1] = float2(sin(rotateRadians),cos(rotateRadians));
+	
+	half2 result = currentUV - rotateCenter;
+	result = mul(rotateMatrix,result);
+	result += rotateCenter;
+	
+	// 平移
+	result = result - affine.xy;
+
+	// 缩放
+	result = result / affine.zw;
+
+	return result;
+}
+
+
+// 将面部uv逆变换到妆容的UV空间
+// affine.xy：uv平移
+// affine.xy: uv缩放
+half2 MapUVToMakeUpSpace(in half2 currentUV, in half4 affine)
+{
+	half2 result = currentUV;
+
+	// 平移
+	result = result - affine.xy;
+
+	// 缩放
+	result = result / affine.zw;
+	result += 0.5h;
+	return result;	
+}
+
+half2 MirrorUV(in half2 uv)
+{
+	uv.x = 1.0 - uv.x;
+	return uv;
+}
+
+//note： 添加metallic 与 makeupMetallicValue两个参数用于给部分妆容单独设置金属度
+void OverlapMakeup(inout half3 cOriColor,inout half metallic, in half2 vUV, in half2 vMirroredUV,
+		in half4 vUVRange, in Texture2D texMask, in SamplerState samState,
+		in half4 cColor, in half fTranspancy, in half makeupMetallicValue)
+{
+	half originMask = 0.0;
+	half mirroredMask= 0.0;
+	if (UVInRange(vUV))
+	{
+		originMask = texMask.SampleLevel(samState, vUV, 0.h).g;
+	}
+	if(UVInRange(vMirroredUV))
+	{
+		mirroredMask = texMask.SampleLevel(samState, vMirroredUV,0.h).g;
+	}
+	//half fMask = originMask >= mirroredMask ? originMask : mirroredMask;
+	half fMask = max(originMask, mirroredMask);
+	if(fMask < 1e-5)
+		return;
+
+	fMask = max(fMask - (1.h - cColor.w), 0.h) * fTranspancy;
+	cColor.rgb = pow(cColor.rgb, 2.2f);
+	cOriColor = lerp(cOriColor, cOriColor * cColor.rgb * 2.h, fMask);
+	cOriColor = lerp(cOriColor, cColor.rgb, fMask);
+	metallic = lerp(metallic, makeupMetallicValue, fMask);
+}
+
+void sampleTattoo(inout half mask, inout half4 color, inout half2 finalUV, inout half4 normalColor,
+in half2 uv, in half2 symUV, in half alpha, in Texture2D tex, in SamplerState samState, 
+in Texture2D normTex, in SamplerState normState)
+{
+	half4 tattooOriginColor = tex.SampleLevel(samState, uv, 0.0h);
+	half4 tattooMirroredColor = tex.SampleLevel(samState, symUV, 0.0h);
+
+	if(!UVInRange(uv))
+	{
+		tattooOriginColor = 0.h;
+	}
+	if(!UVInRange(symUV))
+	{
+		tattooMirroredColor = 0.h;
+	}
+
+	color 	=  tattooOriginColor.w >= tattooMirroredColor.w ? tattooOriginColor : tattooMirroredColor;
+    color.rgb = pow(color.rgb, 2.2h);
+	finalUV = tattooOriginColor.w >= tattooMirroredColor.w ? uv : symUV;
+	mask = alpha * color.w;
+	normalColor = normTex.SampleLevel(normState, finalUV, 0.0h);
+	if(mask <= 0.005h)
+	{
+		normalColor = 0.0h;
+	}
+}
+
+struct PS_INPUT
+{
+    float4	i_PosInClip			: SV_POSITION;
+// #ifdef SHADOWPASS
+// 	#ifdef ALPHA_TEST
+// 		float4 	i_UV			: TEXCOORD0;
+// 	#endif
+// #else
+	float4 	i_UV				: TEXCOORD0;
+	float4 	i_Fog				: TEXCOORD1;
+	float4	i_Normal			: TEXCOORD2;
+	float4	i_WPos				: TEXCOORD3;
+	
+	float4	i_Tangent			: TEXCOORD4;
+	float4	i_Binormal			: TEXCOORD5;
+	float4	i_EyeDir			: TEXCOORD6;
+	#ifdef USESHADOWMAP
+		float	i_ViewSpaceZ					: TEXCOORD7;
+	#endif
+	#ifdef MOTIONBLUR
+		float4  i_VelUV     : TEXCOORD15;
+	#endif
+// #endif
+#ifdef PARABOLOID_MAPPING
+	float	i_ClipDepth			: TEXCOORD12;
+#endif
+	float4  i_PosInModel	: TEXCOORD13;
+	float4  i_BoundBoxRange     : TEXCOORD14;
+};
+
+#define PS_OUTPUT GBuffers
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+#ifdef PARABOLOID_MAPPING
+	clip(IN.i_ClipDepth);
+#endif
+
+	half2 uv = IN.i_UV.xy;
+
+	half4 diffuseColor = S_Diffuse.Sample(S_DiffuseSamplerState, uv);
+		
+	#ifdef ALPHA_TEST
+		clip(diffuseColor.a - U_MaterialDiffuse.a);
+	#endif
+
+	half alphaValue = diffuseColor.a;
+	half3 baseMap = pow(diffuseColor.rgb, 2.2);
+  
+	#ifdef TEXTURE_MASK
+        half mask = S_Specular.Sample(S_SpecularSamplerState, uv).w;
+		half3 colorMask = pow(U_PSGeneralRegister4.rgb, 2.2);
+        baseMap = lerp(baseMap, baseMap * colorMask, mask);
+	#endif
+
+	half3 N = normalize(IN.i_Normal.xyz);
+	half3 V = normalize(IN.i_EyeDir.xyz);
+	half3 L = normalize(-U_MainLightDirection.xyz);
+	float3 H = normalize(L + V);
+	float NdotH = max(dot(N, H), 0.0);
+	half wetFinal = U_PSGeneralRegister5.w * NdotH;
+
+	#ifdef USESHADOWMAP
+		float4 shadowSpacePos[SHADOWSPLITE];
+		ProjectToLightSpace(shadowSpacePos, IN.i_WPos.xyz, N, IN.i_ViewSpaceZ);
+	#endif
+	
+	//先计算每个妆容的uv（是否镜像
+	half2 vMirroredUV = MirrorUV(uv);
+	// half2 blusherUV 	= U_PSGeneralRegister10.z > 0.h ? vMirroredUV : uv;
+	// half2 eyebrowUV 	= U_PSGeneralRegister13.z > 0.h ? vMirroredUV : uv;
+	half2 lipsUV			= U_PSGeneralRegister17.w > 0.h ? vMirroredUV : uv;
+	half2 eyeshadowUV = U_PSGeneralRegister21.w > 0.h ? vMirroredUV : uv;
+	half2 eyelinerUV 	= U_PSGeneralRegister24.z > 0.h ? vMirroredUV : uv;
+
+	#ifndef DISSOLVE
+		half2 tattooUV1 	= U_PSGeneralRegister27.z > 0.h ? vMirroredUV : uv;
+		// half2 tattooUV2 	= U_PSGeneralRegister9.z  > 0.h ? vMirroredUV : uv;
+	#endif
+
+	//计算对称uv（是否开启对称
+	// half2 blusherMirroredUV		= U_PSGeneralRegister10.y > 0.h ? half2(1.h - blusherUV.x, blusherUV.y) 		: blusherUV;
+	// half2 eyebrowMirroredUV 	= U_PSGeneralRegister13.y > 0.h ? half2(1.h - eyebrowUV.x, eyebrowUV.y)			: eyebrowUV;
+	half2 lipsMirroredUV 			= U_PSGeneralRegister17.z > 0.h ? half2(1.h - lipsUV.x, lipsUV.y) 					: lipsUV;
+	half2 eyeshadowMirroredUV = U_PSGeneralRegister21.z > 0.h ? half2(1.h - eyeshadowUV.x, eyeshadowUV.y) : eyeshadowUV;
+	half2 eyelinerMirroredUV 	= U_PSGeneralRegister24.y > 0.h ? half2(1.h - eyelinerUV.x, eyelinerUV.y) 	: eyelinerUV;
+
+	#ifndef DISSOLVE
+		half2 tattooMirroredUV1 	= U_PSGeneralRegister27.y > 0.h ? half2(1.h - tattooUV1.x, tattooUV1.y) 		: tattooUV1;
+		// half2 tattooMirroredUV2		= U_PSGeneralRegister9.y  > 0.h ? half2(1.h - tattooUV2.x, tattooUV2.y) 		: tattooUV2;
+  #endif
+	
+	// blusherUV 	= MapUVToMakeUpSpace(blusherUV,	 	U_PSGeneralRegister9);
+	// eyebrowUV		= MapUVToMakeUpSpace(eyebrowUV,	 	U_PSGeneralRegister12,	U_PSGeneralRegister13.w);//眉毛需要旋转
+	lipsUV 			= MapUVToMakeUpSpace(lipsUV,		 	U_PSGeneralRegister6);
+	eyeshadowUV = MapUVToMakeUpSpace(eyeshadowUV, U_PSGeneralRegister19);
+	eyelinerUV 	= MapUVToMakeUpSpace(eyelinerUV,	U_PSGeneralRegister23);
+	
+	#ifndef DISSOLVE
+		tattooUV1 	= MapUVToMakeUpSpace(tattooUV1,		U_PSGeneralRegister25);
+		// tattooUV2		= MapUVToMakeUpSpace(tattooUV2, 	U_PSGeneralRegister8);
+	#endif
+
+	// blusherMirroredUV 	= MapUVToMakeUpSpace(blusherMirroredUV, 	U_PSGeneralRegister9);
+	// eyebrowMirroredUV		= MapUVToMakeUpSpace(eyebrowMirroredUV, 	U_PSGeneralRegister12, U_PSGeneralRegister13.w);
+	lipsMirroredUV 			= MapUVToMakeUpSpace(lipsMirroredUV,    	U_PSGeneralRegister6);
+	eyeshadowMirroredUV = MapUVToMakeUpSpace(eyeshadowMirroredUV,	U_PSGeneralRegister19);
+	eyelinerMirroredUV 	= MapUVToMakeUpSpace(eyelinerMirroredUV, 	U_PSGeneralRegister23);
+
+	#ifndef DISSOLVE
+		tattooMirroredUV1		= MapUVToMakeUpSpace(tattooMirroredUV1,		U_PSGeneralRegister25);
+		// tattooMirroredUV2		= MapUVToMakeUpSpace(tattooMirroredUV2,		U_PSGeneralRegister8);
+	#endif
+
+	#ifndef DISSOLVE
+		half4 tattoo1NormalColor = 0.0h;
+		half4 tattoo1Color = 0.0h;
+		half2 tattoo1FinalUV = 0.0h;//uv重叠时生效的uv
+		half tattoo1Mask = 0.0h;
+
+		sampleTattoo(tattoo1Mask, tattoo1Color, tattoo1FinalUV, tattoo1NormalColor, tattooUV1, tattooMirroredUV1,
+		U_PSGeneralRegister27.x, S_Custom4, S_Custom4SamplerState, S_Custom6, S_Custom6SamplerState);
+	#endif
+
+	#ifdef BUMP_MAP
+		half3 nn = N;
+		half3 tn = normalize(IN.i_Tangent.xyz);
+		half3 bn = normalize(IN.i_Binormal.xyz);
+
+		tn = normalize(tn - nn * dot(tn, nn));
+		bn = normalize(bn - nn * dot(bn, nn));
+	
+		half3x3 tbn = 
+		{
+			tn.x, bn.x, nn.x,
+			tn.y, bn.y, nn.y,
+			tn.z, bn.z, nn.z 
+		};
+		
+		half3 bump = S_Bump.Sample(S_BumpSamplerState, uv).xyz;
+		bump.xy = U_PSGeneralRegister2.w * (bump.xy * 2.h - 1.h);
+		bump.z = 1.h;
+
+		#ifndef DISSOLVE		
+			//应用贴花法线
+			if(tattoo1Mask > 0.005){
+				tattoo1NormalColor.xy = tattoo1NormalColor.xy * 2.0 - 1.0;
+				bump.rg += tattoo1NormalColor.rg * tattoo1Mask;
+				bump.rg *= 0.5;
+			}
+		#endif
+
+		#ifdef AGE
+			half4 secondBumpColor = S_Custom8.Sample(S_Custom8SamplerState, uv);
+			float secondBumpAlpha = secondBumpColor.z;
+			secondBumpColor.xy = secondBumpColor.xy * 2.0 - 1.0;
+			float2 newBump = bump.xy;
+			newBump.xy += secondBumpColor.xy * U_PSGeneralRegister1.y;
+			newBump.xy *= 0.5;
+			
+			bump.xy = lerp(bump.xy, newBump, secondBumpAlpha);
+		#endif
+
+		bump = normalize(bump);
+		N = mul(tbn, bump);
+	#endif
+
+
+	half metallic = 1.0;
+	half roughness = 0.0001;
+	half ao = 1.0;
+
+	half3 mixMap = S_Specular.Sample(S_SpecularSamplerState, uv).rgb;
+		
+	metallic = mixMap.r;
+	roughness = clamp(mixMap.g + U_PSGeneralRegister15.x, 0.0, 1.0);
+	ao = mixMap.b;
+
+	// // Blusher
+	// OverlapMakeup(baseMap, metallic, blusherUV, blusherMirroredUV, U_PSGeneralRegister9,
+	// 		S_Custom2, S_Custom2SamplerState,
+	// 		U_PSGeneralRegister8, U_PSGeneralRegister10.x, metallic);
+
+	// Lips
+	if (UVInRange(lipsUV) || UVInRange(lipsMirroredUV))
+	{
+		half3 lipsColor = half3(0.h, 0.h, 0.h);
+		if (UVInRange(lipsUV))
+		{
+			lipsColor = S_Custom10.SampleLevel(S_Custom10SamplerState, lipsUV, 0.0h).rgb;
+			if (UVInRange(lipsMirroredUV))
+			{
+				half3 lipsMirroredColor = S_Custom10.SampleLevel(S_Custom10SamplerState, lipsMirroredUV , 0.h).rgb;
+				half fMask0 = max(lipsColor.g, lipsColor.b);
+				half fMask1 = max(lipsMirroredColor.g, lipsMirroredColor.b);
+				lipsColor.r = fMask0 > fMask1 ? lipsColor.r : lipsMirroredColor.r;
+				lipsColor.gb = max(lipsColor.gb, lipsMirroredColor.gb);
+			}
+		}
+		else
+		{
+			lipsColor = S_Custom10.SampleLevel(S_Custom10SamplerState, lipsMirroredUV, 0.h).rgb;
+		}
+		//vColorMask 考虑妆容的透明度与对比度缩放
+		half2 vColorMask = max(lipsColor.gb - (1.h - U_PSGeneralRegister14.ww), 0.h);
+		vColorMask *= U_PSGeneralRegister17.xx;
+
+		half3 lipsColorFinal1 = pow(U_PSGeneralRegister14.rgb, 2.2h);
+		half3 lipsColorFinal2 = pow(U_PSGeneralRegister16.rgb, 2.2h);
+
+		baseMap  = lerp(baseMap, baseMap * lipsColorFinal1 * 2, vColorMask.x);
+		roughness = lerp(roughness, lipsColor.r, vColorMask.x * U_PSGeneralRegister17.y);
+		baseMap = lerp(baseMap, lipsColorFinal1, vColorMask.x);
+		
+		baseMap  = lerp(baseMap, baseMap * lipsColorFinal2 * 2, vColorMask.y);
+		roughness = lerp(roughness, lipsColor.r, vColorMask.y * U_PSGeneralRegister17.y);
+		baseMap = lerp(baseMap, lipsColorFinal2, vColorMask.y);
+
+		metallic = lerp(metallic, U_PSGeneralRegister26.y, max(vColorMask.x, vColorMask.y));
+	}
+	
+	// Eyeshadow;
+	if (UVInRange(eyeshadowUV) || UVInRange(eyeshadowMirroredUV))
+	{
+		half3 eyeShadowColor = half3(0.h, 0.h, 0.h);
+		if (UVInRange(eyeshadowUV))
+		{
+			eyeShadowColor = S_Custom5.SampleLevel(S_Custom5SamplerState, eyeshadowUV, 0.f);
+			if (UVInRange(eyeshadowMirroredUV))
+			{
+				half3 cEyeShadowMirroredColor = S_Custom5.SampleLevel(S_Custom5SamplerState, eyeshadowMirroredUV, 0.h).rgb;
+				half fMask0 = max(eyeShadowColor.g, eyeShadowColor.b);
+				half fMask1 = max(cEyeShadowMirroredColor.g, cEyeShadowMirroredColor.b);
+				eyeShadowColor.r = fMask0 > fMask1 ? eyeShadowColor.r : cEyeShadowMirroredColor.r;
+				eyeShadowColor.gb = max(eyeShadowColor.gb, cEyeShadowMirroredColor.gb);
+			}
+		}
+		else
+		{
+			eyeShadowColor = S_Custom5.SampleLevel(S_Custom5SamplerState, eyeshadowMirroredUV, 0.h).rgb;
+		}
+		half2 vColorMask = max(eyeShadowColor.gb - (1.h - U_PSGeneralRegister18.ww), 0.h);
+		vColorMask *= U_PSGeneralRegister21.xx;
+
+		half3 eyeShadowColorFinal1 = pow(U_PSGeneralRegister18.rgb, 2.2h);
+		half3 eyeShadowColorFinal2 = pow(U_PSGeneralRegister20.rgb, 2.2h);
+		
+		baseMap  = lerp(baseMap, baseMap * eyeShadowColorFinal1 * 2, vColorMask.x);
+		roughness = lerp(roughness, eyeShadowColor.r, vColorMask.x * U_PSGeneralRegister21.y);
+		baseMap = lerp(baseMap, eyeShadowColorFinal1, vColorMask.x);
+
+		
+		baseMap  = lerp(baseMap, baseMap * eyeShadowColorFinal2 * 2, vColorMask.y);
+		roughness = lerp(roughness, eyeShadowColor.r, vColorMask.y * U_PSGeneralRegister21.y);
+		baseMap = lerp(baseMap, eyeShadowColorFinal2, vColorMask.y);
+
+		metallic = lerp(metallic, U_PSGeneralRegister26.z, max(vColorMask.x,vColorMask.y));
+	}
+	
+	// Eyeliner
+	OverlapMakeup(baseMap, metallic, eyelinerUV, eyelinerMirroredUV, U_PSGeneralRegister23,
+			S_Custom, S_CustomSamplerState,
+			U_PSGeneralRegister22, U_PSGeneralRegister24.x, U_PSGeneralRegister26.w);
+	
+	#ifndef DISSOLVE
+		if(U_PSGeneralRegister9.w > 0.95)
+		{
+			tattoo1Color.rgb = pow(U_PSGeneralRegister9.xyz, 2.2f);
+		}
+
+		// Tattoo1
+		if (tattoo1Mask > 0.005)
+		{
+			baseMap  = lerp(baseMap, baseMap * tattoo1Color.rgb * 2.h, tattoo1Mask);
+			baseMap = lerp(baseMap, tattoo1Color.rgb, tattoo1Mask);
+
+			metallic = lerp(metallic, tattoo1NormalColor.b, tattoo1Mask);
+			roughness = lerp(roughness, tattoo1NormalColor.a, tattoo1Mask);
+		}
+	#endif
+	roughness -= wetFinal;
+	roughness = max(roughness , 1e-6);
+	metallic = lerp(metallic, 0.5, wetFinal);
+
+	half3 grayColor = baseMap.rgb * half3(0.333, 0.333, 0.333);
+	float gray = grayColor.r + grayColor.g + grayColor.b;
+	grayColor.rgb =  half3(gray,gray,gray);
+	
+	baseMap.rgb = lerp(baseMap.rgb,grayColor,U_MaterialCustomParam.x);
+	half cosTheta_Normal_WorldUp = dot(N, U_PS_GravityDirection.xyz);
+	float coverMask = 1.0; // using rain mask
+	// coverMask *= rainshadowFactor;
+	//每个shader都需要实现
+	{
+		ComputeWeatherCover(
+			half4(U_WeatherParam0),				// 每个shader的前七个参数固定填这些
+			half4(U_WeatherParam1),				//
+			U_CoverColorParams,					//
+			U_CoverColorRotation,				//
+			IN.i_WPos.xyz,						//
+			coverMask,
+			half(0.0),		//
+			cosTheta_Normal_WorldUp,			//
+			half(U_PSGeneralRegister11.w),		// custom weather cover scale
+			half(U_PSGeneralRegister11.z),		// custom weather cover range 材质面板上需要提供
+			baseMap,
+			roughness,
+			metallic
+		);
+	}	
+
+	half3 emission = 0.0h;
+	#ifdef EMISSIVE
+		
+		half3 missiveColor = pow(U_PSGeneralRegister0.xyz, 2.2f) * diffuseColor.a;
+		half3 minMissiveColor = missiveColor * U_PSGeneralRegister0.w;
+	
+		#ifdef TOD_EMISSIVE
+			half todFactor = U_LightPower.x;		
+			
+			#ifdef DYNAMIC_EMISSIVE
+				half3 maxMissiveColor = missiveColor * U_PSGeneralRegister1.x;
+				half factor = U_MaterialSpecular.w;	
+				emission += lerp(minMissiveColor, maxMissiveColor, half3(factor, factor, factor)) * todFactor;
+			#else
+				emission += minMissiveColor * todFactor;
+			#endif
+		#else
+		
+			#ifdef DYNAMIC_EMISSIVE
+				half3 maxMissiveColor = missiveColor * U_PSGeneralRegister1.x;
+				half factor = U_MaterialSpecular.w;	
+				emission += lerp(minMissiveColor, maxMissiveColor, half3(factor, factor, factor));
+			#else
+				emission += minMissiveColor;
+			#endif
+			
+		#endif
+
+	#endif
+
+	{
+		//dither discard
+		if(ComputeDitherCullMask(IN.i_PosInClip.xy,U_MaterialCustomParam1.y,U_MaterialCustomParam1.z))
+			discard;
+		
+		bool needDiscard = ComputeBitmapCullMask(U_PSGeneralRegister29, IN.i_BoundBoxRange, 
+		U_MaterialCustomParam1.z, IN.i_PosInModel.xyz, IN.i_PosInClip.xyz);
+		if(needDiscard)
+			discard;
+	}
+
+	#ifdef DISSOLVE
+		float dissolve_val = U_MaterialFresnel.y;
+		float3 dissolve_edge_color = U_PSGeneralRegister31.xyz;
+		float dissolve_color_strength = U_PSGeneralRegister31.w;    
+		float dissolve_tilling_u = U_PSGeneralRegister32.x;
+		float dissolve_tilling_v = U_PSGeneralRegister32.y;
+		float dissolve_edge_width = U_PSGeneralRegister32.z;
+		float dissolve_soft_value = U_PSGeneralRegister32.w;
+		//float dissolve_rolling_u = 0.0;
+		//float dissolve_rolling_v = 0.0;
+		float dissolve_rotate_angle = 0.0;
+
+		float dissolve_offset_u = 0.0f; //dissolve_rolling_u * U_PS_Time.x;
+		float dissolve_offset_v = 0.0f; //dissolve_rolling_v * U_PS_Time.x;
+		dissolve_rotate_angle   = 0.0f; //radians(dissolve_rotate_angle);
+
+		float2 dissolve_uv = cal_uv(uv,dissolve_tilling_u,dissolve_tilling_v,dissolve_offset_u,dissolve_offset_v,dissolve_rotate_angle);
+		float dissolve_noise = texSample2D(S_Custom7,dissolve_uv,S_Custom7SamplerState).a;
+		clip(dissolve_noise - dissolve_val);
+
+		//2 2 2 2 2 2 2
+		//2 1 1 1 1 1 2
+		//2 1 0 0 0 1 2
+		//2 1 0 0 0 1 2
+		//2 1 1 1 1 1 2
+		//2 2 2 2 2 2 2  
+
+		//0所在区域为溶解区域，1所在为接近溶解的临界边缘dissolve_val，2为远离溶解的临界边缘edge_max_val
+		
+		float edge_max_val =  dissolve_val + dissolve_edge_width;
+		float edge_val_01 = smoothstep(dissolve_val, edge_max_val, dissolve_noise);
+		float dissolve_switch =	step(0.00001f, dissolve_val);
+		float3 final_edge_color = dissolve_switch * dissolve_edge_color * dissolve_color_strength * (1.0 - edge_val_01);
+		
+		float dissolve_soft_max_val = dissolve_val + dissolve_soft_value;
+		float dissolve_soft_val_01 = smoothstep(dissolve_val, dissolve_soft_max_val, dissolve_noise);
+		alphaValue = lerp(alphaValue, alphaValue * dissolve_soft_val_01, dissolve_switch);
+
+		emission += final_edge_color;
+	#endif // DISSOLVE
+
+    // #if defined(GBUFFER_PASS)
+        float shadowFactor = 1.0;
+        #ifdef USESHADOWMAP
+            shadowFactor = calcShadowFactor(shadowSpacePos, IN.i_ViewSpaceZ);
+        #endif
+
+        half3 encodedNormal = EncodeNormal(N);
+        uint useRoleMainLight = 0;
+        #ifdef ALONE_ROLE_LIGHT
+            useRoleMainLight = 1;
+        #endif
+
+        uint receiveShadow = 1;
+        #ifdef USESHADOWMAP
+            receiveShadow = 1;
+        #else
+            receiveShadow = 0;
+        #endif
+        
+        uint useEnvironmentMap = 1;
+        #ifdef ENVIRONMENT_MAP
+            useEnvironmentMap = 1;
+        #else
+            useEnvironmentMap = 0;
+        #endif
+
+		uint usePointLight = 0;
+        #ifdef CLUSTER_POINT_LIGHT
+            usePointLight = 1;
+        #endif
+
+        half shadingModel = EncodeShadingModel(useRoleMainLight, receiveShadow, useEnvironmentMap, usePointLight, 1);
+
+        psOut.g0.xyz = pow(baseMap.rgb, 1.0/2.2); // Albedo
+        psOut.g0.w = alphaValue;                  // Alpha
+
+        psOut.g1.xyz = encodedNormal;             // Normal
+        psOut.g1.w = shadowFactor;                // Shadow Factor
+
+        psOut.g2.x = metallic;                    // Metallic
+        psOut.g2.y = roughness;                   // Roughness
+        psOut.g2.z = ao;                          // AO
+        psOut.g2.w = shadingModel;                // Shading Model
+
+        psOut.sc.xyz = emission;                  // Emission
+        psOut.sc.w = 0.0h;
+
+		#ifdef EDITOR_MODE
+			if (U_MaterialCustomParam.w > 0)
+        	{
+        	    psOut.sc.rgb = U_MaterialCustomParam.xyz;
+				psOut.sc.a = 1.0;
+				psOut.g2.w = 0; // unlit
+        	}
+		#endif // EDITOR_MODE
+
+		#ifdef EditorHelp
+	        psOut.sc.rgb = psOut.g0.rgb * 0.00001 + float3(1.0, 0.0, 0.0);
+	        psOut.sc.a = 1.0;
+			psOut.g2.w = 0; // unlit
+		#endif // EditorHelp
+    // #endif // GBUFFER_PASS
+
+	return psOut;
+}

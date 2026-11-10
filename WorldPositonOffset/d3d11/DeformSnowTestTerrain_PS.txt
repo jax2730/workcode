@@ -1,0 +1,335 @@
+#include <Common_Function.inl>
+#include <Common_Uniform_PS.inl>
+#include <EnvironmentLight_Function.inl>
+#include <Light_Function_PS.inl>
+#include <TriPlanarMapping_Function_PS.inl>
+#include <CubeSphereMapping.inl>
+#include <DeformSnowMaterial.inl>
+#include <LandformPBRLighting.inl>
+
+#include <Common_Function_PS.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+
+#ifdef CLUSTER_POINT_LIGHT
+	#include "Shadow_Light_Function_PS.inl"
+#endif
+
+struct PS_INPUT
+{
+    float4 i_Position	        : SV_POSITION;
+    float3 i_worldPos			: TEXCOORD0;
+    float2 i_UV	                : TEXCOORD1;
+    float3 i_WorldNormal        : TEXCOORD2;
+    float  i_height             : TEXCOORD3;
+    float2 i_matidUV 		: TEXCOORD4;
+#ifdef USESHADOWMAP
+    float	i_ViewSpaceZ					: NORMAL0;
+#endif
+};
+
+struct SnowTerrianData
+{
+	float4 blendeCol;
+};
+
+SnowData U_PSCustom0[16];
+ObjData U_PSCustom1;
+SnowTerrianData U_PSCustom2[16];
+
+//albedo
+Texture2DArray	S_Custom;           
+SamplerState S_CustomSamplerState;
+//normal
+Texture2DArray S_Custom3;           
+SamplerState S_Custom3SamplerState;
+
+Texture2D<uint1> S_2DExt5;  
+SamplerState S_2DExt5SamplerState;
+
+column_major float4x4 U_PBR_RMatrix;
+column_major float4x4 U_PBR_GMatrix;
+column_major float4x4 U_PBR_BMatrix;
+
+Texture2D S_2DExt6;  
+SamplerState S_2DExt6SamplerState;
+
+float4 U_PBR_Environment_Explosure;
+float4 U_GlobalEnvironmentCubeMipMapLevels;
+TextureCube S_GlobalEnvironmentCubeMap;
+SamplerState S_GlobalEnvironmentCubeMapSamplerState;
+
+void computeTangentSpaceVectors(in float3 n,
+    out float3 tangent1, out float3 biTangent1,
+    out float3 tangent2, out float3 biTangent2)
+{
+    float3 absN = abs(n);
+    float epsilon = 1e-5f;
+    //如果法线对应的平面垂直于UV投影平面，设置tangent于bitangent为0，此时该平面的采样结果对于最终混合的结果没有贡献并且切线空间也没有意义
+    // XY、YZ平面的投影对应tangent space 1 
+    tangent1 = absN.z < epsilon && absN.x < epsilon ? 0.f : float3(n.z, 0.f, -n.x) / (n.z * n.z + n.x * n.x);
+    biTangent1 = dot(tangent1, tangent1) < epsilon ? 0.f : normalize(-cross(n.xyz, tangent1));
+    
+    // XZ平面的投影对应tangent space 2
+    tangent2 = absN.y < epsilon && absN.x < epsilon ? 0.f : float3(n.y, -n.x, 0.f) / (n.x * n.x + n.y * n.y);
+    biTangent2 = dot(tangent2, tangent2) < epsilon ? 0.f : normalize(-cross(n.xyz, tangent2));
+}
+
+struct SnowSamplerOffset
+{
+    float2 offa;
+    float2 offb;
+    float2 dx;
+    float2 dy;
+    float f;
+};
+
+SnowSamplerOffset GetSampleroffset(float2 UV)
+{
+    SnowSamplerOffset result;
+    float noise = indexNoise(abs(UV.xy) * frequency);
+    result.dx = ddx(UV.xy);
+    result.dy = ddy(UV.xy);
+    float l = noise * IndexRange;
+    result.f = frac(l);
+    float ia = floor(l);
+    float ib = ia + 1.0;
+
+    result.offa = sin(float2(3.0, 7.0) * ia);// hash function
+    result.offb = sin(float2(3.0, 7.0) * ib);// hash function
+    return result;
+}
+
+void sampleSnowTex(    in Texture2DArray baseColorTex,
+                       in SamplerState baseColorSampler,
+                       in Texture2DArray NormalTex,
+                       in SamplerState NormalSampler,
+                       in float3 UV,
+                       in SnowSamplerOffset offset,
+                       out float4 res1,
+                       out float4 res2)
+{
+    float4 map0_a =  sRGBToLinear(baseColorTex.SampleGrad(baseColorSampler, float3(UV.xy + offset.offa, UV.z), offset.dx, offset.dy));
+    float4 map0_b =  sRGBToLinear(baseColorTex.SampleGrad(baseColorSampler, float3(UV.xy + offset.offb, UV.z), offset.dx, offset.dy));
+    res1 = lerp(map0_a, map0_b, smoothstep(0.2, 0.8, offset.f - 0.1 * sum((map0_a - map0_b).xyz)));
+
+    float4 map1_a = NormalTex.SampleGrad(NormalSampler, float3(UV.xy + offset.offa,UV.z), offset.dx, offset.dy);
+    float4 map1_b = NormalTex.SampleGrad(NormalSampler, float3(UV.xy + offset.offb,UV.z), offset.dx, offset.dy);
+    res2 = lerp(map1_a, map1_b, smoothstep(0.2, 0.8, offset.f - 0.1 * sum((map1_a - map1_b).xyz)));
+}
+
+float2 WorldPosToUv(float2 worldp,float Tile)
+{
+	return worldp / Tile;
+}
+
+int3 computeTexLocation(float2 uv, int2 textureDimension)
+{
+    float2 cst = uv * textureDimension;
+    float2 temp = clamp((cst), 0.f, textureDimension - 1);
+    return int3(temp, 0);
+}
+
+
+float4 main(PS_INPUT IN) : SV_TARGET
+{
+
+    float2 MatIDUV = IN.i_matidUV;
+	int2 IDMapSize = 0;
+    S_2DExt5.GetDimensions(IDMapSize.x, IDMapSize.y);
+    int3 idMapSampleLocation = computeTexLocation(MatIDUV, IDMapSize);
+
+    float2 continousCoord = MatIDUV * IDMapSize;
+    int3 aroundCoord[4];
+    uint aroundID[4];
+    getAroundCoord(continousCoord,IDMapSize,aroundCoord,aroundID,S_2DExt5);
+    MaterialSampleSnow snowMat = SelectMaterialSnow(continousCoord,aroundCoord,aroundID);
+    int matID = snowMat.matIndex[0];
+
+    uint textureSize        = U_PSCustom1.textureSize;
+	float SnowHeight        = U_PSCustom0[matID].SnowHeight;
+    float CameraExtend      = U_PSCustom1.CameraExtend;
+    float height = IN.i_height;
+    if(height<0.0001f)
+    {
+        discard;
+    }
+    float3 worldPos = IN.i_worldPos;
+    float3 n = normalize(IN.i_WorldNormal);
+    float3 N = n;
+    float3 V = normalize(U_PS_CameraPosition.xyz - worldPos.xyz);
+    float3 L = normalize(-U_MainLightDirection.xyz);
+
+	#ifdef USESHADOWMAP
+		float4 shadowSpacePos[SHADOWSPLITE];
+		ProjectToLightSpace(shadowSpacePos, IN.i_worldPos.xyz);
+	#endif
+
+    //双切线与TBN--------------------------------------------------------------------------
+    float3 tangent1;
+    float3 biTangent1;
+    float3 tangent2;
+    float3 biTangent2;
+    computeTangentSpaceVectors(N,tangent1,biTangent1,tangent2,biTangent2);
+    float epsilon = 1e-5f;
+    //normalize zero vector will get an Nan, perform dot to check if tangent or bitangent is zero
+    tangent1 = dot(tangent1, tangent1) < epsilon ? 0.0f : normalize(tangent1);
+    biTangent1 = dot(biTangent1, biTangent1) < epsilon ? 0.0f : normalize(biTangent1);
+    tangent2 = dot(tangent2, tangent2) < epsilon ? 0.0f : normalize(tangent2);
+    biTangent2 = dot(biTangent2, biTangent2) < epsilon ? 0.0f : normalize(biTangent2);
+    //TBN of XY, YZ plane
+    column_major float3x3 TBN[2] = 
+    {
+        float3x3(
+                tangent1.x,         tangent1.y,         tangent1.z,
+                biTangent1.x,       biTangent1.y,       biTangent1.z,
+                N.x,                N.y,                N.z),
+        float3x3(            
+                tangent2.x,         tangent2.y,         tangent2.z,
+                biTangent2.x,       biTangent2.y,       biTangent2.z,
+                N.x,                N.y,                N.z)
+    };
+    //-------------------------------------------------------------------------------
+
+
+    // triplanar projection
+    //TODO:: 三平面
+    float2 projectedUV[3] = 
+    {
+        WorldPosToUv(float2(N.x > 0.f ? -worldPos.z :  worldPos.z, -worldPos.y),U_PSCustom0[matID].Tile), // projection along x axis
+        IN.i_UV,                                                    // prpjection along y axis
+        WorldPosToUv(float2(N.z > 0.f ?  worldPos.x : -worldPos.x, -worldPos.y),U_PSCustom0[matID].Tile)  // projection along z axis
+
+    };
+
+    float3 weights = ComputeTriplanarSampleWeight(N, 0.5, 3);
+    BilinearSample bilinearSample = BilinearProjection(weights);
+    
+    float2 UV_mat0_prj0 = projectedUV[bilinearSample.projectionIndex[0]];
+    SnowSamplerOffset offset1 = GetSampleroffset(UV_mat0_prj0);
+    float2 UV_mat0_prj1 =  projectedUV[bilinearSample.projectionIndex[1]];
+    SnowSamplerOffset offset2 = GetSampleroffset(UV_mat0_prj1);
+
+    float3 Albedo, Normal, Mix;
+    float4 samplerRes1, samplerRes2;
+
+    sampleSnowTex( S_Custom,
+                   S_CustomSamplerState,
+                   S_Custom3,
+                   S_Custom3SamplerState,
+                   float3(UV_mat0_prj0,matID),
+                   offset1,
+                   samplerRes1,
+                   samplerRes2
+                 );
+    Albedo = samplerRes1.xyz;
+    Mix = float3(samplerRes2.zw,samplerRes1.w);
+    Normal = UnpackNormal(samplerRes2.xyz, 1.0f);
+    Normal = mul(Normal, TBN[bilinearSample.tangentSpaceIndex[0]]);
+
+    if(bilinearSample.weight < (1.0 - 1e-3))
+    {
+        float4 samplerRes3, samplerRes4;
+
+        sampleSnowTex( S_Custom,
+                       S_CustomSamplerState,
+                       S_Custom3,
+                       S_Custom3SamplerState,
+                       float3(UV_mat0_prj1,matID),
+                       offset2,
+                       samplerRes3,
+                       samplerRes4);
+
+        // extract data from tex-sample
+        float3 mat0_prj1_Albedo = samplerRes3.xyz;
+        float3 mat0_prj1_Mix = float3(samplerRes4.zw, samplerRes3.w);
+        float3 mat0_prj1_Normal = UnpackNormal(samplerRes4.xyz,1.0f);
+        mat0_prj1_Normal = mul(mat0_prj1_Normal, TBN[bilinearSample.tangentSpaceIndex[1]]);
+
+        // blend
+        Albedo  = lerp(mat0_prj1_Albedo,    Albedo, bilinearSample.weight);
+        Mix     = lerp(mat0_prj1_Mix,       Mix,    bilinearSample.weight);
+        Normal  = lerp(mat0_prj1_Normal,    Normal, bilinearSample.weight);
+    }
+
+    float3 baseMapFinal;
+    float3 mixMapFinal;
+    baseMapFinal = Albedo * U_PSCustom2[matID].blendeCol.xyz;
+    mixMapFinal  = Mix;
+    N =  Normal;
+
+    float3 color = 0.f;
+
+    float3 mainLightColor = U_PBR_MainLightColor.xyz;
+    float3 skyLightColor = U_PBR_SkyLightColor.xyz;
+    float3 groundLightColor = U_PBR_GroundLightColor.xyz;
+    float  blendThreshold = U_PS_AmbientBlendThreshold.y;
+
+    color.rgb += pbr_lighting_fresnel_weighted(N, L, V, baseMapFinal, mixMapFinal.x, mixMapFinal.y, mainLightColor * (1.f - U_PS_ViewLightPercent.x));
+    
+    
+    //indirect lighting
+    float3 envColor = 0.f;
+    float3 ambientColor = ComputeAmbientLight(skyLightColor.xyz, groundLightColor.xyz, N, blendThreshold, U_PS_GravityDirection.xyz);
+
+    #ifdef USESHADOWMAP
+	    float shadowFactor = calcShadowFactor(  
+	    	shadowSpacePos, 
+	    	IN.i_ViewSpaceZ);
+
+	    shadowFactor = min(shadowFactor, 1.0);
+	    color.rgb *= shadowFactor;
+    #endif
+
+    #ifdef CLUSTER_POINT_LIGHT
+		color.rgb += float3(calculateShadowPBRPointLight(float4(IN.i_worldPos,1.0f),
+													N, 
+													V, 
+													baseMapFinal, 
+													mixMapFinal.y,//roughness
+													mixMapFinal.x));
+
+		float3 clusterLightColor = 
+			calculateClusterPBRPointLight(IN.i_Position.xy,
+			                            IN.i_worldPos.xyz,
+			                            N,
+			                            V,
+			                            baseMapFinal, 
+			                            mixMapFinal.y,
+			                            mixMapFinal.x);
+		color.rgb += clusterLightColor;
+	#endif // CLUSTER_POINT_LIGHT
+
+    color.rgb += pbr_lighting_fresnel_weighted(N, -U_PS_ViewDirection.xyz, V, baseMapFinal, mixMapFinal.x, mixMapFinal.y, mainLightColor * U_PS_ViewLightPercent.x);
+
+    envColor += CalculateGlossyEnvColor(N, V, 
+                                        baseMapFinal, 
+                                        mixMapFinal.x, 
+                                        mixMapFinal.y, 
+                                        1.f, 
+                                        0.f,
+                                        0.f, 
+                                        U_GlobalEnvironmentCubeMipMapLevels.x, 
+                                        S_GlobalEnvironmentCubeMap,
+                                        S_GlobalEnvironmentCubeMapSamplerState);
+                                        
+                                        
+    
+                  
+    envColor += CalculateDiffuseEnvColor(half3(N),
+                                         half3(baseMapFinal), 
+                                         half(mixMapFinal.x), 
+                                         1.h, 
+                                         half4x4(U_PBR_RMatrix),
+                                         half4x4(U_PBR_GMatrix), 
+                                         half4x4(U_PBR_BMatrix), 0.h);
+                                         
+    envColor *= U_PBR_Environment_Explosure.x;
+    color.rgb *= mixMapFinal.z;
+    
+    color.rgb += envColor * ambientColor;
+    color.rgb = pow(color.rgb, 0.4545);
+
+    //return float4 ((N + 1.0f)/2.0f,1.0f);
+    return float4 (color,1.0f);
+}

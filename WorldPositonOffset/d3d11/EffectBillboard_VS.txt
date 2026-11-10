@@ -1,0 +1,362 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+#include <Effect_Function_VS.txt>
+
+uniform float4 U_VSCustom0; //VSCBTileParam;
+uniform float4 U_VSCustom1; //VSCBTileParam2;
+uniform float4 U_VSCustom2; //VSCBMoveMax;
+uniform float4 U_VSCustom3; //VSCBMoveMin;
+uniform float4 U_VSCustom4; //VSCBScaleMax;
+uniform float4 U_VSCustom5; //VSCBScaleMin;
+uniform float4 U_VSCustom6; //VSCBRotateMinMax;
+uniform float4 U_VSCustom7; //VSCBTCSelect;
+
+uniform float4 U_VSCustom8; //uvleftTop.xy, uvRightBottom.xy
+uniform float4 U_VSCustom9; //offset.xy zw:screen scale
+
+#ifdef ANCHOR_PIVOT
+	uniform float4 U_VSCustom11;
+	uniform float4 U_VSCustom12;
+#endif
+
+
+#ifdef LOCAL_RADIALBLUR
+	uniform float4 U_VSCustom13;
+#endif
+
+#ifdef USEINSTANCE
+	uniform float4 U_VSCustom10[MAX_UNIFORM_COUNT];
+#else
+	uniform float4 U_VSCustom10[ONE_BILLBOARD_MAX_UNIFORM_COUNT];
+#endif
+
+
+struct VS_INPUT
+{
+	float4 i_Position	: POSITION0;
+};
+
+struct VS_OUTPUT
+{
+	float4 o_PosInClip	: SV_POSITION0;
+	float4 o_Diffuse	: COLOR0;
+	float4 o_UV			: TEXCOORD0;
+	float4 o_Rand0		: TEXCOORD1;
+
+#ifdef DOUBLETEX
+	float2 o_UV2		: TEXCOORD2;
+#endif
+
+#if defined(SCREENDISTORT) || defined(DEPTH_FADE) || defined(LOCAL_RADIALBLUR) || defined(BASE_MAP1_USE_SCREEN_UV) 
+	float4 o_PosInClipOut : TEXCOORD3;
+#endif
+
+	float4 o_Fog		: TEXCOORD4;
+
+#ifdef EnableAlphaDistance
+	float4 cam_to_obj_len : TEXCOORD7;
+#endif
+
+#ifdef DISTURBANCE_TEXTURE
+	float4 disturbance_texture_params0 : TEXCOORD8;
+	float4 disturbance_texture_params1 : TEXCOORD9;
+#endif
+
+#ifdef DISTORT
+	float4 Custom_Params : TEXCOORD10;
+#endif
+
+	nointerpolation float4 CurrentObjIndex : TEXCOORD11;
+
+	float4	o_WPos	:TEXCOORD13;
+
+#ifdef SIX_LIGHT_MAP
+	float4	o_Normal			: TEXCOORD16;
+	float4	o_Tangent			: TEXCOORD17;
+	float4	o_Binormal			: TEXCOORD18;
+#endif
+
+
+#ifdef LOCAL_RADIALBLUR
+	float4	o_CenterPos			: TEXCOORD19;
+	float4	o_CenterUV		    : TEXCOORD20;
+#endif
+
+
+};
+
+void CalTexcoord(in float  _Time, in float2 _TC, in float4 _Rand0, out float4 TC_)
+{
+	float Tile = frac(_Time * U_VSCustom0.x + _Rand0.x / 255.0 * U_VSCustom0.y);	
+	
+	Tile = lerp(U_VSCustom1.x, U_VSCustom1.y, Tile);
+ 
+	float Row = U_VSCustom0.w;																	
+	float Col = U_VSCustom0.z;																	
+	float nIdx = floor(Tile*Row*Col);																
+	float nRow = floor(nIdx / Col);																
+	float nCol = nIdx - nRow*Col;																	
+	float fRow = nRow / Row;																	
+	float fCol = nCol / Col;																									
+	float2 TcTile = float2(fCol, fRow) + _TC*float2(1.0 / Col, 1.0 / Row);	
+
+	float4 TcMove = lerp(U_VSCustom2, U_VSCustom3, _Rand0.x / 255.0);
+	float4 TcScale = lerp(U_VSCustom4, U_VSCustom5, _Rand0.y / 255.0);
+	float2 TcRotate = lerp(U_VSCustom6.xy, U_VSCustom6.zw, _Rand0.z / 255.0);
+	
+	float2 TcTran = _TC - float2(0.5, 0.5);
+	TcTran *= TcScale.zw + TcScale.xy * _Time;
+	TcTran += TcMove.zw + TcMove.xy * _Time;
+	float RotDeg = TcRotate.x * _Time + TcRotate.y;
+	float2 RotMatR0 = float2(+cos(RotDeg), -sin(RotDeg));
+	float2 RotMatR1 = float2(+sin(RotDeg), +cos(RotDeg));
+	TcTran = float2(dot(TcTran, RotMatR0), dot(TcTran, RotMatR1));
+	TcTran += float2(0.5, 0.5);
+	
+	TC_.xy = lerp(TcTile, TcTran, U_VSCustom7.x);
+#ifdef DOUBLETEX
+	TC_.zw = lerp(TcTran, TcTile, U_VSCustom7.x);
+#else
+	TC_.zw = 0.0;
+#endif
+}
+
+float3 rotate (float4 qvec, float3 v) 
+{
+	float3 uv, uuv;
+	 
+	uv = cross(qvec.xyz, v);
+	uuv = cross(qvec.xyz, uv);
+	uv *= (2.0 * qvec.w);
+	uuv *= 2.0;
+		
+	return v + uv + uuv;
+}
+
+
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+
+	float4 atlasUV = U_VSCustom8;
+	float2 offset = U_VSCustom9.xy;
+
+	float3 camPos = U_VS_CameraPosition.xyz;
+	float2 corner = IN.i_Position.yz;
+	int index = int(IN.i_Position.x) * BILLBOARD_ONE_VERTEX_UNIFORM_CNT;
+	float4 color = U_VSCustom10[index];
+	float4 rand = U_VSCustom10[index + 1]; //x:rand, yz:customAxis.xy, w:dissolve
+	// float4 localQuat = U_VSCustom10[index + 2];
+	// float4 worldQuat = U_VSCustom10[index + 3];
+	float3 upAxis = U_VSCustom10[index + 2].xyz;
+	float3 rightAxis = U_VSCustom10[index + 3].xyz;
+	float4 center = U_VSCustom10[index + 4];
+	float2 size = U_VSCustom10[index + 5].xy; //w:customAxis.z
+
+	vsOut.CurrentObjIndex = float4(IN.i_Position.x, 0.0f, 0.0f, 0.0f);
+
+#ifdef DISTURBANCE_TEXTURE
+	vsOut.disturbance_texture_params0 = U_VSCustom10[index + 6];
+	vsOut.disturbance_texture_params1.x = U_VSCustom10[index + 7].x;
+#endif
+
+#ifdef DISTORT
+	vsOut.Custom_Params.x = U_VSCustom10[index + 7].y;
+#endif
+
+	rand.y = 255.0 - rand.x;
+	rand.z = rand.x * 0.5;
+	
+	// float3 upAxis = float3(0.0, 1.0, 0.0); 
+	// float3 rightAxis = float3(1.0, 0.0, 0.0); 
+
+#ifdef SIX_LIGHT_MAP
+	vsOut.o_Normal.xyz = float3(0.0f, 0.0f, 1.0f);
+	vsOut.o_Tangent.xyz = float3(1.0f, 0.0f, 0.0f);
+	vsOut.o_Binormal.xyz = float3(0.0f, 1.0f, 0.0f);
+#endif
+
+// #ifdef BBT_NONE
+// 	upAxis = rotate(worldQuat, rotate(localQuat, float3(0.0,size.y,0.0)));
+// 	rightAxis = rotate(worldQuat, rotate(localQuat, float3(size.x,0.0,0.0)));
+// #endif
+	
+// #ifdef BBT_POINT
+// 	float spinRotateDegree = U_VSCustom10[index + 5].z;
+// 	float sinAngle = sin(0.017453292f * spinRotateDegree);
+// 	float cosAngle = cos(0.017453292f * spinRotateDegree);
+// 	float3 yAxis = float3(sinAngle, cosAngle, 0.0);
+// 	float3 xAxis = float3(-cosAngle, sinAngle, 0.0);
+// 	upAxis = normalize(rotate(worldQuat, yAxis)) * size.y;
+// 	rightAxis = normalize(rotate(worldQuat, xAxis)) * size.x;
+// #endif
+	
+// #ifdef BBT_ORIENTED_COMMON
+// 	float3 customAxis = float3(U_VSCustom10[index + 1].yz, U_VSCustom10[index + 5].w);
+// 	#ifdef SCREENEFFECT
+// 		float3 camDir = normalize(camPos - center.xyz);
+// 	#else
+// 		float3 camDir = -normalize(center.xyz);
+// 	#endif
+// 	upAxis = normalize(rotate(worldQuat, rotate(localQuat, customAxis))) * size.y;
+// 	rightAxis = normalize(cross(camDir, upAxis)) * size.x;
+// #endif
+
+// #ifdef BBT_ORIENTED_SELF
+// 	float3 customAxis = float3(U_VSCustom10[index + 1].yz, U_VSCustom10[index + 5].w);
+// 	#ifdef SCREENEFFECT
+// 		float3 camDir = normalize(camPos - center.xyz);
+// 	#else
+// 		float3 camDir = -normalize(center.xyz);
+// 	#endif
+// 	upAxis = normalize(rotate(worldQuat, customAxis)) * size.y;
+// 	rightAxis = normalize(cross(camDir, upAxis)) * size.x;
+// #endif
+	
+#ifdef SIX_LIGHT_MAP
+	vsOut.o_Tangent.xyz =  -normalize(rightAxis);
+	vsOut.o_Binormal.xyz = normalize(upAxis);
+	vsOut.o_Normal.xyz = cross(vsOut.o_Tangent.xyz, vsOut.o_Binormal.xyz);
+#endif
+	//计算位置
+	float4 pos;
+	pos.xyz = center.xyz + upAxis * (offset.y + corner.y) + rightAxis * (offset.x + corner.x);
+	pos.w = 1.0;
+
+#ifdef LOCAL_RADIALBLUR
+	float3 localRadialBlurCenter = center.xyz + upAxis * (offset.y + abs(corner.y)) * U_VSCustom13.y  + rightAxis * (offset.x + abs(corner.x)) * U_VSCustom13.x;
+#endif
+
+
+	//UV
+	float2 uv;
+#ifdef ROTATE90
+	uv.x = atlasUV.x + corner.y * atlasUV.z;
+	uv.y = atlasUV.y - corner.x * atlasUV.w;
+#else
+	uv.x = atlasUV.x - corner.x * atlasUV.z;
+	uv.y = atlasUV.y - corner.y * atlasUV.w;
+#endif
+	
+
+#ifdef SCREENEFFECT
+	
+	#ifdef ADAPTIVE_SCREEN_EFFECT
+	{
+		//乘上相关分辨率:
+		pos.x *= U_VSCustom9.z;
+		pos.y *= U_VSCustom9.w;
+
+		#ifdef ANCHOR_PIVOT
+			float3 anchorPosition = float3(U_VSCustom11.x, U_VSCustom11.y, 0.0f);
+			float3 pivotPosition  = float3(U_VSCustom11.z, U_VSCustom11.w, 0.0f);
+			pivotPosition =   center.xyz + upAxis * (offset.y + pivotPosition.y)  + rightAxis* (offset.x+ pivotPosition.x);
+			pivotPosition.x *= U_VSCustom9.z;
+			pivotPosition.y *= U_VSCustom9.w;
+
+			//pivotPosition = anchorPosition - position;
+			//distance = pivotPosition - pos.xy;
+			// ---> pos.xy = distance + pivotPosition = distance + anchorPosition - position;
+			float3 position = float3(U_VSCustom12.x, U_VSCustom12.y, 0.0f);		
+			float3 pivotDistance = anchorPosition - position - pivotPosition;
+			pos.xy = pos.xy + pivotDistance.xy;
+		#endif
+
+	}
+	#endif
+	vsOut.o_PosInClip = pos;
+	vsOut.o_Fog = float4(0.0f, 0.0f, 0.0f, 1.0f);
+	vsOut.o_WPos = pos;
+	#ifdef LOCAL_RADIALBLUR
+	{
+		vsOut.o_CenterPos = float4(localRadialBlurCenter, 1.0f);
+		vsOut.o_CenterPos.w = sqrt(size.x *size.x + size.y *size.y) * U_VSCustom13.z;
+
+		float2 centerScreenPos = vsOut.o_CenterPos.xy;
+		centerScreenPos.xy = centerScreenPos.xy * 0.5f + 0.5f;
+		centerScreenPos.y = 1.0f - centerScreenPos.y;
+		vsOut.o_CenterUV.xy = centerScreenPos.xy;
+	}
+	#endif
+//#elif defined(UIEFFECT)
+//	pos.xy = pos.xy*U_VS_RenderWindowParam.zw;
+//	pos.xy *= 4.0f;
+//	pos.z =0.0f;
+//	vsOut.o_PosInClip = pos;
+//	vsOut.o_Fog = float4(0.0f, 0.0f, 0.0f, 1.0f);
+//	vsOut.o_WPos = pos;	
+#else
+	float3 camToWorld = -pos;
+	vsOut.o_Fog = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+	vsOut.o_WPos = float4(pos.xyz + camPos.xyz, 1.0f);
+
+	float4 vPos = float4(pos.xyz, 1.0f);
+	vPos.x = dot(U_ViewMatrix[0].xyz, pos.xyz);
+	vPos.y = dot(U_ViewMatrix[1].xyz, pos.xyz);
+	vPos.z = dot(U_ViewMatrix[2].xyz, pos.xyz);
+	vPos.w = 1.0f;
+	
+	vsOut.o_PosInClip.x = dot(U_ProjectMatrix[0], vPos);
+	vsOut.o_PosInClip.y = dot(U_ProjectMatrix[1], vPos);
+	vsOut.o_PosInClip.z = dot(U_ProjectMatrix[2], vPos);
+	vsOut.o_PosInClip.w = dot(U_ProjectMatrix[3], vPos);
+
+	#ifdef EnableAlphaDistance
+	{
+		vsOut.cam_to_obj_len.x = sqrt(dot(camToWorld, camToWorld));
+	}
+	#endif
+
+	#ifdef LOCAL_RADIALBLUR
+	{
+		vsOut.o_CenterPos = float4(localRadialBlurCenter + camPos.xyz, 1.0f);
+		vsOut.o_CenterPos.w = sqrt(size.x *size.x + size.y *size.y) * U_VSCustom13.z;
+
+		float4 centerPos = float4(vsOut.o_CenterPos.xyz, 1.0f);
+		float4 centerScreenPos = float4(1.0f, 1.0f, 1.0f, 1.0f);
+		centerScreenPos.x = dot(U_ViewProjectMatrix[0], centerPos);
+		centerScreenPos.y = dot(U_ViewProjectMatrix[1], centerPos);
+		centerScreenPos.z = dot(U_ViewProjectMatrix[2], centerPos);
+		centerScreenPos.w = dot(U_ViewProjectMatrix[3], centerPos);
+		centerScreenPos.xyz /= centerScreenPos.w;
+		centerScreenPos.xy = centerScreenPos.xy * 0.5f + 0.5f;
+		centerScreenPos.y = 1.0f - centerScreenPos.y;
+		vsOut.o_CenterUV.xy = centerScreenPos.xy;
+	}
+	#endif
+
+#endif
+
+#ifdef SKYBOX
+	vsOut.o_PosInClip.z = vsOut.o_PosInClip.w;
+#endif
+
+	CalTexcoord(center.w, uv, rand, vsOut.o_UV);
+
+#ifdef SUB_UV_ANIMATION
+{
+	SubUVAnimationParam param;
+	param.mImageSizeX = int(U_VSCustom10[index + 7].z);
+	param.mImageSizeY =  int(U_VSCustom10[index + 7].w);
+	param.mCurrentIndex = int(U_VSCustom10[index + 8].x);
+	param.mCurrentUV = vsOut.o_UV.xy;
+
+	SubUVAnimationResult result = SubUVAnimation(param);
+	vsOut.o_UV.xy = result.mSubUV;
+}
+#endif
+
+#ifdef DOUBLETEX
+	vsOut.o_UV2 = vsOut.o_UV.zw;
+#endif
+	vsOut.o_UV.zw = uv;
+
+	vsOut.o_Diffuse = color;
+	vsOut.o_Rand0 = rand;
+	
+#if defined(SCREENDISTORT) || defined(DEPTH_FADE) || defined(LOCAL_RADIALBLUR) || defined(BASE_MAP1_USE_SCREEN_UV) 
+	vsOut.o_PosInClipOut = vsOut.o_PosInClip;
+#endif
+	return vsOut;
+}

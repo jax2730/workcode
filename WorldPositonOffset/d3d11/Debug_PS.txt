@@ -1,0 +1,17 @@
+struct PS_INPUT
+{
+    float4 i_Position	: SV_POSITION;
+	float4 	i_Color				: COLOR0;
+};
+
+struct PS_OUTPUT
+{
+	float4 color : SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+    psOut.color = float4(IN.i_Color.rgb, 1.0f);
+    return psOut;
+}

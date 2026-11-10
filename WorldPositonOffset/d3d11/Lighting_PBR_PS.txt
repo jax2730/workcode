@@ -1,0 +1,362 @@
+//Lighting_PBR
+/*
+* shadingModel:
+* 0x01
+* 0: use U_PBR_*
+* 1: use U_Role*
+*
+* 0x02
+* 0: no emissive
+* 1: emissive
+*
+* 0x04
+* 0: no shadow
+* 1: receive shadow
+*
+* 0x08
+* 0: no environment map
+* 1: use environment map
+*
+* 0xf0 reserve for identify PBR model
+*/
+#include <Common_Uniform_PS.inl>
+#include <Common_Function_Lighting.inl>
+#include <Common_ShadowFiltering.inl>
+#include <PBR_Function.inl>
+
+//Note: Gbuffer与SceneColor的sampler为点采样
+Texture2D S_GBuffer0;
+SamplerState S_GBuffer0SamplerState;
+Texture2D S_GBuffer1;
+SamplerState S_GBuffer1SamplerState;
+Texture2D S_GBuffer2;
+SamplerState S_GBuffer2SamplerState;
+Texture2D S_DeferredSC;
+SamplerState S_DeferredSCSamplerState;
+
+Texture2D S_Depth;
+SamplerState S_DepthSamplerState;
+
+Texture2D<float> S_2DExt0;
+#define SSAOOutput S_2DExt0
+
+Texture2D<float> S_2DExt1;
+#define SSSOutput S_2DExt1
+
+// HDR cubemap
+//glossy info
+TextureCube	S_GlobalEnvironmentCubeMap;
+SamplerState S_GlobalEnvironmentCubeMapSamplerState;
+float4 U_GlobalEnvironmentCubeMipMapLevels;	//Note by hejiwei ：
+											//与U_PBR_Environment_Explosure应该合并在一起
+//diffuse info
+float4x4 U_PBR_RMatrix;
+float4x4 U_PBR_GMatrix;
+float4x4 U_PBR_BMatrix;
+
+//total luminance
+float4  U_PBR_Environment_Explosure;
+
+// LDR cubemap
+TextureCube	S_EnvironmentCubeMap;
+SamplerState S_EnvironmentCubeMapSamplerState;
+
+float4 U_InvViewProjectMatrix[4];
+
+float4 U_MainCamViewMatrix;
+
+float4 U_PSCustom0; // x: SSAOEnable   y : SSSEnable   w : debugGBufferMode
+float4 U_PSCustom1;		// xy: viewPortRange
+
+struct PS_INPUT
+{
+    float4 position	: SV_POSITION;
+	float4 uv		: TEXCOORD0;
+	float4 pos 		: TEXCOORD1;
+};
+
+struct PS_OUTPUT
+{
+	float4 color : SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+	float2 uv = IN.uv.xy * U_PSCustom1.xy;
+	float4 pos;
+	pos.xy = IN.pos.xy;
+	pos.z = S_Depth.Sample(S_DepthSamplerState, uv).r;
+	pos.w = 1.0f;
+	pos = pos / pos.z;
+
+	int3 screenLocation;
+	screenLocation.x = int(IN.position.x);
+	screenLocation.y = int(IN.position.y);
+	screenLocation.z = 0;
+
+	float3 wPos;
+	wPos.x = dot(U_InvViewProjectMatrix[0], pos);
+	wPos.y = dot(U_InvViewProjectMatrix[1], pos);
+	wPos.z = dot(U_InvViewProjectMatrix[2], pos);
+	float wPosw = dot(U_InvViewProjectMatrix[3], pos);
+	wPos = wPos / wPosw;
+
+    float4 gBuffer2Data = S_GBuffer2.Load(screenLocation);        // shading model / roughness / metalness / diffuseAO
+    ShadingModelInfo shadingModel = DecodeShadingModel(gBuffer2Data.w);
+    float3 sceneColor = S_DeferredSC.Sample(S_DeferredSCSamplerState, uv).rgb;  // indirect lighting & emission
+    
+    // Unlit
+    if(shadingModel.emptyGBuffer)
+    {
+        psOut.color.rgb = sceneColor;
+        psOut.color.a = 1.0f;
+        return psOut;
+    }
+
+	float4 gBuffer0Data = S_GBuffer0.Load(screenLocation);        // baseColor & alpha
+    float4 gBuffer1Data = S_GBuffer1.Load(screenLocation);        // normal & custom data
+
+    /// Debug GBuffer
+    int debugMode = (int)U_PSCustom0.w;
+    // Mode 5 : AO, assigned later in PBR branch.
+    if (debugMode > 0 && debugMode < 7) {
+        if (debugMode == 1) 
+        {
+            psOut.color = gBuffer0Data;
+        }
+        else if (debugMode == 2) 
+        {
+            psOut.color = float4(DecodeNormal(gBuffer1Data.xyz) * 0.5 + 0.5, 1.0);
+        }
+        else if (debugMode == 3) 
+        {
+            psOut.color = float4(gBuffer2Data.xyz, 1.0);
+        }
+        else if (debugMode == 4) 
+        {
+            psOut.color = float4(sceneColor.xyz, 1.0);
+        }
+        else if (debugMode == 5)
+        {
+            float diffuseAO = gBuffer2Data.z;
+            if(U_PSCustom0.x > 0.0)
+            {
+                float ssao = SSAOOutput.Load(int3(IN.position.xy, 0));
+                diffuseAO = min(ssao, diffuseAO);
+            }
+            psOut.color = float4(diffuseAO.xxx, 1);
+        }
+        else if (debugMode == 6)
+        {
+            float shadow = 1;
+            if (shadingModel.receiveShadow)
+            {
+                shadow = gBuffer1Data.w;
+                if (U_PSCustom0.y > 0.0)
+                {
+                    shadow = min(shadow, SSSOutput.Load(int3(IN.position.xy, 0)));
+                }
+            }
+            psOut.color = float4(shadow.xxx, 1);
+        }
+
+        return psOut;
+    }
+
+
+    SurfaceData surface;
+    // extrct data from gBuffer and fill surface info   
+    {
+        surface.worldPos = wPos;
+        surface.N = DecodeNormal(gBuffer1Data.xyz);
+        surface.V = normalize(U_PS_CameraPosition.xyz - wPos.xyz);
+        surface.baseColor = pow(gBuffer0Data.xyz, 2.2);
+        surface.NdotV = saturate(dot(surface.N, surface.V));
+        surface.metalness = gBuffer2Data.x;
+        surface.roughness = gBuffer2Data.y;
+        surface.diffuseAO = gBuffer2Data.z;
+        
+        //the following three params are just default values, real values are computed later
+        surface.specularAO = 1.f;
+        surface.preIntegratedBRDF = 1.f;
+        surface.diffuseAlbedo = 1.f; 
+    }
+
+    // directional light. splitted into two parts:
+    LightData mainLight;
+    LightData supplementLight;  // view light percent copied from our forward rendering
+                                // 1. direction: the same as camera view direction
+                                // 2. don't receive shadow
+
+    // in contrast with local probe(which is handled by GI) distant probe means
+    // environment that are not captured from local scene
+    // usually it's pre-filtered hdri map(IBL) defined by artist
+    EnvironmentProbe distantProbe_HDR; // HDRI cubemap, prefiltered 
+    EnvironmentProbe distantProbe_LDR; // old cubemap, some legacy shader will use it
+
+    // parameters to scale envirnment light intensity
+    EnvironmentData envLightSetting;
+
+
+    // fill light info
+    {
+        mainLight.colorIntensity = U_PBR_MainLightColor.rgb * (1.f - U_PS_ViewLightPercent.x);
+        mainLight.direction = normalize(-U_MainLightDirection.xyz);
+        mainLight.NdotL = saturate(dot(surface.N, mainLight.direction));
+        mainLight.attenuation = 1.f;    // directional light doesn't attenuate
+        mainLight.shadowFactor = 1.f;   // 1.0 for not occluded
+
+        supplementLight.colorIntensity = U_PBR_MainLightColor.rgb * U_PS_ViewLightPercent.x;
+        supplementLight.direction = normalize(-U_PS_ViewDirection.xyz);
+        supplementLight.NdotL = saturate(dot(surface.N, supplementLight.direction));
+        supplementLight.attenuation = 1.f;
+        supplementLight.shadowFactor = 1.f;
+
+        envLightSetting.skyColor = U_PBR_SkyLightColor.rgb;
+        envLightSetting.groundColor = U_PBR_GroundLightColor.rgb;
+        envLightSetting.blendThreshold = U_PS_AmbientBlendThreshold.y;
+
+        if(shadingModel.useRoleMainLight)
+        {
+            mainLight.colorIntensity = U_RoleMainLightColor.rgb * (1.f - U_PS_ViewLightPercent.y);
+            supplementLight.colorIntensity = U_RoleMainLightColor.rgb * U_PS_ViewLightPercent.y;
+            // mainLight.viewLightPercent = U_PS_ViewLightPercent.y;
+            envLightSetting.skyColor = U_RoleSkyLightColor.rgb;
+            envLightSetting.groundColor = U_RoleGroundLightColor.rgb;
+            envLightSetting.blendThreshold = U_PS_AmbientBlendThreshold.z;
+        }
+    }
+
+    // fill HDRI cubemap info
+    {
+        distantProbe_HDR.IBLCubeMap = S_GlobalEnvironmentCubeMap;
+        distantProbe_HDR.cubeMapSampler = S_GlobalEnvironmentCubeMapSamplerState;
+        distantProbe_HDR.cubemapMipLevel = U_GlobalEnvironmentCubeMipMapLevels.x;
+        distantProbe_HDR.SH_RMat = U_PBR_RMatrix;
+        distantProbe_HDR.SH_GMat = U_PBR_GMatrix;
+        distantProbe_HDR.SH_BMat = U_PBR_BMatrix;
+        distantProbe_HDR.environmentExplosure = U_PBR_Environment_Explosure.y;
+    }
+
+    // fill LDR cubemap info
+    {
+        distantProbe_LDR.IBLCubeMap = S_EnvironmentCubeMap;
+        distantProbe_LDR.cubeMapSampler = S_EnvironmentCubeMapSamplerState;
+        distantProbe_LDR.cubemapMipLevel = U_EnvironmentCubeMapMipLevels.x;
+
+        // default values, not used
+        distantProbe_LDR.SH_RMat = 0.f;
+        distantProbe_LDR.SH_GMat = 0.f;
+        distantProbe_LDR.SH_BMat = 0.f;
+        distantProbe_LDR.environmentExplosure = 1.f;
+    }
+
+    half3 finalColor = 0.h;
+    //direct lighting of main light
+    {
+        float3 mainLightDirect = 0.f;
+
+        if(shadingModel.lightModel == LightModel_PBR_HDR_Environment || 
+            shadingModel.lightModel == LightModel_PBR_LDR_Environment)
+        {
+
+            // compute shadowmap of main directional light
+            // TODO:: override this funtion and fill mainLight.shadowFactor
+	        if(shadingModel.receiveShadow)
+	        {
+				mainLight.shadowFactor = gBuffer1Data.w;
+                if (U_PSCustom0.y > 0.0)
+                {
+                    mainLight.shadowFactor = min(mainLight.shadowFactor,
+                        SSSOutput.Load(int3(IN.position.xy, 0)));
+                }
+			}
+	        mainLightDirect = ComputeDirectionalLight(surface, mainLight, supplementLight);
+        }
+
+        //TODO::other lighting models such as blin-phong, hair, fur, skin, iceSurface, cloth
+        // override directLighting here        
+        //if(shadingModel.lightModel == ...) 
+        {
+
+        }
+
+        finalColor += mainLightDirect;
+    }
+
+
+    //TODO:: add point light & point light shadow
+    {
+        // if 'calculate_lightpower' function in forward pipline is needed
+        // call 'DirectLighting' function in 'PBR_Function.inl' instead
+    }
+
+    // environment lighting
+    {
+        float3 environmentLighting = 0.f;
+        if(shadingModel.lightModel == LightModel_PBR_HDR_Environment)
+        {
+            ApproxBrdfIntegral(surface);
+
+            // if not using environment map, we use ambient color as the environment light
+            environmentLighting = EnvironmentLighting_DefaultAmbient(surface, envLightSetting, U_PS_GravityDirection.xyz);
+            if(shadingModel.useEnvironmentMap)
+            {
+				bool accumulateGlossy = U_ForwardSSREnable.x != 1.0;
+				environmentLighting = EnvironmentLighting_distantProbe_HDR(
+                    surface, 
+                    distantProbe_HDR, 
+                    envLightSetting, 
+                    U_PS_GravityDirection.xyz,
+                    accumulateGlossy);
+			}
+        }
+
+        if(shadingModel.lightModel == LightModel_PBR_LDR_Environment)
+        {
+            ApproxBrdfIntegral(surface);
+
+            environmentLighting = EnvironmentLighting_DefaultAmbient(surface, envLightSetting, U_PS_GravityDirection.xyz);
+            if(shadingModel.useEnvironmentMap)
+            {
+                environmentLighting = EnvironmentLighting_distantProbe_LDR(surface, distantProbe_LDR, envLightSetting, U_PS_GravityDirection.xyz);
+            }            
+        }
+
+        // TODO::if not standard lighting
+        // override environment lighting here
+        //if(shadingModel.lightModel == ...) 
+        {
+
+        }
+
+        finalColor += environmentLighting;
+    }
+
+    // dirrectly multiply ao factor to both direct lighting and indirect lighting 
+    // SUPER incorrect but cheap and our artist team favors this effect
+    // TODO::applying of SSAO and all indirect lighting might be moved to another pass(save some bandwidth maybe ?)
+    // apply ssao
+    {
+        if(U_PSCustom0.x > 0.0)
+        {
+            float ssao = SSAOOutput.Load(int3(IN.position.xy, 0));
+            surface.diffuseAO = min(ssao, surface.diffuseAO);   // use "darker" AO effect
+        }
+        // ApproxSpecularAO(surface);
+
+        finalColor *= surface.diffuseAO;
+    }
+
+    // add emission (indirect light might be added to scene color too)
+    finalColor += sceneColor;
+
+	//finalColor *= U_MaterialCustomParam1.x; //todo: HDR param, ignore for now
+	
+	psOut.color.rgb = finalColor;
+	psOut.color.a = 1.0;
+
+	return psOut;
+}

@@ -1,0 +1,44 @@
+#include "PrecomputeAtmosphereFuncs.inl"
+
+StructuredBuffer<AtmosphereParameters> B_CSCustom0;
+SamplerState S_2DExt2SamplerState;
+
+RWTexture2D<float4> S_2DExt0;
+RWTexture2D<float4> S_2DExt1;
+
+Texture3D<float4> S_2DExt2;
+Texture3D<float4> S_2DExt3;
+Texture3D<float4> S_2DExt4;
+Texture2D<float4> S_2DExt5;
+
+cbuffer Global
+{
+    column_major float4x4 U_CSCustom0;
+    uint U_CSCustom1;
+}
+
+#define luminance_from_radiance U_CSCustom0
+#define scattering_order U_CSCustom1
+
+#define linear_sampler S_2DExt2SamplerState
+#define atmosphere_params B_CSCustom0
+
+#define irradiance_texture_in S_2DExt5
+#define irradiance_texture_out S_2DExt0
+#define delta_irradiance_texture S_2DExt1
+
+#define single_rayleigh_scattering_texture S_2DExt2
+#define single_mie_scattering_texture S_2DExt3
+#define multiple_scattering_texture S_2DExt4
+
+[numthreads(COMPUTE_GROUP_SIZE_X, COMPUTE_GROUP_SIZE_Y, 1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    float3 delta_irradiance = ComputeIndirectIrradianceTexture(
+        atmosphere_params[0], single_rayleigh_scattering_texture, single_mie_scattering_texture,
+        multiple_scattering_texture, linear_sampler, float2(id.xy) + 0.5f, scattering_order);
+        
+    delta_irradiance_texture[id.xy] = float4(delta_irradiance, 1.f);
+    // irradiance_texture_out[id.xy] = float4(irradiance_texture_in.Load(uint3(id.xy, 0)).xyz + delta_irradiance, 1.f);
+    irradiance_texture_out[id.xy] = float4(irradiance_texture_in.Load(uint3(id.xy, 0)).xyz + delta_irradiance, 1.f);
+}

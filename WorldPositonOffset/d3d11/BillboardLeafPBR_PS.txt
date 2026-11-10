@@ -1,0 +1,497 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Light_Function_PS.inl>
+#include <EnvironmentLight_Function.inl>
+#include <Common_Function_PS.inl>
+
+	float4	U_MaterialDiffuse;
+	float4	U_MaterialSpecular;
+	float4	U_MaterialCustomParam;
+	float4	U_MaterialCustomParam1;
+
+	float4	U_LightPower;	//x for lightpower, y for specular offset
+		
+
+	float4	U_PSGeneralRegister0;
+	float4	U_PSGeneralRegister1;
+	float4	U_PSGeneralRegister2;
+	float4	U_PSGeneralRegister3;
+	float4	U_PSGeneralRegister4;
+	float4	U_PSGeneralRegister5;
+	float4	U_PSGeneralRegister6;
+	float4	U_PSGeneralRegister7;
+	float4	U_PSGeneralRegister8;
+	float4	U_PSGeneralRegister30;	
+
+	float4	U_PSGeneralRegister29; 	//x ---current mask percentage
+									//y --- if 1 on Lattice Cull Mask
+									//z ---alpha range
+									//w ---direction if w >= 0 Positive elseif w < 0 Reverse
+	
+	Texture2D	S_Diffuse;
+	SamplerState S_DiffuseSamplerState;
+	
+	Texture2D	S_Specular;
+    SamplerState S_SpecularSamplerState;
+	
+	Texture2D	S_Bump;
+	SamplerState S_BumpSamplerState;
+	
+	TextureCube	S_EnvironmentCubeMap;
+	SamplerState S_EnvironmentCubeMapSamplerState;
+	
+	float4 texDiffuse(float2 vUV) 
+	{ 
+		return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+	}
+
+	#ifdef DETAIL_BUMP
+		#undef TEXTURE_FLOW
+		Texture2D	S_Custom;
+		SamplerState S_CustomSamplerState;
+	#endif
+	
+	#ifdef TEXTURE_FLOW
+		#undef DETAIL_BUMP
+		Texture2D	S_Custom;
+		SamplerState S_CustomSamplerState;
+	#endif	
+		
+	#ifdef DISTORT
+		#undef DETAIL_BUMP
+	#endif
+	
+	#ifdef TEXTURE_MASK
+		Texture2D	S_Environment;
+		SamplerState S_EnvironmentSamplerState;
+	#endif
+
+#ifdef CLUSTER_POINT_LIGHT
+	#include "Common_ShadowFiltering.inl"
+	#include "Shadow_Light_Function_PS.inl"
+#endif
+
+#ifdef DISTORT
+ 
+float3 mod289(float3 x)
+{
+    return x - floor(x / 289.0) * 289.0;
+}
+
+float2 mod289(float2 x)
+{
+    return x - floor(x / 289.0) * 289.0;
+}
+
+float3 permute(float3 x)
+{
+    return mod289((x * 34.0 + 1.0) * x);
+}
+
+float3 taylorInvSqrt(float3 r)
+{
+    return 1.79284291400159 - 0.85373472095314 * r;
+}
+
+float snoise(float2 v)
+{
+    const float4 C = float4( 0.211324865405187,  // (3.0-sqrt(3.0))/6.0
+                             0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
+                            -0.577350269189626,  // -1.0 + 2.0 * C.x
+                             0.024390243902439); // 1.0 / 41.0
+    // First corner
+    float2 i  = floor(v + dot(v, C.yy));
+    float2 x0 = v -   i + dot(i, C.xx);
+
+    // Other corners
+    float2 i1;
+    i1.x = step(x0.y, x0.x);
+    i1.y = 1.0 - i1.x;
+
+    // x1 = x0 - i1  + 1.0 * C.xx;
+    // x2 = x0 - 1.0 + 2.0 * C.xx;
+    float2 x1 = x0 + C.xx - i1;
+    float2 x2 = x0 + C.zz;
+
+    // Permutations
+    i = mod289(i); // Avoid truncation effects in permutation
+    float3 p =
+      permute(permute(i.y + float3(0.0, i1.y, 1.0))
+                    + i.x + float3(0.0, i1.x, 1.0));
+
+    float3 m = max(0.5 - float3(dot(x0, x0), dot(x1, x1), dot(x2, x2)), 0.0);
+    m = m * m;
+    m = m * m;
+
+    // Gradients: 41 points uniformly over a line, mapped onto a diamond.
+    // The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
+    float3 x = 2.0 * frac(p * C.www) - 1.0;
+    float3 h = abs(x) - 0.5;
+    float3 ox = floor(x + 0.5);
+    float3 a0 = x - ox;
+
+    // Normalise gradients implicitly by scaling m
+    m *= taylorInvSqrt(a0 * a0 + h * h);
+
+    // Compute final noise value at P
+    float3 g;
+    g.x = a0.x * x0.x + h.x * x0.y;
+    g.y = a0.y * x1.x + h.y * x1.y;
+    g.z = a0.z * x2.x + h.z * x2.y;
+    return 130.0 * dot(m, g);
+}
+
+float3 snoise_grad(float2 v)
+{
+    const float4 C = float4( 0.211324865405187,  // (3.0-sqrt(3.0))/6.0
+                             0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
+                            -0.577350269189626,  // -1.0 + 2.0 * C.x
+                             0.024390243902439); // 1.0 / 41.0
+    // First corner
+    float2 i  = floor(v + dot(v, C.yy));
+    float2 x0 = v -   i + dot(i, C.xx);
+
+    // Other corners
+    float2 i1;
+    i1.x = step(x0.y, x0.x);
+    i1.y = 1.0 - i1.x;
+
+    // x1 = x0 - i1  + 1.0 * C.xx;
+    // x2 = x0 - 1.0 + 2.0 * C.xx;
+    float2 x1 = x0 + C.xx - i1;
+    float2 x2 = x0 + C.zz;
+
+    // Permutations
+    i = mod289(i); // Avoid truncation effects in permutation
+    float3 p =
+      permute(permute(i.y + float3(0.0, i1.y, 1.0))
+                    + i.x + float3(0.0, i1.x, 1.0));
+
+    float3 m = max(0.5 - float3(dot(x0, x0), dot(x1, x1), dot(x2, x2)), 0.0);
+    float3 m2 = m * m;
+    float3 m3 = m2 * m;
+    float3 m4 = m2 * m2;
+
+    // Gradients: 41 points uniformly over a line, mapped onto a diamond.
+    // The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
+    float3 x = 2.0 * frac(p * C.www) - 1.0;
+    float3 h = abs(x) - 0.5;
+    float3 ox = floor(x + 0.5);
+    float3 a0 = x - ox;
+
+    // Normalise gradients
+    float3 norm = taylorInvSqrt(a0 * a0 + h * h);
+    float2 g0 = float2(a0.x, h.x) * norm.x;
+    float2 g1 = float2(a0.y, h.y) * norm.y;
+    float2 g2 = float2(a0.z, h.z) * norm.z;
+
+    // Compute noise and gradient at P
+    float2 grad =
+      -6.0 * m3.x * x0 * dot(x0, g0) + m4.x * g0 +
+      -6.0 * m3.y * x1 * dot(x1, g1) + m4.y * g1 +
+      -6.0 * m3.z * x2 * dot(x2, g2) + m4.z * g2;
+    float3 px = float3(dot(x0, g0), dot(x1, g1), dot(x2, g2));
+    return 130.0 * float3(grad, dot(m4, px));
+}
+#endif
+
+float3 fresnelSchlick(float cosTheta, float3 F0)
+{
+	return F0 + (1.0-F0) * pow(1.0-cosTheta, 5.0);
+}
+
+float distributionGGX(float3 N, float3 H, float roughness)
+{
+	float a = roughness * roughness;
+	float a2 = a * a;
+	float NdotH = max(dot(N, H), 0.0);
+	float NdotH2 = NdotH * NdotH;
+	float nom = a2;
+	float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+	denom = 3.141592654 * denom * denom;
+	denom = max(denom, 0.00001);
+	return nom / denom;
+}
+
+float geometrySchlickGGX(float NdotV, float roughness)
+{
+	float r = roughness + 1.0;
+	float k = (r * r) / 8.0;
+	
+	float nom = NdotV;
+	float denom = NdotV * (1.0 - k) + k;
+	
+	return nom / denom;
+}
+
+float geometrySmith(float3 N, float3 V, float3 L, float roughness)
+{
+	float NdotV = max(dot(N, V), 0.0);
+	float NdotL = max(dot(N, L), 0.0);
+	float ggx2 = geometrySchlickGGX(NdotV, roughness);
+	float ggx1 = geometrySchlickGGX(NdotL, roughness);
+	
+	return ggx2 * ggx1;
+}
+
+float3 envBRDFApprox(float3 specularColor, float roughness, float NoV)
+{
+	float4 c0 = float4(-1.0,	-0.0275,	-0.572,		0.022);
+	float4 c1 = float4(1.0,		0.0425,		1.04,		-0.04);
+	
+	float4 r = roughness * c0 + c1;
+	float a004 = min(r.x * r.x, exp2(-9.28 * NoV)) * r.x + r.y;
+	float2 AB = float2(-1.04, 1.04) * a004 + r.zw;
+	return specularColor * AB.x + AB.y;
+}
+
+
+//float3 envBRDFApprox(float3 specularColor, float roughness, float NoV)
+//{
+//   return pow(1.0f-max(roughness,NoV),3.f)+specularColor;
+//}
+
+float3 thinTranslucency(float3 N, float3 L, float3 transmittanceColor)
+{
+	float transmittance = saturate(dot(-N, L) + 0.2);
+	float fresnel = (1.0 - transmittance) * (1.0 - transmittance);
+	fresnel *= fresnel;
+	
+	return transmittance * (1.0 - fresnel) * transmittanceColor;
+}
+
+struct PS_INPUT
+{
+	float4 i_PosInClip	: SV_POSITION;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float2	i_UV	: TEXCOORD0;
+	#endif
+#else
+	float3 i_Normal		: NORMAL0;
+#ifdef VERTEX_COLOR
+	float3 i_Diffuse	: COLOR0;
+#endif
+	float2 i_UV			: TEXCOORD0;
+	float4 i_WorldPos	: TEXCOORD1;
+	float4 i_Fog		: TEXCOORD2;
+#endif
+#ifdef PARABOLOID_MAPPING
+	float	i_ClipDepth			: TEXCOORD12;
+#endif
+	float4  i_PosInModel	: TEXCOORD13;
+	float4  i_BoundBoxRange     : TEXCOORD14;
+};
+
+
+
+struct PS_OUTPUT
+{
+#ifndef SHADOWPASS
+	float4 oColor : SV_TARGET;
+#endif
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+
+#ifdef PARABOLOID_MAPPING
+	clip(IN.i_ClipDepth);
+#endif
+
+ #ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 oColor = S_Diffuse.Sample(S_DiffuseSamplerState, IN.i_UV);
+		clip(oColor.a - U_MaterialDiffuse.a);
+	#endif
+#else
+	float2 uv = IN.i_UV.xy;
+
+	{
+		//dither discard
+		bool needDiscard = ComputeBitmapCullMask(U_PSGeneralRegister29, IN.i_BoundBoxRange, 
+		U_MaterialCustomParam1.z, IN.i_PosInModel.xyz, IN.i_PosInClip.xyz);
+		if(needDiscard)
+			discard;
+	}
+	
+	#ifdef UV_ROLL
+		uv += frac(U_PS_Time.z * float2(U_PSGeneralRegister1.z, U_PSGeneralRegister1.w));
+	#endif
+	
+	#ifdef DISTORT
+		float _distortAmt = U_PSGeneralRegister2.y;
+		float _distortScale = U_PSGeneralRegister2.z;
+		float _distortSpeed = U_PSGeneralRegister1.y;
+		float Time = U_PS_Time.z;
+ 
+		float noise = snoise(uv * _distortScale + float2(Time *_distortSpeed, - Time *_distortSpeed));
+		
+		uv += noise * _distortAmt;
+	#endif
+
+	#ifdef UV_TILLING
+		uv *= U_PSGeneralRegister2.x;
+	#endif
+		
+	half4 diffuseColor = S_Diffuse.Sample(S_DiffuseSamplerState, uv);
+				
+	#ifdef ALPHA_TEST
+		clip(diffuseColor.a - U_MaterialDiffuse.a);
+	#endif
+	
+	half3 baseMap = pow(diffuseColor.rgb, 2.2)*U_MaterialDiffuse.rgb;
+
+	#ifdef VERTEX_COLOR
+		baseMap.rgb *= IN.i_Diffuse.rgb;
+	#endif
+
+	#ifdef TEXTURE_MASK
+		half4 mask = S_Environment.Sample(S_EnvironmentSamplerState, uv);
+		half3 colorR = pow(U_PSGeneralRegister4.rgb, 2.2) * mask.r;
+		half3 colorG = pow(U_PSGeneralRegister5.rgb, 2.2) * mask.g;
+		half3 colorB = pow(U_PSGeneralRegister6.rgb, 2.2) * mask.b;
+		float f = min(mask.r + mask.g + mask.b, 1.0);
+		half3 colorF = colorR + colorG + colorB;
+		baseMap = lerp(baseMap, baseMap * colorF, f);
+	#endif
+	
+	half3 N = normalize(IN.i_Normal.xyz);
+	half3 V = normalize(U_PS_CameraPosition.xyz - IN.i_WorldPos.xyz);
+	
+	half metallic = 0.0;
+	half roughness = 1.0;
+	
+	#ifdef PBR_ROUGHNESS
+		roughness = S_Bump.Sample(S_BumpSamplerState, uv).b;
+	#else
+		roughness = U_PSGeneralRegister6.w;
+	#endif
+
+	#ifdef COVER_WEATHER
+		#ifdef COVER_WEATHER_ALPHA
+			float coverLerp = diffuseColor.a;
+		#else
+			float coverLerp = dot(N, U_PS_GravityDirection.xyz);
+		#endif
+		coverLerp = clamp(coverLerp + U_PSGeneralRegister8.x, 0.0, 1.0);
+		coverLerp *= U_WeatherParam0.w * (1.f - U_PSGeneralRegister30.x);
+		baseMap = lerp(baseMap, U_WeatherParam0.xyz, coverLerp);
+		roughness = lerp(roughness, U_WeatherParam1.x, coverLerp);
+		metallic = lerp(metallic, U_WeatherParam1.y, coverLerp);		
+	#endif
+
+	half3 color = 0.0;
+	
+	half3 L = normalize(-U_MainLightDirection.xyz);
+	
+	#ifdef	THIN_TRANSLUCENCY
+		color += thinTranslucency(N, L, U_PSGeneralRegister7.xyz) * metallic;
+		metallic = 0.0;
+	#endif
+
+	half4 mainLightColor = lerp(U_PBR_MainLightColor, U_RoleMainLightColor, U_PSGeneralRegister8.w);
+	half4 skyLightColor = lerp(U_PBR_SkyLightColor, U_RoleSkyLightColor, U_PSGeneralRegister8.w);
+	half4 groundLightColor = lerp(U_PBR_GroundLightColor, U_RoleGroundLightColor, U_PSGeneralRegister8.w);
+	half  blendThreshold = lerp(U_PS_AmbientBlendThreshold.y, U_PS_AmbientBlendThreshold.z, U_PSGeneralRegister8.w);
+
+	half3 albedo = baseMap * (1.0 - metallic);
+	half3 specularColor = lerp(half3(0.04h, 0.04h, 0.04h), baseMap, metallic);	
+	
+	color += calculateLightPower(N, V, L, mainLightColor.xyz * 0.8, baseMap, roughness, metallic);
+	color += calculateLightPower(N, V, half3(-L.x, -L.y, -L.z), mainLightColor.xyz * 0.2, baseMap, roughness, metallic);
+
+#ifdef CLUSTER_POINT_LIGHT
+		color += calculateShadowPBRPointLight(IN.i_WorldPos, N, V, baseMap, roughness, metallic);
+	
+        float3 clusterLightColor = 
+            calculateClusterPBRPointLight(IN.i_PosInClip.xy,
+                                          IN.i_WorldPos.xyz,
+                                          N,
+                                          V,
+                                          baseMap,
+                                          roughness,
+                                          metallic);
+        color += clusterLightColor;    
+#endif
+        
+	half3 envBRDF = envBRDFApprox(specularColor, roughness, max(dot(N, V), 0.0));
+	half3 ambientColor = ComputeAmbientLight(skyLightColor.xyz, groundLightColor.xyz, N, blendThreshold, U_PS_GravityDirection.xyz);
+
+	#ifdef ENVIRONMENT_MAP
+		half4 refl;
+		refl.xyz = reflect(-V, N);
+		refl.w = U_EnvironmentCubeMapMipLevels.x - 1.0 - (1.0 - 1.2 * log2(roughness));
+		refl.w = max(0.0, refl.w);
+		half3 reflColor = S_EnvironmentCubeMap.SampleLevel(S_EnvironmentCubeMapSamplerState, refl.xyz,refl.w).rgb;
+		envBRDF *= reflColor;
+	#else
+		envBRDF *= normalize(ambientColor);
+	#endif
+	
+	color += (albedo + envBRDF) * ambientColor;
+	
+	#ifdef EMISSIVE
+		
+		half3 missiveColor = diffuseColor.rgb * U_PSGeneralRegister0.xyz * diffuseColor.a;
+		half3 minMissiveColor = missiveColor * U_PSGeneralRegister0.w;
+
+		#ifdef TOD_EMISSIVE
+			half todFactor = U_LightPower.x;		
+			
+			#ifdef DYNAMIC_EMISSIVE
+				half3 maxMissiveColor = missiveColor * U_PSGeneralRegister1.x;
+				half factor = U_MaterialSpecular.w;	
+				color += lerp(minMissiveColor, maxMissiveColor, half3(factor, factor, factor)) * todFactor;
+			#else
+				color += minMissiveColor * todFactor;
+			#endif
+		#else
+		
+			#ifdef DYNAMIC_EMISSIVE
+				half3 maxMissiveColor = missiveColor * U_PSGeneralRegister1.x;
+				half factor = U_MaterialSpecular.w;	
+				color += lerp(minMissiveColor, maxMissiveColor, half3(factor, factor, factor));
+			#else
+				color += minMissiveColor;
+			#endif
+			
+		#endif
+		
+	#endif
+	
+	#ifdef TEXTURE_FLOW
+		uv *= U_PSGeneralRegister3.z;
+		uv += frac(U_PS_Time.z * float2(U_PSGeneralRegister3.x, U_PSGeneralRegister3.y));
+		half3 flowTextureColor = pow(S_Custom.Sample(S_CustomSamplerState, uv).rgb, 2.2);
+		
+		#ifdef TEXTURE_FLOW_WITHOUT_CHANNEL
+			color += lerp(flowTextureColor, flowTextureColor * U_PSGeneralRegister3.w, U_LightPower.x);
+		#else
+			color += lerp(flowTextureColor, flowTextureColor * U_PSGeneralRegister3.w, U_LightPower.x) * diffuseColor.a;
+		#endif
+	#endif
+	
+ 
+	color *= U_MaterialCustomParam1.x;
+	color = color * IN.i_Fog.a + IN.i_Fog.rgb;
+	psOut.oColor.rgb = pow(color, 1.0 / 2.2);
+	psOut.oColor.a = diffuseColor.a;
+	
+	#ifdef EditorHelp
+		psOut.oColor.rgb = psOut.oColor.rgb * 0.00001 + float3(1.0,0.0,0.0);
+		psOut.oColor.a = 1.0;
+	#endif
+	
+	#ifdef EDITOR_MODE
+		if(U_MaterialCustomParam.w > 0)
+			psOut.oColor.rgb = U_MaterialCustomParam.xyz;		
+	#endif
+	float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.oColor = psOut.oColor * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+#endif
+
+	return psOut;
+}
+

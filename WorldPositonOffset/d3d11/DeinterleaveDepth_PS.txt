@@ -1,0 +1,98 @@
+#define DepthSource S_2DExt0
+#define PointClamp S_2DExt0SamplerState
+
+// U_PSCustom0.xy : (0.5, 0.5) at quad0, (1.5, 1.5) at quad3
+// U_PSCustom0.z : ( cameraClipFar * cameraClipNear) / ( cameraClipFar - cameraClipNear )
+// U_PSCustom0.w : cameraClipFar / ( cameraClipFar - cameraClipNear )
+uniform float4 U_PSCustom0;
+// U_PSCustom1.xy : NDCToView Add
+// U_PSCustom1.zw : NDCToView Mul
+uniform float4 U_PSCustom1;
+// U_PSCustom2.xy : ViewportPixelSize
+uniform float4 U_PSCustom2;
+Texture2D DepthSource;
+SamplerState PointClamp;
+
+struct PS_INPUT
+{
+    float4 Position : SV_POSITION;
+    float4 TexCoord : TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+    float4 DepthNormal : SV_TARGET;
+};
+
+float2 EncodeDepth(float depth)
+{
+    const uint packed = f32tof16(depth);
+    return float2(packed & 0xFF, packed >> 8 & 0xFF) / 255.0;
+}
+
+float2 EncodeNormal(float3 n)
+{
+    n /= dot(1, abs(n));
+    float2 v = n.xy;
+    n.xy = n.z >= 0.0 ? n.xy : (1.0 - abs(v.yx)) * (v.xy >= 0.0 ? 1.0 : -1.0);
+    n.xy = n.xy * 0.5 + 0.5;
+    return n.xy;
+}
+
+float3 MinDiff(const float3 p, const float3 pr, const float3 pl)
+{
+    float3 v1 = pr - p;
+    float3 v2 = p - pl;
+    return dot(v1, v1) < dot(v2, v2) ? v1 : v2;
+}
+
+float ScreenSpaceToViewSpaceDepth(const float screenDepth)
+{
+    // Optimised version of "-cameraClipNear / (cameraClipFar - projDepth * (cameraClipFar - cameraClipNear)) * cameraClipFar"
+
+    // Set your depthLinearizeMul and depthLinearizeAdd to:
+    // depthLinearizeMul = -proj[2][3];
+    // depthLinearizeAdd = proj[2][2];
+    return U_PSCustom0.z / (U_PSCustom0.w + screenDepth);
+}
+
+float3 NdcToViewSpace(const float2 pos, const float viewSpaceDepth)
+{
+    float3 ret;
+
+    ret.xy = (U_PSCustom1.zw * pos.xy + U_PSCustom1.xy) * viewSpaceDepth;
+    ret.z = viewSpaceDepth;
+
+    return ret;
+}
+
+// Only works on right-handed coordinate system, v towards bottom.
+float3 ReconstructNormal(const float2 uv, const float3 p)
+{
+    const float2 tcr = uv + float2(U_PSCustom2.x, 0);
+    const float3 pr = NdcToViewSpace(tcr, ScreenSpaceToViewSpaceDepth(DepthSource.SampleLevel(PointClamp, tcr, 0).r));
+
+    const float2 tcl = uv + float2(-U_PSCustom2.x, 0);
+    const float3 pl = NdcToViewSpace(tcl, ScreenSpaceToViewSpaceDepth(DepthSource.SampleLevel(PointClamp, tcl, 0).r));
+
+    const float2 tct = uv + float2(0, -U_PSCustom2.y);
+    const float3 pt = NdcToViewSpace(tct, ScreenSpaceToViewSpaceDepth(DepthSource.SampleLevel(PointClamp, tct, 0).r));
+
+    const float2 tcb = uv + float2(0, U_PSCustom2.y);
+    const float3 pb = NdcToViewSpace(tcb, ScreenSpaceToViewSpaceDepth(DepthSource.SampleLevel(PointClamp, tcb, 0).r));
+    return normalize(cross(MinDiff(p, pr, pl), MinDiff(p, pt, pb)));
+}
+
+PS_OUTPUT main(PS_INPUT pIn)
+{
+    PS_OUTPUT pOut;
+	const float2 uv = U_PSCustom2.xy * (pIn.Position.xy * 2 + U_PSCustom0.xy);
+    const float screenDepth = DepthSource.SampleLevel(PointClamp, uv, 0).r;
+    const float viewspaceDepth = ScreenSpaceToViewSpaceDepth(screenDepth);
+    const float3 p = NdcToViewSpace(uv, viewspaceDepth);
+
+	pOut.DepthNormal.xy = EncodeDepth(viewspaceDepth);
+    pOut.DepthNormal.zw = EncodeNormal(ReconstructNormal(uv, p));
+
+    return pOut;
+}

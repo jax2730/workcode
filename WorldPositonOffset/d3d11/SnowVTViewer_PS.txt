@@ -1,0 +1,106 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Light_Function_PS.inl>
+
+
+struct SnowData
+{
+	float SnowHeight;
+	float Tile;
+	float normalIntensity;
+	float normalOffset;
+	uint textureSize;
+	uint floatPow;
+};
+
+struct SnowContext
+{
+	float3 LastCameraPos;
+	float cameraNear;
+	float3 currentCameraPos;
+	float cameraFar;
+	float4 viewMat0;
+	float4 viewMat1;
+	float4 viewMat2;
+	float4 viewMat3;
+	float4 l_viewMat0;
+	float4 l_viewMat1;
+	float4 l_viewMat2;
+	float4 l_viewMat3;
+	float4 Inv_viewMat0;
+	float4 Inv_viewMat1;
+	float4 Inv_viewMat2;
+	float4 Inv_viewMat3;
+	float CameraExtend;
+	float cameraHeight;
+	int diff_x;
+    int diff_y;
+};
+
+uniform SnowData U_PSCustom0;
+uniform SnowContext U_PSCustom1;
+
+ByteAddressBuffer B_CSCustom0;
+#define TrailsBuffer B_CSCustom0
+
+Texture2D S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+struct PS_INPUT
+{
+    float4	i_PosInClip	: SV_POSITION;
+	float2	i_UVBase	: TEXCOORD0;
+};
+
+bool InTexRange(int x,int y,int textureSize)
+{
+    return x>=0&&x<textureSize && y>=0&&y<textureSize;
+}
+
+
+float GetHeight(int2 oriUv,uint textureSize)
+{
+	float floatPow = pow(10,U_PSCustom0.floatPow);
+	uint exp = uint(pow(10,U_PSCustom0.floatPow +3.0f) - 10.0f);
+	int index;
+	float height = 0;
+	oriUv = int2(oriUv.x,textureSize - oriUv.y);
+	if(InTexRange(oriUv.x,oriUv.y,textureSize))
+	{
+		index = oriUv.y * textureSize + int(oriUv.x);
+		uint theight = TrailsBuffer.Load(index * 4);
+		if(theight < exp)
+		{
+			height = float(theight)/floatPow;
+		}
+	}
+	return height;
+}
+
+float SampleSnowTex(float2 uv,uint textureSize)
+{
+	float2 FloatTexSizeUv = uv * float2(textureSize,textureSize);
+	float2 f = frac(FloatTexSizeUv);
+	int2 IntTexSizeUv = int2(int(FloatTexSizeUv.x),int(FloatTexSizeUv.y));
+
+	float h1 = GetHeight(IntTexSizeUv , textureSize);
+	float h2 = GetHeight(IntTexSizeUv + int2(1,0) , textureSize);
+	float h3 = GetHeight(IntTexSizeUv + int2(0,1) , textureSize);
+	float h4 = GetHeight(IntTexSizeUv + int2(1,1) , textureSize);
+
+	return lerp(lerp(h1, h2, f.x), lerp(h3, h4, f.x), f.y);
+}
+
+
+float4 main(PS_INPUT IN) : SV_TARGET
+{
+    uint textureSize = U_PSCustom0.textureSize;
+    float cameraNear        = U_PSCustom1.cameraNear;
+	float cameraFar         = U_PSCustom1.cameraFar;
+    float2 uv = IN.i_UVBase;
+
+    float h = SampleSnowTex(uv , textureSize);
+    h = h / abs(cameraFar - cameraNear);
+    float4 color = float4(h,h,h,1.0f);
+	return color;
+}

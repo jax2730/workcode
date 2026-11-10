@@ -1,0 +1,48 @@
+#include <Common_Uniform_PS.inl>
+
+Texture2D	S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+Texture2D	S_Depth;
+SamplerState S_DepthSamplerState;
+
+float4	U_PSCustom0;
+float4  U_PSCustom1;
+
+struct PS_INPUT
+{
+    float4 i_Position	: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+	float4 i_SunPosClip : TEXCOORD1;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+	
+	float2 sunPosUV = float2((IN.i_SunPosClip.x + 1.0) * 0.5, 1.0 - (IN.i_SunPosClip.y + 1.0) * 0.5);
+	float sunPosDepth = S_Depth.Sample(S_DepthSamplerState, sunPosUV * U_ViewParam.xy).r;
+	float sunDistance = IN.i_SunPosClip.z;
+#ifdef REVERSE_DEPTH
+	if(sunPosDepth > sunDistance)
+	{
+		discard;
+	}
+#else
+	if(sunPosDepth < sunDistance)
+	{
+		discard;
+	}
+#endif
+	psOut.o_Color =  S_Diffuse.Sample(S_DiffuseSamplerState, IN.i_UV.xy);
+	psOut.o_Color *= U_PSCustom0;
+	float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.o_Color = psOut.o_Color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+	psOut.o_Color.rgb *= U_PSCustom1.x;
+	return psOut;
+}

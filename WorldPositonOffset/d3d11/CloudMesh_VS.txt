@@ -1,0 +1,101 @@
+
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+
+float4	U_WorldMatrix[3];
+float4	U_WorldViewProjectMatrix[4];
+
+uniform float4	U_VSCustom1;
+uniform float4	U_VSCustom2;
+uniform float4	U_VSCustom3;
+
+struct VS_INPUT
+{
+	float4 i_Position	: POSITION0;
+	float4 i_Normal		: NORMAL0;
+	float4 i_UV			: TEXCOORD0;	
+	float4 i_Tangent	: TANGENT0;
+	#ifdef VERTEX_COLOR
+		float4 i_Diffuse: COLOR0;
+	#endif
+	
+};
+
+struct VS_OUTPUT
+{
+	float4 o_Position	: SV_POSITION;
+	float4 o_UV			: TEXCOORD0;
+	float4 o_ClipPos    : TEXCOORD1;	
+	float4 o_FogColor	: TEXCOORD2;
+	float4 o_WorldPos	: TEXCOORD4;
+	#ifdef USE_SUN_BACK_COLOR
+		float4 o_CustomParam: TEXCOORD3;
+	#endif
+	#ifdef VERTEX_COLOR
+		float4 o_Diffuse: COLOR0;
+	#endif
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{	
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+
+	float4 vPos = float4(IN.i_Position.xyz,1.0);
+
+	float4x4 rotatePosMatrix;
+	rotatePosMatrix[0] = float4(U_VSCustom1.xyz,0.f);
+	rotatePosMatrix[1] = float4(U_VSCustom2.xyz,0.f);
+	rotatePosMatrix[2] = float4(U_VSCustom3.xyz,0.f);
+	rotatePosMatrix[3] = float4(0.f,0.f,0.f,1.f);
+	vPos = mul(rotatePosMatrix,vPos);
+
+	float4 rotatedPos = vPos;
+
+	float4 vPosInWorld = vPos;	
+	vPosInWorld.x = dot( vPos , U_WorldMatrix[0] );
+	vPosInWorld.y = dot( vPos , U_WorldMatrix[1] );
+	vPosInWorld.z = dot( vPos , U_WorldMatrix[2] );
+	vPosInWorld.w = 1.0;
+
+	vsOut.o_WorldPos = vPosInWorld;
+								
+	vsOut.o_Position.x = dot( vPos , U_WorldViewProjectMatrix[0] );
+	vsOut.o_Position.y = dot( vPos , U_WorldViewProjectMatrix[1] );
+	vsOut.o_Position.z = dot( vPos , U_WorldViewProjectMatrix[2] );
+	vsOut.o_Position.w = dot( vPos , U_WorldViewProjectMatrix[3] );
+	
+	#ifdef USE_ORIGINAL_UV
+		vsOut.o_UV.xy = IN.i_UV.xy;
+	#else
+		//vsOut.o_UV.xy = vPosInWorld.xz * 0.0001f + IN.i_UV.xy;
+		vsOut.o_UV.xy = IN.i_UV.xy + IN.i_Position.xz * 0.0003f * U_VSCustom1.w;
+	#endif
+	
+	vsOut.o_ClipPos = vsOut.o_Position;	
+	
+	#ifdef USE_SUN_BACK_COLOR
+		vsOut.o_CustomParam.xyz = rotatedPos.xyz;
+	#endif
+		
+	float3 camToWorld =  U_VS_CameraPosition.xyz - vPosInWorld.xyz;	
+
+	float4x4 gravityRotatePosMatrix;
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+	
+	vsOut.o_FogColor = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+	
+	#ifdef VERTEX_COLOR
+		vsOut.o_Diffuse = IN.i_Diffuse;
+	#endif
+	#ifdef EDITOR_MODE
+		#ifdef HierarchicalLOD
+			vsOut.o_Position = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+		#endif
+	#endif
+	return vsOut;
+}

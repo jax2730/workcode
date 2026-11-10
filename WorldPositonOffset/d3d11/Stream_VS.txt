@@ -1,0 +1,85 @@
+#include <Common_Function.inl>
+#include<Common_Uniform_VS.inl>
+
+float4	U_WorldMatrix[3];
+
+struct VSInput
+{
+	float4 	i_Pos		: POSITION0;
+	float3 	i_Normal	: NORMAL0;
+	float3	i_Tangent	: TANGENT0;
+	float4	i_Color		: COLOR0;
+	float4	i_UV0		: TEXCOORD0;
+};
+
+struct VSOutput
+{
+	float4 	o_PosInClip			: SV_POSITION;
+	float4	o_Color				: TEXCOORD0;
+	float4	o_UV0				: TEXCOORD1;
+	float3	o_Normal			: TEXCOORD2;
+	float3	o_Tangent			: TEXCOORD3;
+	float3	o_Binormal			: TEXCOORD4;
+	float4	o_EyeDir			: TEXCOORD5;
+	float4  o_FogParams     	: TEXCOORD6;
+	float4	o_WPos				: TEXCOORD7;
+#ifdef PARABOLOID_MAPPING
+	float	o_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+VSOutput main(VSInput IN)
+{
+	VSOutput vsOut = (VSOutput)0;
+	vsOut.o_WPos = IN.i_Pos;
+	vsOut.o_WPos.x = dot( IN.i_Pos , U_WorldMatrix[0] );
+	vsOut.o_WPos.y = dot( IN.i_Pos , U_WorldMatrix[1] );
+	vsOut.o_WPos.z = dot( IN.i_Pos , U_WorldMatrix[2] );
+	vsOut.o_WPos.w = 1.0;
+	
+	vsOut.o_PosInClip.x = dot( vsOut.o_WPos , U_ViewProjectMatrix[0] );
+	vsOut.o_PosInClip.y = dot( vsOut.o_WPos , U_ViewProjectMatrix[1] );
+	vsOut.o_PosInClip.z = dot( vsOut.o_WPos , U_ViewProjectMatrix[2] );
+	vsOut.o_PosInClip.w = dot( vsOut.o_WPos , U_ViewProjectMatrix[3] );
+	
+	vsOut.o_PosInClip.z -= 0.002f;
+
+#ifdef PARABOLOID_MAPPING
+	vsOut.o_ClipDepth = vsOut.o_PosInClip.z;
+	ParaboloidMapping(vsOut.o_PosInClip, U_ShadowLightDepthMulAdd.x, U_ShadowLightDepthMulAdd.z, U_ShadowLightDepthMulAdd.w);
+#endif
+
+	vsOut.o_Normal.x = dot( IN.i_Normal , U_WorldMatrix[0].xyz );
+	vsOut.o_Normal.y = dot( IN.i_Normal , U_WorldMatrix[1].xyz );
+	vsOut.o_Normal.z = dot( IN.i_Normal , U_WorldMatrix[2].xyz );
+	
+	vsOut.o_Tangent.x = dot( IN.i_Tangent , U_WorldMatrix[0].xyz );
+	vsOut.o_Tangent.y = dot( IN.i_Tangent , U_WorldMatrix[1].xyz );
+	vsOut.o_Tangent.z = dot( IN.i_Tangent , U_WorldMatrix[2].xyz );
+	
+	vsOut.o_Binormal	= cross(vsOut.o_Tangent.xyz, vsOut.o_Normal.xyz);
+	
+	vsOut.o_UV0.xy		=  IN.i_UV0.xy;
+	
+	float3 camToWorld =  U_VS_CameraPosition.xyz - vsOut.o_WPos.xyz;
+	
+	vsOut.o_EyeDir.xyz	=  camToWorld.xyz;
+	
+	vsOut.o_Color		=  IN.i_Color;
+	
+	float4x4 gravityRotatePosMatrix;	
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+
+	vsOut.o_FogParams = ComputeFogColor(camToWorld,U_FogParam.xy,U_FogParam.zw,U_FogRampParam, U_FogColorNear, U_FogColorFar);
+
+#ifdef EDITOR_MODE
+	#ifdef HierarchicalLOD
+		vsOut.o_PosInClip = float4(2.0f * IN.i_UV0.x - 1.0f, 1.0f - 2.0f * IN.i_UV0.y, 1.0f, 1.0f);
+	#endif
+#endif
+	return vsOut;
+}

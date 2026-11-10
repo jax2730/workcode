@@ -1,0 +1,235 @@
+
+
+// #define TRANSMITTANCE_TEXTURE_WIDTH 256
+// #define TRANSMITTANCE_TEXTURE_HEIGHT 64
+
+// #define SCATTERING_TEXTURE_R_SIZE 32
+// #define SCATTERING_TEXTURE_MU_SIZE 128
+// #define SCATTERING_TEXTURE_MU_S_SIZE 32
+// #define SCATTERING_TEXTURE_NU_SIZE 8
+
+// #define IRRADIANCE_TEXTURE_WIDTH 64
+// #define IRRADIANCE_TEXTURE_HEIGHT 16
+
+// #define COMPUTE_GROUP_SIZE_X 16
+// #define COMPUTE_GROUP_SIZE_Y 16
+// #define COMPUTE_GROUP_SIZE_Z 4
+
+#define IRRADIANCE_TEXTURE_SIZE int2(IRRADIANCE_TEXTURE_WIDTH, IRRADIANCE_TEXTURE_HEIGHT)
+
+#include <PrecomputeAtmosphereFuncs.inl>
+#define PI 3.1415926535897932384626433832795f
+uniform float4 U_PSCustom0;
+uniform float4 U_PSCustom1;
+uniform float4 U_PSCustom2;
+uniform float4 U_PBR_MainLightColor;
+uniform float4 U_MainLightDirection;
+#define CameraPos U_PSCustom0.xyz 
+#define SunSize U_PSCustom1.xy
+#define EarthCenter U_PSCustom2.xyz
+#define EarthRadius U_PSCustom2.w
+#define SunColor U_PBR_MainLightColor 
+#define SunDir -U_MainLightDirection.xyz
+
+StructuredBuffer<AtmosphereParameters> B_CSCustom0;
+#define Atmosphere B_CSCustom0[0]
+
+struct PS_INPUT
+{
+    float4 i_Position	    : SV_POSITION;
+	float4 i_UV				: TEXCOORD0;
+	float4 i_ViewDir		: TEXCOORD1;
+};
+
+Texture2D S_2DExt0;
+SamplerState S_2DExt0Sampler;
+Texture3D S_2DExt1;
+Texture3D S_2DExt2;
+#define TransmittanceTex S_2DExt0
+#define ScatteringTex S_2DExt1
+#define SingleMieScatteringTex S_2DExt2
+#define LinearSampler S_2DExt0Sampler
+
+float3 GetSolarRadiance() {
+  return Atmosphere.solar_irradiance;
+}
+
+// intersect ray with shadow cone 
+void GetSphereShadowInOut(
+    in float3 viewDirection, 
+    in float3 sunDirection, 
+    out float shadowIn, 
+    out float shadowOut)
+{
+    float3 P0 = CameraPos.xyz - EarthCenter.xyz;
+    float P0DotS = dot(P0, sunDirection);
+    float viewDotSun = dot(viewDirection, sunDirection);
+
+    // Ray formula: P = P0 + tV
+    // Shifted Cone formula: [P+(R/k)S]^2-(1+k^2){[P+(R/k)S]*S}^2 = 0
+    // solve for intersection t0 and t1
+    float k = SunSize.x;
+    float l = 1.f + k * k;
+    float a = 1.f - viewDotSun * viewDotSun;
+    float b = dot(P0, viewDirection) - l * P0DotS * viewDotSun - k * EarthRadius * viewDotSun;
+    float c = dot(P0, P0) - l * P0DotS * P0DotS - 2.f * k * EarthRadius * P0DotS - k * k * EarthRadius * EarthRadius;
+    float discriminant = b * b - a * c;
+    if(discriminant > 0.f)
+    {
+        shadowIn = max(0.f, (-b - sqrt(discriminant)) / a);
+        shadowOut = (-b + sqrt(discriminant)) / a;
+
+        // clamp shadow in umbra apex and sphere center
+        float dBase = -P0DotS / viewDotSun;
+        float dApex = -(P0DotS + EarthRadius / k) / viewDotSun;
+
+        if(viewDotSun > 0.f)
+        {
+            shadowIn = max(shadowIn, dApex);
+            shadowOut= a > 0.f ? min(shadowOut, dBase) : dBase;
+        }
+        else{
+            shadowIn = a > 0.0f ? max(shadowIn, dBase) : dBase;
+            shadowOut = min(shadowOut, dApex);
+        }
+    }
+    else{
+        shadowIn = 0.f;
+        shadowOut = 0.f;
+    }
+}
+
+float4 main(PS_INPUT IN): SV_TARGET
+{
+    float4 color = 0.f;
+
+    float4 skyRadiance = 0.f;
+    float3 viewDir = normalize(IN.i_ViewDir.xyz);
+
+    // float fragmentAngularSize = length(ddx(viewDir) + ddy(viewDir));
+    // // float shadowIn, shadowOut;
+    // // GetSphereShadowInOut(viewDir, sunDir, shadowIn, shadowOut);
+
+    // // Hack to fade out light shafts when the sun is very close th the horizon.abort
+    // float lightShaftFadeInHack = smoothstep(0.02, 0.04, dot(normalize(CameraPos.xyz - EarthCenter.xyz), sunDir));
+
+    // float3 p = CameraPos.xyz - EarthCenter.xyz;
+    // float pDotV = dot(p, viewDir);
+    // float pDotp = dot(p, p);
+    // float raySphereCenterSquaredDistance = pDotp - pDotV * pDotV;
+    // float discriminant = 
+    //     EarthRadius  * EarthRadius - raySphereCenterSquaredDistance;
+    
+    // float sphereAlpha = 0.f;
+    // float3 sphereRadiance = 0.f;
+    // if(discriminant >= 0.f)
+    // {
+    //     float distanceToIntersection = -pDotV - sqrt(discriminant);
+    //     if(distanceToIntersection > 0.f)
+    //     {
+    //         float raySphereDistance = EarthRadius - sqrt(raySphereCenterSquaredDistance);
+    //         float raySphereAngularDistance = -raySphereDistance / pDotV;
+    //         sphereAlpha = min(raySphereAngularDistance / fragmentAngularSize, 1.f);
+    //         float3 P = CameraPos.xyz + viewDir * distanceToIntersection;
+    //         float3 N = normalize(P - EarthCenter.xyz);
+
+    //         float3 skyIrradiance = 0.f;
+    //         float3 sunIrradiance = GetSunAndSkyIrradiance(
+    //             Atmosphere,
+    //             TransmittanceTex,
+    //             IrradianceTex,
+    //             LinearSampler,
+    //             P,
+    //             N,
+    //             sunDir,
+    //             skyIrradiance
+    //         );
+    //         sphereRadiance = EarthAlbedo.xyz (1.f / PI) * (sunIrradiance + skyIrradiance);
+
+
+    //         float shadowLength = max(0.f, min(shadowOut, distanceToIntersection) - shadowIn) * lightShaftFadeInHack;
+    //         float3 transmittance;
+    //         float3 inScatter = GetSkyRadianceToPoint(CameraPos - EarthCenter, P - EarthCenter, shadowLength, sunDir, transmittance);
+    //         sphereRadiance = sphereRadiance * transmittance + inScatter;
+    //     }
+    // }
+
+    // // Compute the distance between the view ray line and the Earth center,
+    // // and the distance between the camera and the intersection of the view 
+    // // ray with the ground( or NaN if there is no intersection)
+    // float3 p = CameraPos - EarthCenter;
+    // float pDotV = dot(p, viewDir);
+    // float pDotp = dot(p, p);
+    
+    // // ray intersection test with earth sphere
+    // float rayEarthCenterSquaredDistance = pDotp - pDotV * pDotV;
+    // discriminant = EarthRadius * EarthRadius - rayEarthCenterSquaredDistance;
+
+    // // compute the radiance reflected by the ground, if the ray intersects it.
+    // float groundAlpha = 0.f;
+    // float3 groundRadiance = vec3(0.f);
+    
+    // // find intersection
+    // if(discriminant >= 0.f){
+    //     float distanceToIntersection = -pDotV - sqrt(discriminant); // closer point
+    //     if(distanceToIntersection > 0.f){
+    //         float3 pOnEarth = camera + viewDir * distanceToIntersection;
+    //         float3 N = normalize(pOnEarth - EarthCenter);
+
+    //         // Compute the radiance reflected by the ground.
+    //         float3 skyIrradiance = 0.f;
+    //         float3 sunIrradiance = GetSunAndSkyIrradiance(
+    //             Atmosphere,
+    //             TransmittanceTex,
+    //             IrradianceTex,
+    //             LinearSampler,
+    //             pOnEarth,
+    //             N,
+    //             sunDir,
+    //             skyIrradiance);
+
+    //         // todo :: add visibility
+    //         groundRadiance = Atmosphere.ground_albedo.xyz * (sunIrradiance + skyIrradiance) * (1.f / PI);
+        
+    //         float3 transmittance = 1.f;
+    //         float3 inScatter = GetSkyRadianceToPoint(
+    //             Atmosphere,
+    //             TransmittanceTex,
+    //             ScatteringTex,
+    //             SingleMieScatteringTex,
+    //             LinearSampler,
+    //             CameraPos - EarthCenter,
+    //             pOnEarth  - EarthCenter,
+    //             0.f,
+    //             sunDir,
+    //             transmittance);
+            
+    //         groundRadiacne = groundRadiance * transmittance + inScatter;
+    //         groundAlpha = 1.f;
+    //     }
+    // }
+
+    // Compute Radiance of Sky
+    float shadowLength = 0.f;
+    float3 transmittance;
+    float3 radiance = GetSkyRadiance(
+        Atmosphere,
+        TransmittanceTex,
+        ScatteringTex,
+        SingleMieScatteringTex,
+        LinearSampler,
+        CameraPos - EarthCenter,
+        viewDir,
+        shadowLength,
+        SunDir,
+        transmittance
+    );
+
+    if(dot(viewDir, SunDir) > SunSize.y)
+    {
+       //    radiance = radiance;// + transmittance * GetSolarRadiance();
+    }
+
+    color = float4(radiance * 5.0f, 1.f);
+    return color;
+}

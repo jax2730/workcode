@@ -1,0 +1,357 @@
+#include <Common_Uniform_PS.inl>
+
+//计算在索引图上采样的纹素坐标
+int2 computeTexLocation(float2 uv, int2 textureDimension)
+{
+    float2 cst = uv * textureDimension;
+    float2 temp = clamp((cst), 0.f, textureDimension - 1);
+    return int2(temp);
+}
+//input & output------------------------------------------------------------------------------------------
+struct PS_INPUT
+{
+    float4 i_Position	    : SV_POSITION;
+    float2 i_MatIDUV        : TEXCOORD0;    // texcoord on  cube
+
+    nointerpolation float i_faceIndex : TEXCOORD1;
+
+    float3 o_WorldNormal: NORMAL0;
+    float3 o_WorldPos	: NORMAL1;
+    float3 o_LocalNormal: NORMAL2;
+    float3 o_Tangent    : TANGENT0;
+    float3 o_VTangent   : TANGENT1;
+};
+
+struct PS_OUTPUT
+{
+    float4 color : SV_TARGET;
+};
+
+//NOTE(yanghang): This is general texture and uniform.
+//Region SDF map
+Texture2DArray S_Custom7;  
+SamplerState S_Custom7SamplerState;
+
+//region war fog mask map.
+Texture2D S_Custom2;  
+SamplerState S_Custom2SamplerState;
+
+//war fog diffuse texture
+Texture2D S_2DExt0;  
+SamplerState S_2DExt0SamplerState;
+
+//Region ID map
+#ifdef WAR_FOG_TORUS
+   Texture2D   S_Custom8;
+#else
+   TextureCube S_Custom8;
+#endif  
+SamplerState S_Custom8SamplerState;
+
+//dissolve
+Texture2D S_Custom9;
+SamplerState S_Custom9SamplerState;
+
+Texture2D S_Custom10;
+SamplerState S_Custom10SamplerState;
+
+float4 U_PSGeneralRegister0[12];
+
+#define highLightRegionColor U_PSGeneralRegister0[0].rgb
+#define highlightRegionID U_PSGeneralRegister0[0].w
+
+#define outlineColor U_PSGeneralRegister0[1].rgb
+#define additionOutlineWidth U_PSGeneralRegister0[1].w
+
+#define highlightWarfogColor U_PSGeneralRegister0[2].rgb
+#define additionOutlineDistance U_PSGeneralRegister0[2].w
+
+#define outlineWidth U_PSGeneralRegister0[3].x
+#define highlightBlendFactor U_PSGeneralRegister0[3].y
+#define commonRegionBlendFactor U_PSGeneralRegister0[3].z
+#define smoothRange U_PSGeneralRegister0[3].w
+
+#define warFogColor U_PSGeneralRegister0[4].rgb
+#define warFogMaskUVScale U_PSGeneralRegister0[4].w
+
+#define warFogMaskScale U_PSGeneralRegister0[5].w
+
+#define additionOutlineColor U_PSGeneralRegister0[6].rgb
+#define additionOutlineAlpha U_PSGeneralRegister0[6].a
+
+#define selfEmissiveColor U_PSGeneralRegister0[7].rgb
+#define selfEmissivePower U_PSGeneralRegister0[7].a
+
+#define flowingColor U_PSGeneralRegister0[5].xyz
+#define flowingScale U_PSGeneralRegister0[8].xy
+#define flowingHDRFactor U_PSGeneralRegister0[8].z;
+#define bUseFlowingLight U_PSGeneralRegister0[8].w
+#define flowingDir   U_PSGeneralRegister0[9].xyz
+
+#define dissolveColorValue   U_PSGeneralRegister0[10].x
+#define dissolveTillingScale U_PSGeneralRegister0[10].y
+#define dissolveSoftValue     U_PSGeneralRegister0[10].z
+#define dissolveWidth        U_PSGeneralRegister0[10].w
+#define dissolveColor        U_PSGeneralRegister0[11].xyz
+
+#define pi 3.141592654
+
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+    PS_OUTPUT psOut;
+    //NOTE(yanghang):Region visual effect.
+    float3 cubeUV;
+    cubeUV.xy = IN.i_MatIDUV;
+    cubeUV.z = IN.i_faceIndex;
+        
+    float3 arrayUV;
+    arrayUV = cubeUV;
+    float sdf = S_Custom7.Sample(S_Custom7SamplerState, arrayUV).r;
+       
+     #ifdef WAR_FOG_TORUS
+        uint regionID =  S_Custom8.Sample(S_Custom8SamplerState,arrayUV).r * 255.f;
+     #else
+        float3 newCubeUV = IN.o_LocalNormal;
+        uint regionID =  S_Custom8.Sample(S_Custom8SamplerState,newCubeUV).r * 255.f;
+    #endif 
+
+    int highlightID = highlightRegionID;
+
+
+#if 0
+	float ba = float(regionID) / 255.0f;
+    psOut.color.rgb = float3(ba,ba,ba);
+    psOut.color.rgb += (IN.i_faceIndex + 1.0f) * float3(0.16666,0,0);
+	psOut.color.a = 1.0f;
+	return psOut;
+#endif
+    
+    float invertSDF = 1.0 - sdf;
+    float blendFactor = invertSDF;
+
+    //NOTE:Outline
+    float lineWidthRange = outlineWidth;
+    float lineSDFRange = 1.0f - lineWidthRange;
+
+    //NOTE:War fog sample.
+    int3 fogMaskUV = int3(regionID, 0, 0);
+
+    float4 fogMaskTexel = S_Custom2.Load(fogMaskUV);
+    float warFogBlendFactor = fogMaskTexel.a;
+    float3 regionFillColor = fogMaskTexel.rgb;
+    
+    float4 warfogMaskColor = S_2DExt0.Sample(S_2DExt0SamplerState,
+                                            cubeUV * warFogMaskUVScale).rgba;
+    warfogMaskColor.rgb *= warFogMaskScale;
+     
+
+
+    //NOTE: Glow
+    float3 regionColor = float3(0,0,0);
+        
+    float3 currentWarfogColor;
+
+    float tempDissolveValue = S_Custom10.Load(fogMaskUV).r;
+
+    if(regionID == highlightID)
+    {
+        currentWarfogColor = highlightWarfogColor +  selfEmissiveColor * selfEmissivePower; 
+    }
+    else
+    {
+        currentWarfogColor = warFogColor;
+    }
+
+    const float outlineBlendFactor = 1.0f;
+    if(blendFactor > lineSDFRange)
+    {
+        regionColor = outlineColor;
+        blendFactor = outlineBlendFactor;
+
+        tempDissolveValue = 0.f;
+    }
+    else
+    {
+        float hl_smooth = lineSDFRange - smoothRange;
+        float antiAliasBlendFactor = clamp((blendFactor - hl_smooth) / (smoothRange), 0.0f, 1.0f);
+        
+        if(warFogBlendFactor > 0.0f)
+        {
+
+        #ifdef WAR_FOG_TORUS
+            float2 resDissolveUV =  cubeUV.xy * dissolveTillingScale * 10.f;
+            float3 tempDissolveColor = S_Custom9.Sample(S_Custom9SamplerState, resDissolveUV.xy).rgb;   
+        #else
+            float3 n = IN.o_WorldNormal;
+            float3 p = IN.o_LocalNormal;
+            p = normalize(p);
+            p *= 10.0f;
+            p*= dissolveTillingScale;
+            float3 x = S_Custom9.Sample(S_Custom9SamplerState, p.yz).rgb;
+            float3 y = S_Custom9.Sample(S_Custom9SamplerState, p.zx).rgb;
+            float3 z = S_Custom9.Sample(S_Custom9SamplerState, p.xy).rgb;
+
+            float k = 8.0f;
+            // and blend
+            float3 m = pow(abs(n), float3(k,k,k));
+            float3 tempDissolveColor = (x*m.x + y*m.y + z*m.z) / (m.x + m.y + m.z);     
+        #endif
+            tempDissolveValue *= (1- antiAliasBlendFactor);
+
+
+            warFogBlendFactor = warFogBlendFactor * warfogMaskColor.a;
+            float isUseBlendFactory =  step(tempDissolveValue,tempDissolveColor.r);
+            warFogBlendFactor = lerp(0.f,warFogBlendFactor,isUseBlendFactory);
+            
+            blendFactor = lerp(warFogBlendFactor, outlineBlendFactor, antiAliasBlendFactor);
+            regionColor = lerp((currentWarfogColor * warfogMaskColor.rgb), outlineColor, antiAliasBlendFactor);
+
+            if(bUseFlowingLight != 0.f)
+            {
+                float cosAngle = dot(IN.o_LocalNormal,flowingDir);
+                float angle = acos(cosAngle);
+                float minAngle = flowingScale.x * pi;
+                float maxAngle = flowingScale.y * pi;
+
+                if( angle >= minAngle && angle < maxAngle)
+                {
+                    //中间最亮，两边逐渐变淡
+                    float diffLen = min(angle - minAngle,maxAngle - angle);
+                    float midLen = (maxAngle - minAngle) * 0.5f;
+                    float per = diffLen / midLen;
+                    per = cos((per - 1) * pi) * 0.5f + 0.5f;
+                    regionColor += flowingColor * per * flowingHDRFactor;
+                }
+            }
+        
+
+            float dissolve_switch =	step(0.00001f, tempDissolveValue);
+
+            float edge_max_val = tempDissolveValue + dissolveWidth;
+            float3 dissolve_edge_color = dissolveColor;
+		    dissolve_edge_color *= dissolveColorValue;
+
+            float edge_val_01 = smoothstep(tempDissolveValue, edge_max_val, tempDissolveColor.r);
+            float3 out_with_edge_color = lerp(dissolve_edge_color.rgb, regionColor.rgb, edge_val_01);
+            regionColor.rgb = lerp(regionColor, out_with_edge_color, dissolve_switch);
+
+            float dissolve_soft_max_val = tempDissolveValue + dissolveSoftValue;
+            float dissolve_soft_val_01 = smoothstep(tempDissolveValue, dissolve_soft_max_val, tempDissolveColor.r);
+            blendFactor = lerp(blendFactor, blendFactor * dissolve_soft_val_01, dissolve_switch);
+
+        }
+        else
+        {
+            //NOTE: Highlight region color
+            if(regionID == highlightID)
+            {
+                regionColor = lerp(highLightRegionColor, outlineColor, antiAliasBlendFactor);
+                blendFactor = lerp(highlightBlendFactor, outlineBlendFactor, antiAliasBlendFactor);
+                regionColor += selfEmissiveColor * selfEmissivePower;  
+            }
+            else
+            {
+                regionColor = lerp(regionFillColor, outlineColor, antiAliasBlendFactor);
+                blendFactor = lerp(commonRegionBlendFactor, outlineBlendFactor, antiAliasBlendFactor);
+            }
+        }
+
+        //NOTE: Addition outline line of hightlight region.
+        if(regionID != highlightID)
+        {
+            const float lineWidth = additionOutlineWidth;
+            const float lineDis = additionOutlineDistance;
+			float lineMinsdf = lineSDFRange - lineDis - lineWidth;
+            float lineMaxsdf = lineSDFRange - lineDis;
+            float2 pixelOffset = (1.0f - lineMinsdf + 0.1f) * 16.0f;
+
+            int2 IDMapSize = 0; 
+            S_Custom8.GetDimensions(IDMapSize.x,IDMapSize.y);
+            IDMapSize.r = max(1,IDMapSize.r);
+            IDMapSize.g = max(1,IDMapSize.g); 
+            pixelOffset.x /= IDMapSize.r;
+            pixelOffset.y /= IDMapSize.g;
+
+        #ifdef WAR_FOG_TORUS
+             float3 i_uv = cubeUV.xyz;
+             float3 xOffset =  float3(pixelOffset.x,0.f,0.f);
+             float3 yOffset =  float3(0.f,pixelOffset.y,0.f);
+        #else
+             float3 i_uv = newCubeUV;
+             float3 xOffset = IN.o_Tangent * pixelOffset.x;
+             float3 yOffset = IN.o_VTangent * pixelOffset.y;
+        #endif
+
+            float3 newIDUV[8];
+            newIDUV[0] = i_uv - xOffset - yOffset; 
+            newIDUV[1] = i_uv + xOffset - yOffset; 
+            newIDUV[2] = i_uv + xOffset + yOffset; 
+            newIDUV[3] = i_uv - xOffset + yOffset; 
+
+            newIDUV[4] = i_uv - xOffset;           
+            newIDUV[5] = i_uv + xOffset;           
+            newIDUV[6] = i_uv - yOffset;           
+            newIDUV[7] = i_uv + yOffset; 
+
+            uint adjacentID[8];
+            adjacentID[0] =  S_Custom8.Sample(S_Custom8SamplerState,newIDUV[0]).r * 255.f;
+            adjacentID[1] =  S_Custom8.Sample(S_Custom8SamplerState,newIDUV[1]).r * 255.f;
+            adjacentID[2] =  S_Custom8.Sample(S_Custom8SamplerState,newIDUV[2]).r * 255.f;
+            adjacentID[3] =  S_Custom8.Sample(S_Custom8SamplerState,newIDUV[3]).r * 255.f;
+            adjacentID[4] =  S_Custom8.Sample(S_Custom8SamplerState,newIDUV[4]).r * 255.f;
+            adjacentID[5] =  S_Custom8.Sample(S_Custom8SamplerState,newIDUV[5]).r * 255.f;
+            adjacentID[6] =  S_Custom8.Sample(S_Custom8SamplerState,newIDUV[6]).r * 255.f;
+            adjacentID[7] =  S_Custom8.Sample(S_Custom8SamplerState,newIDUV[7]).r * 255.f;
+
+            if(adjacentID[0] == highlightID ||
+               adjacentID[1] == highlightID ||
+               adjacentID[2] == highlightID ||
+               adjacentID[3] == highlightID ||
+               adjacentID[4] == highlightID ||
+               adjacentID[5] == highlightID ||
+               adjacentID[6] == highlightID ||
+               adjacentID[7] == highlightID)
+            {
+                //blendFactor = 1.0f;
+                //regionColor = float3(minsdf,0,0);
+				if(invertSDF < lineMaxsdf &&
+                   lineMinsdf < invertSDF) 
+				{
+                   // float aa = 1.0f - abs((invertSDF - lineMinsdf)/(lineWdith) - 0.5f) * 2.0f;
+					blendFactor = additionOutlineAlpha;
+					regionColor = additionOutlineColor;// * aa;
+				}
+            }
+        }
+    }
+    
+    regionColor = pow(regionColor, 0.4545);
+    psOut.color = float4(regionColor, blendFactor);
+
+
+    float3 w_normal = normalize(IN.o_WorldNormal.xyz);
+    float3 w_viewDir = normalize(U_PS_CameraPosition.xyz - IN.o_WorldPos.xyz);
+    float edgeBlendAlpha = dot(w_normal, w_viewDir);
+    //cos Angle [0, 0.2]
+    const float blendAngle = 0.2f;
+    const float scaleBlendAnble = 1.0f / blendAngle;
+    edgeBlendAlpha = clamp(edgeBlendAlpha, 0.0f, blendAngle);
+    edgeBlendAlpha *= scaleBlendAnble;
+    
+    psOut.color.a *= edgeBlendAlpha;
+
+
+    // psOut.color.a = 1.f;
+    // psOut.color.rgb = IN.o_WorldNormal.xyz;
+    //psOut.color = float4(1,1,1,1);
+
+    
+    //psOut.color.rgb = float3(sdf,sdf,sdf);
+
+    //float a = regionID / 255.0f;
+    //psOut.color.rgb = float3(a,a,a);
+    //psOut.color.a = 1.0f;
+    //psOut.color.rgb += (IN.i_faceIndex + 1.0f) * float3(0.16666,0,0);
+    return psOut;
+}//end main

@@ -1,0 +1,110 @@
+#include <PreComputeAtmosphere.inl>
+
+uniform float4 U_PSCustom0;
+uniform float4 U_PSCustom1;
+uniform float4 U_PSCustom2;
+uniform float4 U_PSCustom3;
+uniform float4 U_PSCustom4;
+uniform float4 U_PSCustom5;
+uniform float4 U_PSCustom6;
+uniform float4 U_PSCustom7;
+uniform float4 U_PSCustom8;
+uniform float4 U_PSCustom9;
+uniform float4 U_PSCustom10;
+uniform float4 U_PSCustom11;
+
+struct PS_INPUT{
+    float4 Position : SV_POSITION;
+    float4 TexCoord : TEXCOORD0;
+};
+
+
+float4 main(PS_INPUT IN) : SV_TARGET0
+{
+    DensityProfile rayleigh;
+    DensityProfile mie;
+    DensityProfile absorption;
+
+    rayleigh.layers[0].expTerm      = U_PSCustom0.x;
+    rayleigh.layers[0].expScale     = U_PSCustom0.y;
+    rayleigh.layers[0].linearTerm   = U_PSCustom0.z;
+    rayleigh.layers[0].constantTerm = U_PSCustom0.w;
+    rayleigh.layers[0].width        = U_PSCustom6.x;
+
+    rayleigh.layers[1].expTerm      = U_PSCustom1.x;
+    rayleigh.layers[1].expScale     = U_PSCustom1.y;
+    rayleigh.layers[1].linearTerm   = U_PSCustom1.z;
+    rayleigh.layers[1].constantTerm = U_PSCustom1.w;
+    rayleigh.layers[1].width        = U_PSCustom6.y;
+
+    mie.layers[0].expTerm       = U_PSCustom2.x;
+    mie.layers[0].expScale      = U_PSCustom2.y;
+    mie.layers[0].linearTerm    = U_PSCustom2.z;
+    mie.layers[0].constantTerm  = U_PSCustom2.w;
+    mie.layers[0].width         = U_PSCustom6.z;
+
+    mie.layers[1].expTerm       = U_PSCustom3.x;
+    mie.layers[1].expScale      = U_PSCustom3.y;
+    mie.layers[1].linearTerm    = U_PSCustom3.z;
+    mie.layers[1].constantTerm  = U_PSCustom3.w;
+    mie.layers[1].width         = U_PSCustom6.w;
+
+    // height exp density function for rayleigh and mie
+    rayleigh.layers[0].expScale = -0.05f;
+    rayleigh.layers[1].expScale = -0.05f;
+
+    mie.layers[0].expScale = -0.59425f;
+    mie.layers[1].expScale = -0.59425f;
+
+    // absorption.layers[0].expTerm      = U_PSCustom4.x;
+    // absorption.layers[0].expScale     = U_PSCustom4.y;
+    // absorption.layers[0].linearTerm   = U_PSCustom4.z;
+    // absorption.layers[0].constantTerm = U_PSCustom4.w;
+    // absorption.layers[0].width        = 0.f;
+
+    // absorption.layers[1].expTerm      = U_PSCustom5.x;
+    // absorption.layers[1].expScale     = U_PSCustom5.y;
+    // absorption.layers[1].linearTerm   = U_PSCustom5.z;
+    // absorption.layers[1].constantTerm = U_PSCustom5.w;
+    // absorption.layers[1].width        = 0.f;
+
+    // linear tent function for ozone absorption
+    absorption.layers[0].width = 25.f;
+    absorption.layers[0].constantTerm = -0.06667f;
+    absorption.layers[0].linearTerm = 0.06667f;
+    absorption.layers[0].expTerm = 0.f;
+    absorption.layers[0].expScale = 0.f;
+
+    absorption.layers[1].width = 0.f;
+    absorption.layers[1].constantTerm = 2.6667f;
+    absorption.layers[1].linearTerm = 0.06667f;
+    absorption.layers[1].expTerm = 0.f;
+    absorption.layers[1].expScale = 0.f;
+
+    AtmosphereParams atmosphere;
+    atmosphere.rTop = U_PSCustom7.x;
+    atmosphere.rBottom = U_PSCustom7.y;
+    atmosphere.miePhaseG = 0.f;
+    atmosphere.rayleighScattering = U_PSCustom8.xyz;
+    atmosphere.mieScattering = U_PSCustom9.xyz;
+    atmosphere.mieExtinction = U_PSCustom10.xyz;
+    atmosphere.absorptionExtinction = U_PSCustom11.xyz;
+    atmosphere.rayleighDensity = rayleigh;
+    atmosphere.mieDensity = mie;
+    atmosphere.absorptionDensity = absorption;
+    atmosphere.sunAngularRadius = 0.f;
+    atmosphere.solarIrradiance = 0.f;
+    atmosphere.musMin = 0.f;
+    atmosphere.groundAlbedo = 0.f;
+
+    atmosphere.rBottom = 4.8f;
+    atmosphere.rTop = 18.12139f;
+    atmosphere.rayleighScattering = float3(0.0058f, 0.01356f, 0.0331f);
+    atmosphere.mieScattering = 0.05903f;
+    atmosphere.mieExtinction = float3(0.12522f, 0.13188f, 0.13415f);
+    atmosphere.absorptionExtinction = float3(0.0001f, 0.0002f, 0.0004f);
+
+    // float2 texCoord = IN.TexCoord.xy * U_PSCustom7.zw;
+
+    return float4(ComputeTransmittanceToTopAtmosphereBoundaryTexture(atmosphere, IN.TexCoord.xy), 1.f);
+}

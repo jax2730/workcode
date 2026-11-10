@@ -1,0 +1,231 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl> 
+
+float4	U_WorldViewProjectMatrix[4];
+
+float4	U_VSGeneralRegister0;				// x: sway frequency, y: sway amplitude
+float4	U_VSGeneralRegister1;				// x: main light, y: sky light, z: ground light
+float4	U_VSGeneralRegister4;				// x: fade start, y: 1 / fadedist, z: fade end	// near camera
+float4	U_VSGeneralRegister5;				// x: fade start, y: 1 / fadedist, z: fade end	// at far distance
+
+uniform float4 U_VSCustom0; 				// sphWorldPos;
+uniform float4 U_VSCustom2; 				// xy: VegBound MinY/MaxY, zw: scale base/scale range
+
+uniform float4 U_VSCustom3; 				// vegSpaToCam;
+
+uniform float4 U_VSCustom5; 				// uvPercent;	
+
+// Get a quaternion inverse
+float4 quaternion_inverse(in float4 quat)
+{
+	float fNorm = quat.x * quat.x + quat.y * quat.y + quat.z * quat.z + quat.w * quat.w;
+	float fInvNorm = 1.0f/fNorm;
+	return float4( -quat.xyz * fInvNorm, quat.w * fInvNorm);
+}
+
+// Rotate a vector with quaternion
+float3 quaternion_mul(in float4 quat, in float3 v)
+{
+	float3 uv = cross(quat.xyz, v);
+	float3 uuv = cross(quat.xyz, uv);
+	uv *= 2.f * quat.w;
+	uuv *= 2.f;
+	return v + uv + uuv;
+}
+
+float4 getQuatFormAngleAxis(float angle, float3 axis)
+{
+	float4 retQuat = float4(0.f, 0.f, 0.f, 0.f);
+	float halfAngle = angle * 0.5f;
+	float fSin = sin(halfAngle);
+
+	retQuat.w = cos(halfAngle);
+	retQuat.x = fSin*axis.x;
+	retQuat.y = fSin*axis.y;
+	retQuat.z = fSin*axis.z;
+	return retQuat;
+}
+
+float2 getUVIndexPercent(float2 uv, float r, float4 percent)
+{
+	r -= percent.x;
+	if (r < 0.f) return uv;
+
+	r -= percent.y;
+	if (r < 0.f) return float2(uv.x + 0.5f, uv.y);
+	
+	r -= percent.z;
+	if (r < 0.f) return float2(uv.x, uv.y + 0.5f);
+	
+	r -= percent.w;
+	if (r < 0.f) return float2(uv.x + 0.5f, uv.y + 0.5f);
+
+	return uv;
+}
+
+struct VS_INPUT
+{
+	float3 i_MeshPos : POSITION0;
+	float3 i_MeshNor : NORMAL0;
+	float3 i_MeshTan : TANGENT0;
+	float2 i_MeshTex : TEXCOORD0;
+	float4 i_MeshCol : COLOR0;
+
+	float4 i_VegPos  : POSITION1;			//	xyz: ins world pos, w: scale
+	float4 i_VegNor	 : NORMAL1;				//	rotate quaternion 
+};
+
+struct VS_OUTPUT
+{
+	float4	o_PosInClip	: SV_POSITION;
+	float4	o_UV		: TEXCOORD0;		//z for camera spec pos;
+	float4	o_Fog		: TEXCOORD1;
+	float4  o_WPos		: TEXCOORD2;		//	xyz: world pos
+	float3	o_WNormal	: TEXCOORD3;
+
+#ifdef BUMP_MAP
+	float3	o_Tangent	: TEXCOORD4;
+	float3	o_Binormal	: TEXCOORD5;
+#endif
+
+	float4  o_Diffuse	: COLOR0;			//	xyz: mesh color, w: height factor
+	float4  o_FadeFac	: COLOR1;		
+};
+
+
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+
+	//	Get vegetation base data	
+	//	----------------------------------------------------------
+	float3 vVegRoot =  IN.i_VegPos.xyz;											
+
+	float3 vMeshPos = IN.i_MeshPos;												//	veg mesh space position
+	float3 vMeshNor = IN.i_MeshNor;												//	veg mesh space normal
+	float4 vMeshQua = IN.i_VegNor * 2.f - 1.f;									//	veg rotate quaternion
+	float  vMeshHeightFactor = (IN.i_MeshPos.y -  U_VSCustom2.x) / (U_VSCustom2.y - U_VSCustom2.x);
+	//	----------------------------------------------------------
+
+	vsOut.o_Diffuse.xyz = IN.i_MeshCol.xyz;
+	vsOut.o_Diffuse.w = vMeshHeightFactor;
+
+	//	Vegetation fade
+	//	----------------------------------------------------------
+	float3 vCamToVeg = vVegRoot +  U_VSCustom3.xyz;
+	float fLenCV = length(vCamToVeg);
+
+	//	limit show range
+	vMeshPos *= fLenCV > U_VSGeneralRegister4.z ? 0.f : 1.f;
+	vMeshPos *= fLenCV < U_VSGeneralRegister5.x ? 0.f : 1.f;
+
+	float fFadeNear = (fLenCV - U_VSGeneralRegister5.x) * U_VSGeneralRegister5.y;
+	fFadeNear = clamp(fFadeNear, 0.f, 1.f);
+
+	float fFadeFar = (fLenCV - U_VSGeneralRegister4.x) * U_VSGeneralRegister4.y;
+	fFadeFar = clamp(fFadeFar, 0.f, 1.f);
+
+	vsOut.o_FadeFac = float4(1.f, fFadeFar, fFadeNear, 1.f);
+	//	----------------------------------------------------------
+
+	//	Add veg scale
+	vMeshPos *= U_VSCustom2.z + U_VSCustom2.w * IN.i_VegPos.w;
+
+#ifdef BILL_BOARD
+	//	Bulletin board always front to camera
+	//	----------------------------------------------------------
+	float3 vVegToCam =  -(vMeshPos + vVegRoot + U_VSCustom3.xyz);
+	vVegToCam = normalize(quaternion_mul(quaternion_inverse(vMeshQua), vVegToCam));
+
+	float3 vUpDir = float3(0.f, 1.f, 0.f);
+	float3 vFrontDir = normalize(vVegToCam);
+	float3 vRightDir = cross(vUpDir, vFrontDir);
+	vFrontDir = cross(vUpDir, vRightDir);
+
+	vMeshPos = 	vMeshPos.xxx * vRightDir + 
+		   		vMeshPos.yyy * vUpDir + 
+		   		vMeshPos.zzz * vFrontDir;
+
+	vMeshNor = 	vMeshNor.xxx * vRightDir + 
+		   		vMeshNor.yyy * vUpDir + 
+		   		vMeshNor.zzz * vFrontDir;			
+	//	----------------------------------------------------------
+#else
+	//	Veg mesh random rotate
+	float4 rotateQuat = getQuatFormAngleAxis(IN.i_VegPos.w * 3.1415926, float3(0.f, 1.f, 0.f));
+	vMeshPos = quaternion_mul(rotateQuat, vMeshPos);
+	vMeshNor  = quaternion_mul(rotateQuat, vMeshNor);
+#endif
+
+	//	Add veg wind animation
+	//	----------------------------------------------------------
+#ifdef WIND_ANIMATION
+	float4 vAnimParams = U_VSGeneralRegister0 * U_GlobalAnimationParams.yxwz;	
+	float2 vWaveBase = vAnimParams.x * U_VS_Time.x;
+	vWaveBase += vVegRoot.xz * float2(0.1f, 0.2f);				//	each veg have diff wave form root pos
+	float3 vWave = vWaveBase.xyy * float3(1.125f, 0.975f, 0.397f);
+	vWave = sin(vWave);
+
+	// swaying
+	float swayFactor = vMeshHeightFactor;
+	float fSway = vAnimParams.y * swayFactor * swayFactor;
+
+	// Get scene wind dir
+	float4 vQuaInv = quaternion_inverse(vMeshQua);
+	float3 windMeshSpaceDir = normalize(quaternion_mul(vQuaInv, U_WindParams.xyz));
+
+	float2 vOff = windMeshSpaceDir.xz * vWave.x * fSway;				
+	vOff += (float2(-windMeshSpaceDir.z, windMeshSpaceDir.x)) * vWave.y * vWave.z * fSway;	// perpendicular wind direction
+
+	float fLen = length(vMeshPos);
+	vMeshPos.xz += vOff;
+	vMeshPos = normalize(vMeshPos) * fLen;
+#endif
+	//	----------------------------------------------------------
+
+	// Rotate mesh 
+	vMeshPos = quaternion_mul(vMeshQua, vMeshPos);
+	vMeshNor  = quaternion_mul(vMeshQua, vMeshNor);
+	vsOut.o_WNormal = vMeshNor;
+
+	float3 vMeshWorldPos = vMeshPos + vVegRoot + U_VSCustom0.xyz;
+	vsOut.o_WPos.xyz = vMeshWorldPos;
+	vsOut.o_WPos.w = 1.f;
+
+	vsOut.o_PosInClip = mul((float4x4)U_WorldViewProjectMatrix, float4(vMeshPos + (vVegRoot + U_VSCustom3.xyz), 1.f));
+
+	//	----------------------------------------------------------
+	vsOut.o_UV.xy = getUVIndexPercent(IN.i_MeshTex.xy, IN.i_VegPos.w / 2.f + 0.5f, U_VSCustom5);
+	//	----------------------------------------------------------
+
+
+	#ifdef BUMP_MAP
+		float3 vMeshTangent = IN.i_MeshTan.xyz;
+		vMeshTangent = quaternion_mul(vMeshQua, vMeshTangent);
+		float3 vMeshBinormal = cross(vMeshTangent, vMeshNor);
+
+		vsOut.o_Tangent = vMeshTangent;
+		vsOut.o_Binormal = vMeshBinormal;
+	#endif
+
+	//	Fog 
+	//	----------------------------------------------------------
+	float4x4 gravityRotatePosMatrix;	
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+
+	float3 vCamToWorld = -(vMeshPos + (vVegRoot + U_VSCustom3.xyz));
+	vCamToWorld = mul(gravityRotatePosMatrix,float4(vCamToWorld.xyz,0.0f)).xyz;
+	vsOut.o_Fog = ComputeFogColor(vCamToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+	//	----------------------------------------------------------
+
+	//	Shadow map  
+	//	----------------------------------------------------------
+	#ifdef USESHADOWMAP
+		vsOut.o_UV.z = -dot(U_MainCamViewMatrix, vsOut.o_WPos);
+	#endif
+	return vsOut;
+}

@@ -1,0 +1,65 @@
+
+#include <Common_Uniform_PS.inl>
+#include <SphericalFog_Function.inl>
+float4 U_PSCustom0[3]; 
+
+struct PS_INPUT
+{
+    float4 o_Position	: SV_POSITION;
+	float4 i_UV				: TEXCOORD0;
+	float4 i_CustomParam	: TEXCOORD1;
+	float4 i_FogColor		: TEXCOORD2;
+	float4 i_ViewDir		: TEXCOORD3;
+};
+
+struct PS_OUTPUT
+{
+    float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+	
+	float f = saturate(IN.i_UV.y * IN.i_UV.y + U_PSCustom0[2].x - 0.5f);
+	psOut.o_Color.rgb = lerp(pow(U_PSCustom0[1].rgb, 2.2) , pow(U_PSCustom0[0].rgb, 2.2), f);
+	
+	float3 skyDir = normalize(IN.i_CustomParam.xyz); 
+	
+	float factor = max(dot(skyDir,-U_MainLightDirection.xyz),U_PSCustom0[0].a);
+	float divisor = max((1.0 - U_PSCustom0[0].a),0.0001);
+	factor = (factor - U_PSCustom0[0].a)/divisor;
+	factor = factor * factor * factor;
+		
+	psOut.o_Color *= (1.0f + factor);
+
+	psOut.o_Color.rgb = psOut.o_Color.rgb * IN.i_FogColor.a + IN.i_FogColor.rgb;
+
+	psOut.o_Color.rgb = pow(psOut.o_Color.rgb, 1.0 / 2.2);
+	
+	// Note: our mainRT is marked as linear color space, but we are writting sRGB color into it. 
+	// and spherical fog post process uses alpha blend to blend fog color and scene color.
+	// So the final result of post process is a linear interpolation of sRGB format scene color and sRGB format fog color. 
+	// So when it comes to transparent objects, we also transform scene color and fog color to sRGB space and do linear interpolation.	
+
+	float4 sphFog = ComputeSphFogUnBlocked(
+		U_PS_CameraPosition.xyz,
+		normalize(IN.i_ViewDir.xyz),
+		IN.o_Position.xy
+	);
+	psOut.o_Color.rgb = lerp(psOut.o_Color.rgb, sphFog.rgb, sphFog.a);
+
+	// 由于球体雾不小心在srgb里面blend了，为了不影响效果并且将结果输出到线性空间，
+	// 只能先转srgb，混合球体雾效，再转线性
+	#ifdef LinearOutput
+		psOut.o_Color.rgb = pow(psOut.o_Color.rgb, 2.2f);
+	#endif
+
+	psOut.o_Color.a = 1.f;
+	float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.o_Color = psOut.o_Color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+
+
+	return psOut;
+}
+

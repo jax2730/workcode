@@ -1,0 +1,490 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+#include <Light_Function_PS.inl>
+
+#ifndef BUMP_MAP
+	#undef RIPPLE
+#endif
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4	U_MaterialDiffuse;
+		Texture2D	S_Diffuse;
+		SamplerState S_DiffuseSamplerState;
+		
+		float4 texDiffuse(float2 vUV) 
+		{ 
+			return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+		}
+	#endif
+#else
+
+	float4	U_MaterialDiffuse;
+	float4	U_MaterialSpecular;
+	float4	U_MaterialFresnel;
+
+	float4	U_LightPower;
+
+	float4	U_MaterialCustomParam;
+
+	float4	U_PSGeneralRegister0;
+	float4	U_PSGeneralRegister1;
+	float4	U_PSGeneralRegister2;
+	float4	U_PSGeneralRegister3;
+	float4	U_PSGeneralRegister4;
+	float4	U_PSGeneralRegister5;
+	float4	U_PSGeneralRegister6;
+	float4	U_PSGeneralRegister7;
+	float4	U_PSGeneralRegister8;
+	float4	U_PSGeneralRegister30;	// weather cover factor for runtime
+	
+	Texture2D	S_Diffuse;
+	SamplerState S_DiffuseSamplerState;
+	
+	float4 texDiffuse(float2 vUV) 
+	{ 
+		return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+	}
+
+	#ifdef RIPPLE
+		Texture2D	S_Ripple;
+		SamplerState S_RippleSamplerState;
+		
+		float4 ComputeRipple(float2 uv, float t)
+		{
+			//波纹贴图采样，并把采样的高度值扩展到-1到1。
+			float4 ripple = S_Ripple.Sample(S_RippleSamplerState, uv);
+			float gloss = ripple.y;
+			ripple.yz = ripple.yz * 2.0 - 1.0;
+			//获取波纹的时间,从A通道获取不同的波纹时间,
+			float dropFrac = frac(ripple.a + t);
+			//把时间限制在R通道内	
+			float timeFrac = dropFrac - 1.0 + ripple.x;
+			//做淡出处理
+			float dropFactor = 1.0f-saturate( dropFrac);
+			//计算最终的高度，用一个sin计算出随时间的振幅	 
+			float final = dropFactor* sin(clamp(timeFrac * 9.0, 0.0, 4.0) * 3.1415926);
+			return float4(ripple.yz * final, 1.0, (final ) * 0.2);
+		}
+	#endif
+	
+	#ifdef SPECULAR_MAP
+		Texture2D	S_Specular;
+		SamplerState S_SpecularSamplerState;
+	#endif
+
+	#ifdef BUMP_MAP
+		Texture2D	S_Bump;
+		SamplerState S_BumpSamplerState;
+	#endif
+
+	#ifdef DETAIL_BUMP
+		#undef SEQUENCE_FRAME
+		#undef TEXTURE_FLOW
+		Texture2D	S_Custom;
+		SamplerState S_CustomSamplerState;
+	#endif
+	
+	#ifdef TEXTURE_FLOW
+		#undef DETAIL_BUMP
+		#undef SEQUENCE_FRAME
+		Texture2D	S_Custom;
+		SamplerState S_CustomSamplerState;
+	#endif
+	
+	#ifdef SEQUENCE_FRAME
+		#undef DETAIL_BUMP
+		#undef TEXTURE_FLOW
+		Texture2D	S_Custom;
+		SamplerState S_CustomSamplerState;
+	#endif
+	
+	#ifdef TEXTURE_MASK
+		Texture2D	S_Environment;
+		SamplerState S_EnvironmentSamplerState;
+	#endif
+
+	#ifdef SOFTBOARD
+		Texture2D	S_Depth;
+		SamplerState S_DepthSamplerState;
+	#endif	
+
+
+	#ifdef CLUSTER_POINT_LIGHT
+		#include "Shadow_Light_Function_PS.inl"
+	#endif
+
+	#ifdef SOFTBOARD
+		float getSceneDepth(in float4 clipPos, in float2 uv)
+		{
+			float4 tempPos = float4(uv, 0.0, 1.0);
+			tempPos.z = S_Depth.Sample(S_DepthSamplerState, uv).r;
+			
+			tempPos.x = clipPos.x;
+			tempPos.y = clipPos.y;
+			
+			float4 viewSpacePos;
+			viewSpacePos.x = dot(U_InvProjectMatrix[0], tempPos);
+			viewSpacePos.y = dot(U_InvProjectMatrix[1], tempPos);
+			viewSpacePos.z = dot(U_InvProjectMatrix[2], tempPos);
+			viewSpacePos.w = dot(U_InvProjectMatrix[3], tempPos);
+			float depth = viewSpacePos.z / viewSpacePos.w;
+			
+			return depth;
+		}
+		
+		//Dx only need to sample one times.
+		float calcSceneDepth(in float4 clipPos)
+		{	
+			float2 screenTC = clipPos.xy / clipPos.w;
+			screenTC.x = (screenTC.x + 1.0) * 0.5  + U_ViewParam.z;
+			screenTC.y = 1.0 - (screenTC.y + 1.0) * 0.5 + U_ViewParam.w;
+			screenTC *= U_ViewParam.xy;
+			float depth = getSceneDepth(clipPos / clipPos.w, screenTC);
+			
+			return depth;
+		}
+	#endif	
+#endif
+
+struct PS_INPUT
+{
+    float4	i_PosInClip		: SV_POSITION;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 	i_UV		: TEXCOORD0;
+	#endif
+#else
+	float4 	i_UV			: TEXCOORD0;
+	float4 	i_Fog			: TEXCOORD1;
+	float4	i_Normal		: TEXCOORD2;
+	float4	i_WorldPos		: TEXCOORD3;
+	
+	float4	i_Tangent		: TEXCOORD4;
+	float4	i_Binormal		: TEXCOORD5;
+	
+	#ifdef VERTEX_COLOR
+		float4	i_Diffuse	: COLOR0;
+	#endif
+	
+	#ifdef SOFTBOARD
+		float4 i_ClipPos    : TEXCOORD8;
+	#endif
+	#ifdef MOTIONBLUR
+		float4  i_VelUV     : TEXCOORD15;
+	#endif
+#endif
+#ifdef PARABOLOID_MAPPING
+	float	i_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+struct PS_OUTPUT
+{
+#ifndef SHADOWPASS
+	float4 color : SV_TARGET;
+#endif
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+#ifdef PARABOLOID_MAPPING
+	clip(IN.i_ClipDepth);
+#endif
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 color = texDiffuse(IN.i_UV.xy);
+		clip(color.a - U_MaterialDiffuse.a);
+	#endif
+#else
+	#ifdef MOTIONBLUR
+		float2 vQX = IN.i_VelUV.xy;
+	
+		float fLenQX = length(vQX);
+		vQX /= (fLenQX+0.01f);
+		float fWeight = max(0.5f, min(fLenQX, 20.0f));
+		vQX *= fWeight;
+		psOut.color.xy = vQX;
+		return psOut;
+	#endif
+	float2 uv = IN.i_UV.xy;
+	#ifdef UV_ROLL
+		uv += frac(U_PS_Time.z * float2(U_PSGeneralRegister1.z, U_PSGeneralRegister1.w));
+	#endif
+
+	#ifdef UV_TILLING
+		uv *= U_PSGeneralRegister2.x;
+	#endif
+		
+		half4 diffuseColor = S_Diffuse.Sample(S_DiffuseSamplerState, uv);
+		
+		#ifdef TEXTURE_GRAY
+			diffuseColor.rgb *= half3(0.333, 0.333, 0.333);
+			diffuseColor.rgb = diffuseColor.r + diffuseColor.g + diffuseColor.b;
+		#endif
+		
+	#ifdef ALPHA_TEST
+		clip(diffuseColor.a - U_MaterialDiffuse.a);
+	#endif
+
+	#ifdef VERTEX_COLOR
+		diffuseColor.rgb *= IN.i_Diffuse.rgb;
+	#endif
+		
+	half3 normal = normalize(IN.i_Normal.xyz);
+	//s代表了平面的倾斜程度，倾斜程度越大，越不容易有涟漪
+
+	#ifdef USESHADOWMAP
+		float4 shadowSpacePos[SHADOWSPLITE];
+		ProjectToLightSpace(shadowSpacePos, IN.i_WorldPos.xyz, normal, IN.i_UV.w);
+	#endif
+
+	#ifdef BUMP_MAP
+		half3 nn = normal;
+		half3 tn = normalize(IN.i_Tangent.xyz);
+		half3 bn = normalize(IN.i_Binormal.xyz);
+
+		tn = normalize(tn - nn * dot(tn, nn));
+		bn = normalize(bn - nn * dot(bn, nn));
+
+		half3x3 tbn = 
+		{
+			tn.x, bn.x, nn.x,
+			tn.y, bn.y, nn.y,
+			tn.z, bn.z, nn.z 
+		};
+		
+		half4 bumpColor = S_Bump.Sample(S_BumpSamplerState, uv); 
+		half3 bump = bumpColor.rgb * 2.0 - 1.0;
+		bump *= half3(U_PSGeneralRegister2.w, U_PSGeneralRegister2.w, 1.0);
+		bump.z = 1.h;
+
+		#ifdef DETAIL_BUMP
+			float2 detailUV = U_PSGeneralRegister2.y;
+			
+			#ifdef UV_TILLING
+				detailUV /= U_PSGeneralRegister2.x;
+			#endif
+			
+			half4 detailBumpColor = S_Custom.Sample(S_CustomSamplerState, uv * detailUV);
+			bump.xy += (detailBumpColor.xy - half2(0.5, 0.5)) * U_PSGeneralRegister2.z;
+		#endif
+		//当有涟漪的时候，减弱模型原本的法线贴图效果，或者直接砍掉法线贴图的计算
+		#ifdef RIPPLE
+			float s = clamp(dot(normal, float3(0.0,1.0,0.0)), 0.0, 1.0) ;
+			s = pow(s, 5.0);
+			s *= (1.f - U_PSGeneralRegister30.x);
+			bump.xy  *= (1.0 - s * 0.9f);
+			double time = U_PS_Time.x;
+			float time01 = U_PS_Time.y * 0.1591549; //U_PS_Time.y / PI / 2
+			//涟漪整体的透明度使用sin函数进行0-1的变化，当透明度变为0的时候，坐标进行偏移，以减轻雨滴的重复感。单张贴图透明度为0的时候会没有涟漪，所以采样两次，交替显示
+			float2 rUV = IN.i_WorldPos.xz * 0.25f;
+			
+			float rOffset = floor(U_PS_Time.x * 0.5f) * 0.1f;
+			float4 ripple = ComputeRipple(rUV + rOffset, time01 * 3.0f);
+			
+			rUV = IN.i_WorldPos.xz * 0.25f + 0.25f;
+			rOffset = floor(U_PS_Time.x * 0.5f + 0.25f) * 0.1f;
+			float4 ripple2 = ComputeRipple(rUV + float2(rOffset, -rOffset), time01 * 3.0f);
+			
+			float rLerp1 =  sin(time01 * 3.1415);
+			float rLerp2 =  1.0 - rLerp1;
+			bump.xy += rLerp1 * ripple.xy * s;
+			bump.xy += rLerp2 * ripple2.xy * s;
+		#endif
+
+		bump = normalize(bump);
+		normal = mul(tbn, bump);
+	#endif
+
+		half3 specularColor = U_MaterialSpecular.rgb;
+		half glossiness = U_MaterialFresnel.z;
+		
+	#ifdef SPECULAR_MAP
+		half4 specularMap = S_Specular.Sample(S_SpecularSamplerState, uv);
+		
+		#ifdef TEXTURE_GRAY
+			specularMap.rgb *= half3(0.333, 0.333, 0.333);
+			specularMap.rgb = specularMap.r + specularMap.g + specularMap.b;
+		#endif
+		
+		specularMap = pow(specularMap, 2.2);		
+		
+		specularColor *= specularMap.rgb;
+		glossiness *= specularMap.w;
+	#endif
+	//有涟漪的时候，给材质的高光整体加0.4		
+	#ifdef RIPPLE
+		glossiness *= lerp(1.0, 16.0, 1.f - U_PSGeneralRegister30.x);
+	#endif
+		glossiness += 1e-6;
+
+		half3 viewDir = normalize(U_PS_CameraPosition.xyz - IN.i_WorldPos.xyz);
+		half3 mainLightDir = -U_MainLightDirection.xyz;
+			
+		half fNDotL = clamp(dot(normal, mainLightDir), 0.f, 1.f);
+//		half fNdotE = clamp(dot(normal, viewDir), 0.f, 1.f);
+		half fNdotH = clamp(dot(normalize(viewDir + mainLightDir), normal), 0.0f, 1.0f);
+
+		half normalY = normal.y * 0.5 + 0.5;
+		half3 ambientColor = U_GroundLightColor.rgb * (1.0-normalY) + U_SkyLightColor.rgb * normalY;
+		half3 mainLightColor = U_MainLightColor.rgb;	
+		
+		diffuseColor.rgb = pow(diffuseColor.rgb, 2.2);
+		diffuseColor.rgb *= U_MaterialDiffuse.rgb;
+		
+		#ifdef TEXTURE_MASK
+			half4 mask = S_Environment.Sample(S_EnvironmentSamplerState, uv);
+			half3 colorR = pow(U_PSGeneralRegister6.rgb, 2.2) * mask.r;
+			half3 colorG = pow(U_PSGeneralRegister4.rgb, 2.2) * mask.g;
+			half3 colorB = pow(U_PSGeneralRegister5.rgb, 2.2) * mask.b;
+			half3 colorA = pow(U_PSGeneralRegister7.rgb, 2.2) * mask.a;
+			float f = min(mask.r + mask.g + mask.b + mask.a, 1.0);
+			half3 colorF = colorR + colorG + colorB + colorA;
+			diffuseColor.rgb = lerp(diffuseColor.rgb, diffuseColor * colorF, f);
+			specularColor = specularColor.rgb + colorF * U_PSGeneralRegister7.w;
+		#endif
+		
+	#ifdef COVER_WEATHER
+		#ifdef COVER_WEATHER_ALPHA
+			float fCoverLerp = diffuseColor.a;
+		#else
+			float fCoverLerp = dot(normal, U_PS_GravityDirection.xyz);
+		#endif
+		fCoverLerp = clamp(fCoverLerp + U_PSGeneralRegister8.x, 0.f, 1.f);
+		fCoverLerp *= fCoverLerp * (1.f - U_PSGeneralRegister30.x);
+		diffuseColor.rgb = lerp(diffuseColor.rgb, U_WeatherParam0.rgb, fCoverLerp * U_WeatherParam0.a);
+	#endif
+		
+		half3 cDiffuseAcc = 0;
+		half3 cSpecularAcc = 0;
+		
+		float shadowFactor = 1.0;
+	
+		#ifdef USESHADOWMAP
+		shadowFactor = calcShadowFactor(
+			shadowSpacePos, 
+			IN.i_UV.w);
+		#endif
+		
+		cDiffuseAcc += fNDotL * mainLightColor * shadowFactor;
+		cSpecularAcc += pow(fNdotH, glossiness) * mainLightColor* shadowFactor;
+
+#ifdef CLUSTER_POINT_LIGHT
+	PointLightAndSpecularOutput shadowLightResult = calculateShadowPointLightAndSpecular(
+		IN.i_WorldPos, normal, viewDir, glossiness);
+	cDiffuseAcc += shadowLightResult.color;
+	cSpecularAcc += shadowLightResult.specular;
+	
+            PointLightAndSpecularOutput lightResult = 
+                calculateClusterPointLightAndSpecular(IN.i_PosInClip.xy,
+                                                      IN.i_WorldPos.xyz,
+                                                      normal,
+                                                      glossiness,
+                                                      viewDir);
+            cDiffuseAcc += lightResult.color;
+            cSpecularAcc += lightResult.specular;    
+#endif
+            
+		half3 cDiffuse = (cDiffuseAcc + ambientColor) * diffuseColor.rgb;
+		
+		half3 cSpecular = cSpecularAcc * U_MaterialFresnel.w;
+		
+		cSpecular *= specularColor.rgb;
+		
+	#ifdef EMISSIVE
+		
+		half3 missiveColor = diffuseColor.rgb * U_PSGeneralRegister0.xyz * diffuseColor.a;
+		half3 minMissiveColor = missiveColor * U_PSGeneralRegister0.w;
+
+		#ifdef TOD_EMISSIVE
+			half todFactor = U_LightPower.x;		
+			
+			#ifdef DYNAMIC_EMISSIVE
+				half3 maxMissiveColor = missiveColor * U_PSGeneralRegister1.x;
+				half factor = U_MaterialSpecular.w;	
+				cDiffuse += lerp(minMissiveColor, maxMissiveColor, half3(factor, factor, factor)) * todFactor;
+			#else
+				cDiffuse += minMissiveColor * todFactor;
+			#endif
+		#else
+		
+			#ifdef DYNAMIC_EMISSIVE
+				half3 maxMissiveColor = missiveColor * U_PSGeneralRegister1.x;
+				half factor = U_MaterialSpecular.w;	
+				cDiffuse += lerp(minMissiveColor, maxMissiveColor, half3(factor, factor, factor));
+			#else
+				cDiffuse += minMissiveColor;
+			#endif
+			
+		#endif
+		
+	#endif
+		
+		psOut.color.rgb = cSpecular + cDiffuse;
+		
+	#ifdef TEXTURE_FLOW
+		uv *= U_PSGeneralRegister3.z;
+		uv += frac(U_PS_Time.z * float2(U_PSGeneralRegister3.x, U_PSGeneralRegister3.y));
+		half3 flowTextureColor = pow(S_Custom.Sample(S_CustomSamplerState, uv).rgb, 2.2);
+		#ifdef TEXTURE_FLOW_WITHOUT_CHANNEL
+			psOut.color.rgb += lerp(flowTextureColor, flowTextureColor * U_PSGeneralRegister3.w, U_LightPower.x);
+		#else
+			psOut.color.rgb += lerp(flowTextureColor, flowTextureColor * U_PSGeneralRegister3.w, U_LightPower.x) * diffuseColor.a;
+		#endif
+	#endif
+	
+	#ifdef SEQUENCE_FRAME
+		int index = floor(U_PS_Time.x * U_PSGeneralRegister2.y);
+		int indexY = index / U_PSGeneralRegister2.z;
+		int indexX = index - indexY * U_PSGeneralRegister2.z;
+		float2 sfUV = float2(uv.x / U_PSGeneralRegister2.z, uv.y / U_PSGeneralRegister2.z);
+		sfUV.x += indexX / U_PSGeneralRegister2.z;
+		sfUV.y += indexY / U_PSGeneralRegister2.z;
+		
+		half3 sfTextureColor = pow(S_Custom.Sample(S_CustomSamplerState, sfUV).rgb, 2.2);
+		psOut.color.rgb += sfTextureColor * diffuseColor.a;
+	#endif
+
+	float alphaaa = 1.0f;
+	#ifdef SOFTBOARD
+		float pixelDepth = 1.0f;
+		float sceneDepth = 1.0f;
+		float4 tempPos = 1.0f;
+		tempPos = float4(IN.i_ClipPos.xy/IN.i_ClipPos.w, 0.0, 1.0);
+		tempPos.x = tempPos.x * 0.5 + 0.5;
+		tempPos.y = (1.0 - tempPos.y) * 0.5;
+		sceneDepth = calcSceneDepth(IN.i_ClipPos);
+		float4 vp;
+		vp.x = dot(U_InvProjectMatrix[0], IN.i_ClipPos);
+		vp.y = dot(U_InvProjectMatrix[1], IN.i_ClipPos);
+		vp.z = dot(U_InvProjectMatrix[2], IN.i_ClipPos);
+		vp.w = dot(U_InvProjectMatrix[3], IN.i_ClipPos);
+		
+		pixelDepth = vp.z / vp.w;
+			
+		alphaaa = saturate(abs(pixelDepth - sceneDepth) / IN.i_UV.z);
+	#endif
+
+		psOut.color.rgb = psOut.color.rgb * IN.i_Fog.a + IN.i_Fog.rgb;
+		psOut.color.rgb = pow(psOut.color.rgb, 1.0 / 2.2);
+		psOut.color.a = diffuseColor.a * alphaaa;
+		
+	#ifdef EDITOR_MODE
+	if(U_MaterialCustomParam.w > 0)
+		psOut.color.rgb = U_MaterialCustomParam.xyz;			
+	#endif
+		
+	#ifdef EditorHelp
+		psOut.color.rgb = psOut.color.rgb*0.001 + float3(1.0,0.0,0.0);
+	#endif
+	float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.color = psOut.color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp); 
+#endif
+		return psOut;
+}

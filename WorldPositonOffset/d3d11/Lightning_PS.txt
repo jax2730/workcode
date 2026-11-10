@@ -1,0 +1,34 @@
+
+#include <Common_Uniform_PS.inl> 
+
+Texture2D	S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+float4 U_PSCustom0[2];
+
+
+struct PS_INPUT
+{
+    float4 o_Position	: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+		
+	float4 diffuseColor =  S_Diffuse.Sample(S_DiffuseSamplerState, IN.i_UV.xy);
+	
+	psOut.o_Color.rgb = U_PSCustom0[0].rgb;
+	psOut.o_Color.a = dot(diffuseColor,U_PSCustom0[1]);
+	float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.o_Color = psOut.o_Color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+	//psOut.o_Color.a = diffuseColor.a;
+	
+	return psOut;
+}

@@ -1,0 +1,31 @@
+#include <Common_Uniform_VS.inl>
+
+uniform float4x4 U_VSCustom0;
+uniform float4x4 U_VSCustom1;
+
+#define localToViewMatrix   U_VSCustom0
+#define mvpMatrix           U_VSCustom1
+
+struct VS_INPUT{
+    float3 i_Position   :POSITION;
+};
+
+struct VS_OUTPUT{
+    float4 o_ClipPos    :SV_POSITION;
+    float4 o_ViewPos    :TEXCOORD0;
+};
+
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+    VS_OUTPUT vsOut = (VS_OUTPUT)0;
+
+    float4 pos = float4(IN.i_Position.xyz, 1.f);
+
+    float4 clipPos = mul(pos, mvpMatrix);
+    float4 viewPos = mul(pos, localToViewMatrix);
+
+    vsOut.o_ClipPos = clipPos;
+    vsOut.o_ViewPos = viewPos * 0.001f;
+    return vsOut;
+}

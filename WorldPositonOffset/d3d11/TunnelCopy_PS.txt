@@ -1,0 +1,26 @@
+Texture2D 	            S_2DExt0;
+SamplerState            S_2DExt0SamplerState;
+float4 U_PSCustom0; 	//ViewPortRange
+struct PS_INPUT
+{
+    float4 i_PosInClip	: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+	
+	float2 uv = IN.i_UV.xy;
+	uv *= U_PSCustom0.xy;
+	float3 col = S_2DExt0.Sample(S_2DExt0SamplerState, uv).xyz;
+	
+	psOut.o_Color = float4(col, 1.0);
+	
+	return psOut;
+}

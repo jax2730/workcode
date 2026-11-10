@@ -1,0 +1,152 @@
+#define thread_group_size_x 16
+#define thread_group_size_y 16
+
+struct KarstGenerationOptions
+{
+    int baseSeed;
+    int statLevel;
+    float levelStep;
+    float baseHeight;
+
+    float baseStrength;
+    int noiseSeed;
+    float noise1;
+    float noise2;
+
+    float noise3;
+    float noise4;
+    float noise5;
+    float noise6;
+    
+    float noiseStrength;
+    float3 padding;
+};
+
+struct KarstTerrain
+{
+    int vertNum;
+    float karstSize;
+    float2 originPos;
+};
+
+RWTexture2D<float> S_2DExt0;
+RWTexture2D<float4> S_2DExt1;
+uniform KarstGenerationOptions U_CSCustom0;
+uniform KarstTerrain U_CSCustom1;
+
+static float2 add = float2(1.0, 0.0);
+#define HASHSCALE1 .1031
+#define HASHSCALE3 float3(.1031, .1030, .0973)
+#define HASHSCALE4 float4(1031, .1030, .0973, .1099)
+#define SEEDMULTIPLE 153846
+
+static float2x2 baseRotate2D = float2x2(1.0127, 1.0231, -1.0131, 1.0223);
+static float2x2 rotate2D = float2x2(1.3627, 1.7531, -1.7131, 1.4623);
+
+float Hash12(float2 p)
+{
+    double3 p3 = frac(p.xyx * HASHSCALE1);
+    p3 += double3(p3.x * p3.y, p3.y * p3.y, p3.z * p3.x) + double(19.19);
+    return frac((float((p3.x + p3.y) * p3.z)));
+}
+float2 Hash22(float2 p)
+{
+    float3 p3 = frac(float3(p.xyx) * HASHSCALE3);
+    p3 += dot(p3, p3.yzx + 19.19);
+    return frac((p3.xx + p3.yz) * p3.zy);
+}
+
+float Noise(in float2 x)
+{
+    float2 p = floor(x);
+    float2 f = frac(x);
+    f = f * f * (3.0 - 2.0 * f);
+    
+    float res = lerp(lerp(Hash12(p), Hash12(p + add.xy), f.x),
+                    lerp(Hash12(p + add.yx), Hash12(p + add.xx), f.x), f.y);
+    return res;
+}
+
+float2 Noise2(in float2 x)
+{
+    float2 p = floor(x);
+    float2 f = frac(x);
+    f = f * f * (3.0 - 2.0 * f);
+    float n = p.x + p.y * 57.0;
+    float2 res = lerp(lerp(Hash22(p), Hash22(p + add.xy), f.x),
+                  lerp(Hash22(p + add.yx), Hash22(p + add.xx), f.x), f.y);
+    return res;
+}
+
+float BaseHeight(in float2 p)
+{
+    float2 pos = p * 0.003 + float2(U_CSCustom0.baseSeed, U_CSCustom0.baseSeed + 1);
+    
+    for (int i = 0; i < U_CSCustom0.statLevel;i++)
+    {
+        pos = mul(baseRotate2D * U_CSCustom0.levelStep, pos);
+    }
+    return U_CSCustom0.baseHeight * Noise(pos) * U_CSCustom0.baseStrength;
+}
+
+float NoiseHeight(in float2 p)
+{
+    float2 pos = p * 0.01 + float2(U_CSCustom0.noiseSeed, U_CSCustom0.noiseSeed + 1);
+    float f = 0.0;
+    
+    f += U_CSCustom0.noise1 * Noise(pos);
+    pos = mul(rotate2D, pos);
+    
+    f += U_CSCustom0.noise2 * Noise(pos);
+    pos = mul(rotate2D, pos);
+    
+    f += U_CSCustom0.noise3 * Noise(pos);
+    pos = mul(rotate2D, pos);
+    
+    f += U_CSCustom0.noise4 * Noise(pos);
+    pos = mul(rotate2D, pos);
+    
+    f += U_CSCustom0.noise5 * Noise(pos);
+    pos = mul(rotate2D, pos);
+    
+    f += U_CSCustom0.noise6 * Noise(pos);
+      
+    return f * U_CSCustom0.noiseStrength;
+}
+
+float3 getBaseNormal(in float2 pos)
+{
+    float p = U_CSCustom1.karstSize / (U_CSCustom1.vertNum - 1);
+    float3 nor = float3(0.0, BaseHeight(pos), 0.0);
+    float3 v2 = normalize(nor - float3(p, BaseHeight(pos + float2(p, 0.0)), 0.0));
+    float3 v3 = normalize(nor - float3(0.0, BaseHeight(pos + float2(0.0, -p)), -p));
+    nor = cross(v2, v3);
+    return normalize(nor);
+}
+
+float getHeight(in float2 p)
+{  
+    float3 baseNormal = getBaseNormal(p);    
+    return BaseHeight(p) + NoiseHeight(p) * (1.1 - pow(abs(baseNormal.y), 5));
+}
+
+float3 getNormal(in float2 pos)
+{
+    float p = U_CSCustom1.karstSize / (U_CSCustom1.vertNum - 1);
+    float3 nor = float3(0.0, getHeight(pos), 0.0);
+    float3 v2 = normalize(nor - float3(p, getHeight(pos + float2(p, 0.0)), 0.0));
+    float3 v3 = normalize(nor - float3(0.0, getHeight(pos + float2(0.0, -p)), -p));
+    nor = cross(v2, v3);
+    return normalize(nor);
+}
+
+[numthreads(thread_group_size_x, thread_group_size_y, 1)]
+void main(uint3 threadIDInGroup : SV_GroupThreadID,
+			uint3 groupID : SV_GroupID,
+			uint groupIndex : SV_GroupIndex,
+			uint2 dTID : SV_DispatchThreadID)
+{
+    float2 pos = ((float2) dTID.xy) / (U_CSCustom1.vertNum - 1) * U_CSCustom1.karstSize + U_CSCustom1.originPos;
+    S_2DExt0[dTID.xy] = getHeight(pos);
+    S_2DExt1[dTID.xy] = float4(getNormal(pos), 0.0);
+}

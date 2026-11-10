@@ -1,0 +1,171 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+float4  U_InvTransposeWorldMatrix[3];
+float4	U_WorldViewProjectMatrix[4];	
+float4  U_WorldMatrix[3];
+
+float4  U_VSCustom0[3];
+float4  U_VSCustom1[8];
+
+struct VS_INPUT
+{
+	float3 i_Pos		: POSITION0;
+    float3 i_normal			: NORMAL0;
+    float2 i_texcoord			: TEXCOORD0;
+};
+
+struct VS_OUTPUT
+{
+	float4	o_PosInClip			: SV_POSITION;
+	float3	o_PosBitangentInWorld		: TEXCOORD0;
+	float3 	o_PosTangeInWorld	: TEXCOORD1;
+	float3  o_PosNorInWorld	: TEXCOORD2;
+
+	float4 bumpCoord0 : TEXCOORD3;
+	float4 bumpCoord1 : TEXCOORD4;
+	
+	float3 eyeVector  : TEXCOORD5;
+	float4 viewPos    : TEXCOORD6;
+	float4 clipPos	  : TEXCOORD7;
+	float4 customParam: TEXCOORD8;
+	float4 fogColor   : COLOR0;
+
+
+};
+
+// wave functions
+struct Wave {
+	float amp;   // amplitude
+	float sharp; // sharpness
+	float freq;  // 2*PI / wavelength
+	float phase; // speed * 2*PI / wavelength
+	float3 dir;
+};
+
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	float4  pos =  float4(IN.i_Pos.xyz, 1.0f);
+	
+	float time = U_VS_Time.x ;
+
+	// OS Object Space
+	// WS World Space
+	// VS View Space
+	// CS Clip Space
+
+	// with radius
+	float radius = 2000;
+	float3 positionOS = pos.xyz;
+	float3 positionOSNormalized = normalize(positionOS);
+
+	float sinPart = 0;
+	float3 cosPart = float3(0,0,0);
+
+	float sinPartNorm = 0;
+	float3 cosPartNorm = float3(0,0,0);
+	
+	float3 tangent = float3(0,0,0);
+
+	// Based on Real-Time Rendering of Procedurally Generated Planets by Florian Michelic
+	float waveAmp = U_VSCustom0[0].x;
+	Wave wave[4] = {
+		{ waveAmp, 0.6, 0.2, 0.5, float3(0, 1, 0) },
+		{ 0.2, 0.5, 0.1, 1, float3(1, -0.7, 0.7) },
+		{ 0.50, 2, 0.2, 0.2, float3(0.2, 0.3, 0) },
+		{ 0.1, 0.6, 0.16, 0.3, float3(-0.7, 0.7, 0.33) }
+	};
+
+	// float4 waveParams = _WaveParameters[waveIdx];
+	for(int i=0; i<4; i++){
+		float3 waveDir = wave[i].dir;
+		float3 waveDirNormalized = normalize(waveDir);
+
+		float A = wave[i].amp;
+		float Q = wave[i].sharp;
+		float w = wave[i].freq;
+		float fi = wave[i].phase;
+		
+		float3 di = cross(positionOSNormalized, cross(positionOSNormalized -  waveDirNormalized, positionOSNormalized));
+		float li = acos(dot(positionOSNormalized, waveDirNormalized)) * radius;
+		
+		sinPart += A * sin(w * li + fi * time);
+		cosPart += Q * A * cos(w * li + fi * time) * di;
+
+		sinPartNorm += Q * A * w * sin(w * li + fi * time);
+		cosPartNorm += di * A * w * cos(w * li + fi * time);
+
+		float3 diCross = cross(di, positionOSNormalized);
+		tangent += diCross / length(diCross);
+	}
+		
+	tangent = normalize(tangent);
+	
+	// Wave pose in the Object Space, eq(8)
+	float3 wavePose;
+	wavePose = positionOSNormalized * radius + positionOSNormalized * sinPart + cosPart;
+
+	pos.xyz = wavePose;
+	
+	// Wave normal in the Object Space, eq(10)
+	float3 waveNormal = positionOSNormalized - positionOSNormalized * sinPartNorm - cosPartNorm;
+	waveNormal = normalize(waveNormal);
+
+
+	float3 positionWS;
+	positionWS.x = dot(U_WorldMatrix[0], pos);
+	positionWS.y = dot(U_WorldMatrix[1], pos);
+	positionWS.z = dot(U_WorldMatrix[2], pos);
+
+	vsOut.o_PosInClip.x = dot(U_WorldViewProjectMatrix[0], pos);
+	vsOut.o_PosInClip.y = dot(U_WorldViewProjectMatrix[1], pos);
+	vsOut.o_PosInClip.z = dot(U_WorldViewProjectMatrix[2], pos);
+	vsOut.o_PosInClip.w = dot(U_WorldViewProjectMatrix[3], pos);
+
+	vsOut.o_PosNorInWorld.x = dot(U_InvTransposeWorldMatrix[0], float4(waveNormal, 0.0f));
+    vsOut.o_PosNorInWorld.y = dot(U_InvTransposeWorldMatrix[1], float4(waveNormal, 0.0f));
+    vsOut.o_PosNorInWorld.z = dot(U_InvTransposeWorldMatrix[2], float4(waveNormal, 0.0f));
+
+	vsOut.o_PosTangeInWorld.x = dot(U_WorldMatrix[0], float4(tangent, 0.0f));
+    vsOut.o_PosTangeInWorld.y = dot(U_WorldMatrix[0], float4(tangent, 0.0f));
+    vsOut.o_PosTangeInWorld.z = dot(U_WorldMatrix[0], float4(tangent, 0.0f));
+
+	vsOut.o_PosBitangentInWorld = cross(vsOut.o_PosNorInWorld, vsOut.o_PosTangeInWorld);
+
+	// FORM　OCEAN2_VS
+	// calculate texture coordinates for normal map lookup
+	float3 vPosInWorld = positionWS;
+	float2 tex_coord 		= vPosInWorld.xz * 0.0001f;
+	float2 vDirection 		= float2(U_WindParams.x, U_WindParams.z);
+	float realWindSpeed = 1 * 0.5 * fmod(U_VS_Time.x, 100.0f);
+	
+	float textureScale = 0.5;
+	vsOut.bumpCoord0.xy = tex_coord * textureScale 		  - vDirection * realWindSpeed * 0.01;
+	vsOut.bumpCoord0.zw = tex_coord * textureScale * 2.0f - vDirection * realWindSpeed * 0.04;
+	vsOut.bumpCoord0.z *= -1.0f;
+	vsOut.bumpCoord1.xy = tex_coord * textureScale * 4.0f + vDirection * realWindSpeed * 0.08;
+	vsOut.bumpCoord1.x *= -1.0f;
+
+	vsOut.eyeVector = vPosInWorld.xyz - U_VS_CameraPosition.xyz; // eye position in world space
+		
+	vsOut.viewPos = vsOut.o_PosInClip;
+	vsOut.viewPos.z = saturate( 1 - 0.15 * sqrt( saturate(vsOut.viewPos.w) ) );
+		
+	float3 camToWorld =  U_VS_CameraPosition.xyz - vPosInWorld.xyz;	
+
+	float4x4 gravityRotatePosMatrix;	
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+	
+	vsOut.fogColor = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+
+	vsOut.customParam.xy = vPosInWorld.xz * 0.025;	
+
+	vsOut.clipPos = vsOut.o_PosInClip;
+ 	return vsOut;
+}

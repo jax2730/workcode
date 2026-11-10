@@ -1,0 +1,29 @@
+
+float4 U_WorldViewProjectMatrix[4];
+
+struct VS_INPUT
+{
+	float4 i_Position	: POSITION0;
+	float4 i_UV		    : TEXCOORD0;
+};
+
+struct VS_OUTPUT
+{
+	float4 o_PosInClip	: SV_POSITION;
+	float4 o_UV		    : TEXCOORD0;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	IN.i_Position.w = 1.0;
+
+	vsOut.o_PosInClip.x = dot(IN.i_Position, U_WorldViewProjectMatrix[0]);
+	vsOut.o_PosInClip.y = dot(IN.i_Position, U_WorldViewProjectMatrix[1]);
+	vsOut.o_PosInClip.z = dot(IN.i_Position, U_WorldViewProjectMatrix[2]);
+	vsOut.o_PosInClip.w = dot(IN.i_Position, U_WorldViewProjectMatrix[3]);
+
+	vsOut.o_UV = IN.i_UV;
+
+	return vsOut;
+}

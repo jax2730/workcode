@@ -1,0 +1,58 @@
+#include <Common_Uniform_VS.inl>
+
+uniform	float4	U_VSCustom0;
+uniform	float4	U_VSCustom1;
+uniform	float4	U_VSCustom2;
+
+#ifdef CLIPED
+uniform float4	U_VSCustom3;
+#endif
+
+struct VS_INPUT
+{
+	float2 pos : POSITION0;
+	float2 tc  : TEXCOORD0;
+	float4 col : COLOR0;
+	float gray : COLOR1;
+};
+
+struct VS_OUTPUT
+{
+	float4 pos 		: SV_POSITION;
+	float4 col 		: COLOR0;
+	float2 tc 		: TEXCOORD0;
+#ifdef CLIPED
+	float2 clipPos	: TEXCOORD1;
+#endif
+	float gray 		: COLOR1;
+};
+
+VS_OUTPUT main(	in VS_INPUT inVtx )
+{
+	VS_OUTPUT oVtx;
+	
+	
+    float3 trans0 = float3(U_VSCustom0.x, U_VSCustom0.z, U_VSCustom1.x);
+	float3 trans1 = float3(U_VSCustom0.y, U_VSCustom0.w, U_VSCustom1.y);
+	
+	float2 VP = U_VSCustom2.xy;
+	float2 pos;
+	pos.x = dot(trans0,float3(inVtx.pos,1.0));
+	pos.y = dot(trans1,float3(inVtx.pos,1.0));
+
+	oVtx.pos = float4(pos.x * VP.x -1.0,1.0 - pos.y * VP.y,0.0,1.0);
+
+#ifdef CLIPED
+	oVtx.clipPos = pos * U_VSCustom3.zw + U_VSCustom3.xy;
+#endif
+	oVtx.tc		= float2(inVtx.tc.x,inVtx.tc.y);
+	oVtx.col	= inVtx.col;
+	oVtx.col.a *= U_VSCustom1.z;
+	oVtx.gray		= U_VSCustom1.w * inVtx.gray;
+#ifdef EDITOR_MODE
+	#ifdef HierarchicalLOD
+		oVtx.o_PosInClip = float4(2.0f * inVtx.tc.x - 1.0f, 1.0f - 2.0f * inVtx.tc.y, 1.0f, 1.0f);
+	#endif
+#endif
+	return oVtx;
+}

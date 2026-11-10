@@ -1,0 +1,98 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+/*
+  Author: yanghang
+  Data: 2022-8-3
+ */
+
+float4	U_WorldViewProjectMatrix[4];	
+#ifdef HWSKINNED
+	float4	U_BoneMatrix[3 * Bone_Matrix_Max_Cnt];
+#endif
+
+struct VS_INPUT
+{
+	float4 i_Pos		: POSITION0;
+#ifndef SHADOWPASS
+    float4 i_UV			: TEXCOORD0;	
+#endif
+
+#ifdef VERTEX_COLOR
+    float4  i_COLOR             : COLOR0; // NOTE(yanghang): For edge blend anti-aliasing.
+#endif
+
+#ifdef HWSKINNED
+	#ifndef HWSKINNED_DUAL
+		float4 i_BlendWeight	: BLENDWEIGHT0;
+		uint4 i_BlendIndices	: BLENDINDICES0;
+	#else
+		float4 i_BlendWeight0	: BLENDWEIGHT0;
+		float4 i_BlendWeight1	: BLENDWEIGHT1;
+		uint4 i_BlendIndices0	: BLENDINDICES0;
+		uint4 i_BlendIndices1	: BLENDINDICES1;
+	#endif
+#endif
+};
+
+struct VS_OUTPUT
+{
+	float4	o_PosInClip			: SV_POSITION;
+
+#ifndef SHADOWPASS
+    float4 	o_UV				: TEXCOORD0;
+#endif
+#ifdef PARABOLOID_MAPPING
+	float	o_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	float4  pos =  float4(IN.i_Pos.xyz, 1.0f);
+    
+#ifdef HWSKINNED
+		#ifndef HWSKINNED_DUAL
+			float4	Weight		= IN.i_BlendWeight;
+			uint4   Index		= IN.i_BlendIndices;
+			#define BlendCount 4
+		#else
+			float Weight[8] ;
+			Weight[0] = IN.i_BlendWeight0[0]; Weight[1] = IN.i_BlendWeight0[1]; Weight[2] = IN.i_BlendWeight0[2]; Weight[3] = IN.i_BlendWeight0[3];
+			Weight[4] = IN.i_BlendWeight1[0]; Weight[5] = IN.i_BlendWeight1[1]; Weight[6] = IN.i_BlendWeight1[2]; Weight[7] = IN.i_BlendWeight1[3];
+			uint  Index[8];
+			Index[0] = IN.i_BlendIndices0[0]; Index[1] = IN.i_BlendIndices0[1]; Index[2] = IN.i_BlendIndices0[2]; Index[3] = IN.i_BlendIndices0[3];
+			Index[4] = IN.i_BlendIndices1[0]; Index[5] = IN.i_BlendIndices1[1]; Index[6] = IN.i_BlendIndices1[2]; Index[7] = IN.i_BlendIndices1[3];
+			#define BlendCount 8
+		#endif
+
+    float4 BoneMatC0	= float4(0.0,0.0,0.0,0.0);		
+    float4 BoneMatC1	= float4(0.0,0.0,0.0,0.0);
+    float4 BoneMatC2	= float4(0.0,0.0,0.0,0.0);
+
+    for(int i=0;i<BlendCount;++i)
+    {
+        int idx = Index[i];
+        BoneMatC0	+=	U_BoneMatrix[idx*3+0]*Weight[i];	
+        BoneMatC1	+=	U_BoneMatrix[idx*3+1]*Weight[i];	
+        BoneMatC2	+=	U_BoneMatrix[idx*3+2]*Weight[i];	
+    }
+
+    pos = float4(dot(BoneMatC0,pos),dot(BoneMatC1,pos),dot(BoneMatC2,pos),1.0f);		
+#endif
+
+	vsOut.o_PosInClip.x = dot(U_WorldViewProjectMatrix[0], pos);
+	vsOut.o_PosInClip.y = dot(U_WorldViewProjectMatrix[1], pos);
+	vsOut.o_PosInClip.z = dot(U_WorldViewProjectMatrix[2], pos);
+	vsOut.o_PosInClip.w = dot(U_WorldViewProjectMatrix[3], pos);	
+
+#ifdef PARABOLOID_MAPPING
+	vsOut.o_ClipDepth = vsOut.o_PosInClip.z;
+	ParaboloidMapping(vsOut.o_PosInClip, U_ShadowLightDepthMulAdd.x, U_ShadowLightDepthMulAdd.z, U_ShadowLightDepthMulAdd.w);
+#endif
+#ifndef SHADOWPASS
+	vsOut.o_UV = IN.i_UV;
+#endif
+	return vsOut;
+}

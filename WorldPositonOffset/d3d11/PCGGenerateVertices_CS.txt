@@ -1,0 +1,329 @@
+#include "CubeSphereMapping.inl"
+#include "SimplexNoise.inl"
+#include "HeightMapStamp.inl"
+
+struct GridUniforms
+{
+	float2 offset;
+	float2 gridSize;
+	uint slice;
+	float minorRadius;
+	float2 padding;
+};
+uniform GridUniforms U_CSCustom1;
+
+struct TerrainVertex
+{
+	float3 pos;
+	float3 normal;
+	float2 uv;
+};
+
+uniform float4 U_CSCustom2;
+#define elevationRatio U_CSCustom2.x
+#define biomeUvCorner U_CSCustom2.yz
+
+uniform float4 U_CSCustom3;
+#define invTrans U_CSCustom3.xyz
+
+RWByteAddressBuffer B_CSCustom0;
+#define vertices B_CSCustom0
+
+#ifdef SAMPLE_HEIGHTMAP_GENERATETERRAIN
+Texture2DArray S_2DArrayExt1;
+float _sampleTerrainHeight(int2 uv, int width, int height, int index)
+{
+    int2 clampUV = clamp(uv, 0, int2(width-1, height-1));
+    int4 coord = int4(clampUV.y, clampUV.x,index, 0);
+    return S_2DArrayExt1.Load(coord);
+}
+float _generateTerrainHeight(uint _face, float2 _gridOffset)
+{
+    uint tface = _face;
+    float2 tgridOffset = _gridOffset;
+    if(_gridOffset.x < -1.0 || _gridOffset.y < -1.0 || _gridOffset.x > 1.0 || _gridOffset.y > 1.0){
+        float3 cubeVertex = GetCubeVertex(_face, _gridOffset);
+        float3 unitSphere = normalize(cubeVertex);
+	    MapToCube(unitSphere,tface,tgridOffset);
+    }
+    float width, height, elements;
+    S_2DArrayExt1.GetDimensions(width, height, elements);
+
+    uint index = tface;
+	float2 uv = (tgridOffset + 1.0) * 0.5;
+    float2 uv0 = uv * float2(width-1, height-1);
+    float2 texf = floor(uv0);
+    float2 delta = uv0 - texf;
+    int2 texLoc = int2(texf);
+    float4 v4;
+    v4.w = _sampleTerrainHeight(texLoc, width, height, index);
+    texLoc.x += 1;
+    v4.z = _sampleTerrainHeight(texLoc, width, height, index);
+    texLoc.y += 1;
+    v4.y = _sampleTerrainHeight(texLoc, width, height, index);
+    texLoc.x -= 1;
+    v4.x = _sampleTerrainHeight(texLoc, width, height, index);
+    float posTerrainHeight = delta.y * ((1.0f-delta.x)*v4.x+delta.x*v4.y)+(1.0f-delta.y)*((1.0f-delta.x)*v4.w+delta.x*v4.z);
+    return posTerrainHeight;
+}
+#endif
+
+#ifdef SAMPLE_BORDERMAP_GENERATETERRAIN
+
+uniform float4 U_CSCustom4;
+#define terrainMinBorder U_CSCustom4.x
+#define terrainBorderSize U_CSCustom4.y
+#define oneOverTerrainBorderSize U_CSCustom4.z
+#define terrainBorderHeight U_CSCustom4.w
+
+Texture2DArray S_2DArrayExt2;
+float _sampleTerrainBorder(int2 uv, int width, int height, int index)
+{
+    int2 clampUV = clamp(uv, 0, int2(width-1, height-1));
+    int4 coord = int4(clampUV.y, clampUV.x,index, 0);
+    return S_2DArrayExt2.Load(coord);
+}
+float _generateTerrainBorder(uint _face, float2 _gridOffset)
+{
+    uint tface = _face;
+    float2 tgridOffset = _gridOffset;
+    if(_gridOffset.x < -1.0 || _gridOffset.y < -1.0 || _gridOffset.x > 1.0 || _gridOffset.y > 1.0){
+        float3 cubeVertex = GetCubeVertex(_face, _gridOffset);
+        float3 unitSphere = normalize(cubeVertex);
+	    MapToCube(unitSphere,tface,tgridOffset);
+    }
+    float width, height, elements;
+    S_2DArrayExt2.GetDimensions(width, height, elements);
+
+    uint index = tface;
+	float2 uv = (tgridOffset + 1.0) * 0.5;
+    float2 uv0 = uv * float2(width-1, height-1);
+    float2 texf = floor(uv0);
+    float2 delta = uv0 - texf;
+    int2 texLoc = int2(texf);
+    float4 v4;
+    v4.w = _sampleTerrainBorder(texLoc, width, height, index);
+    texLoc.x += 1;
+    v4.z = _sampleTerrainBorder(texLoc, width, height, index);
+    texLoc.y += 1;
+    v4.y = _sampleTerrainBorder(texLoc, width, height, index);
+    texLoc.x -= 1;
+    v4.x = _sampleTerrainBorder(texLoc, width, height, index);
+    float posTerrainBorder = delta.y * ((1.0f-delta.x)*v4.x+delta.x*v4.y)+(1.0f-delta.y)*((1.0f-delta.x)*v4.w+delta.x*v4.z);
+    return posTerrainBorder;
+}
+#endif
+
+Texture2DArray<float> S_2DArrayExt3;
+SamplerState S_2DArrayExt3SamplerState;
+#define DisplacementMap S_2DArrayExt3
+#define LinearWrap S_2DArrayExt3SamplerState
+
+uniform float4 U_CSCustom5[16];
+#define displacementParams U_CSCustom5
+
+Texture2D<uint> S_2DExt1;
+#define BiomeMap S_2DExt1
+
+struct TriplanarBlend
+{
+	float2 UV[3];
+	float Weight[3];
+};
+
+TriplanarBlend TriplanarMapping(float3 normal)
+{
+    TriplanarBlend blend;
+    float3 absNormal = abs(normal);
+    float total = absNormal.x + absNormal.y + absNormal.z + 1e-6;
+    blend.Weight[0] = absNormal.x / total;
+    blend.Weight[1] = absNormal.y / total;
+    blend.Weight[2] = absNormal.z / total;
+	blend.UV[0] = normal.zy * 0.5 + 0.5;
+	blend.UV[1] = normal.xz * 0.5 + 0.5;
+	blend.UV[2] = normal.xy * 0.5 + 0.5;
+    return blend;
+}
+
+float SampleDisplacement(float3 unitSphere, float2 uvOnFace)
+{
+	uint biomeWidth, biomeHeight;
+    BiomeMap.GetDimensions(biomeWidth, biomeHeight);
+	float2 biomeUv = uvOnFace;
+	float2 biomeXy = biomeUv * float2(biomeWidth - 1, biomeHeight - 1);
+
+	uint4 biomeIndex;
+	int2 base = int2(floor(biomeXy));
+	biomeIndex[0] = BiomeMap.Load(int3(clamp(base + int2(0, 0), int2(0, 0), int2(biomeWidth - 1, biomeHeight - 1)), 0));
+	biomeIndex[1] = BiomeMap.Load(int3(clamp(base + int2(1, 0), int2(0, 0), int2(biomeWidth - 1, biomeHeight - 1)), 0));
+	biomeIndex[2] = BiomeMap.Load(int3(clamp(base + int2(0, 1), int2(0, 0), int2(biomeWidth - 1, biomeHeight - 1)), 0));
+	biomeIndex[3] = BiomeMap.Load(int3(clamp(base + int2(1, 1), int2(0, 0), int2(biomeWidth - 1, biomeHeight - 1)), 0));
+    
+	float2 biomeAlpha = biomeXy - floor(biomeXy);
+	float4 dispSample = 0;
+	TriplanarBlend blend = TriplanarMapping(unitSphere);
+
+    [unroll]
+    for (int i = 0; i < 4; ++i)
+	{
+		float offset = displacementParams[biomeIndex[i]].x;
+		float tiling = displacementParams[biomeIndex[i]].y;
+		float strength = displacementParams[biomeIndex[i]].z;
+		dispSample[i] += blend.Weight[0] * DisplacementMap.SampleLevel(LinearWrap, float3(blend.UV[0] * tiling, biomeIndex[i]), 0).r;
+		dispSample[i] += blend.Weight[1] * DisplacementMap.SampleLevel(LinearWrap, float3(blend.UV[1] * tiling, biomeIndex[i]), 0).r;
+		dispSample[i] += blend.Weight[2] * DisplacementMap.SampleLevel(LinearWrap, float3(blend.UV[2] * tiling, biomeIndex[i]), 0).r;
+		dispSample[i] = (dispSample[i] + offset) * strength;
+	}
+    
+	float disp = lerp(lerp(dispSample[0], dispSample[1], biomeAlpha.x),
+                      lerp(dispSample[2], dispSample[3], biomeAlpha.x),
+                           biomeAlpha.y);
+    
+	return disp;
+}
+
+#ifdef PROCEDURAL_SPHERE
+float3 ComputeVertex(uint face, float2 gridOffset)
+{
+    float3 cubeVertex = GetCubeVertex(face, gridOffset);
+	float3 unitSphere = normalize(cubeVertex);
+#ifdef SAMPLE_HEIGHTMAP_GENERATETERRAIN
+	unitSphere = unitSphere * _generateTerrainHeight(face, gridOffset);
+#endif
+	float elevation = UberNoiseFbm(unitSphere);
+#ifdef ENABLE_STAMP_TERRAIN
+	elevation = EvaluateVal(elevation, normalize(unitSphere));
+#endif
+
+#ifdef SAMPLE_BORDERMAP_GENERATETERRAIN
+    if (terrainMinBorder >= 1)
+    {
+        elevation = max(terrainBorderHeight, elevation);
+    }
+    else if (terrainMinBorder + terrainBorderSize > -1)
+    {
+	    float border = _generateTerrainBorder(face, gridOffset) - terrainMinBorder;
+        if (border < 0.0)
+        {
+            elevation = max(terrainBorderHeight, elevation);
+        }
+        else if(terrainBorderSize > 0.0 && border < terrainBorderSize)
+        {
+            elevation = max(lerp(terrainBorderHeight, elevation, border * oneOverTerrainBorderSize), elevation);
+        }
+    }
+#endif
+    float displacement = SampleDisplacement(unitSphere, gridOffset * 0.5 + 0.5);
+	return unitSphere * (1.0 + elevation * elevationRatio + displacement);
+}
+#endif
+#ifdef PROCEDURAL_TORUS
+float3 ComputeVertex(float r, float2 gridOffset)
+{
+    float3 torus = MapToTorus(r, gridOffset.x, gridOffset.y);
+    float elevation = UberNoiseFbm(torus);
+#ifdef ENABLE_STAMP_TERRAIN
+	elevation = EvaluateVal(elevation, torus);
+#endif
+    float3 base = normalize(float3(torus.x, 0.0, torus.z));
+    float3 up = normalize(torus - base);
+    return base + up * (1.0 + elevation * elevationRatio) * r;
+}
+#endif
+
+groupshared float3 groupPositions[16 + 2][16 + 2];
+
+[numthreads(16, 16, 1)]
+void main(uint3 dtId : SV_DispatchThreadID, uint3 gtId : SV_GroupThreadID)
+{
+	float2 currGridOffset = U_CSCustom1.offset + float2(dtId.x, dtId.y) * U_CSCustom1.gridSize;
+	float3 currPos = 0;
+#ifdef PROCEDURAL_SPHERE
+    uint face = U_CSCustom1.slice;
+	currPos = ComputeVertex(face, currGridOffset) + invTrans;
+    groupPositions[gtId.y + 1][gtId.x + 1] = currPos;
+    
+    if (gtId.x == 0)
+    {
+    	groupPositions[gtId.y + 1][0] =
+            ComputeVertex(face, currGridOffset - float2(U_CSCustom1.gridSize.x, 0)) + invTrans;
+	}
+    if (gtId.y == 0)
+    {
+    	groupPositions[0][gtId.x + 1] =
+            ComputeVertex(face, currGridOffset - float2(0, U_CSCustom1.gridSize.y)) + invTrans;
+	}
+    if (gtId.x == 15)
+    {
+    	groupPositions[gtId.y + 1][17] =
+            ComputeVertex(face, currGridOffset + float2(U_CSCustom1.gridSize.x, 0)) + invTrans;
+	}
+    if (gtId.y == 15)
+    {
+    	groupPositions[17][gtId.x + 1] =
+            ComputeVertex(face, currGridOffset + float2(0, U_CSCustom1.gridSize.y)) + invTrans;
+	}
+#endif
+
+#ifdef PROCEDURAL_TORUS
+    float r = U_CSCustom1.minorRadius;
+    currPos = ComputeVertex(r, currGridOffset) + invTrans;
+    groupPositions[gtId.y + 1][gtId.x + 1] = currPos;
+    if (gtId.x == 0)
+    {
+    	groupPositions[gtId.y + 1][0] =
+            ComputeVertex(r, currGridOffset - float2(U_CSCustom1.gridSize.x, 0)) + invTrans;
+	}
+    if (gtId.y == 0)
+    {
+    	groupPositions[0][gtId.x + 1] =
+            ComputeVertex(r, currGridOffset - float2(0, U_CSCustom1.gridSize.y)) + invTrans;
+	}
+    if (gtId.x == 15)
+    {
+    	groupPositions[gtId.y + 1][17] =
+            ComputeVertex(r, currGridOffset + float2(U_CSCustom1.gridSize.x, 0)) + invTrans;
+	}
+    if (gtId.y == 15)
+    {
+    	groupPositions[17][gtId.x + 1] =
+            ComputeVertex(r, currGridOffset + float2(0, U_CSCustom1.gridSize.y)) + invTrans;
+	}
+#endif
+    
+    GroupMemoryBarrierWithGroupSync();
+    
+	if (any(dtId.xy >= GRID_RESOLUTION))
+	{
+		return;
+	}
+    
+	float3 normal = 0;
+    float3 vTop = groupPositions[gtId.y][gtId.x + 1] - currPos;
+	float3 vLeft = groupPositions[gtId.y + 1][gtId.x] - currPos;
+    float3 vRight = groupPositions[gtId.y + 1][gtId.x + 2] - currPos;
+    float3 vBottom = groupPositions[gtId.y + 2][gtId.x + 1] - currPos;
+	normal += cross(vLeft, vTop);
+	normal += cross(vBottom, vLeft);
+	normal += cross(vRight, vBottom);
+	normal += cross(vTop, vRight);
+    normal = normalize(normal);
+    
+    TerrainVertex vertex;
+	vertex.pos    = currPos;
+	vertex.normal = normal;
+	//note by hejiwei: change uv range from biomeUVCorner to [0, 1]
+	//vertex.uv = lerp(biomeUvCorner.x, biomeUvCorner.y, currGridOffset * 0.5 + 0.5);
+	
+	//for test
+	vertex.uv = float2(dtId.xy)/(GRID_RESOLUTION - 1); 
+	// vertex.uv =   lerp(biomeUvCorner.x, biomeUvCorner.y, float2(dtId.xy) / GRID_RESOLUTION);
+
+	uint vertexId = dtId.y * GRID_RESOLUTION + dtId.x;
+    uint offset = vertexId * 32;
+    vertices.Store3(offset, asuint(vertex.pos));
+    offset += 12;
+    vertices.Store3(offset, asuint(vertex.normal));
+    offset += 12;
+    vertices.Store2(offset, asuint(vertex.uv));
+}

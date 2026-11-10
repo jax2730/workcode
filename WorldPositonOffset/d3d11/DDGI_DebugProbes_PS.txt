@@ -1,0 +1,21 @@
+// float4 U_PSCustom0[InstanceCount * UniformSize];
+
+struct PS_INPUT
+{
+    float4 pos : SV_POSITION;
+    float4 posInClip : TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+    float4 color : SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN, uint i_InstanceID : SV_InstanceID)
+{
+    PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+    psOut.color = float4(1.0, 0.0, 0.0, 1.0);
+
+    return psOut;
+}

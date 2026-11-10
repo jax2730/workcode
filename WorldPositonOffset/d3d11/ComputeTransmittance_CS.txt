@@ -1,0 +1,15 @@
+#pragma enable_d3d11_debug_symbols
+#include "PrecomputeAtmosphereFuncs.inl"
+
+StructuredBuffer<AtmosphereParameters> B_CSCustom0 : register(t0);
+
+RWTexture2D<float4> S_2DExt0 : register(u0);
+
+#define atmosphere_params B_CSCustom0
+#define transmittance_texture S_2DExt0
+
+[numthreads(COMPUTE_GROUP_SIZE_X, COMPUTE_GROUP_SIZE_Y, 1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    transmittance_texture[id.xy] = float4(ComputeTransmittanceToTopAtmosphereBoundaryTexture(atmosphere_params[0], float2(id.xy) + 0.5f), 1.0);
+}

@@ -1,0 +1,91 @@
+#include<Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+float4  U_WorldMatrix[3];
+
+float4	U_VSCustom0; //scaleDirectionXDirectionYScroll
+float4	U_VSCustom1; //depthLeastVisibility
+
+struct VSInput
+{
+	float4 	i_Pos		: POSITION;
+};
+
+struct VSOutput
+{
+	float4	o_PosInClip	   : SV_POSITION;
+	float4	o_NoiseCoord0 	: TEXCOORD0;
+	float4	o_NoiseCoord1 	: TEXCOORD1;
+	float4	o_EyeDir		: TEXCOORD2; 
+	float4	o_ViewPos		: TEXCOORD3;	
+	float4	o_ProjCoord		: TEXCOORD4;
+	float4 	o_DepthParams	: TEXCOORD5;
+	float4  o_FogParams     : TEXCOORD6;
+#ifdef PARABOLOID_MAPPING
+	float	o_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+VSOutput main(VSInput IN)
+{
+	VSOutput vsOut = (VSOutput)0;
+	
+	vsOut.o_DepthParams.x = IN.i_Pos.w;
+	
+	IN.i_Pos.w = 1;
+	float4 vPosInWorld = IN.i_Pos;
+	vPosInWorld.x = dot( IN.i_Pos , U_WorldMatrix[0] );
+	vPosInWorld.y = dot( IN.i_Pos , U_WorldMatrix[1] );
+	vPosInWorld.z = dot( IN.i_Pos , U_WorldMatrix[2] );
+	vPosInWorld.w = 1.0;
+
+	vsOut.o_PosInClip.x = dot( vPosInWorld , U_ViewProjectMatrix[0] );
+	vsOut.o_PosInClip.y = dot( vPosInWorld , U_ViewProjectMatrix[1] );
+	vsOut.o_PosInClip.z = dot( vPosInWorld , U_ViewProjectMatrix[2] );
+	vsOut.o_PosInClip.w = dot( vPosInWorld , U_ViewProjectMatrix[3] );
+	
+#ifdef PARABOLOID_MAPPING
+	vsOut.o_ClipDepth = vsOut.o_PosInClip.z;
+	ParaboloidMapping(vsOut.o_PosInClip, U_ShadowLightDepthMulAdd.x, U_ShadowLightDepthMulAdd.z, U_ShadowLightDepthMulAdd.w);
+#endif
+	
+	float2 tex_coord 		= vPosInWorld.xz * U_VSCustom0.x * 0.1;
+	float2 vDirection = float2(U_VSCustom0.y, U_VSCustom0.z);
+	
+	vsOut.o_NoiseCoord0.xy 	= tex_coord     - vDirection * U_VSCustom0.w * U_VS_Time.x * 0.1;
+	vsOut.o_NoiseCoord0.zw 	= tex_coord * 2 - vDirection * U_VSCustom0.w * U_VS_Time.x * 0.2;
+	vsOut.o_NoiseCoord0.z *= -1;
+	vsOut.o_NoiseCoord1.xy 	= tex_coord * 4 + vDirection * U_VSCustom0.w * U_VS_Time.x * 0.1;
+	vsOut.o_NoiseCoord1.zw 	= tex_coord * 8 + vDirection * U_VSCustom0.w * U_VS_Time.x * 0.05;
+	vsOut.o_NoiseCoord1.x *= -1;
+	
+	vsOut.o_EyeDir.xyz		= U_VS_CameraPosition.xyz - vPosInWorld.xyz;
+
+	float4 scalemat1 = float4(0.5,  0,   0, 0.5);
+	float4 scalemat2 = float4(0, -0.5,   0, 0.5);
+	float4 scalemat3 = float4(0,    0, 0.5, 0.5);
+	float4 scalemat4 = float4(0,    0,   0,   1);
+
+	vsOut.o_ProjCoord.x = dot( vsOut.o_PosInClip, scalemat1 );
+	vsOut.o_ProjCoord.y = dot( vsOut.o_PosInClip, scalemat2 );
+	vsOut.o_ProjCoord.z = dot( vsOut.o_PosInClip, scalemat3 );
+	vsOut.o_ProjCoord.w = dot( vsOut.o_PosInClip, scalemat4 );
+
+	vsOut.o_DepthParams.z = U_VSCustom1.x;
+	vsOut.o_DepthParams.w = U_VSCustom1.y;
+	
+	vsOut.o_ViewPos = vsOut.o_PosInClip;
+	vsOut.o_ViewPos.z = saturate( 1 - 0.15 * sqrt( saturate(vsOut.o_ViewPos.w) ) );
+
+	float3 camToWorld =  U_VS_CameraPosition.xyz - vPosInWorld.xyz;
+
+	float4x4 gravityRotatePosMatrix;	
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+
+	vsOut.o_FogParams = ComputeFogColor(camToWorld,U_FogParam.xy,U_FogParam.zw,U_FogRampParam, U_FogColorNear, U_FogColorFar);
+	return vsOut;
+}

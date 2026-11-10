@@ -18,6 +18,7 @@ LLM (Ollama/Qwen)
 
 #### 核心文件
 - `DialogManager.java` - 对话管理器，支持两种模式
+- `TravelDialogManager.java` - 旅行助手对话管理器（位置+天气上下文）
 - `DialogConfig.java` - 配置文件，方便切换模式和服务器
 - `MainActivity.java` - 集成对话UI和管理器
 
@@ -50,6 +51,11 @@ LLM (Ollama/Qwen)
 - `GET /npc/status/<npc_id>/` - 获取单个NPC状态
 - `POST /npc/register/` - 注册新NPC
 - `GET /npc/greeting/<npc_id>/` - 获取问候语
+
+**旅行助手模式 (Travel Assistant)**
+- `POST /api/travel/chat/` - 旅行路线与建筑建议对话
+  - 支持传入 `x/y`（由 `camPos` 解析）
+  - 支持传入实时天气字段（`weather_name`、`weather_description`、`temperature`），有实时天气时后端不再调用旧天气接口
 
 ## 使用方法
 

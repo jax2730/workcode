@@ -36,6 +36,10 @@ urlpatterns = [
     path('test/chat/', extratorView.test_chat_view),
     path('test/clear/', extratorView.test_clear),
 
+    # ==================== Travel Assistant - 简易旅行助手 ====================
+    # 注意：必须放在 /api/<str:backend>/chat/ 之前，否则 /api/travel/chat/ 会被通配路由抢先匹配
+    path('api/travel/chat/', extratorView.travel_assistant_chat),
+
     # ==================== 统一接口 (推荐) ====================
     # /api/<backend>/chat/  - 支持: general, test, test_chat, npc
     # /api/<backend>/connect/
@@ -52,6 +56,8 @@ urlpatterns = [
     # 列出所有可用后端
     path('api/backends/', extratorView.list_chat_backends),
     path('backends/', extratorView.list_chat_backends),
+    path('api/model/info/', extratorView.model_info),
+    path('api/model/test/', extratorView.model_test),
     
     # ==================== Persona API - 人设管理 ====================
     # GET/POST /api/persona/

@@ -1,0 +1,71 @@
+#include <Common_Uniform_PS.inl> 
+
+#define EMISSIVE
+#define DYNAMIC_EMISSIVE
+
+float4 U_PSCustom0[2];
+
+
+Texture2D S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+
+struct PS_INPUT
+{
+    float4 i_Position	: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+	//float4 i_FogParam	: TEXCOORD1;
+};
+
+struct PS_OUTPUT
+{
+   
+	float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+			
+	float scale = saturate(1.0f - length(IN.i_UV.zw) ); 
+	
+	float4 diffuseColor = U_SunColor;
+	diffuseColor.a = scale * scale;
+		
+	float2 newUV = IN.i_UV.xy - float2(0.5f,0.5f);	
+	newUV *= U_PSCustom0[1].y;
+	newUV += float2(0.5f,0.5f);	
+	newUV.x = saturate(newUV.x);
+	newUV.y = saturate(newUV.y);
+	
+	float4 sunDiffuse = S_2DExt0.Sample(S_2DExt0SamplerState,newUV);
+	
+	diffuseColor.a += sunDiffuse.g;
+	diffuseColor.a = saturate(diffuseColor.a);
+	
+	diffuseColor.a *= sunDiffuse.b;		
+	
+	#ifdef EMISSIVE	
+		float4 U_PSGeneralRegister0 = float4(3.0,2.0,0.5,1.0);	
+		float3 missiveColor = pow(U_PSCustom0[0].rgb, 2.2) * sunDiffuse.g;
+		float3 minMissiveColor = missiveColor * U_PSGeneralRegister0.x;
+		
+		#ifdef DYNAMIC_EMISSIVE
+			float3 maxMissiveColor = missiveColor * U_PSGeneralRegister0.y;
+			float factor = (sin(U_PS_Time.y * U_PSGeneralRegister0.z) + 1.0) * 0.5;	
+			diffuseColor.rgb += lerp(minMissiveColor, maxMissiveColor, float3(factor, factor, factor));
+		#else
+			diffuseColor.rgb += minMissiveColor;
+		#endif
+		
+	#endif
+		
+	diffuseColor.a *= U_PSCustom0[1].x;
+	#ifndef LinearOutput
+		diffuseColor.rgb = pow(diffuseColor.rgb, 1.0 / 2.2);
+	#endif
+	psOut.o_Color = diffuseColor;
+	float overdrawlerp = ceil(U_PS_Time.w);	
+	psOut.o_Color = psOut.o_Color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp); 
+	return psOut;
+}

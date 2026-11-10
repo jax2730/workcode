@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "module description"
+    },
+    {
+      "name": "Padbo2Ability_desc",
+      "value": "description"
+    },
+    {
+      "name": "Padbo2Ability_label",
+      "value": "SU_PadBO2"
+    }
+  ]
+}

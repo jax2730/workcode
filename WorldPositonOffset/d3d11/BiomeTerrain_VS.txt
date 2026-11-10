@@ -1,0 +1,160 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+#include <TriPlanarMapping_Function_VS.inl>
+
+float4 U_WorldRotationMatrix[3];
+float4 U_WorldViewProjectMatrix[4];
+float4 U_WorldMatrix[3];
+float4 U_VSCustom0;
+#define LocalTranslation U_VSCustom0.xyz
+#define LocalSeaLevel U_VSCustom0.w
+
+float4x4 U_VS_WorldViewMatrix;
+
+float4 U_VSCustom1;
+#define matID_UV_Offset         U_VSCustom1.xy
+#define matID_UV_Scale          U_VSCustom1.zw
+
+column_major float4x4 U_VSCustom2;
+
+float4 U_VSCustom3;
+#define texture_UV_Base_Scale  U_VSCustom3.xy
+
+float4 U_VSCustom4;
+#define planetCenter U_VSCustom4.xyz
+#define planetRadiusInv U_VSCustom4.w
+#ifdef _DEBUG_MODE_
+    #define bDisplay U_VSCustom14.x
+    #define U_StampTerrainMatrix U_VSCustom15
+    uint4 U_VSCustom14;
+    float4x4  U_StampTerrainMatrix;
+#endif
+
+struct VS_INPUT
+{
+	float3 i_Pos		    : POSITION0;
+    float3 i_Normal			: NORMAL0;
+    float2 i_Texcoord		: TEXCOORD0;
+};
+
+struct VS_OUTPUT
+{
+	float4	o_PosInClip		: SV_POSITION;
+
+    float3 o_WorldNormal    : NORMAL0;    
+    float3 o_WorldPos       : TEXCOORD0;
+
+    float2 o_TexCoord       : TEXCOORD1;    //用于采样材质的UV
+    float2 o_MatIDUV        : TEXCOORD2;    //用于采样MatID的UV
+
+    float3 o_Tangent1       : TEXCOORD3;
+    float3 o_BiTangent1     : TEXCOORD4;
+    float3 o_Tangent2       : TEXCOORD5;
+    float3 o_BiTangent2     : TEXCOORD6;
+
+    float3 o_LocalPos       : TEXCOORD7;
+    float3 o_LocalNormal    : TEXCOORD8;
+
+    #ifdef _DEBUG_MODE_
+        float o_mode        : TEXCOORD9;
+    #endif
+    #ifdef USESHADOWMAP
+        float   o_ViewSpaceZ		            : TEXCOORD10;
+    #endif
+
+    float4  o_Fog            : TEXCOORD15;
+    float3  o_ViewPos        : TEXCOORD16;      // position in view space
+
+};
+
+
+
+//note by hejiwei: 
+// xy direction projected triplanar-uv will be computed by local space position with face normal pointing at (0, 1, 0)
+// tangent and bitangent will be computed with world space normal 
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	float4  pos =  float4(IN.i_Pos.xyz, 1.0f);
+    float4  norm = float4(IN.i_Normal, 0.f);
+    #ifdef _DEBUG_MODE_
+        if(bDisplay == 1)
+        {
+            float3 local_pos = pos.xyz + U_VSCustom0.xyz; 
+            float4 normalized = float4(normalize(local_pos), 1.0);//normalize();
+            float4 transformed = mul(normalized, U_StampTerrainMatrix);
+            float2 uv = transformed.xz;
+            bool ok = transformed.y > 1e-6 && uv.x >= 0.0f && uv.x <= 1.0f && uv.y >= 0.0f && uv.y <= 1.0f;
+            if(ok)
+            {
+                vsOut.o_mode = 1.0f;
+            }
+        }
+    #endif
+
+    float3 worldPos;
+    worldPos.x = dot(U_WorldMatrix[0], pos);
+    worldPos.y = dot(U_WorldMatrix[1], pos);
+    worldPos.z = dot(U_WorldMatrix[2], pos);    
+                     
+	vsOut.o_PosInClip.x = dot(U_WorldViewProjectMatrix[0], pos);
+	vsOut.o_PosInClip.y = dot(U_WorldViewProjectMatrix[1], pos);
+	vsOut.o_PosInClip.z = dot(U_WorldViewProjectMatrix[2], pos);
+	vsOut.o_PosInClip.w = dot(U_WorldViewProjectMatrix[3], pos);	
+    
+    vsOut.o_WorldNormal.x = dot(U_WorldRotationMatrix[0], norm);
+    vsOut.o_WorldNormal.y = dot(U_WorldRotationMatrix[1], norm);
+    vsOut.o_WorldNormal.z = dot(U_WorldRotationMatrix[2], norm);
+
+    vsOut.o_WorldNormal = normalize(vsOut.o_WorldNormal);
+    vsOut.o_WorldPos = worldPos;
+
+    float3 viewPos = mul(pos, U_VS_WorldViewMatrix).xyz;
+    vsOut.o_ViewPos = viewPos;
+
+    vsOut.o_LocalNormal = mul(float4(IN.i_Normal, 0.0), U_VSCustom2);
+
+    //tangent vectors of XY, YZ plane
+    float4 tangent1 = 0.f;
+    float4 biTangent1 = 0.f;
+
+    //tangent vectors of XZ plane
+    float4 tangent2 = 0.f;
+    float4 biTangent2 = 0.f;
+
+    computeTangentSpaceVectors(
+        vsOut.o_WorldNormal, 
+        vsOut.o_Tangent1.xyz, 
+        vsOut.o_BiTangent1.xyz,
+        vsOut.o_Tangent2.xyz,
+        vsOut.o_BiTangent2.xyz);
+
+    #ifdef _LOW_LOD_
+    	vsOut.o_LocalPos = IN.i_Pos + LocalTranslation;                         // global texCUBE usage
+        vsOut.o_TexCoord = IN.i_Texcoord;
+    #else
+        //vsOut.o_LocalPos = mul(float4(IN.i_Pos.xyz, 1.0f), U_VSCustom2);
+        vsOut.o_LocalPos = worldPos.xyz * planetRadiusInv - planetCenter.xyz * planetRadiusInv;
+        vsOut.o_TexCoord = IN.i_Texcoord * texture_UV_Base_Scale.xy;              //scale by world space tile size 
+        
+        vsOut.o_MatIDUV = IN.i_Texcoord * matID_UV_Scale + matID_UV_Offset;     // (0, 1) on whole 
+    #endif
+
+    #ifdef USESHADOWMAP
+        vsOut.o_ViewSpaceZ = -dot(U_MainCamViewMatrix, float4(vsOut.o_WorldPos.xyz, 1.0f));
+    #endif
+
+    // fog
+    float3 camToWorld =  U_VS_CameraPosition.xyz - vsOut.o_WorldPos.xyz;
+
+    float4x4 gravityRotatePosMatrix;	
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+	vsOut.o_Fog = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam,
+         U_FogColorNear, U_FogColorFar);
+	
+ 	return vsOut;
+}

@@ -1,0 +1,44 @@
+#pragma enable_d3d11_debug_symbols
+#include "PrecomputeAtmosphereFuncs.inl"
+
+StructuredBuffer<AtmosphereParameters> B_CSCustom0 : register(t0);
+
+RWTexture3D<float4> S_2DExt0 : register(u0);
+RWTexture3D<float4> S_2DExt1;
+RWTexture3D<float4> S_2DExt2;
+RWTexture3D<float4> S_2DExt3;
+
+Texture2D<float4> S_2DExt4;
+
+SamplerState S_2DExt4SamplerState;
+
+cbuffer Global
+{
+    column_major float4x4 U_CSCustom0;
+}
+
+#define luminance_from_radiance U_CSCustom0
+
+#define atmosphere_params B_CSCustom0
+#define linear_sampler S_2DExt4SamplerState
+
+#define delta_mie_scattering_texture S_2DExt0
+#define delta_rayleigh_scattering_texture S_2DExt1
+#define scattering_texture S_2DExt2
+#define single_mie_scattering_texture S_2DExt3
+
+#define transmittance_texture S_2DExt4
+
+[numthreads(COMPUTE_GROUP_SIZE_X, COMPUTE_GROUP_SIZE_Y, COMPUTE_GROUP_SIZE_Z)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    float3 rayleigh, mie;
+    ComputeSingleScatteringTexture(atmosphere_params[0], transmittance_texture, linear_sampler, float3(id.xyz) + 0.5f, rayleigh, mie);
+    delta_mie_scattering_texture[id] = float4(mie, 1.f);
+    delta_rayleigh_scattering_texture[id] = float4(rayleigh, 1.f);
+    scattering_texture[id] = float4(
+        float4(rayleigh, 1.f).xyz,
+        float4(mie, 1.f).x
+    );
+    single_mie_scattering_texture[id] = float4(mie, 1.f);
+}

@@ -1,0 +1,243 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+#include <Effect_Function_VS.txt>
+
+uniform float4 U_VSCustom0; //VSCBTileParam;
+uniform float4 U_VSCustom1; //VSCBTileParam2;
+uniform float4 U_VSCustom2; //VSCBMoveMax;
+uniform float4 U_VSCustom3; //VSCBMoveMin;
+uniform float4 U_VSCustom4; //VSCBScaleMax;
+uniform float4 U_VSCustom5; //VSCBScaleMin;
+uniform float4 U_VSCustom6; //VSCBRotateMinMax;
+uniform float4 U_VSCustom7; //VSCBTCSelect;
+
+uniform float4 U_VSCustom8;
+uniform float4 U_VSCustom9[TORUS_MAX_VERTEX_UNIFORM_CNT];
+
+struct VS_INPUT
+{
+	float4 i_Position	: POSITION0;
+	float4 i_Texcoord	: TEXCOORD0;
+};
+
+struct VS_OUTPUT
+{
+	float4 o_PosInClip	: SV_POSITION;
+	float4 o_Diffuse	: COLOR0;
+	float4 o_UV			: TEXCOORD0;
+	float4 o_Rand0		: TEXCOORD1;
+
+#ifdef DOUBLETEX
+	float2 o_UV2		: TEXCOORD2;
+#endif
+
+#if defined(SCREENDISTORT) || defined(DEPTH_FADE) 
+	float4 o_PosInClipOut: TEXCOORD3;
+#endif
+
+	float4 o_Fog		: TEXCOORD4;
+
+#ifdef EnableAlphaDistance
+	float4 cam_to_obj_len : TEXCOORD7;
+#endif
+
+#ifdef DISTURBANCE_TEXTURE
+	float4 disturbance_texture_params0 : TEXCOORD8;
+	float4 disturbance_texture_params1 : TEXCOORD9;
+#endif
+
+#ifdef DISTORT
+	float4 Custom_Params : TEXCOORD10;
+#endif
+
+	nointerpolation float4 CurrentObjIndex : TEXCOORD11;
+
+	float4	o_WPos	:TEXCOORD13;
+};
+
+void CalTexcoord(in float  _Time, in float2 _TC, in float4 _Rand0, out float4 TC_)
+{
+ 
+	float 	Tile = frac(_Time * U_VSCustom0.x + _Rand0.x / 255.0 * U_VSCustom0.y);	
+	
+	Tile = lerp(U_VSCustom1.x, U_VSCustom1.y, Tile);
+ 
+ 
+	float 	Row = U_VSCustom0.w;																	
+	float 	Col = U_VSCustom0.z;																	
+	float	nIdx = floor(Tile*Row*Col);																
+	float 	nRow = floor(nIdx / Col);																
+	float 	nCol = nIdx - nRow*Col;																	
+	float 	fRow = nRow / Row;																	
+	float 	fCol = nCol / Col;																									
+	float2 TcTile = float2(fCol, fRow) + _TC*float2(1.0 / Col, 1.0 / Row);	
+
+	float4 TcMove = lerp(U_VSCustom2, U_VSCustom3, _Rand0.x / 255.0);
+	float4 TcScale = lerp(U_VSCustom4, U_VSCustom5, _Rand0.y / 255.0);
+	float2 TcRotate = lerp(U_VSCustom6.xy, U_VSCustom6.zw, _Rand0.z / 255.0);
+	
+	float2 TcTran = _TC - float2(0.5, 0.5);
+	TcTran *= TcScale.zw + TcScale.xy * _Time;
+	TcTran += TcMove.zw + TcMove.xy * _Time;
+	float RotDeg = TcRotate.x * _Time + TcRotate.y;
+	float2 RotMatR0 = float2(+cos(RotDeg), -sin(RotDeg));
+	float2 RotMatR1 = float2(+sin(RotDeg), +cos(RotDeg));
+	TcTran = float2(dot(TcTran, RotMatR0), dot(TcTran, RotMatR1));
+	TcTran += float2(0.5, 0.5);
+	
+	TC_.xy = lerp(TcTile, TcTran, U_VSCustom7.x);
+#ifdef DOUBLETEX
+	TC_.zw = lerp(TcTran, TcTile, U_VSCustom7.x);
+#else
+	TC_.zw = 0.0;
+#endif
+}
+
+float3 rotate (float4 qvec, float3 v) 
+{
+	float3 uv, uuv;
+	 
+	uv = cross(qvec.xyz, v);
+	uuv = cross(qvec.xyz, uv);
+	uv *= (2.0 * qvec.w);
+	uuv *= 2.0;
+		
+	return v + uv + uuv;
+}
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	
+	int index = int(IN.i_Position.w) * TORUS_ONE_VERTEX_UNIFORM_CNT;
+	float pointIndex = IN.i_Texcoord.w;
+	float3 bigDir = IN.i_Position.xyz;
+	
+	float4 color = U_VSCustom9[index];
+	float4 rand = U_VSCustom9[index + 1]; //x:rand, yz:radius, w:dissolve
+	float4 localQuat = U_VSCustom9[index + 2];
+	float4 worldQuat = U_VSCustom9[index + 3];
+	float4 center = U_VSCustom9[index + 4];
+	float3 size = U_VSCustom9[index + 5].xyz;
+
+	vsOut.CurrentObjIndex = float4(IN.i_Position.w, 0.0f, 0.0f, 0.0f);
+	
+#ifdef DISTURBANCE_TEXTURE
+	vsOut.disturbance_texture_params0 = U_VSCustom9[index + 6];
+	vsOut.disturbance_texture_params1.x = U_VSCustom9[index + 7].x;
+#endif
+
+#ifdef DISTORT
+	vsOut.Custom_Params.x = U_VSCustom9[index + 7].y;
+#endif
+
+	float radius1 = rand.y;
+	float radius2 = rand.z;
+	rand.y = rand.x * 2.0f;
+	rand.z = rand.x * 0.5f;
+
+#ifdef TUBE
+	float col = 4.0f;
+	float height = U_VSCustom9[index + 5].w;
+	float2 posMark = IN.i_Texcoord.xy;
+#else
+	float col = U_VSCustom8.x;
+	float3 smallDir  = IN.i_Texcoord.xyz;
+#endif
+
+	float row   = 	U_VSCustom8.y;
+		
+	//pos
+	float3 localPos;
+
+#ifdef TUBE
+	float3 nDir = normalize(bigDir);
+	float3 circlePos = nDir * radius1;
+	localPos = circlePos + nDir * radius2 * posMark.y;
+	
+	#ifdef ONESIDEEXTENSION
+		posMark.x = (posMark.x + 1.0) * 0.5f;
+		localPos.y += height * 1.0f * posMark.x;
+	#else
+		localPos.y += height * 0.5f * posMark.x;
+	#endif
+
+#else
+	float3 circlePos = normalize(bigDir) * radius1;
+	localPos = circlePos + normalize(smallDir) * radius2;
+#endif
+	
+	localPos = rotate(worldQuat, rotate(localQuat, localPos * size));
+	localPos += center.xyz;
+	
+	float4 pos = float4(localPos, 1.0);
+	vsOut.o_WPos = pos;
+	//uv
+	float2 uv;
+	uv.x = floor(pointIndex / (col + 1)) / row;
+	#ifdef TUBE
+		uv.y = fmod(pointIndex, (col + 1)) * 0.25f; 
+	#else	
+		uv.y = fmod(pointIndex, (col + 1)) / col;
+	#endif
+	
+#ifdef SCREENEFFECT
+	vsOut.o_PosInClip = pos;
+	vsOut.o_Fog = float4(0.0f, 0.0f, 0.0f, 1.0f);
+#else
+	float3 camToWorld =  U_VS_CameraPosition.xyz - pos.xyz;
+
+	float4x4 gravityRotatePosMatrix;
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+	
+	vsOut.o_Fog = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+	vsOut.o_PosInClip.x = dot( pos , U_ViewProjectMatrix[0] );
+	vsOut.o_PosInClip.y = dot( pos , U_ViewProjectMatrix[1] );
+	vsOut.o_PosInClip.z = dot( pos , U_ViewProjectMatrix[2] );
+	vsOut.o_PosInClip.w = dot( pos , U_ViewProjectMatrix[3] );
+
+	#ifdef EnableAlphaDistance
+	{
+		vsOut.cam_to_obj_len.x = sqrt(dot(camToWorld, camToWorld));
+	}
+	#endif
+#endif
+
+	CalTexcoord(center.w, uv, rand, vsOut.o_UV);
+#ifdef SUB_UV_ANIMATION
+{
+	SubUVAnimationParam param;
+	param.mImageSizeX = int(U_VSCustom9[index + 7].z);
+	param.mImageSizeY =  int(U_VSCustom9[index + 7].w);
+	param.mCurrentIndex = int(U_VSCustom9[index + 8].x);
+	param.mCurrentUV = vsOut.o_UV.xy;
+
+	SubUVAnimationResult result = SubUVAnimation(param);
+	vsOut.o_UV.xy = result.mSubUV;
+}
+#endif
+
+#ifdef DOUBLETEX
+	vsOut.o_UV2 = vsOut.o_UV.zw;
+#endif
+	vsOut.o_UV.zw = uv;
+
+	vsOut.o_Diffuse = color;
+	vsOut.o_Rand0 = rand;
+	
+#if defined(SCREENDISTORT) || defined(DEPTH_FADE) 
+	vsOut.o_PosInClipOut = vsOut.o_PosInClip;
+#endif
+
+#ifdef EDITOR_MODE
+	#ifdef HierarchicalLOD
+		vsOut.o_PosInClip = float4(2.0f * IN.i_Texcoord.x - 1.0f, 1.0f - 2.0f * IN.i_Texcoord.y, 1.0f, 1.0f);
+	#endif
+#endif
+
+	return vsOut;
+}

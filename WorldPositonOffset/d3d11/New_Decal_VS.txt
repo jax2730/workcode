@@ -1,0 +1,104 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+#ifdef USEINSTANCE
+	uniform float4 U_VSCustom0[MAX_DECAL_UNIFORM_FLOAT4_NUMBER];
+#else
+	uniform float4 U_VSCustom0[ONE_DECAL_UNIFORM_FLOAT4_NUMBER];
+#endif
+
+struct VS_INPUT
+{
+	float4 i_position	: POSITION0;
+	float4 i_normal		: NORMAL;
+};
+
+struct VS_OUTPUT
+{
+	float4 o_clip_position : SV_POSITION;
+	float4 o_world_normal : TEXCOORD0;
+	float4 o_ps_clip_position : TEXCOORD1;
+	float4 o_inv_world_matrix[4] : TEXCOORD2;
+	float4 o_diffuse_tilling_uv : TEXCOORD6;
+	float4 o_fog_color : TEXCOORD7;
+	float4 o_emissive_color: TEXCOORD8;
+
+};
+
+VS_OUTPUT main(VS_INPUT IN, uint i_instance_id : SV_InstanceID)
+{
+	float4 local_position = IN.i_position;
+	float4 normal = IN.i_normal;
+	normal = float4(0.0f, 1.0f, 0.0f, 0.0f);
+
+	int cur_index_start = i_instance_id * 10; 
+
+	float4 vp_matrix0 = U_ViewProjectMatrix[0];
+	float4 vp_matrix1 = U_ViewProjectMatrix[1];
+	float4 vp_matrix2 = U_ViewProjectMatrix[2];
+	float4 vp_matrix3 = U_ViewProjectMatrix[3];
+
+	float4 world_matrix0 = U_VSCustom0[cur_index_start];
+	float4 world_matrix1 = U_VSCustom0[cur_index_start + 1];
+	float4 world_matrix2 = U_VSCustom0[cur_index_start + 2];
+	float4 world_matrix3 = U_VSCustom0[cur_index_start + 3];
+
+	float4 inv_world_matrix0 = U_VSCustom0[cur_index_start + 4];
+	float4 inv_world_matrix1 = U_VSCustom0[cur_index_start + 5];
+	float4 inv_world_matrix2 = U_VSCustom0[cur_index_start + 6];
+	float4 inv_world_matrix3 = U_VSCustom0[cur_index_start + 7];
+
+	float4 diffuse_tilling_uv = U_VSCustom0[cur_index_start + 8];	
+	float4 emissive_color = U_VSCustom0[cur_index_start + 9];
+	//-----------------------------------------------
+	float4 world_position;
+
+	world_position.x = dot(world_matrix0, local_position);
+	world_position.y = dot(world_matrix1, local_position);
+	world_position.z = dot(world_matrix2, local_position);
+	world_position.w = dot(world_matrix3, local_position);
+
+	float4 clip_position;
+
+	clip_position.x = dot(vp_matrix0, world_position);
+	clip_position.y = dot(vp_matrix1, world_position);
+	clip_position.z = dot(vp_matrix2, world_position);
+	clip_position.w = dot(vp_matrix3, world_position);
+
+	float4 world_normal;
+	
+	float4  invTransposeWorldMatrix[3];
+	invTransposeWorldMatrix[0] = float4(inv_world_matrix0.x, inv_world_matrix1.x, inv_world_matrix2.x, inv_world_matrix3.x);
+	invTransposeWorldMatrix[1] = float4(inv_world_matrix0.y, inv_world_matrix1.y, inv_world_matrix2.y, inv_world_matrix3.y);
+	invTransposeWorldMatrix[2] = float4(inv_world_matrix0.z, inv_world_matrix1.z, inv_world_matrix2.z, inv_world_matrix3.z);
+
+	world_normal.x = dot(invTransposeWorldMatrix[0], normal);
+	world_normal.y = dot(invTransposeWorldMatrix[1], normal);
+	world_normal.z = dot(invTransposeWorldMatrix[2], normal);
+
+	//---------------------- fog --------------------------
+	float3 view_dir = U_VS_CameraPosition.xyz - world_position.xyz;
+
+	float3 view_dir_temp;
+	view_dir_temp.x = dot(U_VS_GravityRotationMatrix[0].xyz, view_dir);
+	view_dir_temp.y = dot(U_VS_GravityRotationMatrix[1].xyz, view_dir);
+	view_dir_temp.z = dot(U_VS_GravityRotationMatrix[2].xyz, view_dir);
+
+	float4 fog_color = ComputeFogColor(view_dir_temp, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+
+	//---------------------- out -------------------------
+	VS_OUTPUT vs_out;
+
+	vs_out.o_clip_position = clip_position;
+	vs_out.o_world_normal = world_normal;
+	vs_out.o_ps_clip_position = clip_position;
+	vs_out.o_inv_world_matrix[0] = inv_world_matrix0;
+	vs_out.o_inv_world_matrix[1] = inv_world_matrix1;
+	vs_out.o_inv_world_matrix[2] = inv_world_matrix2;
+	vs_out.o_inv_world_matrix[3] = inv_world_matrix3;
+	vs_out.o_diffuse_tilling_uv = diffuse_tilling_uv;
+	vs_out.o_fog_color = fog_color;
+	vs_out.o_emissive_color = emissive_color;
+
+	return vs_out;
+}

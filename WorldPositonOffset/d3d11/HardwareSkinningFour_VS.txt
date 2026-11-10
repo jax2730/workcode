@@ -1,0 +1,106 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+float4	U_BoneMatrix[3 * Bone_Matrix_Max_Cnt];
+float4	U_WorldViewProjectMatrix[4];
+float4  U_WorldMatrix[3];
+
+struct VS_INPUT
+{
+	float4 i_Pos	: POSITION0;
+	float4	blend	: BLENDWEIGHT0;
+	uint4	index	: BLENDINDICES0;
+#ifndef SHADOWPASS
+	float4 i_Normal	: NORMAL0;
+	float4	tan		: TANGENT0;
+	float4 i_UV		: TEXCOORD0;
+#endif
+};
+
+struct VS_OUTPUT
+{
+	float4	o_PosInClip			: SV_POSITION;
+#ifndef SHADOWPASS
+	float4 	o_UV				: TEXCOORD0;
+	float4	o_Fog				: TEXCOORD1;
+	float4	o_WNormal			: TEXCOORD2;
+	float4	o_WPos				: TEXCOORD3;
+	#ifdef USESHADOWMAP
+		float   o_ViewSpaceZ		: TEXCOORD4;
+	#endif
+#endif
+#ifdef PARABOLOID_MAPPING
+	float	o_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	
+	float4	Weight		= IN.blend;
+    uint4  Index		= IN.index;
+
+	float4 BoneMatC0	= float4(0.0,0.0,0.0,0.0);		
+	float4 BoneMatC1	= float4(0.0,0.0,0.0,0.0);
+	float4 BoneMatC2	= float4(0.0,0.0,0.0,0.0);
+
+	for(int i=0;i<4;++i)
+	{
+	    int idx = Index[i];
+	    BoneMatC0	+=	U_BoneMatrix[idx*3+0]*Weight[i];	
+	    BoneMatC1	+=	U_BoneMatrix[idx*3+1]*Weight[i];	
+	    BoneMatC2	+=	U_BoneMatrix[idx*3+2]*Weight[i];	
+	}
+
+	float4	Pos	= float4(IN.i_Pos.xyz, 1.0f);
+	float4 mpos = float4(dot(BoneMatC0,Pos),dot(BoneMatC1,Pos),dot(BoneMatC2,Pos),1.0);							
+	
+	
+	vsOut.o_PosInClip.x = dot(U_WorldViewProjectMatrix[0],mpos);
+	vsOut.o_PosInClip.y = dot(U_WorldViewProjectMatrix[1],mpos);
+	vsOut.o_PosInClip.z = dot(U_WorldViewProjectMatrix[2],mpos);
+	vsOut.o_PosInClip.w = dot(U_WorldViewProjectMatrix[3],mpos);
+
+#ifdef PARABOLOID_MAPPING
+	vsOut.o_ClipDepth = vsOut.o_PosInClip.z;
+	ParaboloidMapping(vsOut.o_PosInClip, U_ShadowLightDepthMulAdd.x, U_ShadowLightDepthMulAdd.z, U_ShadowLightDepthMulAdd.w);
+#endif
+
+#ifndef SHADOWPASS
+	float4	vCamPos				=	U_VS_CameraPosition;
+	
+	float4 Nor = float4(IN.i_Normal.xyz,0.0);
+	float4 mnor = float4(dot(BoneMatC0,Nor),dot(BoneMatC1,Nor),dot(BoneMatC2,Nor),0.0);
+	vsOut.o_WNormal.xyz = mul((float3x4)U_WorldMatrix, mnor);
+	
+	vsOut.o_UV = IN.i_UV;
+							
+	vsOut.o_WPos.xyz = mul((float3x4)U_WorldMatrix, mpos);
+		
+	float3 camToWorld =  vCamPos.xyz - vsOut.o_WPos.xyz;
+
+	float4x4 gravityRotatePosMatrix;	
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+	
+	vsOut.o_Fog = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+	
+	#ifdef USESHADOWMAP
+		float viewZ = -dot(U_MainCamViewMatrix, float4(vsOut.o_WPos.xyz, 1.0f));
+		vsOut.o_ViewSpaceZ = viewZ;
+	#endif
+
+	#ifdef EDITOR_MODE
+		#ifdef HierarchicalLOD
+			vsOut.o_PosInClip = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+		#endif
+	#endif
+#endif
+	return vsOut;
+}

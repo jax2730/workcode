@@ -1,0 +1,29 @@
+float4 U_VSCustom0[4];
+#define PerspectiveMatrix U_VSCustom0
+
+struct VS_INPUT
+{
+	float4 i_Pos		: POSITION0;
+	float4 i_Color			: COLOR0;
+};
+
+struct VS_OUTPUT
+{
+	float4	o_PosInClip			: SV_POSITION;
+	float4 	o_Color				: COLOR0;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	float4  pos =  float4(IN.i_Pos.xyz, 1.0f);
+
+	float4 WorldMatrix[3];
+	
+	vsOut.o_PosInClip.x = dot(PerspectiveMatrix[0], pos);
+	vsOut.o_PosInClip.y = dot(PerspectiveMatrix[1], pos);
+	vsOut.o_PosInClip.z = dot(PerspectiveMatrix[2], pos);
+	vsOut.o_PosInClip.w = dot(PerspectiveMatrix[3], pos);	
+	vsOut.o_Color = IN.i_Color;
+ 	return vsOut;
+}

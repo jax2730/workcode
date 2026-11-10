@@ -1,0 +1,134 @@
+#include <Common_Uniform_PS.inl>
+#include <Light_Function_PS.inl>
+
+Texture2D S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+Texture2D S_Bump;
+SamplerState S_BumpSamplerState;
+
+float4	U_MaterialCustomParam1;
+float4 	U_PSGeneralRegister7;
+
+struct PS_INPUT
+{
+	float4 position		: SV_POSITION;
+	float3 normal		: TEXCOORD0;
+	float2 uv			: TEXCOORD1;
+	float4 fog			: TEXCOORD2;
+	float3 dir			: TEXCOORD3;
+	float3 visible		: TEXCOORD4;
+	float4 uvsFrame1	: TEXCOORD5;
+	float4 uvsFrame2 	: TEXCOORD6;
+	float4 uvsFrame3 	: TEXCOORD7;
+	float4 octaFrame 	: TEXCOORD8;
+	float4 viewPos 		: TEXCOORD9;
+	float4 worldPos		: TEXCOORD10;
+};
+
+
+inline void OctaImpostorFragment( inout float4 o, inout float3 oNormal, float4 uvsFrame1, float4 uvsFrame2, float4 uvsFrame3, float4 octaFrame)
+{
+	// Octa1
+	float4 parallaxSample1 = S_Bump.Sample(S_BumpSamplerState, uvsFrame1.zw);
+	float2 parallax1 = ( ( 0.5 - parallaxSample1.a ) * uvsFrame1.xy ) + uvsFrame1.zw;
+	float4 normals1 = S_Bump.Sample(S_BumpSamplerState, parallax1);
+	float4 albedo1 = S_Diffuse.Sample(S_DiffuseSamplerState,   uvsFrame1.zw);
+	//float4 albedo1 = S_Diffuse.Sample(S_DiffuseSamplerState,   parallax1);
+
+	// Octa2
+	float4 parallaxSample2 = S_Bump.Sample(S_BumpSamplerState, uvsFrame2.zw);
+	float2 parallax2 = ( ( 0.5 - parallaxSample2.a ) * uvsFrame2.xy ) + uvsFrame2.zw;
+	float4 normals2 = S_Bump.Sample(S_BumpSamplerState, parallax2);
+	//float4 albedo2 = S_Diffuse.Sample(S_DiffuseSamplerState,   parallax2);
+	float4 albedo2 = S_Diffuse.Sample(S_DiffuseSamplerState,   uvsFrame2.zw);
+
+	// Octa3
+	float4 parallaxSample3 = S_Bump.Sample(S_BumpSamplerState, uvsFrame3.zw);
+	float2 parallax3 = ( ( 0.5 - parallaxSample3.a ) * uvsFrame3.xy ) + uvsFrame3.zw;
+	float4 normals3 = S_Bump.Sample(S_BumpSamplerState, parallax3);
+	//float4 albedo3 = S_Diffuse.Sample(S_DiffuseSamplerState,   parallax3);
+	float4 albedo3 = S_Diffuse.Sample(S_DiffuseSamplerState,   uvsFrame3.zw);
+
+
+	// Weights
+	float2 fraction = frac( octaFrame.xy );
+	float2 invFraction = 1 - fraction;
+	float3 weights;
+	weights.x = min( invFraction.x, invFraction.y );
+	weights.y = abs( fraction.x - fraction.y );
+	weights.z = min( fraction.x, fraction.y );
+
+	// Blends
+	float4 blendedAlbedo = albedo1 * weights.x  + albedo2 * weights.y + albedo3 * weights.z;
+	float4 blendedNormal = normals1 * weights.x  + normals2 * weights.y + normals3 * weights.z;
+	float3 localNormal = blendedNormal.rgb * 2.0 - 1.0;
+	o.rgba = blendedAlbedo.rgba;
+	float compensationFactor = 2.f - o.a;
+	o.rgb *= (float3)compensationFactor;
+	oNormal.xyz = localNormal.xyz;
+}
+
+float4 main(PS_INPUT i) : SV_TARGET
+{
+	if(i.visible.x > 0.001f || i.visible.y > 0.001f)
+	{
+		discard;
+	}
+
+	//点阵剔除
+	if(i.visible.z > 0)
+	{
+		float4x4 thresholdMatrix =
+		{  1.0 / 17.0,  9.0 / 17.0,  3.0 / 17.0, 11.0 / 17.0,
+			13.0 / 17.0,  5.0 / 17.0, 15.0 / 17.0,  7.0 / 17.0,
+			4.0 / 17.0, 12.0 / 17.0,  2.0 / 17.0, 10.0 / 17.0,
+			16.0 / 17.0,  8.0 / 17.0, 14.0 / 17.0,  6.0 / 17.0
+		};
+		float2 pos = i.position.xy;
+			
+			
+		pos.xy = pos.xy/U_MaterialCustomParam1.z;
+		
+		int xindex = fmod(pos.x, 4);
+		int yindex =fmod(pos.y, 4);
+		
+		float alpha = thresholdMatrix[xindex][yindex];//* _RowAccess[yindex];
+			
+		if(1 - alpha < i.visible.z)
+			discard;
+	}
+	float4 oColor = float4(1.0, 1.0, 1.0, 1.0);
+	float3 worldNor = float3(1.0,1.0,1.0);
+	OctaImpostorFragment( oColor,worldNor, i.uvsFrame1, i.uvsFrame2, i.uvsFrame3, i.octaFrame);
+	oColor.xyz = pow(oColor.xyz, 2.2);
+	//float4 oColor = S_Diffuse.Sample(S_DiffuseSamplerState, i.uv.xy);
+#ifdef ALPHA_TEST
+	clip(oColor.a - 0.5f);
+#endif
+
+	half3 V = normalize(U_PS_CameraPosition.xyz - i.worldPos.xyz);
+	half3 L = normalize(-U_MainLightDirection.xyz);
+	half4 mainLightColor = lerp(U_PBR_MainLightColor, U_RoleMainLightColor, U_PSGeneralRegister7.w);
+	half4 skyLightColor = lerp(U_PBR_SkyLightColor, U_RoleSkyLightColor, U_PSGeneralRegister7.w);
+	half4 groundLightColor = lerp(U_PBR_GroundLightColor, U_RoleGroundLightColor, U_PSGeneralRegister7.w);
+
+	half normalY = worldNor.y * 0.5 + 0.5;
+	normalY = clamp(normalY, 0.0001f, 1.0f);
+	//oColor.xyz += calculateLightPower(worldNor, V, L, mainLightColor.xyz, oColor.xyz, 0.8f, 0.5f);
+	//half3 ambientColor = groundLightColor.rgb * (1.0-normalY) + skyLightColor.rgb * normalY;
+	//oColor.xyz *= ambientColor;
+
+	// half normalY = i.dir.y * 0.5f + 0.5f;
+	// normalY = clamp(normalY, 0.0001f, 1.0f);
+	//half3 ambientColor = U_PBR_GroundLightColor.rgb * normalY + U_PBR_SkyLightColor.rgb * (1.0-normalY);
+
+	// half lightValue = dot(i.dir, U_MainLightDirection.xyz);
+	// lightValue = clamp(lightValue, 0.25f, 0.75f);
+
+	// oColor.xyz = 0.2f * oColor.xyz + oColor.xyz * (0.4f * ambientColor.xyz + 0.4f * lightValue * U_PBR_MainLightColor.xyz);
+
+	oColor.rgb = oColor.rgb * i.fog.a + i.fog.rgb;
+	oColor.xyz = pow(oColor.xyz, 1.0 / 2.2);
+	return oColor;
+}

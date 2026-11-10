@@ -1,0 +1,117 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function_PS.inl>
+
+float4	U_MaterialDiffuse;
+float4	U_MaterialFresnel;
+float4	U_PSGeneralRegister0;
+float4	U_MaterialCustomParam;
+float4	U_MaterialCustomParam1;
+
+#ifdef DISSOLVE
+	Texture2D S_Custom7;
+	SamplerState S_Custom7SamplerState;
+#endif
+
+#ifdef STROKE
+	Texture2D S_Custom8;
+	SamplerState S_Custom8SamplerState;
+#endif
+
+
+struct PS_INPUT
+{
+    float4	i_PosInClip			: SV_POSITION;
+	
+	float4 	i_UV				: TEXCOORD0;
+	//float4	i_Normal			: TEXCOORD1;	
+};
+
+
+struct PS_OUTPUT
+{
+	float4 color : SV_TARGET;
+};
+
+half GetLuminance(half3 color)
+{
+	const half3 lumWeight = half3(0.2125f, 0.7154f, 0.0721f);
+	return dot(color, lumWeight);
+}
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+	{
+		//dither discard
+		if(ComputeDitherCullMask(IN.i_PosInClip.xy,U_MaterialCustomParam1.y,U_MaterialCustomParam1.z))
+			discard;
+	}
+
+	#ifdef DISSOLVE
+		if(S_Custom7.Sample(S_Custom7SamplerState, IN.i_UV.xy).a < U_MaterialFresnel.y)
+			discard;	
+	#endif
+#ifdef WRITEDEPTH
+	psOut.color = float4(0,0,0,0);
+#else
+	float lightLum = GetLuminance(U_PBR_MainLightColor.xyz);
+	
+	lightLum = pow(lightLum,0.5f)*0.5f;
+	
+	lightLum = max(0.8f,lightLum);
+
+	psOut.color.rgb = U_PSGeneralRegister0.xyz;
+	psOut.color.rgb *= lightLum;
+	psOut.color.rgb = pow(psOut.color.rgb, 1.0 / 2.2);
+	psOut.color.a = U_MaterialDiffuse.a;
+	
+	#ifdef STROKE
+		psOut.color.a *= S_Custom8.Sample(S_Custom8SamplerState, IN.i_UV.xy).a;
+	#endif
+
+
+	#ifdef EDITOR_MODE
+		if(U_MaterialCustomParam.w > 0)
+			psOut.color.rgb = U_MaterialCustomParam.xyz;
+		
+	#endif
+#endif
+	return psOut;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,37 @@
+//MediaColorToRT_PS
+struct PS_INPUT
+{
+	float4 o_Position	: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+Texture2D	S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+float4 U_PSCustom0;
+// U_PSCustom0.xy ScaleXY
+// U_PSCustom0.zw OffsetXY
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+	
+	float2 uv = IN.i_UV.xy;
+	
+	uv -= U_PSCustom0.zw;
+	uv.xy *= U_PSCustom0.xy;	
+
+	psOut.o_Color = S_2DExt0.Sample(S_2DExt0SamplerState, uv);
+	
+	if(uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 )
+		psOut.o_Color = float4(0.0, 0.0, 0.0, 1.0);
+	
+	return psOut;
+}
+
+

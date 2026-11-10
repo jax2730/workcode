@@ -1,0 +1,76 @@
+#define ViewResolution  U_PSCustom0         // xy: view size; zw: view range
+#define EasuCon0        U_PSCustom1
+#define EasuCon1        U_PSCustom2
+#define EasuCon2        U_PSCustom3
+#define EasuCon3        U_PSCustom4
+#define ColorBuffer     S_2DExt0
+#define ColorSampler    S_2DExt0SamplerState
+
+float4 U_PSCustom0;		// ViewResolution
+float4 U_PSCustom1;		// EasuCon0
+float4 U_PSCustom2;		// EasuCon1
+float4 U_PSCustom3;		// EasuCon2
+float4 U_PSCustom4;		// EasuCon3
+
+Texture2D       ColorBuffer;
+SamplerState    ColorSampler;
+
+
+#define highp
+#define A_GPU 1
+#define A_HLSL 1
+#include "ffx_fsr1_a.h"
+
+#define FSR_EASU_F 1
+#include "ffx_fsr1.h"
+
+//========================================================
+
+AF4 FsrEasuRF(AF2 p)
+{
+    return ColorBuffer.GatherRed(ColorSampler, p);
+}
+
+AF4 FsrEasuGF(AF2 p)
+{
+    return ColorBuffer.GatherGreen(ColorSampler, p);
+}
+
+AF4 FsrEasuBF(AF2 p)
+{
+    return ColorBuffer.GatherBlue(ColorSampler, p);
+}
+
+//========================================================
+
+struct PS_INPUT
+{
+    float4 i_Position	: SV_POSITION; 
+	float4 i_UV	        : TEXCOORD0;
+	float4 i_ScreenPos	: TEXCOORD1;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+    PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+    float2 i_uv = IN.i_UV.xy;
+	float2 i_pos = ViewResolution.xy * i_uv;
+
+    AF3 pix = 0.0;
+
+    FsrEasuF(pix, i_pos,
+            EasuCon0,
+            EasuCon1,
+            EasuCon2,
+            EasuCon3);
+
+    psOut.o_Color.rgb = pix;
+    psOut.o_Color.a = 1.0;
+    return psOut;
+}

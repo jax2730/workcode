@@ -1,0 +1,69 @@
+//NOTE:Author LuoShuQuan & YangHang
+Texture2D S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+struct PS_INPUT
+{
+    float4 oPosInClip	: SV_POSITION;
+	float4 uv			: TEXCOORD0;
+ 
+};
+
+struct PS_OUTPUT
+{
+	float4 FragColor : SV_TARGET;
+};
+
+float4 U_PSCustom1;
+
+#define landPlaneScreenV U_PSCustom1.x
+#define bendCurveAmplitudeFactor U_PSCustom1.y
+#define bendCurve_a U_PSCustom1.z
+
+//NOTE(yanghang): bend curve math expression is: h(x) = -c * exp(-(a * (x - b)^2));
+float bendCurve(float v, float a, float b, float c)
+{
+	float e;
+#if 1 
+    e = v - (1.0f - b);
+#else
+    e = v - 0.5f;
+#endif
+    
+	e *= e;
+	e *= a;
+	e = exp(-e);
+    e *= -c;
+	return v + e;
+}
+
+PS_OUTPUT main(PS_INPUT IN)											
+{		
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+
+    float2 uv = IN.uv.xy;
+    
+	float x = uv.x;
+	x -= 0.5f;
+    
+	x = abs(x * 2.f);
+	x = pow(x, 2);
+
+    float y = uv.y;
+    
+    float offset_y = bendCurve(y, bendCurve_a, landPlaneScreenV, bendCurveAmplitudeFactor);
+    
+	uv.y = lerp(uv.y, offset_y, x);
+    
+	float4 cBendColor = S_2DExt0.Sample(S_2DExt0SamplerState, uv);
+	psOut.FragColor = cBendColor;
+
+//#define DEBUG
+#ifdef DEBUG
+    if(uv.x < 0.01f)
+    {
+        psOut.FragColor = float4(0, landPlaneScreenV, 0, 1.0f);
+    }
+#endif
+	return psOut;
+}

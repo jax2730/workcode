@@ -1,0 +1,41 @@
+#pragma enable_d3d11_debug_symbols
+#include "PrecomputeAtmosphereFuncs.inl"
+
+RWTexture3D<float4> S_2DExt0 : register(u0);
+
+Texture2D<float4> S_2DExt1 : register(t1);
+Texture3D<float4> S_2DExt2 : register(t2);
+Texture3D<float4> S_2DExt3 : register(t3);
+Texture3D<float4> S_2DExt4 : register(t4);
+Texture2D<float4> S_2DExt5 : register(t5);
+
+SamplerState S_2DExt1SamplerState : register(s0);
+StructuredBuffer<AtmosphereParameters> B_CSCustom0 : register(t0);
+
+cbuffer Global : register(b0)
+{
+    uint U_CSCustom0;
+}
+
+#define scattering_order U_CSCustom0
+
+#define atmosphere_params B_CSCustom0
+#define linear_sampler S_2DExt1SamplerState
+
+#define scattering_density_texture S_2DExt0
+
+#define transmittance_texture S_2DExt1
+#define single_rayleigh_scattering_texture S_2DExt2
+#define single_mie_scattering_texture S_2DExt3
+#define multiple_scattering_texture S_2DExt4
+#define irradiance_texture S_2DExt5
+
+[numthreads(COMPUTE_GROUP_SIZE_X, COMPUTE_GROUP_SIZE_Y, COMPUTE_GROUP_SIZE_Z)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    float3 scattering_density = ComputeScatteringDensityTexture(atmosphere_params[0],
+        transmittance_texture, single_rayleigh_scattering_texture, single_mie_scattering_texture, 
+        multiple_scattering_texture, irradiance_texture, linear_sampler, float3(id.xyz) + 0.5f, scattering_order);
+
+    scattering_density_texture[id.xyz] = float4(scattering_density, 1.f);
+}

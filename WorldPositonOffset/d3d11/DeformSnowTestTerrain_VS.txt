@@ -1,0 +1,324 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+#include <CubeSphereMapping.inl>
+#include <DeformSnowMaterial.inl>
+float4  U_WorldMatrix[3];
+struct VS_INPUT
+{
+	float2 i_Pos		: POSITION0;
+};
+
+struct VS_OUTPUT
+{
+	float4	o_PosInClip			: SV_POSITION;
+	float3	o_WorldPos			: TEXCOORD0;
+	float2  o_UV	            : TEXCOORD1;
+	float3	o_WorldNormal		: TEXCOORD2;
+	float	o_height			: TEXCOORD3;
+	float2  o_matidUV : TEXCOORD4;
+#ifdef USESHADOWMAP
+    float   o_ViewSpaceZ		            : NORMAL0;
+#endif
+};
+
+
+
+struct SnowVertex{
+	float3 worldPos;
+	float3 worldNormal;
+	float height;	
+};
+
+struct SnowTerrianData
+{
+	float4 blendeCol;
+};
+
+SnowVertex loadSnowVtx(int idx,ByteAddressBuffer buf){
+	const int structSize = 28;
+	int offset = idx * structSize;
+	SnowVertex vtx;
+	vtx.worldPos.x = asfloat(buf.Load(offset));
+	vtx.worldPos.y = asfloat(buf.Load(offset + 4));
+	vtx.worldPos.z = asfloat(buf.Load(offset + 8));
+
+	vtx.worldNormal.x = asfloat(buf.Load(offset + 12));
+	vtx.worldNormal.y = asfloat(buf.Load(offset + 16));
+	vtx.worldNormal.z = asfloat(buf.Load(offset + 20));
+
+	vtx.height = asfloat(buf.Load(offset + 24));
+
+	return vtx;
+}
+
+float4 U_VSGeneralRegister0;//x: face id ,y isTore? > 0 : < 0,z m_relativeMinorRadius,w snow resolution
+float4 U_VSGeneralRegister1[4];
+SnowData U_VSCustom0[16];
+ObjData U_VSCustom1;
+SnowTerrianData U_VSCustom2[16];
+
+
+ByteAddressBuffer B_CSCustom0;
+#define TrailsBuffer B_CSCustom0
+
+ByteAddressBuffer B_CSCustom1;
+#define VertexBuffer B_CSCustom1
+
+Texture2D<uint1> S_2DExt4;  
+SamplerState S_2DExt4SamplerState;
+
+Texture2D S_2DExt7;  
+SamplerState S_2DExt7SamplerState;
+
+void sampleBufferTerrainVertex(ByteAddressBuffer buf,int x,int y,int resolution,out SnowVertex vtx){
+	int idx = y * resolution + x;
+	vtx = loadSnowVtx(idx,buf);
+}
+
+void getCurVtx(ByteAddressBuffer buf,float x,float y,int resolution,out SnowVertex snowVert){
+	float xx =clamp(x,0,1.f) * (resolution); //map begin from [0-resolution],has size of resolution + 1
+	float yy =clamp(y,0,1.f) * (resolution);
+	uint dx = floor(xx);
+	uint dy = floor(yy);
+	uint ux = ceil(xx);
+	uint uy = ceil(yy);
+	float2 factor = frac(float2(xx,yy));
+	SnowVertex vtx1,vtx2,vtx3,vtx4;
+	sampleBufferTerrainVertex(buf,dx,dy,resolution + 1,vtx1);
+	sampleBufferTerrainVertex(buf,ux,dy,resolution + 1,vtx2);
+	sampleBufferTerrainVertex(buf,dx,uy,resolution + 1,vtx3);
+	sampleBufferTerrainVertex(buf,ux,uy,resolution + 1,vtx4);
+
+	float3 vtx_x1 = lerp(vtx1.worldPos,vtx2.worldPos,factor.x);
+	float3 vtx_x2 = lerp(vtx3.worldPos,vtx4.worldPos,factor.x);
+	snowVert.worldPos = lerp(vtx_x1,vtx_x2,factor.y);
+
+	float3 nor_x1 = lerp(vtx1.worldNormal,vtx2.worldNormal,factor.x);
+	float3 nor_x2 = lerp(vtx3.worldNormal,vtx4.worldNormal,factor.x);
+	snowVert.worldNormal = normalize(lerp(nor_x1,nor_x2,factor.y));
+
+	float h_x1 = lerp(vtx1.height,vtx2.height,factor.x);
+	float h_x2 = lerp(vtx3.height,vtx4.height,factor.x);
+	snowVert.height = lerp(h_x1,h_x2,factor.y);
+}
+
+bool InTexRange(int x,int y,int textureSize)
+{
+    return x>=0&&x<textureSize && y>=0&&y<textureSize;
+}
+
+float WorldLenToUv(float worldLen,float Tile)
+{
+	return worldLen / Tile;
+}
+
+float2 _MapToPlane(float3 pos)
+{
+	float toroidal = atan2(-pos.z, pos.x);
+	float poloidal = atan2(pos.y, sqrt(pos.x * pos.x + pos.z * pos.z) - 1.0f);
+	const float TWO_PI = 3.14159265358979323846 * 2.f;
+	const float INV_TWO_PI = (1.f / TWO_PI);
+	if (toroidal < 0) toroidal += TWO_PI;
+	if (poloidal < 0) poloidal += TWO_PI;
+	return saturate(float2(
+	toroidal * INV_TWO_PI,
+	poloidal * INV_TWO_PI
+	));
+}
+
+float GetHeight(float origHeight,int2 oriUv,uint textureSize,int matId)
+{
+	float floatPow = pow(10,U_VSCustom1.floatPow);
+	uint exp = uint(pow(10,U_VSCustom1.floatPow +3.0f) - 10.0f);
+	int index;
+	float height = origHeight;
+	oriUv = int2(oriUv.x,oriUv.y);
+	if(InTexRange(oriUv.x,oriUv.y,textureSize))
+	{
+		index = oriUv.y * textureSize + int(oriUv.x);
+		uint theight = TrailsBuffer.Load(index * 4);
+		if(theight < exp)
+		{
+			height = float(theight)/floatPow;
+		}
+	}
+	return height;
+}
+
+float2 intUVTofloatUv(int2 uv, uint textureSize)
+{
+	return float2(float(uv.x)/float(textureSize),float(uv.y)/float(textureSize));
+}
+
+float2 floatUvToIntUv(float2 uv, uint textureSize)
+{ 
+	return float2 ( uv.x* float(textureSize), uv.y* float(textureSize));
+}
+
+//0 - 1的UV
+float SampleSnowTex(float origHeight,float2 uv,uint textureSize,int matId)
+{
+	float2 FloatTexSizeUv = uv * float2(textureSize,textureSize);
+	float2 f = frac(FloatTexSizeUv);
+	int2 IntTexSizeUv = int2(int(FloatTexSizeUv.x),int(FloatTexSizeUv.y));
+
+	float h1 = GetHeight(origHeight,IntTexSizeUv , textureSize,matId);
+	float h2 = GetHeight(origHeight,IntTexSizeUv + int2(1,0) , textureSize,matId);
+	float h3 = GetHeight(origHeight,IntTexSizeUv + int2(0,1) , textureSize,matId);
+	float h4 = GetHeight(origHeight,IntTexSizeUv + int2(1,1) , textureSize,matId);
+
+	return lerp(lerp(h1, h2, f.x), lerp(h3, h4, f.x), f.y);
+}
+
+int3 computeTexLocation(float2 uv, int2 textureDimension)
+{
+    float2 cst = uv * textureDimension;
+    float2 temp = clamp((cst), 0.f, textureDimension - 1);
+    return int3(temp, 0);
+}
+
+float3 toLocalSpace(float4 worldSpace){
+	float4 ret;
+	ret.x = dot(worldSpace,U_VSGeneralRegister1[0]);
+	ret.y = dot(worldSpace,U_VSGeneralRegister1[1]);
+	ret.z = dot(worldSpace,U_VSGeneralRegister1[2]);
+	ret.w = dot(worldSpace,U_VSGeneralRegister1[3]);
+	ret.xyz = ret.xyz / ret.w;
+	return ret.xyz;
+}
+
+float2 getUvLs(float3 localPos,uint face,float minorRadius,bool isSphere){
+	float2 ret = (float2)0;
+	if(isSphere){
+		float2 uv;
+		MapToCube(localPos,face,uv);
+		ret = uv;
+		ret = ret * (float2)0.5f + (float2)0.5f;
+	}else{
+		ret = _MapToPlane(localPos);
+	}
+	return ret;
+}
+
+VS_OUTPUT main(VS_INPUT IN,uint VID:SV_VertexID)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	float snowResolution = U_VSGeneralRegister0.w;
+	SnowVertex vtx;
+	getCurVtx(VertexBuffer,IN.i_Pos.x,IN.i_Pos.y,snowResolution,vtx);
+
+	float4  pos =  float4(vtx.worldPos, 1.0f);
+	int face = (int)U_VSGeneralRegister0.x;
+
+
+	float2 MatIDUV = getUvLs(toLocalSpace(pos),face,U_VSGeneralRegister0.z,U_VSGeneralRegister0.y < 0);
+
+	int2 IDMapSize = 0;
+    S_2DExt4.GetDimensions(IDMapSize.x, IDMapSize.y);
+	MatIDUV = SampleFBMUV(IDMapSize,MatIDUV,S_2DExt7,S_2DExt7SamplerState);
+    int3 idMapSampleLocation = computeTexLocation(MatIDUV, IDMapSize);
+//	float2 continousCoord = MatIDUV * IDMapSize;
+//	int3 aroundCoord[4];
+//	uint aroundID[4];
+//	getAroundCoord(MatIDUV,IDMapSize,aroundCoord,aroundID,S_2DExt4);
+//	MaterialSampleSnow snowMat = SelectMaterialSnow(continousCoord,aroundCoord,aroundID);
+    int matId = S_2DExt4.Load(idMapSampleLocation);
+	
+
+	vsOut.o_matidUV = MatIDUV;
+	vsOut.o_WorldPos.x = dot(U_WorldMatrix[0], pos);
+	vsOut.o_WorldPos.y = dot(U_WorldMatrix[1], pos);
+	vsOut.o_WorldPos.z = dot(U_WorldMatrix[2], pos);
+
+	uint textureSize        = U_VSCustom1.textureSize;
+	float SnowHeight        = vtx.height;
+    float CameraExtend      = U_VSCustom1.CameraExtend;
+	float cameraNear        = U_VSCustom1.cameraNear;
+	float cameraFar         = U_VSCustom1.cameraFar;
+	float3 normal			= vtx.worldNormal;
+
+	float3 cameraDir		= normalize(-U_VSCustom1.viewMat2.xyz);
+	
+	float snowHeightFactor = clamp(0.f,1.f,SnowHeight / U_VSCustom0[matId].SnowHeight) - 1e-5;
+	float3 noDefoemPos = vsOut.o_WorldPos;
+	float3 origPos = noDefoemPos + (SnowHeight*normal);
+
+	float3 noDefoemPos_View;
+	noDefoemPos_View.x = dot(U_VSCustom1.viewMat0,float4(noDefoemPos,1.0f));
+	noDefoemPos_View.y = dot(U_VSCustom1.viewMat1,float4(noDefoemPos,1.0f));
+	noDefoemPos_View.z = dot(U_VSCustom1.viewMat2,float4(noDefoemPos,1.0f));
+
+	float2 uvInView = noDefoemPos_View.xy - float2(-CameraExtend/2.0f,-CameraExtend/2.0f); 
+
+	float diffHeight = SnowHeight;
+	float3 n = normal;
+	float exp = 0.1f;
+	float2 vtxCur = IN.i_Pos.xy;
+	bool needToBend = (vtxCur.x < 0 || vtxCur.x > 1.f||vtxCur.y < 0 || vtxCur.y > 1.f );
+
+	if(uvInView.x > 0 + exp &&uvInView.x < CameraExtend - exp && uvInView.y > 0 + exp && uvInView.y < CameraExtend - exp)
+	{
+		float2 floatUv = uvInView/CameraExtend;
+
+		float offset = U_VSCustom0[matId].normalOffset * 0.001;
+    	float  b = SampleSnowTex(SnowHeight ,floatUv + float2(0,offset), textureSize,matId);   // bottom
+    	float  r = SampleSnowTex(SnowHeight,floatUv + float2(offset,0), textureSize,matId);   // right
+		float this = SampleSnowTex(SnowHeight,floatUv + float2(0,0), textureSize,matId); // bottom right
+
+		float normal_x = r - this;
+		float normal_y = b  - this; 
+		normal_x *= U_VSCustom0[matId].normalIntensity;
+		normal_y *= U_VSCustom0[matId].normalIntensity;
+		float3 normal3_x = float3(1.0f,0,-normal_x * snowHeightFactor);
+		float3 normal3_y = float3(0.0f,1.0f,-normal_y * snowHeightFactor);
+		n = normalize(cross(normal3_y,normal3_x));
+		diffHeight = clamp((this + b + r)/ 3.0f,0,SnowHeight + 1.0f);
+
+		//In SnowDeform Compute shader we didnt take sphere curvature into account, which cause deform height not continous between rect.
+		float snowNormalLerpFactor = clamp(0.f,1.f,max(abs(normal_x),abs(normal_y)) / offset); //To remove the effect of terrain elevation and snow Rect Height not continous
+
+		float4x4 mat =
+		{
+			U_VSCustom1.viewMat0,
+			U_VSCustom1.viewMat1,
+			U_VSCustom1.viewMat2,
+			U_VSCustom1.viewMat3
+		};
+
+		mat = transpose(mat);
+
+		float3 tempN = n;
+		n.x = dot(mat[0],float4(tempN,0.0f));
+		n.y = dot(mat[1],float4(tempN,0.0f));
+		n.z = dot(mat[2],float4(tempN,0.0f));
+
+		n = normalize(n);
+		n = lerp(vtx.worldNormal,n,snowNormalLerpFactor);
+	}
+
+	vsOut.o_WorldNormal = n;
+	if(U_VSCustom0[matId].SnowHeight < 1e-5 || snowHeightFactor < 1e-5 || needToBend)
+	{
+		diffHeight = -0.5f;
+	}
+
+	diffHeight = diffHeight * snowHeightFactor;
+	vsOut.o_height = diffHeight;
+	vsOut.o_WorldPos += (diffHeight * normal);
+
+
+	#ifdef USESHADOWMAP
+        vsOut.o_ViewSpaceZ = -dot(U_MainCamViewMatrix, float4(vsOut.o_WorldPos.xyz, 1.0f));
+    #endif
+
+
+	//-------------------------------------------------------------
+	vsOut.o_PosInClip.x = dot(U_ViewProjectMatrix[0], float4(vsOut.o_WorldPos,1.0f));
+	vsOut.o_PosInClip.y = dot(U_ViewProjectMatrix[1], float4(vsOut.o_WorldPos,1.0f));
+	vsOut.o_PosInClip.z = dot(U_ViewProjectMatrix[2], float4(vsOut.o_WorldPos,1.0f));
+	vsOut.o_PosInClip.w = dot(U_ViewProjectMatrix[3], float4(vsOut.o_WorldPos,1.0f));	
+
+	vsOut.o_UV = float2(WorldLenToUv(vsOut.o_WorldPos.x,U_VSCustom0[matId].Tile),WorldLenToUv(vsOut.o_WorldPos.z,U_VSCustom0[matId].Tile));
+
+ 	return vsOut;
+}

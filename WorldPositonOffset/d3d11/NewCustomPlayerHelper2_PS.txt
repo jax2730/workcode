@@ -1,0 +1,79 @@
+
+#include <Common_Uniform_PS.inl>
+
+float4	U_MaterialDiffuse;
+
+Texture2D	S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+Texture2D	S_Specular;
+SamplerState S_SpecularSamplerState;
+
+float4	U_MaterialCustomParam;
+
+float4	U_PSGeneralRegister0;
+float4	U_PSGeneralRegister2;
+float4	U_PSGeneralRegister3;
+float4	U_PSGeneralRegister4;
+float4	U_PSGeneralRegister5;
+
+float4	U_LightPower;	//x for lightpower, y for specular offset
+
+struct PS_INPUT
+{
+	float4 	i_UV				: TEXCOORD0;
+	float4 	i_Fog				: TEXCOORD1;
+	float4	i_Normal			: TEXCOORD2;
+	float4	i_WPos				: TEXCOORD3;
+	
+	float4	i_Tangent			: TEXCOORD4;
+	float4	i_Binormal			: TEXCOORD5;
+	float4	i_EyeDir			: TEXCOORD6;
+};
+
+struct PS_OUTPUT
+{
+	float4 color          : SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+	float2 uv = IN.i_UV.xy;
+	float4 diffuse = S_Diffuse.Sample(S_DiffuseSamplerState, uv,0);
+	diffuse.a = diffuse.r;
+	diffuse.rgb = U_MaterialDiffuse.rgb;
+	
+	float flashAlpha = 1.0f;
+	float allTime = U_PSGeneralRegister4.x + U_PSGeneralRegister4.y;
+	
+	float runTime = U_PS_Time.x - U_PSGeneralRegister4.z;
+	runTime = fmod(runTime, allTime);
+	float aaa = 1.0;
+	half4 mask_tex = S_Specular.Sample(S_SpecularSamplerState, IN.i_UV.xy);
+	float mask = 0.0f;
+	mask += mask_tex.r * U_PSGeneralRegister0.r;
+	mask += mask_tex.g * U_PSGeneralRegister0.g;
+	mask += mask_tex.b * U_PSGeneralRegister0.b;
+	
+	if(runTime < U_PSGeneralRegister4.x)
+	{
+		aaa = min(runTime / U_PSGeneralRegister4.x + U_PSGeneralRegister4.w, 1.0);
+	}
+	else if( runTime < allTime)
+	{
+		aaa = min(1.0 + U_PSGeneralRegister4.w - (runTime - U_PSGeneralRegister4.x) /  U_PSGeneralRegister4.y, 1.0);
+	}
+
+	psOut.color.a = diffuse.a * aaa;
+	psOut.color.rgb = lerp(diffuse.rgb, U_PSGeneralRegister5.xyz, mask);
+	psOut.color.rgb *= U_PSGeneralRegister2.rgb * 1.5f * U_PSGeneralRegister3.w;
+	
+	psOut.color.rgb = pow(psOut.color.rgb, 0.454545);
+	
+	#ifdef EDITOR_MODE
+	if(U_MaterialCustomParam.w > 0)
+		psOut.color.rgb = U_MaterialCustomParam.xyz;			
+	#endif
+
+	return psOut;
+}

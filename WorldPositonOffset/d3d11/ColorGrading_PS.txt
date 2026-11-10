@@ -1,0 +1,48 @@
+Texture2D 	            S_2DExt0;
+SamplerState            S_2DExt0SamplerState;
+Texture2D	            S_2DExt1;
+SamplerState            S_2DExt1SamplerState;
+
+float4 U_PSCustom0; //U_ViewPortRange
+
+struct PS_INPUT
+{
+    float4	i_PosInClip			: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+	
+	float2 uv = IN.i_UV.xy;
+	uv *= U_PSCustom0.xy;
+	//clip(U_PSCustom0.xy - uv);
+	
+	float3 color = S_2DExt1.Sample(S_2DExt1SamplerState, uv).rgb;
+	color = saturate(color);
+	
+	float3 lookup = color * float3(0.9375f, 0.9375f, 0.9375f) + float3(0.03125f, 0.03125f, 0.0f);
+	float slice = lookup.z * 16.0f;
+	float sliceFrac = frac(slice);
+	float sliceIndex = slice - sliceFrac;
+	
+	lookup.x = (lookup.x + sliceIndex) * 0.0625f;
+	float3 color0 = pow(S_2DExt0.Sample(S_2DExt0SamplerState, lookup.xy).rgb, 2.2);
+	
+	lookup.x += 0.0625f;
+	float3 color1 = pow(S_2DExt0.Sample(S_2DExt0SamplerState, lookup.xy).rgb, 2.2);
+	
+	color = color0 + (color1 - color0) * sliceFrac;
+	
+	psOut.o_Color.rgb = pow(color, 1.0 / 2.2);
+	
+	psOut.o_Color.a = 1.0f;
+
+	return psOut;
+}

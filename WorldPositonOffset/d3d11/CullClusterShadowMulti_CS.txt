@@ -1,0 +1,67 @@
+
+#include <Common_GpuCull_CS.inl>
+
+#define thread_group_size_x 64u
+#define thread_group_size_y 1u
+
+
+StructuredBuffer<uint> B_CSCustom0;
+StructuredBuffer<InstanceData> B_CSCustom1;
+StructuredBuffer<MeshData> B_CSCustom2;
+StructuredBuffer<ChunkData> B_CSCustom3;
+StructuredBuffer<ClusterData> B_CSCustom4;
+RWByteAddressBuffer B_CSCustom5;					//ClusterCulledData
+RWByteAddressBuffer B_CSCustom6;					//instanceIdx
+RWByteAddressBuffer B_CSCustom7;					//newIdx
+
+
+cbuffer UniformBlock_Private_CS// : register( b6 )
+{
+    //float4 U_CSCustom0[6];//FrustumPlanes
+	int4 U_CSCustom1;//ClusterCountPerPepeline
+	uint U_CSCustom2;//InstanceCount
+};
+
+
+[numthreads(thread_group_size_x, thread_group_size_y, 1)]
+void main(uint3 threadIDInGroup : SV_GroupThreadID,
+			uint3 groupID : SV_GroupID,
+			uint groupIndex : SV_GroupIndex,
+			uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+	uint instanceIdx = groupID.x;
+	if (instanceIdx >= U_CSCustom2)
+		return;
+	uint instID = B_CSCustom0[instanceIdx];
+	uint meshID = B_CSCustom1[instID].MeshID;
+	uint pipeline = B_CSCustom1[instID].Pipeline;
+	MeshData meshData = B_CSCustom2[meshID];
+	uint chunkCount = meshData.ChunkCount;
+	
+	for(uint chunkIdx = 0; chunkIdx < chunkCount; ++chunkIdx)
+	{
+		uint chunkID = meshData.ChunkID[chunkIdx];
+		ChunkData chunkData = B_CSCustom3[chunkID];
+		uint clusterCount = chunkData.ClusterCount;
+		if(groupIndex < clusterCount)
+		{
+			uint clusterID = chunkData.ClusterID[groupIndex];
+			ClusterData clusterData = B_CSCustom4[clusterID];
+			uint argIdx;
+			RawInterlockedAdd(B_CSCustom5, pipeline, 1u, argIdx); //InterlockedAdd(B_CSCustom5[pipeline], 1u, argIdx);
+			uint cOffsetPerPipeline = U_CSCustom1[pipeline];
+			uint perInstDataOffset = (argIdx + cOffsetPerPipeline);
+			RawBufferStoreUint(B_CSCustom6, perInstDataOffset, instID); //B_CSCustom6[perInstDataOffset] = instID;
+			RawBufferStoreUint(B_CSCustom7, perInstDataOffset, clusterData.VertexOffset); //B_CSCustom7[perInstDataOffset] = clusterData.VertexOffset;
+			uint argOffset = MAX_SHADOW_PIPELINE + DISPATCH_OFFSET * pipeline;
+			if(argIdx == 0u)
+			{
+				RawBufferStoreUint(B_CSCustom5, argOffset + 0u, INDEX_COUNT_PER_CLUSTER); //B_CSCustom5[argOffset + 0u] = INDEX_COUNT_PER_CLUSTER;
+				RawBufferStoreUint(B_CSCustom5, argOffset + 2u, 0u); //B_CSCustom5[argOffset + 2u] = 0u;
+				RawBufferStoreUint(B_CSCustom5, argOffset + 3u, cOffsetPerPipeline); //B_CSCustom5[argOffset + 3u] = cOffsetPerPipeline;
+			}
+			RawInterlockedAdd_NoRet(B_CSCustom5, argOffset + 1u, 1u); //InterlockedAdd(B_CSCustom5[argOffset + 1u], 1u);
+		}
+	}
+}
+

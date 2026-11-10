@@ -1,0 +1,64 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_GpuCull_CS.inl>
+
+struct VS_INPUT
+{
+	uint	i_Pos0  : POSITION0;
+	uint	i_Pos1  : POSITION1;
+};	
+
+struct VS_OUTPUT
+{
+    float4 o_Pos	: SV_POSITION;
+};
+
+StructuredBuffer<VertexDataCombine> B_CSCustom0;				
+StructuredBuffer<InstanceData> B_CSCustom3;
+
+																
+
+					
+VS_OUTPUT main(VS_INPUT IN)
+{
+    VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	uint idx = IN.i_Pos0;
+	VertexDataCombine vertexData = B_CSCustom0[idx];
+		
+	float4 pos;
+	pos.xy = unpackHalf2x16(vertexData.pos0);
+	pos.z = unpackHalf2x16(vertexData.pos1).x;
+	pos.w = 1.0;
+	
+	uint instID = IN.i_Pos1;
+	InstanceData instData = B_CSCustom3[instID];
+    
+    float4x4 wMat;
+    wMat[0] = float4(instData.Transform[0],instData.Transform[4],instData.Transform[8],0.0f);
+    wMat[1] = float4(instData.Transform[1],instData.Transform[5],instData.Transform[9],0.0f);
+    wMat[2] = float4(instData.Transform[2],instData.Transform[6],instData.Transform[10],0.0f);
+    wMat[3] = float4(instData.Transform[3],instData.Transform[7],instData.Transform[11],1.0f);
+    wMat = transpose(wMat);
+    float4 worldPos = mul(wMat, pos);
+    worldPos.xyz -= U_VS_CameraPosition.xyz;
+    
+    float4x4 projMat;
+    projMat[0] = U_ProjectMatrix[0];
+    projMat[1] = U_ProjectMatrix[1];
+    projMat[2] = U_ProjectMatrix[2];
+    projMat[3] = U_ProjectMatrix[3];
+
+    
+    float4x4 viewMat;
+    viewMat[0] = U_ViewMatrix[0];
+    viewMat[1] = U_ViewMatrix[1];
+    viewMat[2] = U_ViewMatrix[2];
+    viewMat[3] = U_ViewMatrix[3];
+
+    viewMat[0][3] = 0.0f;
+    viewMat[1][3] = 0.0f;
+    viewMat[2][3] = 0.0f;
+    viewMat[3][3] = 1.0f;
+    
+    vsOut.o_Pos = mul(mul(projMat, viewMat), worldPos);
+    return vsOut;
+}																									

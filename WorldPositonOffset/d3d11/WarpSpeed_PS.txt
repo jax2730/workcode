@@ -1,0 +1,39 @@
+#include<Common_Uniform_PS.inl>
+
+struct PS_INPUT
+{
+    float4 i_PosInClip	   : SV_POSITION;
+    float4 i_UV            : TEXCOORD0;
+    float4 i_ViewDir       : TEXCOORD1;
+    float4 i_PositionHCS   : TEXCOORD2;
+};
+
+float4 main(PS_INPUT IN): SV_TARGET{
+
+    return float4(IN.i_UV.xy, 0.f, 1.f);
+    float time = (U_PS_Time.x + 29.0f) * 60.0f;
+    float s = 0.0, v = 0.0;
+    float t = time * 0.005f;
+    float2 uv = float2(IN.i_UV.xy) * 2.0f - 1.0f;
+    float aspect = 16.0/9.0;
+    uv.x *= aspect;
+    uv.x += sin(t) + 0.3f;
+    float si = sin(t*1.5f);
+    float co = cos(t);
+    uv = mul(uv,float2x2(co, si, -si, co));
+    float3 col = float3(0.0f,0.0f,0.0f);
+    float3 init = float3(0.25f, 0.25f+sin(time*0.001f)*0.1f, time*0.0008f);
+
+    for(int r = 0; r < 100; r++) {
+        float3 p = init + s * float3(uv.x ,uv.y, 0.143f);
+        p.z = fmod(p.z, 2.0f);
+        for (int i=0; i<10;i++) {
+            p = abs(p*2.04f)/dot(p,p) - 0.75f;
+        }
+        v+=length(p*p)*smoothstep(0.0f, 0.5f, 0.9f-s) * 0.002f;
+        col+=float3(v* 0.8f, 1.1f-s*0.5f, 0.7f+v*0.5f)*v * 0.013f;
+        s+=0.01;
+    }
+    return float4(col, 1.0);
+    
+}

@@ -1,0 +1,45 @@
+#include <Common_Uniform_PS.inl>
+
+Texture2D		S_2DExt0;
+SamplerState S_2DExt0SamplerState;				
+float4 texBase(float2 _tc){ return S_2DExt0.Sample(S_2DExt0SamplerState,_tc);	}
+
+
+
+struct PS_IN
+{
+	float4 pos 		: SV_POSITION;
+	float4 col 		: COLOR0;
+	float2 tc 		: TEXCOORD0;
+#ifdef CLIPED
+	float2 clipPos	: TEXCOORD1;
+#endif
+	float gray 		: COLOR1;
+};
+
+struct PS_OUT
+{
+	float4 col	:	SV_TARGET;		
+};
+
+PS_OUT main( in PS_IN inPix)
+{	
+	PS_OUT outPix;
+	float4 color = texBase(inPix.tc) * inPix.col;
+		
+	float gray = dot(color.rgb, float3(0.299, 0.587, 0.114));
+	color.rgb = lerp( color.rgb , float3(gray, gray, gray) , 1 - inPix.gray );
+	
+#ifdef CLIPED
+	float2 factor = abs(inPix.clipPos);
+	color.a *= step(max(factor.x,factor.y),1);
+#endif
+	clip(color.a);
+	
+	outPix.col = color;
+
+	float overdrawlerp = ceil(U_PS_Time.w);
+	outPix.col = outPix.col * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+	
+	return outPix;
+}

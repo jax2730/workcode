@@ -1,0 +1,47 @@
+#define DepthSource S_2DExt0
+#define PointClamp S_2DExt0SamplerState
+
+// U_PSCustom0.xy : (0, 0) at quad0, (1, 1) / ViewPortWH at quad3
+// U_PSCustom0.z : ( cameraClipFar * cameraClipNear) / ( cameraClipFar - cameraClipNear )
+// U_PSCustom0.w : cameraClipFar / ( cameraClipFar - cameraClipNear )
+uniform float4 U_PSCustom0;
+// U_PSCustom1.xy : NDCToView Add
+// U_PSCustom1.zw : NDCToView Mul
+uniform float4 U_PSCustom1;
+// U_PSCustom2.xy : ViewportPixelSize
+uniform float4 U_PSCustom2;
+Texture2D DepthSource;
+SamplerState PointClamp;
+
+struct PS_INPUT
+{
+    float4 Position : SV_POSITION;
+	float4 TexCoord : TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+    float Depth : SV_TARGET;
+};
+
+float ScreenSpaceToViewSpaceDepth(const float screenDepth)
+{
+    // Optimised version of "-cameraClipNear / (cameraClipFar - projDepth * (cameraClipFar - cameraClipNear)) * cameraClipFar"
+
+    // Set your depthLinearizeMul and depthLinearizeAdd to:
+    // depthLinearizeMul = -proj[2][3];
+    // depthLinearizeAdd = proj[2][2];
+    return U_PSCustom0.z / (U_PSCustom0.w + screenDepth);
+}
+
+PS_OUTPUT main(PS_INPUT pIn)
+{
+    PS_OUTPUT pOut;
+
+	const float screenDepth = DepthSource.Load(int3(trunc(pIn.Position.xy) * 2 + U_PSCustom0.xy, 0)).r;
+    const float viewspaceDepth = ScreenSpaceToViewSpaceDepth(screenDepth);
+
+	pOut.Depth = viewspaceDepth;
+
+    return pOut;
+}

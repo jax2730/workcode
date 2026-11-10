@@ -1,0 +1,17 @@
+struct PS_INPUT
+{
+  float4 o_PosInClip	: SV_POSITION;	
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color		: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+	psOut.o_Color = float4(1.0, 0.5, 0.5, 0.5);
+
+	return psOut;
+}

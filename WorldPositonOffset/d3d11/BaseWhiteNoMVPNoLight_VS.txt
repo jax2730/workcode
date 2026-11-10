@@ -1,0 +1,17 @@
+struct VS_INPUT
+{
+	float4 i_Position	: POSITION0;
+};
+
+struct VS_OUTPUT
+{
+	float4 o_PosInClip	: SV_POSITION;
+	
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	vsOut.o_PosInClip = float4(IN.i_Position.xy, 0, 1);
+	return vsOut;
+}

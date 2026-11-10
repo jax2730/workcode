@@ -1,0 +1,543 @@
+// 目前PBR材质一共9张贴图
+// 主光阴影一共4张贴图
+// 环境光照一共1张贴图
+// 点光源一共1张贴图
+// 不考虑点光源阴影， 至少会用到15张图
+
+
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Light_Function_PS.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+#include <EnvironmentLight_Function.inl>
+#include <Common_GBuffers.inl>
+#include <Common_Function_PS.inl>
+
+    // -- map 1
+    Texture2D S_Diffuse;
+    SamplerState S_DiffuseSamplerState;
+
+    Texture2D S_Specular;
+    SamplerState S_SpecularSamplerState;
+
+    Texture2D S_Bump;
+    SamplerState S_BumpSamplerState;
+    // -- map 2
+    Texture2D S_Custom;
+    SamplerState S_CustomSamplerState;
+
+    Texture2D S_Custom2;
+    SamplerState S_Custom2SamplerState;
+
+    Texture2D S_Custom3;
+    SamplerState S_Custom3SamplerState;
+
+    #ifdef DETAILBUMP
+        Texture2D S_Custom7;
+        SamplerState S_Custom7SamplerState;
+    #endif
+
+    #ifdef VERTICAL_FACES_MIX
+        Texture2D S_Custom4;
+        SamplerState S_Custom4SamplerState;
+    #endif
+    // -- map end
+
+    //delta and m parameters reference to chapter 5 of <Voxel-Based Terrain for Real-Time Virtual Simulations>
+    float4 U_PSGeneralRegister0; // xy ---- uv tilling
+                        // z  ---- delta
+                        // w  ---- m
+
+    float4 U_PSGeneralRegister1; //xy ---- COVER_WEATHER
+                                 //z ---- DetialBump uv tilling
+                                 //w ---- DetialBump Strength
+    float4 U_PSGeneralRegister30;
+    float4 U_PSGeneralRegister2; // Texture color 1
+    float4 U_PSGeneralRegister3; // Texture color 2
+
+    TextureCube S_GlobalEnvironmentCubeMap;
+    SamplerState S_GlobalEnvironmentCubeMapSamplerState;
+    float4 U_GlobalEnvironmentCubeMipMapLevels;
+
+    float4x4 U_PBR_RMatrix;
+    float4x4 U_PBR_GMatrix;
+    float4x4 U_PBR_BMatrix;
+
+    float4 U_PBR_Environment_Explosure;
+
+    #ifdef CLUSTER_POINT_LIGHT
+	    #include "Shadow_Light_Function_PS.inl"
+    #endif
+
+
+struct PS_INPUT
+{
+    float4 i_PosInClip  : SV_POSITION;
+    #ifndef SHADOWPASS
+        float3 i_Normal     : TEXCOORD0;
+        float3 i_WorldPos   : TEXCOORD1;
+        float3 i_Blend      : TEXCOORD2;
+        uint2  i_Index      : TEXCOORD3;
+        float3 i_ModelP     : TEXCOORD4;
+        float3 i_ModelN     : TEXCOORD5;
+        float3 i_Tangent1   : TEXCOORD6;
+        float3 i_Tangent2   : TEXCOORD7;
+        float3 i_Bitangent1 : TEXCOORD8;
+        float3 i_Bitangent2 : TEXCOORD9;
+        #ifdef TRIPLANAR_WEIGHT
+            float3 i_FModelN     : TEXCOORD17;
+        #endif
+        float4 i_Fog   : TEXCOORD11;
+
+        #ifdef USESHADOWMAP
+            float   i_ViewSpaceZ                    : TEXCOORD12;
+            float3  i_WPosViewBased                 : TEXCOORD13;
+        #endif
+    #endif
+    #ifdef PARABOLOID_MAPPING
+        float i_ClipDepth           : TEXCOORD10;
+    #endif
+};
+
+
+#define PS_OUTPUT GBuffers
+
+float3
+calculateLightPower(float NdotL, float NdotH, float3 H, float3 L, float3 lightPower, float3 albedo, float roughness, float metallic)
+{
+	float LdotH = max(dot(L,H), 0.0);
+
+    //https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf
+	//Burley在2012年的分享中提到disney在计算NDF时做了一个alpha = roughness * roughness的 mapping，目的是为了让美术在调整粗糙度时让材质在视觉上有一个更加线性的粗糙度变化
+    //所以此处代码的a2应该对应NDF公式中的a = roughness * roughness， a4应该对应a2
+    float a2    = roughness * roughness;
+    float a4    = a2 * a2;
+
+    float NdotH2 = NdotH * NdotH;
+    float LdotH2 = LdotH * LdotH;
+
+    //GGX NDF
+    //G使用微表面法线计算
+    float denom = 4.0 * 3.1415926 * pow(NdotH2 * (a4 - 1.0) + 1.0, 2.0) * (LdotH2 * (1.0 - a2) + a2);//G with shadowing and shadowing;
+    denom = max(denom, 0.0001);//note by hejiwei: clamp的数值与安卓平台对齐
+    float brdf  = a4 / denom;
+
+    float3 F0 = float3(0.04, 0.04, 0.04);
+
+    //在schlick
+    //F0用金属度简单进行插值
+	F0 = lerp(F0, albedo, metallic);
+
+    float3 kd    = 1.0 - min(F0/(LdotH + 0.00001), 1.0);
+    kd = kd * (1.0- float(metallic));
+
+    return (albedo * kd / 3.141592654 + brdf * F0) * NdotL * lightPower;
+}
+
+// 三个值插值
+float3 VoxelTripleLerp(float3 val1, float3 val2, float3 val3, float3 blend )
+{
+    float sum = max(blend.x + blend.y + blend.z,1e-5f);
+
+    float blend1 = blend.x / sum;
+    float blend2 = blend.y / sum;
+    float blend3 = blend.z / sum;
+
+    return val1 * blend1 + val2 * blend2 + val3 * blend3;
+}
+float4 VoxelTripleLerp(float4 val1, float4 val2, float4 val3, float3 blend )
+{
+    float sum = max(blend.x + blend.y + blend.z,1e-5f);
+
+    float blend1 = blend.x / sum;
+    float blend2 = blend.y / sum;
+    float blend3 = blend.z / sum;
+
+    return val1 * blend1 + val2 * blend2 + val3 * blend3;
+}
+
+//完整的三平面映射，每个方向两层材质贴图混合
+float3 fetchAndMixTexture(in Texture2DArray tex, in SamplerState texSampler, in float2 uv, in uint2 arrayIndex, float blendParam)
+{
+    float3 cTex1 = tex.Sample(texSampler, float3(uv, arrayIndex.x)).xyz;
+    float3 cTex2 = tex.Sample(texSampler, float3(uv, arrayIndex.y)).xyz;
+    return lerp(cTex1, cTex2, blendParam);
+}
+
+float3 fetchAndMixTexture(in Texture2D tex1,  in SamplerState texSampler1, in Texture2D tex2, in SamplerState texSampler2, in float2 uv, float blendParam)
+{
+    float3 cTex1 = tex1.Sample(texSampler1, uv).xyz;
+    float3 cTex2 = tex2.Sample(texSampler2, uv).xyz;
+    return lerp(cTex1, cTex2, blendParam);
+}
+
+float3 fetchAndMixTexture(in Texture2D tex1,  in SamplerState texSampler1, in Texture2D tex2, in SamplerState texSampler2, in Texture2D tex3, in SamplerState texSampler3,in float2 uv, float3 blendParam)
+{
+    float3 cTex1 = tex1.Sample(texSampler1, uv).xyz;
+    float3 cTex2 = tex2.Sample(texSampler2, uv).xyz;
+    float3 cTex3 = tex3.Sample(texSampler3, uv).xyz;
+    return VoxelTripleLerp(cTex1, cTex2, cTex3 ,blendParam);
+}
+
+float4 TriplanarProjectionSampleMap(in Texture2DArray tex, in SamplerState texSampler, in uint3 arrayIndex,
+    in float2 UVXZ, in float2 UVXY, in float2 UVYZ,
+    in float weightXZ, in float weightXY, in float weightYZ){
+
+    //note by hejiwei: when do we perform gamma correction ? 
+    //gamma corecct imdiately after sampling or after all texture samples are blended
+    float4 cTexXZ = weightXZ * tex.Sample(texSampler, float3(UVXZ, arrayIndex.x));
+    float4 cTexXY = weightXY * tex.Sample(texSampler, float3(UVXY, arrayIndex.y));
+    float4 cTexYZ = weightYZ * tex.Sample(texSampler, float3(UVYZ, arrayIndex.z));
+
+    return (cTexXZ + cTexXY + cTexYZ);
+}
+
+//考虑到三个平面可能采样不同的贴图，所以这里传入三个纹理参数，大概率是同一张贴图
+float4 TriplanarProjectionSampleMap(in Texture2D texXZ, in SamplerState texSamplerXZ, 
+    in Texture2D texXY, in SamplerState texSamplerXY, in Texture2D texYZ, in SamplerState texSamplerYZ,
+    in float2 UVXZ, in float2 UVXY, in float2 UVYZ, in float weightXZ, in float weightXY, in float weightYZ)
+{
+    float4 cTexXZ = weightXZ * texXZ.Sample(texSamplerXZ, UVXZ);
+    float4 cTexXY = weightXY * texXY.Sample(texSamplerXY, UVXY);
+    float4 cTexYZ = weightYZ * texYZ.Sample(texSamplerYZ, UVYZ);
+
+    return (cTexXZ + cTexXY + cTexYZ);
+}
+
+float3 CalculateDefaultEnvColor(float  NdotV,
+                               float3 baseColor,
+                               float  metallic,
+                               float  roughness,
+                               float  ao,
+                               float  wetFinal)
+{
+    float3 specularColor = lerp(0.04h, baseColor, metallic);
+    float  specularAO    = lerp(ao, 1.0f, metallic * (1.0f - roughness) * (1.0f - roughness));
+    float3 filteredBRDF  = max(ApproxGlossyBRDF(specularColor, roughness, NdotV), 1e-6f);
+
+    float3 albedo = baseColor * (1.0f - metallic);
+
+    return albedo * ao + filteredBRDF * specularAO;
+}
+
+
+float3 unpackNormal(in float3 sampledNormal){
+    float3 n = 2.f * sampledNormal - 1.f;
+    n.z = sqrt(saturate(1.f - n.x * n.x - n.y * n.y));
+    return normalize(n);
+}
+
+float3 UDNBlendNormal(in float3 sampledNormal, in float3 detailNormal, float weight)
+{
+    float3 n1 = 2.f * sampledNormal - 1.f;
+    float3 n2 = 2.f * detailNormal - 1.f;
+    n1.z = sqrt(saturate(1.f - n1.x * n1.x - n1.y * n1.y));
+    n2.z = 1.f;
+    float3 n = float3(n1.xy + n2.xy * weight, n1.z);
+    return n;
+}
+
+PS_OUTPUT main(PS_INPUT IN, bool isFrontFacing : SV_IsFrontFace){
+    PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+    #ifdef PARABOLOID_MAPPING
+	    clip(IN.i_ClipDepth);
+    #endif
+
+
+
+        float3 V = normalize(U_PS_CameraPosition.xyz - IN.i_WorldPos.xyz);
+        float3 L = normalize(-U_MainLightDirection.xyz);
+
+        // float3 n = IN.i_Normal.xyz;
+        float3 n = normalize(IN.i_Normal.xyz);
+        // float3 p = IN.i_WorldPos.xyz;
+
+	#ifdef USESHADOWMAP
+		float4 shadowSpacePos[SHADOWSPLITE];
+		ProjectToLightSpaceCameraBase(shadowSpacePos, IN.i_WPosViewBased, n, IN.i_ViewSpaceZ);
+	#endif
+
+        //算权重用模型空间数据
+        float3 pModel = IN.i_ModelP.xyz;
+        float3 nModel = IN.i_ModelN.xyz;
+    #ifdef TRIPLANAR_WEIGHT
+        float3 nFModel = IN.i_FModelN.xyz;//翻转后的模型法线：transNormal
+    #endif
+
+        //perform tri-planar mapping--------------------------------------------
+        //计算 uv 、 混合权重、 tangent and bitangent
+
+        //nflip与arrayIndex的xyz分别对应：
+        //x --- XZ平面
+        //y --- XY平面
+        //z --- YZ平面
+
+        //将着色点的世界坐标投影到立方体的上面、正面、右侧面
+        //法线方向与投影方向相反时反转u
+
+        float2 invTilling = 1.f / U_PSGeneralRegister0.xy;
+
+        // float2 invTilling = 0.05f;
+        // float2 UVXZ = float2(n.y > 0.f ?  p.x : -p.x,  p.z) * invTilling;
+        // float2 UVXY = float2(n.z > 0.f ?  p.x : -p.x, -p.y) * invTilling;
+        // float2 UVYZ = float2(n.x > 0.f ? -p.z :  p.z, -p.y) * invTilling;
+
+        float2 UVXZ = float2(nModel.y > 0.f ?  pModel.x : -pModel.x,  pModel.z) * invTilling;
+        float2 UVXY = float2(nModel.z > 0.f ?  pModel.x : -pModel.x, -pModel.y) * invTilling;
+        float2 UVYZ = float2(nModel.x > 0.f ? -pModel.z :  pModel.z, -pModel.y) * invTilling;
+        // UVYZ = abs(float2(p.z, p.y)) * invTilling;
+
+    #ifdef TRIPLANAR_WEIGHT
+            float3 absN = abs(nFModel);
+    #else
+            float3 absN = abs(nModel);
+    #endif
+
+        float delta = U_PSGeneralRegister0.z;
+        float m     = U_PSGeneralRegister0.w;
+        // float delta = 0.5f;
+        // float m = 4.f;
+
+        float bXZ = pow(max(absN.y - delta, 1e-5), m);
+        float bXY = pow(max(absN.z - delta, 1e-5), m);
+        float bYZ = pow(max(absN.x - delta, 1e-5), m);
+
+        float invTotalWeight = 1.f / (bXZ + bXY + bYZ);
+
+        float bXZUnified = bXZ * invTotalWeight;
+        float bXYUnified = bXY * invTotalWeight;
+        float bYZUnified = bYZ * invTotalWeight;
+
+        //为了保证tangent、bitangent都在世界空间，在vs中提前投影计算模型空间的tangent、bitangent向量，再变换到世界空间
+        //判断长度为0避免normalize零向量出现Nan
+        float epsilon = 1e-5f;
+        float3 tangent1 = dot(IN.i_Tangent1, IN.i_Tangent1) < epsilon ? 0.0f : normalize(IN.i_Tangent1);
+        float3 biTangent1 = dot(IN.i_Bitangent1, IN.i_Bitangent1) < epsilon ? 0.0f : normalize(IN.i_Bitangent1);
+        float3 tangent2 = dot(IN.i_Tangent2, IN.i_Tangent2) < epsilon ? 0.0f : normalize(IN.i_Tangent2);
+        float3 biTangent2 = dot(IN.i_Bitangent2, IN.i_Bitangent2) < epsilon ? 0.0f : normalize(IN.i_Bitangent2);
+        //perform tri-planar mapping--------------------------------------------
+
+        //采样贴图并混合-----------------------------------------------------------------------------------------------------------------
+        // baseMap & mixMap混合顺序：1、三平面采样的结果混合。 2、两层材质之间混合
+        float3 blendParam = IN.i_Blend;
+        uint2 materialIndex = IN.i_Index;
+
+        // 采样Texture2DArray
+        //  float3 baseMap1 = TriplanarProjectionSampleMap(S_Diffuse, S_DiffuseSamplerState, materialIndex.x,
+        //     UVXZ, UVXY, UVYZ, bXZUnified, bXYUnified, bYZUnified);
+
+        // float3 mixMap1 = TriplanarProjectionSampleMap(S_Specular, S_SpecularSamplerState, materialIndex.x,
+        //     UVXZ, UVXY, UVXZ, bXZUnified, bXYUnified, bYZUnified);
+
+        // float3 baseMap2 = TriplanarProjectionSampleMap(S_Diffuse, S_DiffuseSamplerState, materialIndex.y,
+        //     UVXZ, UVXY, UVYZ, bXZUnified, bXYUnified, bYZUnified);
+
+        // float3 mixMap2 = TriplanarProjectionSampleMap(S_Specular, S_SpecularSamplerState, materialIndex.y,
+        //     UVXZ, UVXY, UVXZ, bXZUnified, bXYUnified, bYZUnified);
+
+
+        // float4 baseMap1 = TriplanarProjectionSampleMap(S_Diffuse, S_DiffuseSamplerState,
+        // S_Diffuse, S_DiffuseSamplerState, S_Diffuse, S_DiffuseSamplerState,
+        //     UVXZ, UVXY, UVYZ, bXZUnified, bXYUnified, bYZUnified);
+
+        float3 mixMap1 = TriplanarProjectionSampleMap(S_Specular, S_SpecularSamplerState,
+            S_Specular, S_SpecularSamplerState, S_Specular, S_SpecularSamplerState,
+            UVXZ, UVXY, UVYZ, bXZUnified, bXYUnified, bYZUnified).xyz;
+
+        float4 baseMap2 = TriplanarProjectionSampleMap(S_Custom, S_CustomSamplerState,
+            S_Custom, S_CustomSamplerState, S_Custom, S_CustomSamplerState,
+            UVXZ, UVXY, UVYZ, bXZUnified, bXYUnified, bYZUnified);
+
+        float3 mixMap2 = TriplanarProjectionSampleMap(S_Custom2, S_Custom2SamplerState,
+            S_Custom2, S_Custom2SamplerState, S_Custom2, S_Custom2SamplerState,
+            UVXZ, UVXY, UVYZ, bXZUnified, bXYUnified, bYZUnified).xyz;
+
+#ifdef VERTICAL_FACES_MIX
+        float4 baseMap1 = TriplanarProjectionSampleMap(
+            S_Diffuse, S_DiffuseSamplerState,
+            S_Custom4, S_Custom4SamplerState,
+            S_Custom4, S_Custom4SamplerState,
+            UVXZ, UVXY, UVYZ, bXZUnified, bXYUnified, bYZUnified);
+#else
+        float4 baseMap1 = TriplanarProjectionSampleMap(
+            S_Diffuse, S_DiffuseSamplerState, 
+            S_Diffuse, S_DiffuseSamplerState, 
+            S_Diffuse, S_DiffuseSamplerState,
+            UVXZ, UVXY, UVYZ, bXZUnified, bXYUnified, bYZUnified);
+#endif
+        
+        float4 rgba_baseMap = float4(lerp(baseMap1.rgb * U_PSGeneralRegister2.xyz, baseMap2 * U_PSGeneralRegister3, blendParam.x),
+                                     lerp(baseMap1.a, baseMap2.a, blendParam.x));
+        float3 baseMap = pow(rgba_baseMap.xyz,2.2f);
+        float3 mixMap = lerp(mixMap1, mixMap2,blendParam.x);
+
+        float3 bumpMapXZ = fetchAndMixTexture(S_Bump, S_BumpSamplerState, S_Custom3, S_Custom3SamplerState, UVXZ, blendParam.x);
+        float3 bumpMapXY = fetchAndMixTexture(S_Bump, S_BumpSamplerState, S_Custom3, S_Custom3SamplerState, UVXY, blendParam.x);
+        float3 bumpMapYZ = fetchAndMixTexture(S_Bump, S_BumpSamplerState, S_Custom3, S_Custom3SamplerState, UVYZ, blendParam.x);
+
+        //note by hejiwei: 原文的方案是将入射光、Half vector等变量分别变换到两个切线空间中，与法线计算dot之后根据权重混合NdotH与NdotL的结果
+        //但是这种方案与我们目前的PBR shading的接口不是很兼容，暂时先尝试一下以下方案
+        //法线的混合：先在两层材质之间混合，延展到[-1, 1]，再根据不同的切线空间变换到世界空间， 在世界空间进行混合
+
+        // 采样Texture2DArray
+        // float3 bumpMapXZ = fetchAndMixTexture(S_Bump, S_BumpSamplerState, UVXZ, materialIndex, blendParam);
+        // float3 bumpMapXY = fetchAndMixTexture(S_Bump, S_BumpSamplerState, UVXY, materialIndex, blendParam);
+        // float3 bumpMapYZ = fetchAndMixTexture(S_Bump, S_BumpSamplerState, UVYZ, materialIndex, blendParam);
+
+#ifdef DETAILBUMP
+        //加一层细节法线
+        float2 detialInvTilling = 1.f / U_PSGeneralRegister1.z;
+        float2 UVXZ1 = float2(nModel.y > 0.f ?  pModel.x : -pModel.x,  pModel.z) * detialInvTilling;
+        float2 UVXY1 = float2(nModel.z > 0.f ?  pModel.x : -pModel.x, -pModel.y) * detialInvTilling;
+        float2 UVYZ1 = float2(nModel.x > 0.f ? -pModel.z :  pModel.z, -pModel.y) * detialInvTilling;
+
+        float3 detailBumpMapXZ = S_Custom7.Sample(S_Custom7SamplerState, UVXZ1).xyz;
+        float3 detailBumpMapXY = S_Custom7.Sample(S_Custom7SamplerState, UVXY1).xyz;
+        float3 detailBumpMapYZ = S_Custom7.Sample(S_Custom7SamplerState, UVYZ1).xyz;
+
+        bumpMapXZ = UDNBlendNormal(bumpMapXZ, detailBumpMapXZ, U_PSGeneralRegister1.w);
+        bumpMapXY = UDNBlendNormal(bumpMapXY, detailBumpMapXY, U_PSGeneralRegister1.w);
+        bumpMapYZ = UDNBlendNormal(bumpMapYZ, detailBumpMapYZ, U_PSGeneralRegister1.w);
+#else
+        bumpMapXZ = unpackNormal(bumpMapXZ);
+        bumpMapXY = unpackNormal(bumpMapXY);
+        bumpMapYZ = unpackNormal(bumpMapYZ);
+#endif
+
+        // //原文中的混合方法，这里先注释掉
+        // float3x3 invTBN1 = {
+        //     tangent1.x,     tangent1.y,     tangent1.z,
+        //     biTangent1.x,   biTangent1.y,   biTangent1.z,
+        //     n.x,            n.y,            n.z
+        // };
+
+        // float3x3 invTBN2 = {
+        //     tangent2.x,     tangent2.y,     tangent2.z,
+        //     biTangent2.x,   biTangent2.y,   biTangent2.z,
+        //     n.x,            n.y,            n.z
+        // };
+
+        // float3 H = dot(n, L) < 0.f ? normalize(L + V) : 0.f;//如果入射光从背面入射，入射光的贡献一定为0，
+
+        // float3 l1 = mul(invTBN1, L);
+        // float3 h1 = mul(invTBN1, H);
+        // float3 v1 = mul(invTBN1,V);
+
+        // float3 l2 = mul(invTBN2, L);
+        // float3 h2 = mul(invTBN2, H);
+        // float3 v2 = mul(invTBN2, V);
+
+        // float NdotL = bXZUnified * dot(bumpMapXZ, l2) + bXYUnified * dot(bumpMapXY, l1) + bYZUnified * dot(bumpMapYZ, l1);
+        // float NdotH = bXZUnified * dot(bumpMapXZ, h2) + bXYUnified * dot(bumpMapXY, h1) + bYZUnified * dot(bumpMapYZ, h1);
+        // float NdotV = bXZUnified * dot(bumpMapXZ, v2) + bXYUnified * dot(bumpMapXY, v1) + bYZUnified * dot(bumpMapYZ, v1);
+
+        float3x3 TBN1 = {
+            tangent1.x,     biTangent1.x,   n.x,
+            tangent1.y,     biTangent1.y,   n.y,
+            tangent1.z,     biTangent1.z,   n.z
+        };
+
+        float3x3 TBN2 = {
+            tangent2.x,     biTangent2.x,   n.x,
+            tangent2.y,     biTangent2.y,   n.y,
+            tangent2.z,     biTangent2.z,   n.z
+        };
+
+        bumpMapXZ = mul(TBN2, bumpMapXZ);
+        bumpMapXY = mul(TBN1, bumpMapXY);
+        bumpMapYZ = mul(TBN1, bumpMapYZ);
+
+        n = normalize(bumpMapXZ * bXZUnified + bumpMapXY * bXYUnified + bumpMapYZ * bYZUnified);
+
+
+        #ifdef TWO_SIDES
+            float frontValue = isFrontFacing ? 1.0f : -1.0f;
+            n *= frontValue;
+        #endif
+        //采样贴图并混合-----------------------------------------------------------------------------------------------------------------
+
+        
+
+        float3 mainLightColor = U_PBR_MainLightColor.xyz;
+        float3 skyLightColor = U_PBR_SkyLightColor.xyz;
+        float3 groundLightColor = U_PBR_GroundLightColor.xyz;
+
+        float roughness = mixMap.g;
+        float metallic = mixMap.r;
+        float ao = mixMap.b;
+
+        #ifdef COVER_WEATHER
+            float coverLerp = dot(n.xyz, U_PS_GravityDirection.xyz);
+            coverLerp += U_PSGeneralRegister1.x;
+            coverLerp = clamp(coverLerp, 0.0, 1.0);
+            coverLerp = coverLerp * U_PSGeneralRegister1.y;
+            // half3 coverMap = U_WeatherParam0.xyz;
+            coverLerp *= U_WeatherParam0.w * (1.0 - U_PSGeneralRegister30.x);
+            float maskRes = 1.0;
+
+            #ifndef CUBE_RANGE
+                float4 tsPos = U_CoverColorParams;
+                // float3 tsPos = float3(0.0, 0.0, 0.0);
+                float dist = length(IN.i_WorldPos.xz - tsPos.xz);
+                maskRes = smoothstep(tsPos.w - 1.0f, tsPos.w, dist);
+                // maskRes = 1.0 - maskRes;
+            #else
+                float rectSize = 20.0f;
+                float2 halfSize = rectSize * 0.5;
+                float4 tsPos = U_CoverColorParams;
+                // Calculate the distance to the nearest edge of the rectangle
+                float2 distToEdge = abs(IN.i_WorldPos.xz - tsPos.xz) - halfSize;
+
+                // Use length function to determine if the point is within the rectangle boundaries
+                maskRes = length(max(distToEdge, 0.0));
+                maskRes = clamp(maskRes, 0.0, 1.0);
+                // maskRes = 1.0 - maskRes;
+            #endif
+            roughness = lerp(roughness, U_WeatherParam1.x, coverLerp);
+            metallic = lerp(metallic, U_WeatherParam1.y, coverLerp);
+
+            coverLerp *= maskRes;
+            baseMap = lerp(baseMap, U_WeatherParam0.xyz, coverLerp);
+        #endif
+
+
+
+    float shadowFactor = 1.0;
+    #ifdef USESHADOWMAP
+        shadowFactor = calcShadowFactor(shadowSpacePos, IN.i_ViewSpaceZ);
+        shadowFactor = min(shadowFactor, 1.0);
+    #endif
+
+    half3 encodedNormal = EncodeNormal(n);
+    uint useRoleMainLight = 0;
+    uint receiveShadow = 1;
+    #ifndef USESHADOWMAP
+        receiveShadow = 0;
+    #endif
+    
+    uint useEnvironmentMap = 1;
+    
+    uint usePointLight = 1;
+    #ifdef CLUSTER_POINT_LIGHT
+        usePointLight = 0;
+    #endif
+
+    half shadingModel = EncodeShadingModel(useRoleMainLight, receiveShadow, useEnvironmentMap, usePointLight, 1);
+
+    psOut.g0.xyz = pow(baseMap, 1.0/2.2);
+    psOut.g0.w = 1.0; // 不透明
+
+    psOut.g1.xyz = encodedNormal;
+    psOut.g1.w = shadowFactor;
+
+    psOut.g2.x = metallic; // Metallic
+    psOut.g2.y = roughness; // Roughness
+    psOut.g2.z = ao; // AO
+    psOut.g2.w = shadingModel;
+
+    psOut.sc.xyz = 0.0;
+    psOut.sc.w = 0.0;
+    return psOut;
+};

@@ -1,0 +1,466 @@
+#include <Common_Uniform_PS.inl>
+#include <TriPlanarMapping_Function_PS.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+
+#include <Common_Function.inl>
+
+#include <Light_Function_PS.inl>
+#include <EnvironmentLight_Function.inl>
+#include <Common_GBuffers.inl>
+#include <Common_Function_PS.inl>
+#ifdef CLUSTER_POINT_LIGHT
+    #include "Shadow_Light_Function_PS.inl"
+#endif // CLUSTER_POINT_LIGHT
+
+struct PS_INPUT
+{
+    float4 i_PosInClip       : SV_POSITION;
+
+    #ifndef SHADOWPASS
+        float3 i_LocalP     : TEXCOORD0;
+        float3 i_LocalN     : TEXCOORD1;
+        float3 i_WorldP     : TEXCOORD2;
+        float3 i_WorldN     : TEXCOORD3;
+
+        float3 i_Tangent1       : TEXCOORD4;
+        float3 i_BiTangent1     : TEXCOORD5;
+        float3 i_Tangent2       : TEXCOORD6;
+        float3 i_BTangent2     : TEXCOORD7;
+
+        uint2 i_Index       : TEXCOORD8;
+        float3 i_Blend       : TEXCOORD9;
+
+        #ifdef USESHADOWMAP
+            float i_ViewSpaceZ : TEXCOORD10;
+            float3 i_WPosViewBased : TEXCOORD11;
+        #endif
+        #ifdef VOXELKARST
+            float4 i_VertexColor : COLOR0;
+        #endif
+    #endif // !SHADOWPASS
+
+    #ifdef PARABOLOID_MAPPING
+        float3 i_ClipDepth : TEXCOORD12;
+    #endif
+};
+
+#define PS_OUTPUT GBuffers
+   
+// uniforms
+//------------------------------------------------------------------------
+
+// albedo texture
+Texture2DArray S_Custom;
+SamplerState S_CustomSamplerState;
+
+// normal texture
+Texture2DArray S_Custom2;
+SamplerState S_Custom2SamplerState;
+
+TextureCube S_GlobalEnvironmentCubeMap;
+SamplerState S_GlobalEnvironmentCubeMapSamplerState;
+
+column_major float4x4 U_PBR_RMatrix;
+column_major float4x4 U_PBR_GMatrix;
+column_major float4x4 U_PBR_BMatrix;
+
+float4 U_PBR_Environment_Explosure;
+float4 U_GlobalEnvironmentCubeMipMapLevels;
+
+float4 U_PSCustom0[16];
+//------------------------------------------------------------------------
+
+
+//------------------------------------------------------------------------
+    float4 sRGB2Linear(float4 srgb)
+    {
+        return float4(pow(srgb.rgb, 2.2f), srgb.a);
+    }
+
+
+    float3 unpackNormal(float2 normal)
+    {
+        normal = normal * 2.f - 1.f;
+        float3 n = float3(normal.xy, sqrt(saturate(1.f - dot(normal.xy, normal.xy))));
+        return normalize(n);
+    }
+
+
+    float3 normalStrength(float3 normal, float strength)
+    {
+        return normalize(float3(normal.xy * strength, lerp(1.f, normal.z, saturate(strength))));
+    }
+
+    // rnm normal blending on pc & console
+    // udn normal blending on mobile 
+    float3 rnm(float3 n0, float3 n1, float blend)
+    {
+        n0 = normalStrength(n0, 1.f - blend);
+        n1 = normalStrength(n1, blend);
+        float3 t = n0 * float3(2.f, 2.f,  2.f) - float3(-1.f, -1.f,  0.f);
+        float3 u = n1 * float3(2.f, 2.f, -2.f) + float3( 1.f,  1.f, -1.f);
+        return t * dot(t, u) / t.z - u;
+    }
+
+    float3 luminance(float3 rgb)
+    {
+        return dot(rgb, float3(0.2126, 0.7152, 0.0722));
+    }
+
+
+    float3 udn(float3 n0, float3 n1, float blend)
+    {
+        return normalize(float3(lerp(n0.xy, n1.xy, blend), n0.z));
+    }
+
+    struct Map0Sample
+    {
+        float3 albedo;
+        float ao;
+    };
+    struct Map1Sample
+    {
+        float3 normal;
+        float2 metallicRoughness;
+    };
+    float3 normalblend(float3 n0, float3 n1, float3 n2, float3 w)
+    {
+        return normalize(float3(n0.xy * w.x + n1.xy * w.y + n2.xy * w.z, n0.z));
+    }
+
+#ifndef VOXELKARST
+    Map0Sample sampleAlbedo(
+        Texture2DArray map0, SamplerState sampler0, 
+        float2 uv, float2 nearUVTiling, float2 farUVTiling, float blendFactor, float2 n,uint3 layer, float3 blend)
+    {
+        float2 nearUV = uv * nearUVTiling;
+        float2 farUV = uv * farUVTiling;
+        float2 nearddx = nearUVTiling * ddx(uv);
+        float2 nearddy = nearUVTiling * ddy(uv);
+        float2 farddx = farUVTiling * ddx(uv);
+        float2 farddy = farUVTiling * ddy(uv);
+
+        float4 nearSample0 = map0.SampleGrad(sampler0, float3(nearUV, layer.x + n.x), nearddx, nearddy) * U_PSCustom0[layer.x];
+        float4 nearSample1 = map0.SampleGrad(sampler0, float3(nearUV, layer.y + n.x), nearddx, nearddy) * U_PSCustom0[layer.y];
+        float4 nearSample2 = map0.SampleGrad(sampler0, float3(nearUV, layer.z + n.x), nearddx, nearddy) * U_PSCustom0[layer.z];
+        float4 farSample0 = map0.SampleGrad(sampler0, float3(farUV, layer.x + n.y), farddx, farddy) * U_PSCustom0[layer.x];
+        float4 farSample1 = map0.SampleGrad(sampler0, float3(farUV, layer.y + n.y), farddx, farddy) * U_PSCustom0[layer.y];
+        float4 farSample2 = map0.SampleGrad(sampler0, float3(farUV, layer.z + n.y), farddx, farddy) * U_PSCustom0[layer.z];
+
+        Map0Sample result;
+
+        //result.heightWeightedBlend = blend;
+        float4 lerpSample = (lerp(nearSample0, farSample0, blendFactor) * blend.x
+         +  lerp(nearSample1, farSample1, blendFactor) * blend.y 
+         +  lerp(nearSample2, farSample2, blendFactor) * blend.z);
+
+        result.albedo = lerpSample.rgb;
+        result.ao = lerpSample.a;
+
+        return result;
+    }
+
+    Map1Sample sampleNormal(
+        Texture2DArray map0, SamplerState sampler0, 
+        float2 uv, float2 nearUVTiling, float2 farUVTiling, float blendFactor, float2 n,uint3 layer, float3 blend)
+    {
+        float2 nearUV = uv * nearUVTiling;
+        float2 farUV = uv * farUVTiling;
+        float2 nearddx = ddx(uv) * nearUVTiling;
+        float2 nearddy = ddy(uv) * nearUVTiling;
+        float2 farddx = ddx(uv) * farUVTiling;
+        float2 farddy = ddy(uv) * farUVTiling;
+
+        float4 nearSample0 = map0.SampleGrad(sampler0, float3(nearUV, layer.x + n.x), nearddx, nearddy);
+        float4 nearSample1 = map0.SampleGrad(sampler0, float3(nearUV, layer.y + n.x), nearddx, nearddy);
+        float4 nearSample2 = map0.SampleGrad(sampler0, float3(nearUV, layer.z + n.x), nearddx, nearddy);
+        float4 farSample0 = map0.SampleGrad(sampler0, float3(farUV, layer.x + n.y), farddx, farddy);
+        float4 farSample1 = map0.SampleGrad(sampler0, float3(farUV, layer.y + n.y), farddx, farddy);
+        float4 farSample2 = map0.SampleGrad(sampler0, float3(farUV, layer.z + n.y), farddx, farddy);
+
+        float3 n0 = unpackNormal(nearSample0.xy);
+        float3 n1 = unpackNormal(nearSample1.xy);
+        float3 n2 = unpackNormal(nearSample2.xy);
+        float3 n0_f = unpackNormal(farSample0.xy);
+        float3 n1_f = unpackNormal(farSample1.xy);
+        float3 n2_f = unpackNormal(farSample2.xy);
+        Map1Sample result;
+        result.normal = normalize(float3(lerp(n0.xy, n0_f.xy, blendFactor) * blend.x
+         + lerp(n1.xy, n1_f.xy, blendFactor) * blend.y
+          + lerp(n2.xy, n2_f.xy, blendFactor) * blend.z, n0.z));
+        result.metallicRoughness = float2(lerp(nearSample0.zw, farSample0.zw, blendFactor) * blend.x + 
+        lerp(nearSample1.zw, farSample1.zw, blendFactor) * blend.y + 
+        lerp(nearSample2.zw, farSample2.zw, blendFactor) * blend.z);
+        return result;
+    }
+#else
+    Map0Sample sampleAlbedo(
+        Texture2DArray map0, SamplerState sampler0, 
+        float2 uv, uint3 layer, float3 blend)
+    {
+        float4 sample0 = sRGB2Linear(map0.Sample(sampler0, float3(uv, layer.x)));
+        float4 sample1 = sRGB2Linear(map0.Sample(sampler0, float3(uv, layer.y)));
+        float4 sample2 = sRGB2Linear(map0.Sample(sampler0, float3(uv, layer.z)));
+
+        Map0Sample result;
+
+        //result.heightWeightedBlend = blend;
+        float4 lerpSample = (sample0 * blend.x +  sample1 * blend.y +  sample2 * blend.z);
+
+        result.albedo = lerpSample.rgb;
+        result.ao = lerpSample.a;
+
+        return result;
+    }
+
+    Map1Sample sampleNormal(
+        Texture2DArray map0, SamplerState sampler0, 
+        float2 uv, uint3 layer, float3 blend)
+    {
+        float4 sample0 = map0.Sample(sampler0, float3(uv, layer.x));
+        float4 sample1 = map0.Sample(sampler0, float3(uv, layer.y));
+        float4 sample2 = map0.Sample(sampler0, float3(uv, layer.z));
+
+        float3 n0 = unpackNormal(sample0.xy);
+        float3 n1 = unpackNormal(sample1.xy);
+        float3 n2 = unpackNormal(sample2.xy);
+
+        Map1Sample result;
+        result.normal = normalblend(n0, n1, n2, blend);
+        result.metallicRoughness = float2(sample0.zw * blend.x + sample1.zw * blend.y + sample2.zw * blend.z);
+        return result;
+    }
+#endif
+
+//------------------------------------------------------------------------
+static int LUT[11] = {0,1,2,2,2,2,3,3,3,3,4} ;
+static float3 UVTilingParam[9] = {
+    float3(0.0, 1.0/4.0, 1.0/100.0),
+    float3(100.0, 1.0/20.0, 1.0/100.0),
+    float3(200.0, 1.0/40.0, 1.0/400.0),
+    float3(600.0, 1.0/64.0 , 1.0/400.0),
+    float3(1000.0, 1.0/128.0 , 1.0/1000.0),
+    float3(2000.0, 1.0/512.0, 1.0/2000.0),
+    float3(4000.0, 1.0/1024.0, 1.0/2000.0),
+    float3(6000.0, 1.0/2048.0, 1.0/2000.0),
+    float3(8000.0, 1.0/2048.0, 1.0/2000.0)
+};
+PS_OUTPUT main(PS_INPUT IN, bool isFrontFacing : SV_IsFrontFace) : SV_TARGET
+{
+	PS_OUTPUT psOut = (PS_OUTPUT) 0;
+
+        float3 pLocal = IN.i_LocalP.xyz;
+        float3 pWorld = IN.i_WorldP.xyz;
+        float3 nLocal = normalize(IN.i_LocalN.xyz);
+        float3 nWorld = normalize(IN.i_WorldN.xyz);
+
+	#ifdef USESHADOWMAP
+		float4 shadowSpacePos[SHADOWSPLITE];
+		ProjectToLightSpaceCameraBase(shadowSpacePos, IN.i_WPosViewBased, nWorld, IN.i_ViewSpaceZ);
+	#endif
+
+    #ifndef VOXELKARST       
+        float2 UVXZ = pWorld.xz;
+        float2 UVXY = float2(pWorld.x, -pWorld.y);
+        float2 UVYZ = float2(pWorld.z, -pWorld.y);
+        float distance = length(U_PS_CameraPosition.xyz - pWorld.xyz);
+        float2 nearUVTiling = float2(UVTilingParam[5].y, UVTilingParam[5].y);
+        float2 farUVTiling = float2(UVTilingParam[5].y, UVTilingParam[5].y);
+        float blendFactor = 1.0;
+        float prevDistance;
+
+        float2 textureSize;
+        float textureArraySize;
+        S_Custom.GetDimensions(textureSize.x, textureSize.y, textureArraySize);
+        textureArraySize = textureArraySize /2.0f;
+        int lutIndex = clamp(int(floor(distance * 0.01f)), 0, 10);
+        nearUVTiling = UVTilingParam[LUT[lutIndex]].y;
+        farUVTiling = UVTilingParam[LUT[lutIndex] + 1].y;
+        prevDistance = UVTilingParam[LUT[lutIndex]].x;
+        blendFactor = (distance - prevDistance ) * UVTilingParam[LUT[lutIndex]].z; 
+        blendFactor = clamp(blendFactor, 0.0, 1.0);
+        float2 n = float2(0.0f, 0.0f);
+        
+        if (distance > UVTilingParam[2].x) 
+        {
+            n.y = textureArraySize;
+            
+            if (distance > UVTilingParam[3].x) {
+                n.x = textureArraySize;
+                
+            }
+            
+        }
+        uint3 indices = uint3(
+            0xff & IN.i_Index.x, 
+            0xff & (IN.i_Index.x >> 8),
+            0xff & (IN.i_Index.x >> 16));
+
+        Map0Sample map0XZ = sampleAlbedo(
+            S_Custom, S_CustomSamplerState, 
+            UVXZ, nearUVTiling, farUVTiling, blendFactor, n,indices, IN.i_Blend);
+
+        Map1Sample map1XZ = sampleNormal(
+            S_Custom2, S_Custom2SamplerState,
+            UVXZ, nearUVTiling, farUVTiling, blendFactor, n,indices, IN.i_Blend); 
+
+        Map0Sample map0XY = sampleAlbedo(
+            S_Custom, S_CustomSamplerState,
+            UVXY, nearUVTiling, farUVTiling, blendFactor, n,indices, IN.i_Blend);
+
+        Map1Sample map1XY = sampleNormal(
+            S_Custom2, S_Custom2SamplerState,
+            UVXY, nearUVTiling, farUVTiling, blendFactor, n,indices, IN.i_Blend);
+
+        Map0Sample map0YZ = sampleAlbedo(
+            S_Custom, S_CustomSamplerState,
+            UVYZ, nearUVTiling, farUVTiling, blendFactor, n,indices, IN.i_Blend);
+
+        Map1Sample map1YZ = sampleNormal(
+            S_Custom2, S_Custom2SamplerState,
+            UVYZ, nearUVTiling, farUVTiling, blendFactor, n,indices, IN.i_Blend);
+
+        float3 blend = pow(abs(nWorld.yzx) - 0.3f, 4.0f);
+        blend = blend / (blend.x + blend.y + blend.z);
+    #else
+        float2 UVXZ = pLocal.xz;
+        float2 UVXY = float2(pLocal.x, -pLocal.y);
+        float2 UVYZ = float2(pLocal.z, -pLocal.y);
+
+        uint3 indices = uint3(
+            0xff & IN.i_Index.x, 
+            0xff & (IN.i_Index.x >> 8),
+            0xff & (IN.i_Index.x >> 16));
+
+        Map0Sample map0XZ = sampleAlbedo(
+            S_Custom, S_CustomSamplerState, 
+            UVXZ, indices, IN.i_Blend);
+
+        Map1Sample map1XZ = sampleNormal(
+            S_Custom2, S_Custom2SamplerState,
+            UVXZ, indices, IN.i_Blend); 
+
+        Map0Sample map0XY = sampleAlbedo(
+            S_Custom, S_CustomSamplerState,
+            UVXY, indices, IN.i_Blend);
+
+        Map1Sample map1XY = sampleNormal(
+            S_Custom2, S_Custom2SamplerState,
+            UVXY, indices, IN.i_Blend);
+
+        Map0Sample map0YZ = sampleAlbedo(
+            S_Custom, S_CustomSamplerState,
+            UVYZ, indices, IN.i_Blend);
+
+        Map1Sample map1YZ = sampleNormal(
+            S_Custom2, S_Custom2SamplerState,
+            UVYZ, indices, IN.i_Blend);
+
+        float3 blend = pow(abs(nLocal.yzx) - 0.3f, 4.0f);
+        blend = blend / (blend.x + blend.y + blend.z);
+    #endif
+    
+        float3 albedo = map0XZ.albedo * blend.x + map0XY.albedo * blend.y + map0YZ.albedo * blend.z;
+        float ao = map0XZ.ao * blend.x + map0XY.ao * blend.y + map0YZ.ao * blend.z;
+
+        #ifdef VOXELKARST  
+            float3 gisColor = IN.i_VertexColor.rgb;
+            float len = length(U_PS_CameraPosition.xyz - IN.i_WorldP.xyz);
+            float s = smoothstep(20.0f, 200.0f, len);
+            float3 AlbedoN = normalize(albedo);
+            float lum = 0.3 * AlbedoN.r + 0.6 * AlbedoN.g + 0.1 * AlbedoN.b;
+            gisColor *= (lum * 1.5);
+            albedo = lerp(albedo, gisColor.rgb, s);
+        #endif
+        
+        //为了保证tangent、bitangent都在世界空间，在vs中提前投影计算模型空间的tangent、bitangent向量，再变换到世界空间
+        //判断长度为0避免normalize零向量出现Nan
+        float epsilon = 1e-5f;
+        float3 tangent1 = dot(IN.i_Tangent1, IN.i_Tangent1) < epsilon ? 0.0f : normalize(IN.i_Tangent1);
+        float3 biTangent1 = dot(IN.i_BiTangent1, IN.i_BiTangent1) < epsilon ? 0.0f : normalize(IN.i_BiTangent1);
+        float3 tangent2 = dot(IN.i_Tangent2, IN.i_Tangent2) < epsilon ? 0.0f : normalize(IN.i_Tangent2);
+        float3 biTangent2 = dot(IN.i_BTangent2, IN.i_BTangent2) < epsilon ? 0.0f : normalize(IN.i_BTangent2);
+
+        float3x3 TBN1 = {
+            tangent1.x,     biTangent1.x,   nWorld.x,
+            tangent1.y,     biTangent1.y,   nWorld.y,
+            tangent1.z,     biTangent1.z,   nWorld.z
+        };
+
+        float3x3 TBN2 = {
+            tangent2.x,     biTangent2.x,   nWorld.x,
+            tangent2.y,     biTangent2.y,   nWorld.y,
+            tangent2.z,     biTangent2.z,   nWorld.z
+        };
+
+        float3 normalXZ = map1XZ.normal; // y facing plane
+        float3 normalXY = map1XY.normal; // z facing plane
+        float3 normalYZ = map1YZ.normal; // x facing plane
+
+        float2 metallicRoughness = map1XZ.metallicRoughness * blend.x + 
+                                   map1XY.metallicRoughness * blend.y + 
+                                   map1YZ.metallicRoughness * blend.z;
+
+        normalXZ = mul(TBN2, normalXZ);
+        normalXY = mul(TBN1, normalXY);
+        normalYZ = mul(TBN1, normalYZ);
+
+        // normalXZ = float3(normalXZ.xy + nWorld.zx, nWorld.y); // y facing plane
+        // normalXY = float3(normalXY.xy + nWorld.xy, nWorld.z); // z facing plane
+        // normalYZ = float3(normalYZ.xy + nWorld.yz, nWorld.x); // x facing plane
+
+        float3 N = normalize(normalXZ * blend.x + 
+                             normalXY * blend.y + 
+                             normalYZ * blend.z);
+
+        // return float4(N * 0.5f + 0.5f, 1.f);
+
+        // lighting
+        float3 color = 0.f;
+
+        float3 mainLightColor = U_PBR_MainLightColor.xyz;
+        float3 skyColor = U_PBR_SkyLightColor.xyz;
+        float3 groundColor = U_PBR_GroundLightColor.xyz;
+        float blendThreshold = U_PS_AmbientBlendThreshold.y;
+        float3 ambientColor = ComputeAmbientLight(skyColor, groundColor, N, blendThreshold, U_PS_GravityDirection.xyz);
+
+        float3 L = normalize(-U_MainLightDirection.xyz);
+        float3 V = normalize(U_PS_CameraPosition.xyz - IN.i_WorldP.xyz);
+	float shadowFactor = 1.0;
+	#ifdef USESHADOWMAP
+	shadowFactor = calcShadowFactor(shadowSpacePos, IN.i_ViewSpaceZ);
+	shadowFactor = min(shadowFactor, 1.0);
+	#endif
+
+	half3 encodedNormal = EncodeNormal(N);
+	uint useRoleMainLight = 0;
+	uint receiveShadow = 1;
+	#ifndef USESHADOWMAP
+	receiveShadow = 0;
+	#endif
+    
+	uint useEnvironmentMap = 1;
+    
+	uint usePointLight = 0;
+	#ifdef CLUSTER_POINT_LIGHT
+	usePointLight = 1;
+	#endif
+
+	half shadingModel = EncodeShadingModel(useRoleMainLight, receiveShadow, useEnvironmentMap, usePointLight, 1);
+
+	psOut.g0.xyz = pow(albedo, 1.0/2.2);
+	psOut.g0.w = 1.0; // 不透明
+
+	psOut.g1.xyz = encodedNormal;
+	psOut.g1.w = shadowFactor;
+
+	psOut.g2.x = metallicRoughness.x; // Metallic
+	psOut.g2.y = metallicRoughness.y; // Roughness
+	psOut.g2.z = ao; // AO
+	psOut.g2.w = shadingModel;
+
+	psOut.sc.xyz = 0.0;
+	psOut.sc.w = 0.0;
+    return psOut;
+}

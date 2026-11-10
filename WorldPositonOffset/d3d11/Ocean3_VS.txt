@@ -1,0 +1,191 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+float4	U_WorldMatrix[3];
+float4	U_WorldViewProjectMatrix[4];
+float4  U_VSGeneralRegister0; //x:WaveTilling y:BumpScale
+
+#ifdef USE_SELF_WIND
+	float4  U_VSGeneralRegister1; //x:WindX y:WindZ z:WindPower
+#endif
+
+#ifdef VERTEX_EXCITATION
+	float4 U_VSGeneralRegister2;	//顶点扰动
+#endif
+
+struct VS_INPUT
+{
+	float4 i_Position	: POSITION0;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		// float4 i_UV		: TEXCOORD0;	
+	#endif
+#else	
+	// float4 i_UV			: TEXCOORD0;
+	float4 i_Normal		: NORMAL0;	
+	// float4 i_Tangent	: TANGENT0;
+	#ifdef VERTEX_COLOR
+		float4 i_VtColor: COLOR0;
+	#endif
+#endif
+
+};
+
+struct VS_OUTPUT
+{
+	float4 o_Position		: SV_POSITION;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+	// float4 o_UV			: TEXCOORD0;
+	#endif
+#else
+    // float4 o_CausticBaseUV			: TEXCOORD9;
+	//float3 rotMatrix1		: TEXCOORD0; // first row of the 3x3 transform from tangent to obj space
+	//float3 rotMatrix2		: TEXCOORD1; // second row of the 3x3 transform from tangent to obj space
+	//float3 rotMatrix3		: TEXCOORD2; // third row of the 3x3 transform from tangent to obj space
+	float4 o_NoiseCoord0 	: TEXCOORD3;
+	float4 o_NoiseCoord1 	: TEXCOORD4;
+	float4 o_NoiseCoord2 	: TEXCOORD13;
+	float4 o_NoiseCoord3 	: TEXCOORD14;
+	float4 o_NoiseCoord4 	: TEXCOORD15;
+	float4 o_ViewPos		: TEXCOORD5;
+	float4 o_WorldPos		: TEXCOORD6;
+	float3 o_Normal		: NORMAL0;	
+	
+	#ifdef SOFT_BORDER
+		float4 o_ClipPos		: TEXCOORD7;
+		float4 o_CustomParam	: TEXCOORD8;
+	#endif
+	
+	#ifdef VERTEX_COLOR
+		float4 o_VtColor	: COLOR0;
+	#endif
+#endif		
+#ifdef PARABOLOID_MAPPING
+	float	o_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{	
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	
+	float4  pos =  float4(IN.i_Position.xyz, 1.0f);	
+	
+		
+	float4 vPosInWorld = pos;	
+	vPosInWorld.x = dot( pos , U_WorldMatrix[0] );
+	vPosInWorld.y = dot( pos , U_WorldMatrix[1] );
+	vPosInWorld.z = dot( pos , U_WorldMatrix[2] );
+	vPosInWorld.w = 1.0;
+
+#ifndef SHADOWPASS
+	//增加顶点扰动
+	#ifdef VERTEX_EXCITATION
+		float factor = vPosInWorld.x + vPosInWorld.y + vPosInWorld.z;
+		factor = frac(factor) * 2.0 * 3.1415926f;
+		pos.xyz += IN.i_Normal.xyz * U_VSGeneralRegister2.x * sin( factor * U_VSGeneralRegister2.y + U_VSGeneralRegister2.z * U_VS_Time.x); 
+	#endif
+#endif
+
+	vsOut.o_Position.x = dot( pos , U_WorldViewProjectMatrix[0]);
+	vsOut.o_Position.y = dot( pos , U_WorldViewProjectMatrix[1]);
+	vsOut.o_Position.z = dot( pos , U_WorldViewProjectMatrix[2]);
+	vsOut.o_Position.w = dot( pos , U_WorldViewProjectMatrix[3]);
+#ifdef PARABOLOID_MAPPING
+	vsOut.o_ClipDepth = vsOut.o_Position.z;
+	ParaboloidMapping(vsOut.o_Position, U_ShadowLightDepthMulAdd.x, U_ShadowLightDepthMulAdd.z, U_ShadowLightDepthMulAdd.w);
+#endif
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+	//  vsOut.o_UV = IN.i_UV;
+	#endif
+	#ifndef PARABOLOID_MAPPING
+		//depthclamp
+		vsOut.o_Position.z = ClampToNearPlane(vsOut.o_Position.z);	
+	#endif
+#else
+
+	//float time  =  fmod(U_VS_Time.x, 100.0f);
+	float time = U_VS_Time.x;
+	
+	float ddx = 0.0, ddy = 0.0;
+	float BumpScale = U_VSGeneralRegister0.y;
+	
+	//vsOut.rotMatrix1.xyz = BumpScale * normalize(float3(1, ddy, 0)); // Binormal
+	//vsOut.rotMatrix2.xyz = BumpScale * normalize(float3(0, ddx, 1)); // Tangent
+	//vsOut.rotMatrix3.xyz = normalize(float3(ddx, 1, ddy)); // Normal
+	
+	// vsOut.o_WorldPos.xyz = vPosInWorld.xyz;
+	vsOut.o_WorldPos.x = dot( pos , U_WorldMatrix[0] );
+	vsOut.o_WorldPos.y = dot( pos , U_WorldMatrix[1] );
+	vsOut.o_WorldPos.z = dot( pos , U_WorldMatrix[2] );
+	vsOut.o_WorldPos.w = BumpScale;
+
+	// float2 tex_coord 		= IN.i_UV.xy * U_VSGeneralRegister0.x;// * 0.0001;
+	vsOut.o_Normal = IN.i_Normal.xyz;
+	//Triplanar texcoord
+	float2 vUVXY = { IN.i_Normal.z >= 0 ? IN.i_Position.x : -IN.i_Position.x, -IN.i_Position.y };
+	float2 vUVZY = { IN.i_Normal.x >= 0 ? -IN.i_Position.z : IN.i_Position.z, -IN.i_Position.y };
+	float2 tex_coord 		= IN.i_Position.xz * U_VSGeneralRegister0.x * 0.01;
+	float2 tex_coord1 		= vUVXY * U_VSGeneralRegister0.x * 0.01;
+	float2 tex_coord2		= vUVZY * U_VSGeneralRegister0.x * 0.01;
+	
+	float2 vDirection = float2(1.0, 0.0);
+	float windPower = 0.0;
+	
+	#ifdef USE_SELF_WIND
+		vDirection = U_VSGeneralRegister1.xy;
+		windPower = U_VSGeneralRegister1.z;
+	#else
+		vDirection = U_WindParams.xz;
+		windPower = U_WindParams.w;
+	#endif	
+
+	// vsOut.o_NoiseCoord0.xy 	= tex_coord       - vDirection * windPower * frac(time * 0.01);
+	// vsOut.o_NoiseCoord0.zw 	= tex_coord * 2.0 - vDirection * windPower * frac(time * 0.02);
+	// vsOut.o_NoiseCoord0.z *= -1.0;
+	// vsOut.o_NoiseCoord1.xy 	= tex_coord * 4.0 + vDirection * windPower * frac(time * 0.01);
+	// // vsOut.o_NoiseCoord1.zw 	= tex_coord * 8.0 + vDirection * windPower * frac(time * 0.005);
+	// vsOut.o_NoiseCoord1.x *= -1.0;
+
+	vsOut.o_NoiseCoord0.xy 	= tex_coord         - vDirection * windPower * frac(time * 0.01);
+	vsOut.o_NoiseCoord0.zw 	= tex_coord1        - vDirection * windPower * frac(time * 0.02);
+	vsOut.o_NoiseCoord0.z *= -1.0;
+	vsOut.o_NoiseCoord1.xy 	= tex_coord2        - vDirection * windPower * frac(time * 0.01);
+	vsOut.o_NoiseCoord1.x *= -1.0;
+
+	vsOut.o_NoiseCoord1.zw 	= tex_coord  * 2.0  - vDirection * windPower * frac(time * 0.01);
+	vsOut.o_NoiseCoord2.xy 	= tex_coord1 * 2.0  - vDirection * windPower * frac(time * 0.02);
+	vsOut.o_NoiseCoord2.x *= -1.0;
+	vsOut.o_NoiseCoord2.zw 	= tex_coord2 * 2.0  - vDirection * windPower * frac(time * 0.01);
+	vsOut.o_NoiseCoord2.z *= -1.0;
+
+	vsOut.o_NoiseCoord3.xy 	= tex_coord  * 4.0  + vDirection * windPower * frac(time * 0.01);
+	vsOut.o_NoiseCoord3.zw 	= tex_coord1 * 4.0  + vDirection * windPower * frac(time * 0.02);
+	vsOut.o_NoiseCoord3.z *= -1.0;
+	vsOut.o_NoiseCoord4.xy 	= tex_coord2 * 4.0  + vDirection * windPower * frac(time * 0.01);
+	vsOut.o_NoiseCoord4.x *= -1.0;
+
+	// vsOut.o_CausticBaseUV.xy =  tex_coord       - vDirection * windPower * frac(time * 0.005);
+	
+	vsOut.o_ViewPos = vsOut.o_Position;
+	vsOut.o_ViewPos.z = saturate( 1 - 0.15 * sqrt( saturate(vsOut.o_ViewPos.w) ) );
+	
+	#ifdef SOFT_BORDER
+		vsOut.o_ClipPos = vsOut.o_Position;
+		vsOut.o_CustomParam.xy = vPosInWorld.xz * 0.025;
+	#endif	
+
+	#ifdef VERTEX_COLOR
+		vsOut.o_VtColor = IN.i_VtColor;
+	#endif		
+	#ifdef EDITOR_MODE
+		#ifdef HierarchicalLOD
+			// vsOut.o_Position = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+		#endif
+	#endif	
+#endif
+
+	return vsOut;
+}

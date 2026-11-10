@@ -1,0 +1,150 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+#define _FUR 1
+
+struct VS_INPUT
+{
+	float3 i_Pos		: POSITION0;
+
+
+#ifndef SHADOWPASS
+	float3 i_Normal		: NORMAL0;
+	float4 i_Tangent	: TANGENT0;	
+	float2 i_UV			: TEXCOORD0;
+	#ifdef VERTEX_COLOR
+		float4 i_Diffuse	: COLOR0;
+	#endif
+#endif
+	
+#ifdef HWSKINNED
+	float4	blend	: BLENDWEIGHT0;
+	uint4	index	: BLENDINDICES0;
+#endif
+};
+
+struct VS_OUTPUT
+{
+	float4 o_Position	: SV_POSITION;
+
+#ifndef SHADOWPASS
+	float2 o_UV			: TEXCOORD0;
+	float3 o_WorldPos	: TEXCOORD1;
+	float3 o_WorldNormal: NORMAL0;
+	float4 o_FurOffset  : TEXCOORD3;
+	float4 o_Fog		: TEXCOORD6;
+	#ifdef USESHADOWMAP
+		float   o_ViewSpaceZ		: TEXCOORD7;
+	#endif
+	#ifdef VERTEX_COLOR
+		float4 o_Diffuse	: COLOR0;
+	#endif
+#endif
+
+};
+
+
+
+float4	U_WorldViewProjectMatrix[4];	
+float4  U_WorldMatrix[3];
+
+#ifdef HWSKINNED
+	float4	U_BoneMatrix[3 * Bone_Matrix_Max_Cnt];
+#endif
+
+#ifndef SHADOWPASS	
+	#ifdef VERTEX_EXCITATION
+		float4 U_VSGeneralRegister0;	//顶点扰动
+	#endif
+
+#endif
+								
+float4  U_VSGeneralRegister1;	// U_VSGeneralRegister1.x=_FurLength;
+								// U_VSGeneralRegister1.y=_DrawLayNum;
+
+float4  U_VSGeneralRegister2;	// U_VSGeneralRegister2.xyz=_GravityDirection;
+								// U_VSGeneralRegister2.w=_GravityStrength;
+
+VS_OUTPUT main(VS_INPUT IN, uint _InstanceID : SV_InstanceID)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+   	float4 pos = float4(IN.i_Pos.xyz, 1.0f);
+
+	float FUR_OFFSET = _InstanceID * (1.0 / (U_VSGeneralRegister1.y-1.0));
+	float3 _GravityDirection = U_VSGeneralRegister2.xyz;
+	float _GravityStrength = U_VSGeneralRegister2.w;
+	float _FurLength = U_VSGeneralRegister1.x;
+	
+	#ifdef HWSKINNED
+		float4	Weight		= IN.blend;
+		uint4  Index		= IN.index;
+
+		float4 BoneMatC0	= float4(0.0, 0.0, 0.0, 0.0);		
+		float4 BoneMatC1	= float4(0.0, 0.0, 0.0, 0.0);
+		float4 BoneMatC2	= float4(0.0, 0.0, 0.0, 0.0);
+
+		for(int i=0;i<4;++i)
+		{
+		    int idx = Index[i];
+			BoneMatC0	+=	U_BoneMatrix[idx * 3 + 0] * Weight[i];	
+			BoneMatC1	+=	U_BoneMatrix[idx * 3 + 1] * Weight[i];	
+			BoneMatC2	+=	U_BoneMatrix[idx * 3 + 2] * Weight[i];	
+		}
+	#endif
+
+
+	
+#ifdef  HWSKINNED
+	pos = float4(dot(BoneMatC0, pos), dot(BoneMatC1, pos), dot(BoneMatC2, pos), 1.0f);		
+#endif
+		
+#ifndef SHADOWPASS
+	vsOut.o_UV = IN.i_UV.xy;	
+	vsOut.o_FurOffset.x = FUR_OFFSET;
+	float4  normal =  float4(IN.i_Normal.xyz, 0.0f);
+	#ifdef  HWSKINNED
+		normal = float4(dot(BoneMatC0,normal),dot(BoneMatC1,normal),dot(BoneMatC2,normal),0.0f);
+	#endif
+	#ifdef VERTEX_EXCITATION
+		pos.xyz += normal.xyz * U_VSGeneralRegister0.x * sin(IN.i_UV.x * U_VSGeneralRegister0.y * U_VS_Time.x + IN.i_UV.y * U_VSGeneralRegister0.z * U_VS_Time.x);
+	#endif
+	
+	#if _FUR
+		float3 direction = lerp(normal, _GravityDirection * _GravityStrength + normal * (1.0 - _GravityStrength), FUR_OFFSET);
+		pos.xyz += direction * _FurLength * FUR_OFFSET;
+	#endif 
+
+	vsOut.o_WorldPos = mul((float3x4)U_WorldMatrix, pos);
+	
+	float4 tangent =  float4(IN.i_Tangent.xyz, 0.0f);
+	#ifdef  HWSKINNED
+		//normal = float4(dot(BoneMatC0, normal), dot(BoneMatC1, normal), dot(BoneMatC2, normal), 0.0f);	
+		tangent = float4(dot(BoneMatC0, tangent), dot(BoneMatC1, tangent), dot(BoneMatC2, tangent), 0.0f);		
+	#endif
+	
+	vsOut.o_WorldNormal = mul((float3x4)U_WorldMatrix, float4(normal.xyz, 0.0f));
+	
+	float3 camToWorld =  U_VS_CameraPosition.xyz - vsOut.o_WorldPos.xyz;
+
+	vsOut.o_Fog = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+
+	#ifdef USESHADOWMAP
+		float viewZ = -dot(U_MainCamViewMatrix, float4(vsOut.o_WorldPos.xyz, 1.0f));
+		vsOut.o_ViewSpaceZ = viewZ;
+	#endif
+
+	#ifdef VERTEX_COLOR
+		vsOut.o_Diffuse.rgb = pow(IN.i_Diffuse.rgb, 2.2f);
+		vsOut.o_Diffuse.a = IN.i_Diffuse.a;
+	#endif
+#endif
+
+	vsOut.o_Position.x = dot(U_WorldViewProjectMatrix[0], pos);
+	vsOut.o_Position.y = dot(U_WorldViewProjectMatrix[1], pos);
+	vsOut.o_Position.z = dot(U_WorldViewProjectMatrix[2], pos);
+	vsOut.o_Position.w = dot(U_WorldViewProjectMatrix[3], pos);
+	
+
+
+	return vsOut;
+}

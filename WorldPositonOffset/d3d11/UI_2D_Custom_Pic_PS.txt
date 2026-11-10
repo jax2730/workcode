@@ -1,0 +1,83 @@
+
+#include <Common_Uniform_PS.inl>
+
+struct PS_INPUT
+{
+    float4 i_Position	 : SV_POSITION;
+    float4 i_vertexColor : TEXCOORD0;
+
+    float2 i_clipPos     : COLOR0;
+};
+
+struct PS_OUTPUT
+{
+	float4 color : SV_TARGET;
+};
+
+float4 U_PSCustom0;
+
+#define HDRFactor U_PSCustom0.x
+#define alpha     U_PSCustom0.y
+#define u_gray U_PSCustom0.z // NOTE: 1.0f == gray, 0 == normal.   
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut;
+
+    //NOTE: Clip.
+    // TODO(yanghang): Optimize, blend_verge relative calculate can be constant.
+    float2 factor = IN.i_clipPos;
+
+    float right_bottom_clip_alpha;
+    float max_factor = max(factor.x, factor.y);
+    float blend_verge = 0.005f;
+    float blend_verge_inv = 1.0f / blend_verge; 
+    if(max_factor > 1.0f)
+    {
+        // Edge blend
+    
+        float verge_value = clamp(max_factor, 1.0f, (1.0f + blend_verge));
+        verge_value -= 1.0f;
+        verge_value = blend_verge - verge_value;
+        
+        right_bottom_clip_alpha = verge_value * blend_verge_inv; 
+    }
+    else
+    {
+        // Pass test.
+        right_bottom_clip_alpha = 1.0f;
+    }
+    
+    float left_top_clip_alpha;
+    float min_factor = min(factor.x, factor.y);
+    if(min_factor < 0)
+    {
+        // Edge blend
+        float verge_value = clamp(min_factor, -blend_verge, 0);
+        verge_value = blend_verge + verge_value;
+        left_top_clip_alpha = verge_value * blend_verge_inv;
+    }
+    else
+        left_top_clip_alpha = 1.0f;
+
+    psOut.color = IN.i_vertexColor;
+    psOut.color.rgb = pow(psOut.color.rgb, 2.2);
+    psOut.color.a *= right_bottom_clip_alpha * left_top_clip_alpha;
+
+    psOut.color.a *= alpha;
+
+    psOut.color.rgb *= HDRFactor;
+    if(u_gray == 1.0f)
+	{
+    	float color_gray = (psOut.color.r + psOut.color.g + psOut.color.b) * 0.33333333333333f;
+    	psOut.color.rgb = lerp(psOut.color.rgb, float3(color_gray, color_gray, color_gray), u_gray);
+    }
+    
+    psOut.color.rgb = pow(psOut.color.rgb, 1.0 / 2.2);
+
+    //TODO(yanghang):Overdraw debug effect,maybe need remove.
+    float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.color = psOut.color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+    
+    return psOut;
+}

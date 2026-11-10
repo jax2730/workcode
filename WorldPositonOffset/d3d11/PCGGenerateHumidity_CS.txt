@@ -1,0 +1,284 @@
+#include "CubeSphereMapping.inl"
+#include "ImageProcessing.inl"
+
+#define TapCount	32
+#ifdef PROCEDURAL_SPHERE
+#include "SimplexNoise3D.inl"
+struct GridUniforms
+{
+    float2 offset;
+    float2 gridSize;
+    uint slice;
+    float3 padding;
+};
+
+uniform GridUniforms U_CSCustom1;
+#endif
+
+struct AoSampleUniforms
+{
+	float4 samples[TapCount];
+};
+
+struct PCGGenHmdUniforms
+{
+	float amplitude;
+	int outputVariance;
+	int processBrightness;
+	float brightness;
+
+	int processExposure;
+	float exposure;
+	float exposureOffset;
+	float gammaInv;
+
+	int processInvert;
+	int processClamp;
+	float clampMin;
+	float clampMax;
+	
+	float4 noiseSeed;
+	
+	float noiseFreq;
+	float noiseStr;
+	float2 pad;
+};
+
+uniform PCGGenHmdUniforms U_CSCustom2;
+#define humidityUniform U_CSCustom2
+uniform AoSampleUniforms U_CSCustom4;
+
+RWTexture2D<unorm float> S_2DExt0;
+#define humidityMap S_2DExt0
+
+#ifdef PROCEDURAL_SPHERE
+Texture2D<float> S_2DExt1;
+Texture2D<float> S_2DExt2;
+Texture2D<float> S_2DExt3;
+Texture2D<float> S_2DExt4;
+Texture2D<float> S_2DExt5;
+Texture2D<float> S_2DExt6;
+#define face0 S_2DExt1
+#define face1 S_2DExt2
+#define face2 S_2DExt3
+#define face3 S_2DExt4
+#define face4 S_2DExt5
+#define face5 S_2DExt6
+#endif
+
+#ifdef PROCEDURAL_TORUS
+Texture2D<float> S_2DExt1;
+SamplerState S_2DExt1SamplerState;
+#define map S_2DExt1
+#define pointWrap S_2DExt1SamplerState
+#endif
+
+// Rotating using Matrices is 6 additions and 9 multiplications. Rotating using quaternions has the following costs:
+// 
+// Generic quaternion multiplies: 24 add, 32 mul
+// specialized quaternion multiplies (best case): 17 add, 24 mul
+// convert to matrix, then transform: 18 add, 21 mul (including conversion cost of 12 add and 12 mul)
+float3x3 RotationFromTo(float3 from, float3 to)
+{
+	float c  = dot(from, to);
+	float3 k = cross(from, to);
+    //float s  = length(k);
+	float3x3 vx = float3x3(
+        float3(0.0, k.z, -k.y),
+        float3(-k.z, 0.0, k.x),
+        float3(k.y, -k.x, 0.0));
+    // Rodrigues' rotation formula
+    // https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d
+	float3x3 r3 = float3x3(
+        float3(1, 0, 0),
+        float3(0, 1, 0),
+        float3(0, 0, 1)) + vx + mul(vx, vx) / (1 + c);
+	return r3;
+}
+
+float4 QuaternionAxisToAxis(float3 from, float3 to)
+{
+	float4 q;
+	float3 vA = from;
+	float3 vB = to;
+	float3 vHalf = vA;
+	vHalf += vB;
+	vHalf = normalize(vHalf);
+	float3 vAxis = cross(vA, vHalf);
+	q = float4(vAxis, dot(vA, vHalf));
+	return q;
+}
+
+float3 QuaternionRotation(float4 q, float3 v)
+{
+	float3 uv, uuv;
+	float3 qvec = float3(q.x, q.y, q.z);
+	uv = cross(qvec, v);
+	uuv = cross(qvec, uv);
+	uv *= (2.0f * q.w);
+	uuv *= 2.0f;
+	
+	return v + uv + uuv;
+}
+
+[numthreads(16, 16, 1)]
+void main(uint3 udtId : SV_DispatchThreadID)
+{
+	int3 dtId = udtId;
+
+	uint2 wh;
+    humidityMap.GetDimensions(wh.x, wh.y);
+	
+	float ao = 0.0f;
+	float wSum = 0.0f;
+	float elevation;
+	
+	float sumElevation = 0.0f;
+	float sumElevationSq = 0.0f;
+	float sampleCount = 0.0f;
+#ifdef PROCEDURAL_SPHERE
+	uint face = U_CSCustom1.slice;
+	float2 gridOffset = U_CSCustom1.offset + float2(dtId.x, dtId.y) * U_CSCustom1.gridSize;
+	float3 cubeVertex = GetCubeVertex(face, gridOffset);
+	float3 unitSphere = normalize(cubeVertex);
+	//float4 q = QuaternionAxisToAxis(float3(0, 1, 0), unitSphere);
+	float3x3 rot = RotationFromTo(float3(0, 1, 0), unitSphere);
+
+	[branch]
+	switch (face)
+	{
+		case 0:
+			elevation = face0[udtId.xy].r;
+			break;
+		case 1:
+			elevation = face1[udtId.xy].r;
+			break;
+		case 2:
+			elevation = face2[udtId.xy].r;
+			break;
+		case 3:
+			elevation = face3[udtId.xy].r;
+			break;
+		case 4:
+			elevation = face4[udtId.xy].r;
+			break;
+		case 5:
+			elevation = face5[udtId.xy].r;
+			break;
+	}
+#endif
+#ifdef PROCEDURAL_TORUS
+	elevation = map[udtId.xy].r;
+	float2 centre = (float2(udtId.xy) + 0.5) / wh;
+#endif
+	
+	[unroll]
+	for (int i = 0; i < TapCount * 2; i++)
+	{
+		float3 samplePoint = U_CSCustom4.samples[i >> 1].xyz;
+		if (i % 2 == 1) 
+		{
+			samplePoint = float3(-samplePoint.x, samplePoint.y, -samplePoint.z);
+		}
+		float w = U_CSCustom4.samples[i >> 1].w;
+		
+		float elevation2;
+#ifdef PROCEDURAL_SPHERE
+		//samplePoint = QuaternionRotation(q, samplePoint);
+		samplePoint = mul(samplePoint, rot);
+		
+		float2 xy;
+		uint _face;
+		MapToCube(samplePoint, _face, xy);
+		
+		int2 ixy = clamp(int2(round((xy * 0.5 + 0.5) * (wh - 1))), 0, (wh - 1));
+		
+		[branch]
+		switch (_face)
+		{
+			case 0:
+				elevation2 = face0[ixy].r;
+				break;
+			case 1:
+				elevation2 = face1[ixy].r;
+				break;
+			case 2:
+				elevation2 = face2[ixy].r;
+				break;
+			case 3:
+				elevation2 = face3[ixy].r;
+				break;
+			case 4:
+				elevation2 = face4[ixy].r;
+				break;
+			case 5:
+				elevation2 = face5[ixy].r;
+				break;
+		}
+#endif
+#ifdef PROCEDURAL_TORUS
+		float2 uv = centre + samplePoint.xz;
+		elevation2 = map.SampleLevel(pointWrap, uv, 0).r;
+#endif
+		float delta = elevation2 - elevation;
+		if (humidityUniform.outputVariance)
+		{
+			sumElevation += elevation2;
+			sumElevationSq += elevation2 * elevation2;
+			sampleCount += 1.0f;
+		}
+		else if (delta > 1e-6)
+		{
+			ao += delta * w;
+			wSum += w;
+		}
+	}
+	
+	if (humidityUniform.outputVariance)
+	{
+		float mean = sumElevation / max(sampleCount, 1e-6);
+		float deviation = sqrt(sumElevationSq / max(sampleCount, 1e-6) - mean * mean);
+		float normalizedDeviation = deviation * humidityUniform.amplitude; // ao is your computed variance
+		humidityMap[dtId.xy] = normalizedDeviation;
+		return;
+	}
+	else
+	{
+		ao /= max(wSum, 1e-6);
+		ao *= humidityUniform.amplitude;
+		ao *= rsqrt(1.0 + ao * ao);
+		ao = 1 - ao;
+	}
+	
+	float humidity = ao;
+	
+#ifdef PROCEDURAL_SPHERE
+	[branch]
+	if (humidityUniform.noiseStr > 0)
+	{
+		humidity += SimplexFBM(unitSphere * humidityUniform.noiseFreq, 4, humidityUniform.noiseSeed) * humidityUniform.noiseStr;
+	}
+#endif
+
+	if (humidityUniform.processBrightness)
+	{
+		humidity = ImageProcessing::Brightness(humidity, pow(1.015f, humidityUniform.brightness));
+	}
+
+	if (humidityUniform.processExposure)
+	{
+		humidity = ImageProcessing::Exposure(humidity, humidityUniform.exposure, humidityUniform.exposureOffset, humidityUniform.gammaInv);
+	}
+
+	if (humidityUniform.processInvert)
+	{
+		humidity = ImageProcessing::Invert(humidity);
+	}
+
+	if (humidityUniform.processClamp)
+	{
+		humidity = ImageProcessing::Clamp(humidity, humidityUniform.clampMin, humidityUniform.clampMax);
+	}
+
+    humidityMap[dtId.xy] = humidity;
+}

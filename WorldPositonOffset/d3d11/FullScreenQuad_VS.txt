@@ -1,0 +1,29 @@
+struct VS_OUTPUT
+{
+	float4 Position : SV_POSITION;
+	float4 TexCoord : TEXCOORD0;
+};
+
+static const float2 uv[4] = 
+{
+	float2(0.0f, 0.0f),
+	float2(0.0f, 1.0f),
+	float2(1.0f, 0.0f),
+	float2(1.0f, 1.0f)
+};
+
+static const float4 pos[4] = 
+{
+	float4(-1.0f, 1.0f, 0.0f, 1.0f),
+	float4(-1.0f, -1.0f, 0.0f, 1.0f),
+	float4(1.0f, 1.0f, 0.0f, 1.0f),
+	float4(1.0f, -1.0f, 0.0f, 1.0f)
+};
+
+VS_OUTPUT main(uint vtxId : SV_VertexID)
+{
+	VS_OUTPUT output;
+	output.Position = pos[vtxId];
+	output.TexCoord = float4(uv[vtxId], 0.0, 0.0);
+	return output;
+}

@@ -1,0 +1,127 @@
+#include <AtmosphereDataStructures.inl>
+
+Texture2D<float4> S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+#define TransmittanceTex S_2DExt0
+#define BilinearSampler S_2DExt0SamplerState
+
+#ifdef HIGHQUALITY_MULTISCATTERING_APPROX_ENABLED
+    uniform float4 U_PSCustom2[SPHERE_SAMPLE_COUNT];
+    #define UniformSamplesOverSphere U_PSCustom2
+#endif
+
+#include <FastMathThirdParty.inl>
+#include <AtmosphereCommon.inl>
+#include <AtmosphereScattering.inl>
+
+RWTexture2D<float4> S_2DExt1;
+#define MultiScatteredLuminanceLut S_2DExt1
+
+[numthreads(THREADGROUP_SIZE, THREADGROUP_SIZE, 1)]
+void main(uint3 tId : SV_DISPATCHTHREADID)
+{
+
+    // map texels to planet lighting params
+    // pixelPox.x : lightDir
+    // pixelPos.y : altitude
+    float2 pixelPos = float2(tId.xy) + 0.5f;
+    float cosLightZenithAngle = (pixelPos.x * SkyAtmosphere.multiScatteredLuminanceLutSizeAndInvSize.z) * 2.0f - 1.0f;
+    float3 lightDir = float3(0.f, 
+        sqrt(saturate(1.f - cosLightZenithAngle * cosLightZenithAngle)), cosLightZenithAngle); // z is up
+    float viewHeight = Atmosphere.bottomRadius + 
+        (pixelPos.y * SkyAtmosphere.multiScatteredLuminanceLutSizeAndInvSize.w) * (Atmosphere.topRadius - Atmosphere.bottomRadius);
+
+    const float3 oneIlluminance = float3(1.f, 1.f, 1.f); // assuming a uniform light
+
+    // cameraPos
+    float3 worldPos = float3(0.f, 0.f, viewHeight);
+    
+    SamplingSetup sampling = (SamplingSetup)0;
+    {
+        // use constant sample count
+        sampling.variableSampleCount  = false;
+        sampling.sampleCountIni = SkyAtmosphere.multiScatteringSampleCount;
+    }
+
+    const bool ground = true;               // consider ground reflection
+    const float deviceZ = FAR_DEPTH_VALUE;
+    const bool mieRayPhase = false;
+    const float aerialPerspectiveViewDistanceScale = 1.f;
+
+    const float sphericalSolidAngle = 4.f * PI;
+    const float isotropicPhase = 1.f / sphericalSolidAngle;
+
+#ifdef HIGHQUALITY_MULTISCATTERING_APPROX_ENABLED
+    // high quality: uniformly sampling the surrounding sphere
+    float3 integratedIlluminance = 0.f;
+    float3 multiScatAs1 = 0.f;
+    for(int s = 0; s < SPHERE_SAMPLE_COUNT; ++s)
+    {
+        SingleScatteringResult r0 = IntegrateSingleScatteredLuminance(
+            float4(pixelPos, 0.f, 1.f), 
+            worldPos, 
+            UniformSamplesOverSphere[s].xyz, 
+            ground,
+            sampling,
+            deviceZ,
+            mieRTayPhase,
+            lightDir,
+            oneIlluminance,
+            aerialPerspectiveViewDistanceScale);
+
+        integratedIlluminance += r0.L;
+        multiScatAs1 += r0.multiScatAs1; 
+    }
+    const float invCount = 1.f / float(SphereSamplesBufferSampleCount);
+    integratedIlluminance *= sphericalSolidAngle * invCount;
+    multiScatAs1 *= invCount;
+
+    float3 inScatteredLuminance = integratedIlluminance * isotropicPhase;
+#else
+    // low quality: only sampling up and down two directions 
+
+    // cheap and good enough approximation(but lose energy)
+    float3 worldDir = float3(0.f, 0.f, 1.f);
+
+    SingleScatteringResult r0 = IntegrateSingleScatteredLuminance(
+        float4(pixelPos, 0.0f, 1.f), 
+        worldPos,
+        worldDir,
+        ground,
+        sampling,
+        deviceZ,
+        mieRayPhase,
+        lightDir,
+        oneIlluminance,
+        aerialPerspectiveViewDistanceScale);
+
+    SingleScatteringResult r1 = IntegrateSingleScatteredLuminance(
+        float4(pixelPos, 0.f, 1.f),
+        worldPos,
+        -worldDir,
+        ground,
+        sampling,
+        deviceZ,
+        mieRayPhase,
+        lightDir,
+        oneIlluminance,
+        aerialPerspectiveViewDistanceScale);
+    
+    float3 integratedIlluminance = (sphericalSolidAngle / 2.f) * (r0.L + r1.L);
+    float3 multiScatAs1 = 0.5f * (r0.multiScatAs1 + r1.multiScatAs1);
+    float3 inScatteredLuminance = integratedIlluminance * isotropicPhase;
+#endif
+
+// multiscattering lut scattering func
+#if MULTI_SCATTERING_POWER_SERIE == 0
+    float3 multiScatAs1Sqr = multiScatAs1 * multiScatAs1;
+    float3 L = inScatteredLuminance * (1.f + multiScatAs1 + multiScatAs1Sqr + 
+        multiScatAs1 * multiScatAs1Sqr + multiScatAs1Sqr * multiScatAs1Sqr);
+#else
+    const float3 R = multiScatAs1;
+    const float3 sumOfAllMultiScatteringEventsContribution = 1.f / (1.f - R);
+    float3 L = inScatteredLuminance * sumOfAllMultiScatteringEventsContribution;
+#endif
+
+    MultiScatteredLuminanceLut[int2(pixelPos)] = float4(L * Atmosphere.groundAlbedo_multiScatteringFactor.w, 0.f);
+} 

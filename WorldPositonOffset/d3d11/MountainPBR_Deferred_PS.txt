@@ -1,0 +1,321 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+#include <Light_Function_PS.inl>
+#include <EnvironmentLight_Function.inl>
+#include <Common_Function_PS.inl>
+#include <Common_GBuffers.inl>
+
+#ifndef BUMP_MAP
+	#undef RIPPLE
+#endif
+
+//-----------------------------------------------------------------------------
+// Uniforms
+//-----------------------------------------------------------------------------
+float4	U_MaterialDiffuse;
+float4	U_MaterialSpecular;
+float4	U_MaterialCustomParam;
+
+float4	U_PSGeneralRegister0;	// x: uv tilling, y: bump scale, z: roughness base, w: view light precent
+float4	U_PSGeneralRegister17;
+
+//-----------------------------------------------------------------------------
+// Textures & Samplers
+//-----------------------------------------------------------------------------
+Texture2D	S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+Texture2D	S_Bump;
+SamplerState S_BumpSamplerState;
+
+#ifdef RIPPLE
+    Texture2D	S_Ripple;
+    SamplerState S_RippleSamplerState;
+    
+    float4 ComputeRipple(float2 uv, float t)
+    {
+        //波纹贴图采样，并把采样的高度值扩展到-1到1。
+        float4 ripple = S_Ripple.Sample(S_RippleSamplerState, uv);
+        float gloss = ripple.y;
+        ripple.yz = ripple.yz * 2.0 - 1.0;
+        //获取波纹的时间,从A通道获取不同的波纹时间,
+        float dropFrac = frac(ripple.a + t);
+        //把时间限制在R通道内	
+        float timeFrac = dropFrac - 1.0 + ripple.x;
+        //做淡出处理
+        float dropFactor = 1.0f-saturate( dropFrac);
+        //计算最终的高度，用一个sin计算出随时间的振幅	 
+        float final = dropFactor* sin(clamp(timeFrac * 9.0, 0.0, 4.0) * 3.1415926);
+        return float4(ripple.yz * final, 1.0, (final ) * 0.2);
+    }
+#endif	
+
+#ifdef DECAL1
+    Texture2D S_Custom;
+    SamplerState S_CustomSamplerState;
+    float4 U_PSGeneralRegister1; // x: uv tilling, y: bump scale, z: roughness base, w: bump alpha
+    float4 U_PSGeneralRegister2; // xyz: decal color, w: decal color alpha
+#endif
+
+#ifdef DECAL2
+    Texture2D S_Custom2;
+    SamplerState S_Custom2SamplerState;
+    float4 U_PSGeneralRegister3; // x: uv tilling, y: bump scale, z: roughness base, w: bump alpha
+    float4 U_PSGeneralRegister4; // xyz: decal color, w: decal color alpha
+#endif
+
+#ifdef COVER_WEATHER
+    float4 U_PSGeneralRegister5;
+    #ifdef COVER_CUSTOM
+        Texture2D S_Custom3;
+        SamplerState S_Custom3SamplerState;
+    #endif
+#endif
+
+// Helper for Decals
+#if defined(DECAL1) || defined(DECAL2)
+    void sampleDecalTex(in Texture2D texDecal, in SamplerState texDecalSamplerState, in float2 uv, in float fBumpScale,
+            in float3 cDecalColor, out float3 vNormal, out float3 cDiffuse)
+    {
+        float4 cTexDecal = texDecal.Sample(texDecalSamplerState, uv);
+        vNormal = cTexDecal.rgb * 2.f - 1.f;
+        vNormal.xy *= fBumpScale;
+        cDiffuse = cDecalColor.rgb * cTexDecal.aaa;
+        cDiffuse.rgb = pow(cDiffuse.rgb, 2.2f);
+    }
+#endif
+
+#define PS_OUTPUT GBuffers
+
+//-----------------------------------------------------------------------------
+// Input Struct
+//-----------------------------------------------------------------------------
+struct PS_INPUT
+{
+    float4	i_PosInClip			: SV_POSITION;
+    float4 	i_UV				: TEXCOORD0;
+    float4	i_WPos				: TEXCOORD1;
+    float4	i_Normal			: TEXCOORD2;
+    float4	i_Binormal			: TEXCOORD3;
+    float4	i_Tangent			: TEXCOORD4;
+    float4 	i_Fog				: TEXCOORD5;
+#ifdef USESHADOWMAP
+    float	i_ViewSpaceZ					: TEXCOORD6;
+#endif
+#ifdef PARABOLOID_MAPPING
+    float	i_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+//-----------------------------------------------------------------------------
+// Main
+//-----------------------------------------------------------------------------
+PS_OUTPUT main(PS_INPUT IN)
+{
+    PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+#ifdef PARABOLOID_MAPPING
+    clip(IN.i_ClipDepth);
+#endif
+
+    // 1. UV & Base Color
+    float2 uv = IN.i_UV.xy;
+    #ifdef UV_TILLING
+        uv *= U_PSGeneralRegister0.x;
+    #endif
+
+    half4 diffuseColor = S_Diffuse.Sample(S_DiffuseSamplerState, uv);
+    #ifdef ALPHA_TEST
+        clip(diffuseColor.a - U_MaterialDiffuse.a);
+    #endif
+
+    half3 baseMap = pow(diffuseColor.rgb, 2.2);
+
+    // 2. Normal Mapping Setup
+    half3 nn = normalize(IN.i_Normal.xyz);
+
+	#ifdef USESHADOWMAP
+		float4 shadowSpacePos[SHADOWSPLITE];
+		ProjectToLightSpace(shadowSpacePos, IN.i_WPos.xyz, nn, IN.i_ViewSpaceZ);
+	#endif
+
+    half3 tn = normalize(IN.i_Tangent.xyz);
+    half3 bn = normalize(IN.i_Binormal.xyz);
+    tn = normalize(tn - nn * dot(tn, nn));
+    bn = normalize(bn - nn * dot(bn, nn));
+
+    half3x3 tbn = 
+    {
+        tn.x, bn.x, nn.x,
+        tn.y, bn.y, nn.y,
+        tn.z, bn.z, nn.z 
+    };
+
+    float4 bumpColor = S_Bump.Sample(S_BumpSamplerState, uv); 
+    half3 bump = bumpColor.rgb * 2.0 - 1.0;
+    bump.z = sqrt(1.0 - (bump.x * bump.x + bump.y * bump.y));
+    bump.xy *= U_PSGeneralRegister0.yy;
+
+    // 3. PBR Params Initialization
+    half metallic = 0.0; // Mountain is non-metal
+    half roughness = 0.0001;
+    half ao = 1.0;
+    roughness = clamp(roughness + U_PSGeneralRegister0.z, 0.0, 1.0);
+
+    // 4. Decals
+    #ifdef DECAL1
+        float3 vDecalBump1 = float3(0.f, 0.f, 1.f);
+        float3 cDecalDiffuse1 = float3(1.f, 1.f, 1.f);
+        sampleDecalTex(S_Custom,S_CustomSamplerState, IN.i_UV.xy * U_PSGeneralRegister1.xx, U_PSGeneralRegister1.y,
+                U_PSGeneralRegister2.rgb, vDecalBump1, cDecalDiffuse1);
+        bump.xy += vDecalBump1.xy * saturate(bumpColor.z - (1.f - U_PSGeneralRegister1.w));
+
+        float fDecalDiffuseMask1 = saturate(bumpColor.z - (1.f - U_PSGeneralRegister2.w));
+        #ifdef DECALCOLORMIX1
+            baseMap = lerp(baseMap, cDecalDiffuse1, fDecalDiffuseMask1);
+        #else
+            baseMap = lerp(baseMap, baseMap * cDecalDiffuse1, fDecalDiffuseMask1);
+        #endif
+        roughness = lerp(roughness, U_PSGeneralRegister1.z, fDecalDiffuseMask1);
+    #endif
+
+    #ifdef DECAL2
+        float3 vDecalBump2 = float3(0.f, 0.f, 1.f);
+        float3 cDecalDiffuse2 = float3(1.f, 1.f, 1.f);
+        sampleDecalTex(S_Custom2,S_Custom2SamplerState, IN.i_UV.xy * U_PSGeneralRegister3.xx, U_PSGeneralRegister3.y,
+                U_PSGeneralRegister4.rgb, vDecalBump2, cDecalDiffuse2);
+        bump.xy += vDecalBump2.xy * saturate((1.f - bumpColor.z) - (1.f - U_PSGeneralRegister3.w));
+        float fDecalDiffuseMask2 = saturate((1.f - bumpColor.z) - (1.f - U_PSGeneralRegister4.w));
+        #ifdef DECALCOLORMIX2
+            baseMap = lerp(baseMap, cDecalDiffuse2, fDecalDiffuseMask2);
+        #else
+            baseMap = lerp(baseMap, baseMap * cDecalDiffuse2, fDecalDiffuseMask2);
+        #endif
+        roughness = lerp(roughness, U_PSGeneralRegister3.z, fDecalDiffuseMask2);
+    #endif
+
+    // 5. Ripple
+    #ifdef RIPPLE
+        float s = clamp(dot(nn, float3(0.0,1.0,0.0)), 0.0, 1.0) ;
+        s = pow(s, 5.0);
+        bump.xy  *= (1.0 - s * 0.9f);
+        double time = U_PS_Time.x;
+        float time01 = U_PS_Time.y * 0.1591549; //U_PS_Time.y / PI / 2
+        float2 rUV = IN.i_WPos.xz * 0.25f;
+        float rOffset = floor(U_PS_Time.x * 0.5f) * 0.1f;
+        float4 ripple = ComputeRipple(rUV + rOffset, time01 * 3.0f);
+        rUV = IN.i_WPos.xz * 0.25f + 0.25f;
+        rOffset = floor(U_PS_Time.x * 0.5f + 0.25f) * 0.1f;
+        float4 ripple2 = ComputeRipple(rUV + float2(rOffset, -rOffset), time01 * 3.0f);
+        float rLerp1 =  sin(time01 * 3.1415);
+        float rLerp2 =  1.0 - rLerp1;
+        bump.xy += rLerp1 * ripple.xy * s;
+        bump.xy += rLerp2 * ripple2.xy * s;		
+    #endif
+
+    // Final Normal
+    bump.xyz = normalize(bump.xyz);
+    float3 N = normalize(mul(tbn, bump));
+    
+    // 6. Aging & Weather Cover
+    float coverLerp = dot(N, U_PS_GravityDirection.xyz);
+    coverLerp = clamp(coverLerp, 0.0, 1.0);
+    float agingLerp = coverLerp * U_PSGeneralRegister17.w;
+    agingLerp = clamp(agingLerp, 0.0, 1.0);
+    half3 agingColor = pow(U_GlobalAgingColour.rgb, 2.2);
+    baseMap.rgb = lerp(baseMap.rgb, agingColor, agingLerp);			
+    
+    #ifdef COVER_WEATHER
+        coverLerp += U_PSGeneralRegister5.z;
+        coverLerp = clamp(coverLerp, 0.0, 1.0);
+        half3 coverMap = U_WeatherParam0.xyz;
+        #ifdef COVER_CUSTOM
+            float2 coverUV = uv * U_PSGeneralRegister5.ww;
+            half3 coverCustomMap = pow(S_Custom3.Sample(S_Custom3SamplerState, coverUV).rgb, 2.2);
+            coverMap = lerp(coverCustomMap, coverMap, U_WeatherParam0.www);
+        #else
+            coverLerp *= U_WeatherParam0.w;
+        #endif
+
+        float2 rm = U_WeatherParam1.xy;
+        #ifdef COVER_CUSTOM
+            rm = U_PSGeneralRegister5.xy;
+        #endif
+        roughness = lerp(roughness, rm.x, coverLerp);
+        metallic = lerp(metallic, rm.y, coverLerp);
+        baseMap = lerp(baseMap, coverMap, coverLerp);
+    #endif
+
+    #ifdef RIPPLE
+        roughness = clamp(roughness - 0.4f, 0.0, 1.0);
+    #endif
+    roughness = max(roughness , 1e-6);
+
+    // 7. G-Buffer Output
+    //-----------------------------------------------------------------------------------------------------
+    float shadowFactor = 1.0;
+    #ifdef USESHADOWMAP
+        shadowFactor = calcShadowFactor(shadowSpacePos, IN.i_ViewSpaceZ);
+        shadowFactor = min(shadowFactor, 1.0);
+    #endif
+
+    half3 encodedNormal = EncodeNormal(N);
+    
+    // Shading Model setup
+    uint useRoleMainLight = 1; // Default
+    uint receiveShadow = 1;
+    #ifndef USESHADOWMAP
+        receiveShadow = 0;
+    #endif
+    uint useEnvironmentMap = 1; // Mountain typically uses IBL
+    uint usePointLight = 0;
+    #ifdef CLUSTER_POINT_LIGHT
+        usePointLight = 1;
+    #endif
+
+    half shadingModel = EncodeShadingModel(
+        useRoleMainLight,
+        receiveShadow,
+        useEnvironmentMap,
+        usePointLight,
+        1 // ShadingModelID = 1 (Standard PBR)
+    );
+
+    // G0: Albedo (Gamma Encoded)
+    psOut.g0.xyz = pow(baseMap, 1.0 / 2.2);
+    psOut.g0.w = diffuseColor.a;
+
+    // G1: Normal + Shadow
+    psOut.g1.xyz = encodedNormal;
+    psOut.g1.w = shadowFactor;
+
+    // G2: Metallic, Roughness, AO, ShadingModel
+    psOut.g2.x = metallic;
+    psOut.g2.y = roughness;
+    psOut.g2.z = ao;
+    psOut.g2.w = shadingModel;
+
+    // SC: Emission (Mountain is mostly static, no emission unless override)
+    psOut.sc.xyz = 0.0; 
+    
+    // Editor Overrides
+    #ifdef EDITOR_MODE
+        if(U_MaterialCustomParam.w > 0)
+        {
+            psOut.sc.xyz = U_MaterialCustomParam.xyz;
+            psOut.g0.rgb = 0.0;
+            psOut.g2.w = 0.0;
+        }
+    #endif
+
+    #ifdef EditorHelp
+        psOut.g0.rgb = psOut.g0.rgb * 0.00001 + float3(1.0,0.0,0.0);
+        psOut.g0.w = 1.0;
+        psOut.g2.w = 0.0;
+    #endif
+
+    psOut.sc.w = 1.0;
+
+    return psOut;
+}

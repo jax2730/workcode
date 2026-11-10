@@ -1,0 +1,23 @@
+uniform Texture2D S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+float4 U_PSCustom0;
+
+struct PS_INPUT
+{
+    float4 i_Position	: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+    PS_OUTPUT psOut = (PS_OUTPUT)0.f;
+    float2 uv = float2(IN.i_UV.xy * U_PSCustom0.xy);
+    psOut.o_Color = S_2DExt0.Sample(S_2DExt0SamplerState, uv);
+    return psOut;
+}

@@ -1,0 +1,40 @@
+
+#include <Common_Uniform_VS.inl>
+
+uniform float4 U_VSCustom0;
+uniform float4 U_VSCustom1;
+uniform float4 U_VSCustom2;
+uniform float4 U_VSCustom3;
+
+struct VS_INPUT
+{
+    float4 i_Pos		: POSITION0;
+	float4 i_UV			: TEXCOORD0;	
+};
+
+struct VS_OUTPUT
+{
+    float4 o_PosInClip		: SV_POSITION;
+    float4 o_UV				: TEXCOORD0;
+    float4 o_ViewDir        : TEXCOORD1;
+    float4 o_PositionHCS    : TEXCOORD2;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+    VS_OUTPUT vsOut = (VS_OUTPUT)0;
+    float4 pos = float4(IN.i_Pos.xyz, 1.0f);
+
+    vsOut.o_PosInClip = pos;
+    vsOut.o_ViewDir = float4(0.f, 0.f, -1.f, 0.f);
+
+    #ifdef REVERSE_DEPTH
+        vsOut.o_PosInClip.z = 0.0f;
+    #else
+        vsOut.o_PosInClip.z = vsOut.o_PosInClip.w;
+    #endif
+    
+    vsOut.o_PositionHCS = float4(vsOut.o_PosInClip.xyz / vsOut.o_PosInClip.w, 1.f);
+    vsOut.o_UV = IN.i_UV;
+    return vsOut;
+}

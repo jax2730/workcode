@@ -1,0 +1,121 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+float4 U_WorldViewProjectMatrix[4];
+
+uniform float4 U_VSCustom0;
+
+const static float3 EARTHCENTER = float3(0.0, -800000.0, 0.0);
+const static float3 RADIUS = 800000.0;
+
+struct VS_INPUT
+{
+	float3	i_POS		: POSITION0;
+	float2	i_UV		: TEXCOORD0;
+};
+
+struct VS_OUTPUT
+{
+	float4 	o_PosInClip		: SV_POSITION;
+	float3 	o_PosInWorld	: POSITION0;
+	float4 	o_ClipPos    	: TEXCOORD0;
+	float4	o_FogColor		: TEXCOORD1;
+
+	float4 	bumpCoord0 		: TEXCOORD2;
+	float4 	bumpCoord1 		: TEXCOORD3;
+	float3 	rotMatrix1 		: TEXCOORD4; // first row of the 3x3 transform from tangent to obj space
+	float3 	rotMatrix2 		: TEXCOORD5; // second row of the 3x3 transform from tangent to obj space
+	float3 	rotMatrix3 		: TEXCOORD6; // third row of the 3x3 transform from tangent to obj space
+};
+
+struct Wave {
+  float freq;  // 2*PI / wavelength
+  float amp;   // amplitude
+  float phase; // speed * 2*PI / wavelength
+  float2 dir;
+};
+
+
+float3 remapPosition(float3 pos)
+{
+	pos -= U_VS_CameraPosition.xyz;
+	float3 dir = normalize(pos - EARTHCENTER);
+	float height = pos.y;
+	return dir * (RADIUS + height) + U_VS_CameraPosition.xyz + EARTHCENTER;
+}
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	
+	float4 worldPos = float4(IN.i_POS.xyz, 1.0) - U_VSCustom0;
+	//worldPos.xyz = remapPosition(worldPos.xyz);
+
+	float2 tex_coord 		= IN.i_UV;
+	float2 vDirection 		= float2(0.0f, 1.0f);
+	float2 textureScale 	= float2(0.5f, 0.5f);
+	float realWindSpeed 	= U_VS_Time.x;
+
+	vsOut.bumpCoord0.xy = tex_coord * textureScale 		  + vDirection * U_VS_Time.x * 0.01;
+	vsOut.bumpCoord0.zw = tex_coord * textureScale * 2.0f + vDirection * U_VS_Time.x * 0.04;
+	vsOut.bumpCoord0.z *= -1.0f;
+	vsOut.bumpCoord1.xy = tex_coord * textureScale * 4.0f + vDirection * U_VS_Time.x * 0.08;
+	vsOut.bumpCoord1.x *= -1.0f;
+
+	float BumpScale = 0.3f;
+	float windSpeed = 1.0f;
+	float waveFreq = 5.0f;
+	float waveAmp  = 0.0f;
+
+	#define NWAVES 2
+	Wave wave[NWAVES] = {
+		{ waveFreq, waveAmp, 0.5, float2(-1, 0) },
+		{ 3.0 * waveFreq, 0.33 * waveAmp, 1.7, float2(-0.7, 0.7) }
+	};
+
+	float time = U_VS_Time.x;
+	// sum waves
+	float ddx = 0.0, ddy = 0.0;
+	float deriv;
+	float angle;
+	
+	// wave synthesis using two sine waves at different frequencies and phase shift
+	for(int i = 0; i < NWAVES; ++i)
+	{
+		angle = dot(wave[i].dir, worldPos.xz) * wave[i].freq + time * wave[i].phase;
+		worldPos.y += wave[i].amp * sin( angle );
+		// calculate derivate of wave function
+		deriv = wave[i].freq * wave[i].amp * cos(angle);
+		ddx -= deriv * wave[i].dir.x;
+		ddy -= deriv * wave[i].dir.y;
+	}
+
+	vsOut.rotMatrix1.xyz = BumpScale * normalize(float3(1, ddy, 0)); // Binormal
+	vsOut.rotMatrix2.xyz = BumpScale * normalize(float3(0, ddx, 1)); // Tangent
+	vsOut.rotMatrix3.xyz = normalize(float3(ddx, 1, ddy)); // Normal
+
+	float4 	vWVPMatrixC0 = U_WorldViewProjectMatrix[0];
+	float4	vWVPMatrixC1 = U_WorldViewProjectMatrix[1];
+	float4	vWVPMatrixC2 = U_WorldViewProjectMatrix[2];
+	float4	vWVPMatrixC3 = U_WorldViewProjectMatrix[3];
+
+	vsOut.o_PosInClip.x = dot(vWVPMatrixC0, worldPos);
+	vsOut.o_PosInClip.y = dot(vWVPMatrixC1, worldPos);
+	vsOut.o_PosInClip.z = dot(vWVPMatrixC2, worldPos);
+	vsOut.o_PosInClip.w = dot(vWVPMatrixC3, worldPos);
+
+	vsOut.o_ClipPos = vsOut.o_PosInClip;
+	vsOut.o_PosInWorld = IN.i_POS.xyz;
+
+	float3 camToWorld = U_VS_CameraPosition.xyz - worldPos.xyz;
+
+	float4x4 gravityRotatePosMatrix;	
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+	vsOut.o_FogColor = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+
+	return vsOut;
+}

@@ -1,0 +1,235 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+#include <Light_Function_PS.inl>
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4	U_MaterialDiffuse;
+		Texture2D	S_Diffuse;
+		SamplerState S_DiffuseSamplerState;
+	#endif
+#else
+
+	float4	U_MaterialDiffuse;
+	float4	U_MaterialCustomParam;
+	float4	U_MaterialCustomParam1;
+	
+	float4	U_PSGeneralRegister0;
+	float4	U_PSGeneralRegister30;
+
+	Texture2D S_Diffuse;
+	SamplerState S_DiffuseSamplerState;
+
+	#if defined(COVER_WEATHER) && defined(COVER_WEATHER_MASK)
+		Texture2D S_Custom;
+		SamplerState S_CustomSamplerState;
+	#endif
+
+	#ifdef CLUSTER_POINT_LIGHT
+		#include "Shadow_Light_Function_PS.inl"
+	#endif
+#endif
+
+float3 fresnelSchlick(float cosTheta, float3 F0)
+{
+	return F0 + (1.0-F0) * pow(1.0-cosTheta, 5.0);
+}
+
+float distributionGGX(float3 N, float3 H, float roughness)
+{
+	float a = roughness * roughness;
+	float a2 = a * a;
+	float NdotH = max(dot(N, H), 0.0);
+	float NdotH2 = NdotH * NdotH;
+	float nom = a2;
+	float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+	denom = 3.141592654 * denom * denom;
+	denom = max(denom, 0.00001);
+	return nom / denom;
+}
+
+float geometrySchlickGGX(float NdotV, float roughness)
+{
+	float r = roughness + 1.0;
+	float k = (r * r) / 8.0;
+	
+	float nom = NdotV;
+	float denom = NdotV * (1.0 - k) + k;
+	
+	return nom / denom;
+}
+
+float geometrySmith(float3 N, float3 V, float3 L, float roughness)
+{
+	float NdotV = max(dot(N, V), 0.0);
+	float NdotL = max(dot(N, L), 0.0);
+	float ggx2 = geometrySchlickGGX(NdotV, roughness);
+	float ggx1 = geometrySchlickGGX(NdotL, roughness);
+	
+	return ggx2 * ggx1;
+}
+
+float3 envBRDFApprox(float3 specularColor, float roughness, float NoV)
+{
+	float4 c0 = float4(-1.0,	-0.0275,	-0.572,		0.022);
+	float4 c1 = float4(1.0,		0.0425,		1.04,		-0.04);
+	
+	float4 r = roughness * c0 + c1;
+	float a004 = min(r.x * r.x, exp2(-9.28 * NoV)) * r.x + r.y;
+	float2 AB = float2(-1.04, 1.04) * a004 + r.zw;
+	return specularColor * AB.x + AB.y;
+}
+
+//float3 envBRDFApprox(float3 specularColor, float roughness, float NoV)
+//{
+//   return pow(1.0f-max(roughness,NoV),3.f)+specularColor;
+//}
+
+float3 thinTranslucency(float3 N, float3 L, float3 transmittanceColor)
+{
+	float transmittance = saturate(dot(-N, L) + 0.2);
+	float fresnel = (1.0 - transmittance) * (1.0 - transmittance);
+	fresnel *= fresnel;
+	
+	return transmittance * (1.0 - fresnel) * transmittanceColor;
+}
+
+struct PS_INPUT
+{
+    float4	i_PosInClip		: SV_POSITION;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 	i_UV		: TEXCOORD0;
+	#endif
+#else
+	float4 	i_UV			: TEXCOORD0;	// w: ViewSpaceZ if USESHADOWMAP
+	float4 	i_Fog			: TEXCOORD1;
+	float4	i_Normal		: TEXCOORD2;
+	float4	i_WorldPos		: TEXCOORD3;
+	
+	#ifdef VERTEX_COLOR
+		float4	i_Diffuse	: COLOR0;
+	#endif
+#endif
+#ifdef PARABOLOID_MAPPING
+	float	i_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+struct PS_OUTPUT
+{
+#ifndef SHADOWPASS
+	float4 color : SV_TARGET;
+#endif
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+#ifdef PARABOLOID_MAPPING
+	clip(IN.i_ClipDepth);
+#endif
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 color = S_Diffuse.Sample(S_DiffuseSamplerState, IN.i_UV.xy);
+		clip(color.a - U_MaterialDiffuse.a);
+	#endif
+#else
+
+	half4 cDiffuseColor = S_Diffuse.Sample(S_DiffuseSamplerState,IN.i_UV.xy);
+
+	#ifdef ALPHA_TEST
+		clip(cDiffuseColor.a - U_MaterialDiffuse.a);
+	#endif
+
+	half3 baseMap = pow(cDiffuseColor.rgb, 2.2) * U_MaterialDiffuse.rgb;
+	
+	#ifdef VERTEX_COLOR
+		baseMap.rgb *= IN.i_Diffuse.rgb;
+	#endif
+				
+	half3 N = normalize(IN.i_Normal.xyz);
+	half3 V = normalize(U_PS_CameraPosition.xyz - IN.i_WorldPos.xyz);
+	half3 L = -U_MainLightDirection.xyz;
+	
+	#ifdef USESHADOWMAP
+		float4 shadowSpacePos[SHADOWSPLITE];
+		ProjectToLightSpace(shadowSpacePos, IN.i_WorldPos.xyz, N, IN.i_UV.w);
+	#endif
+
+	half metallic = 0.0;
+	half roughness = max(U_PSGeneralRegister0.x, 1e-6f);
+		
+#ifdef COVER_WEATHER
+	#ifdef COVER_WEATHER_MASK
+		float coverLerp =S_Custom.Sample(S_CustomSamplerState,IN.i_UV.xy).g;
+	#else
+		float coverLerp = dot(N, U_PS_GravityDirection.xyz);
+	#endif
+	coverLerp = clamp(coverLerp + U_PSGeneralRegister0.y, 0.0, 1.0);
+	coverLerp *= U_PSGeneralRegister0.z;
+	coverLerp *= U_WeatherParam0.w * (1.f - U_PSGeneralRegister30.x);
+	baseMap = lerp(baseMap, U_WeatherParam0.xyz, coverLerp);
+	roughness = lerp(roughness, U_WeatherParam1.x, coverLerp);
+	metallic = lerp(metallic, U_WeatherParam1.y, coverLerp);		
+#endif
+
+	half3 albedo = baseMap * (1.0 - metallic);
+	half3 specularColor = lerp(half3(0.04h, 0.04h, 0.04h), baseMap, metallic);	
+	
+	psOut.color.rgb += calculateLightPower(N, V, L, U_PBR_MainLightColor.xyz, baseMap, roughness, metallic);
+
+	#ifdef USESHADOWMAP
+		float shadowFactor = calcShadowFactor(
+			shadowSpacePos, 
+			IN.i_UV.w);
+		shadowFactor = min(shadowFactor, 1.0);
+		psOut.color.rgb *= shadowFactor;
+	#endif
+
+#ifdef CLUSTER_POINT_LIGHT
+		psOut.color.rgb += calculateShadowPBRPointLight(IN.i_WorldPos, N, V, baseMap, roughness, metallic);
+	
+        float3 clusterLightColor = 
+            calculateClusterPBRPointLight(IN.i_PosInClip.xy,
+                                          IN.i_WorldPos.xyz,
+                                          N,
+                                          V,
+                                          baseMap,
+                                          roughness,
+                                          metallic);
+        psOut.color.rgb += clusterLightColor;    
+#endif
+
+	half3 envBRDF = envBRDFApprox(specularColor, roughness, max(dot(N, V), 0.0));
+	
+	half3 ambientColor = lerp(U_PBR_GroundLightColor.rgb, U_PBR_SkyLightColor.rgb, N.y * 0.5f + 0.5f);
+	envBRDF *= normalize(ambientColor);
+	
+	psOut.color.rgb += (albedo + envBRDF) * ambientColor;
+	
+	psOut.color.rgb *= U_MaterialCustomParam1.x;
+	
+	psOut.color.rgb = psOut.color.rgb * IN.i_Fog.a + IN.i_Fog.rgb;
+	psOut.color.rgb = pow(psOut.color.rgb, 1.0 / 2.2);
+	psOut.color.a = cDiffuseColor.a;
+	
+	#ifdef EditorHelp
+		psOut.color.rgb = psOut.color.rgb * 0.00001 + float3(1.0,0.0,0.0);
+		psOut.color.a = 1.0;
+	#endif
+	
+	#ifdef EDITOR_MODE
+		if(U_MaterialCustomParam.w > 0)
+			psOut.color.rgb = U_MaterialCustomParam.xyz;
+	#endif
+	float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.color = psOut.color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp); 
+#endif
+
+	return psOut;
+}

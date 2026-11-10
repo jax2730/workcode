@@ -1,0 +1,50 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+float4	U_VSCustom0[3];
+
+struct VS_INPUT
+{
+	float4 i_Position	: POSITION0;
+	float4 i_UV	        : TEXCOORD0;
+};
+
+struct VS_OUTPUT
+{
+	float4 o_Position	: SV_POSITION;
+	float4 o_UV			: TEXCOORD0;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{	
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	float3 vPosInWorld = U_VS_CameraPosition.xyz - U_VS_MainLightDirection.xyz *2000;
+		
+	float2 lightningsize = float2(2000,2000)* U_VSCustom0[0].x;
+	vPosInWorld += (IN.i_UV.y) * U_VSCustom0[2].xyz * lightningsize.y;
+	vPosInWorld += (IN.i_UV.x-0.5) * U_VSCustom0[1].xyz * lightningsize.x;
+	
+	float4 vPosInview; 
+	float4 vPos = float4(vPosInWorld,1);
+	
+	vPosInview.x = dot(U_ViewMatrix[0], vPos);
+	vPosInview.y = dot(U_ViewMatrix[1], vPos);
+	vPosInview.z = dot(U_ViewMatrix[2], vPos);
+	vPosInview.w = dot(U_ViewMatrix[3], vPos);
+	
+	vPosInview.w = 1.0;
+	
+	vsOut.o_Position.x = dot(U_ProjectMatrix[0], vPosInview);
+	vsOut.o_Position.y = dot(U_ProjectMatrix[1], vPosInview);
+	vsOut.o_Position.z = dot(U_ProjectMatrix[2], vPosInview);
+	vsOut.o_Position.w = dot(U_ProjectMatrix[3], vPosInview);
+	
+	vsOut.o_UV = IN.i_UV;
+#ifdef EDITOR_MODE
+	#ifdef HierarchicalLOD
+		vsOut.o_Position = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+	#endif
+#endif	
+	return vsOut;
+
+}

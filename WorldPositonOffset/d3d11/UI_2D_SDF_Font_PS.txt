@@ -1,0 +1,146 @@
+// Author: yanghang
+// Date:  2021-03-14
+#include <Common_Uniform_PS.inl>
+
+uniform float4 U_PSCustom0[5];
+
+#define total_alpha U_PSCustom0[0].x
+#define outer_glow_HDR U_PSCustom0[0].y
+#define text_HDR U_PSCustom0[0].z
+#define u_gray U_PSCustom0[0].w
+
+#define outline_enable U_PSCustom0[1].x
+#define outline_max_0  U_PSCustom0[1].y
+#define outline_max_1  U_PSCustom0[1].z
+#define outline_color_rgb U_PSCustom0[2].rgb
+#define outline_HDR U_PSCustom0[2].a
+
+#define outer_glow_enable U_PSCustom0[1].w
+#define outer_glow_uv_offset U_PSCustom0[3].xy
+#define outer_glow_min_dvalue U_PSCustom0[3].z 
+#define outer_glow_max_dvalue U_PSCustom0[3].w
+#define outer_glow_color U_PSCustom0[4]
+
+
+// NOTE(yanghang): SDF Font Atlas texture
+Texture2D	S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+float4 texPseudoSDF(float2 vUV) 
+{ 
+    return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+}
+
+struct PS_INPUT
+{
+    float4 i_pos	: SV_POSITION;
+	float2 	i_atlas_uv				: TEXCOORD0;
+    float2 i_clipPos            : COLOR0;
+    float3 i_color : COLOR1;            
+};
+
+struct PS_OUTPUT
+{
+	float4 color : SV_TARGET;
+};
+
+float median(float3 c)
+{
+    return max(min(c.x, c.y), min(max(c.x, c.y), c.z));
+}
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+    
+    float4 sdf_texel = texPseudoSDF(IN.i_atlas_uv);
+    float pseudo_d = sdf_texel.r;//(changziheng): single channel
+    float sdf_alpha = clamp((pseudo_d - 0.5f)/fwidth(pseudo_d) + 0.5f, 0, 1.0f);
+    
+    float4 color = float4(IN.i_color,1.0f);
+    
+    color.rgb *= text_HDR;
+    color.a *= sdf_alpha;
+    color.a *= total_alpha;
+
+    if(u_gray == 1.0f)
+    {
+        float color_gray = (color.r + color.g + color.b) * 0.33333333333333f;
+        color.rgb = lerp(color.rgb, float3(color_gray, color_gray, color_gray), u_gray);
+    }
+    
+    if(outline_enable == 1.0f)
+    {
+        float oFactor = 1.0f;
+        if(pseudo_d >= outline_max_0)
+        {
+            oFactor = smoothstep(outline_max_1,
+                                 outline_max_0,
+                                 pseudo_d);
+        }
+
+        float3 outline_HDR_color = outline_color_rgb * outline_HDR;
+        color.rgb = lerp(color.rgb, outline_HDR_color, oFactor);
+    }
+    
+    if(outer_glow_enable == 1.0f)
+    {
+        float4 outer_glow_sdf = texPseudoSDF(IN.i_atlas_uv + outer_glow_uv_offset);
+		
+		float4 glow_c = outer_glow_color * smoothstep(outer_glow_min_dvalue,
+                                                      outer_glow_max_dvalue,
+                                                      outer_glow_sdf.r);
+        glow_c *= outer_glow_HDR;
+		color = lerp(glow_c, color, sdf_alpha);
+    }
+    
+    // NOTE: Clip start.
+    // TODO(yanghang): Optimize, blend_verge relative calculate can be constant.
+    float2 factor = IN.i_clipPos;
+
+    float right_bottom_clip_alpha;
+    float max_factor = max(factor.x, factor.y);
+    float blend_verge = 0.005f;
+    float blend_verge_inv = 1.0f / blend_verge; 
+    if(max_factor > 1.0f)
+    {
+        // Edge blend
+        float verge_value = clamp(max_factor, 1.0f, (1.0f + blend_verge));
+        verge_value -= 1.0f;
+        verge_value = blend_verge - verge_value;
+        
+        right_bottom_clip_alpha = verge_value * blend_verge_inv; 
+    }
+    else
+    {
+        // Pass test.
+        right_bottom_clip_alpha = 1.0f;
+    }
+    
+    float left_top_clip_alpha;
+    float min_factor = min(factor.x, factor.y);
+    if(min_factor < 0)
+    {
+        // Edge blend
+        float verge_value = clamp(min_factor, -blend_verge, 0);
+        verge_value = blend_verge + verge_value;
+        left_top_clip_alpha = verge_value * blend_verge_inv;
+    }
+    else
+        left_top_clip_alpha = 1.0f;
+    
+    color.a *= right_bottom_clip_alpha * left_top_clip_alpha;
+    //Clip end.
+    psOut.color = color;
+
+    //NOTE: Clip Debug
+#if 0
+    psOut.color = float4(IN.i_clipPos.x, IN.i_clipPos.y, 0, 1.0f);
+#endif
+
+    //TODO(yanghang):Overdraw debug effect,maybe need remove.
+    float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.color = psOut.color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+    
+    return psOut;
+}

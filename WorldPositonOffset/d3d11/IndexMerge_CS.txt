@@ -1,0 +1,71 @@
+#include <Common_GpuCull_CS.inl>
+
+#define thread_group_size_x 32u
+#define thread_group_size_y 1u
+
+ByteAddressBuffer B_CSCustom0;							//m_drawArgBufferHandle: [{idxCount, 1,},]
+ByteAddressBuffer B_CSCustom1;							//ClusterCulledData
+StructuredBuffer<uint> B_CSCustom2;						//indexBuffer	
+RWByteAddressBuffer B_CSCustom3;						//newIdx
+RWByteAddressBuffer B_CSCustom4;						//instanceIdx
+
+groupshared ClusterCulledData culledData;
+groupshared uint triangleCount;
+					
+[numthreads(thread_group_size_x, thread_group_size_y, 1)]
+void main(uint3 threadIDInGroup : SV_GroupThreadID,
+			uint3 groupID : SV_GroupID,
+			uint groupIndex : SV_GroupIndex,
+			uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+	
+	if(groupIndex == 0u)
+	{
+		uint drawIdx = groupID.x;
+		culledData.ReadFrom = ClusterCulledDataLoad_ReadFrom(B_CSCustom1, drawIdx, 0);
+		culledData.WriteTo = ClusterCulledDataLoad_WriteTo(B_CSCustom1, drawIdx, 0);
+		culledData.IndexCount = ClusterCulledDataLoad_IndexCount(B_CSCustom1, drawIdx, 0);
+		culledData.IndexOffset = ClusterCulledDataLoad_IndexOffset(B_CSCustom1, drawIdx, 0);
+		culledData.InstanceID = ClusterCulledDataLoad_InstanceID(B_CSCustom1, drawIdx, 0);
+		culledData.Mask[0] = ClusterCulledDataLoad_Mask1(B_CSCustom1, drawIdx, 0);
+		culledData.Mask[1] = ClusterCulledDataLoad_Mask2(B_CSCustom1, drawIdx, 0);
+		culledData.Pipeline = ClusterCulledDataLoad_Pipeline(B_CSCustom1, drawIdx, 0);
+		culledData.IsFlip = ClusterCulledDataLoad_IsFlip(B_CSCustom1, drawIdx, 0);
+		triangleCount = 0u;
+	}
+	
+	GroupMemoryBarrierWithGroupSync();
+	
+
+	uint loopCount = culledData.IndexCount / 3u;/*TRIANGLE_COUNT_PER_CLUSTER;*/
+	for (uint currIdx = groupIndex; currIdx < loopCount; currIdx += thread_group_size_x)
+	{
+		uint mIdx = currIdx >> 5u; // 1/32
+		uint offset = currIdx % 32u;
+		
+		if((culledData.Mask[mIdx] & (1u << offset)) != 0u)
+		{
+			uint triIdx;
+			InterlockedAdd(triangleCount, 1u, triIdx);
+			for(uint i = 0u; i < 3u; ++i)
+			{
+				uint srcIdx = currIdx * 3u + culledData.ReadFrom + i;
+				uint dstIdx = triIdx * 3u + culledData.WriteTo;
+				if(culledData.IsFlip == 0)
+				{
+					dstIdx += i;
+				}
+				else
+				{
+					dstIdx += uint(-1 * int(i) + 2);
+				}
+				uint globalIdx = B_CSCustom2[srcIdx] + culledData.IndexOffset;
+				
+				dstIdx +=  RawBufferLoadUint(B_CSCustom0, culledData.Pipeline * DISPATCH_OFFSET + 2); //B_CSCustom0[culledData.Pipeline * DISPATCH_OFFSET + 2];
+				
+				RawBufferStoreUint(B_CSCustom3, dstIdx, globalIdx); //B_CSCustom3[dstIdx] = globalIdx;
+				RawBufferStoreUint(B_CSCustom4, dstIdx, culledData.InstanceID); //B_CSCustom4[dstIdx] = culledData.InstanceID;
+			}
+		}
+	}
+}

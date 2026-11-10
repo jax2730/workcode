@@ -1,0 +1,648 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+#include <Common_Function.inl>
+#include <Light_Function_PS.inl>
+#include <LandformPBRLighting.inl>
+#include <EnvironmentLight_Function.inl>
+
+uniform float4 U_LightPower;
+
+uniform float4 U_PSCustom0;	// base ratio
+uniform float4 U_PSCustom1;	// normal ratio
+uniform float4 U_PSCustom2;	// reflectance
+uniform float4 U_PSCustom3;	// roughness
+uniform float4 U_PSCustom4;	// ao
+uniform float4 U_PSCustom5;	// multiplier
+uniform float4 U_PSCustom6;	// projection plane
+
+uniform float4 U_PSCustom7;	// base tint 0
+uniform float4 U_PSCustom8;	// base tint 1
+uniform float4 U_PSCustom9;	// bast tint 2
+
+#if DETAIL_NORMAL_LAYER >= 1
+	uniform float4 U_PSCustom10[3];
+#endif
+
+uniform float4 U_PSCustom11;
+uniform float4 U_PSCustom12;
+uniform float4 U_PSCustom13;	// adjust color
+
+#ifdef NORMAL_RATIO_ADDITION
+	uniform float4 U_PSCustom14;	// normal ratio slope
+	uniform float4 U_PSCustom15;	// normal ratio addition
+#endif
+
+//顶点baseColor
+uniform Texture2D S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+//顶点法线
+uniform Texture2D S_2DExt1;             
+SamplerState S_2DExt1SamplerState;      
+
+//x --- 第二层地形的权重
+//y --- 第三层地形的权重
+//z --- 第一层细节法线的权重
+//w --- 第二层细节法线的权重
+#if TERRAINLAYER >= 2 || DETAIL_NORMAL_LAYER >= 1
+	uniform Texture2D S_2DExt2;			//tex_Weight
+	SamplerState S_2DExt2SamplerState;
+#endif
+
+#if TERRAINLAYER >= 1
+	uniform Texture2D S_2DExt3;			// base texture 0
+	SamplerState S_2DExt3SamplerState;
+	#if (NORMAL_MAP_LAYER & 0x1) != 0
+		uniform Texture2D S_2DExt4;		// normal texture 0
+		SamplerState S_2DExt4SamplerState;
+	#endif	
+#endif
+
+#if TERRAINLAYER >= 2
+	uniform Texture2D S_2DExt5;			// base texture 1
+	SamplerState S_2DExt5SamplerState;
+	#if (NORMAL_MAP_LAYER & 0x2) != 0
+		uniform Texture2D S_2DExt6;		// normal texture 1
+		SamplerState S_2DExt6SamplerState;
+	#endif
+#endif
+
+#if TERRAINLAYER >= 3
+	uniform Texture2D S_2DExt7;			// base texture 2
+	SamplerState S_2DExt7SamplerState;
+	#if (NORMAL_MAP_LAYER & 0x4) != 0
+		uniform Texture2D S_2DExt8;		// normal texture 2
+		SamplerState S_2DExt8SamplerState;
+	#endif
+#endif
+
+#if DETAIL_NORMAL_LAYER >= 1
+	uniform Texture2D S_2DExt9;			// detail normal 0
+	SamplerState S_2DExt9SamplerState;
+#endif
+
+#if DETAIL_NORMAL_LAYER >= 2
+	uniform Texture2D S_2DExt10;		// detail normal 1
+	SamplerState S_2DExt10SamplerState;
+#endif
+
+// #ifdef FLOW_COLOR
+    // 	uniform Texture2D S_2DExt15;		// flow texture
+    // 	SamplerState S_2DExt15SamplerState;
+// #endif
+
+
+//glossy info
+TextureCube	S_GlobalEnvironmentCubeMap;
+SamplerState S_GlobalEnvironmentCubeMapSamplerState;
+float4 U_GlobalEnvironmentCubeMipMapLevels;
+//diffuse info
+float4x4 U_PBR_RMatrix;
+float4x4 U_PBR_GMatrix;
+float4x4 U_PBR_BMatrix;
+//total luminance
+float4  U_PBR_Environment_Explosure;
+
+struct PS_INPUT
+{
+    float4	i_PosInClip	: SV_POSITION;
+	float4	i_UVBase	: TEXCOORD0;	// w: viewSpaceZ
+	float3	i_PosUV		: TEXCOORD1;
+	float4	i_WorldPos	: TEXCOORD2;
+	float4  i_FogColor  : TEXCOORD3;
+    #ifdef VERTEX_COLOR
+    	float4	i_Diffuse	: COLOR0;
+    #endif
+    #ifdef EMISSION_COLOR
+    	float4	i_Emission	: COLOR1;
+    #endif
+    #ifdef FLOW_COLOR
+    	float4  i_Flow		: COLOR2;
+    	float4  i_FlowUV	: COLOR3;
+    #endif
+};
+
+// Calc blend weight by normal, the normal must be normalized.
+float3 calcNrmBlendWeights(in float3 vNormal)
+{
+	float3 weights = abs(vNormal);
+	weights = weights - 0.1f;
+	weights = max(weights, 0.f);
+    weights = pow(weights, 4.f);
+	weights /= dot(weights, 1.f);
+	return weights;
+}
+
+void TriplanerProjection_DetailNormalMap(
+		out float3 oNormal, in Texture2D texNrm,in SamplerState texNrmSamplerState,
+		in float2 vUVXZ, in float2 vUVXY, in float2 vUVZY,
+		in float3 vNormalWeight, in float fNormalRatio
+		)
+{
+	float3 cNormalXZ = texNrm.Sample(texNrmSamplerState, vUVXZ).xyz;
+	float3 cNormalXY = texNrm.Sample(texNrmSamplerState, vUVXY).xyz;
+	float3 cNormalZY = texNrm.Sample(texNrmSamplerState, vUVZY).xyz;
+	oNormal.xyz = cNormalXZ * vNormalWeight.yyy +
+				  cNormalXY * vNormalWeight.zzz +
+				  cNormalZY * vNormalWeight.xxx;
+	oNormal.z = 1.f;
+	oNormal.xyz = oNormal.xyz * 2.f - 1.f;
+	oNormal.xy *= fNormalRatio;
+}
+
+void BaseProjection_DetailNormalMap(
+		out float3 oNormal, in Texture2D texNrm,in SamplerState texNrmSamplerState,
+		in float2 vUV, in float fNormalRatio
+		)
+{
+	oNormal = texNrm.Sample(texNrmSamplerState, vUV).xyz;
+	oNormal.z = 1.f;
+	oNormal.xyz = oNormal.xyz * 2.f - 1.f;
+	oNormal.xy *= fNormalRatio;
+}
+
+void TriplanerProjection_BaseColorMap(out float3 oBaseColor, out float oMetallic,
+		in Texture2D texBase, in SamplerState texBaseSamplerState,
+		in float4 cBaseTint, in float2 vUVXZ, in float2 vUVXY, in float2 vUVZY,
+		in float3 vNormalWeight)
+{
+	float4 cBaseColorXZ = texBase.Sample(texBaseSamplerState, vUVXZ);
+	float4 cBaseColorXY = texBase.Sample(texBaseSamplerState, vUVXY);
+	float4 cBaseColorZY = texBase.Sample(texBaseSamplerState, vUVZY);
+	float4 cBaseColor = cBaseColorXZ * vNormalWeight.yyyy +
+						cBaseColorXY * vNormalWeight.zzzz +
+						cBaseColorZY * vNormalWeight.xxxx;
+
+	oBaseColor.rgb = cBaseColor.rgb * cBaseTint.rgb;
+	oBaseColor.rgb = pow(oBaseColor.rgb, 2.2f);
+	oBaseColor.rgb *= cBaseTint.aaa;
+	oMetallic = cBaseColor.a;
+}
+
+void BaseProjection_BaseColorMap(out float3 oBaseColor, out float oMetallic,
+		in Texture2D texBase, in SamplerState texBaseSamplerState,
+		in float4 cBaseTint, in float2 vUV)
+{
+	float4 cBaseColor = texBase.Sample(texBaseSamplerState, vUV);
+	oBaseColor.rgb = cBaseColor.rgb * cBaseTint.rgb;
+	oBaseColor.rgb = pow(oBaseColor.rgb, 2.2f);
+	oBaseColor.rgb *= cBaseTint.aaa;
+	oMetallic = cBaseColor.a;
+}
+
+void TriplanerProjection_NormalMap(out float3 oNormal, out float oRoughess, out float oAO,
+		in Texture2D texNrm, in SamplerState texNrmSamplerState,
+		in float2 vUVXZ, in float2 vUVXY, in float2 vUVZY, in float3 vNormalWeight,
+		in float fNormalRatio, in float fMatRoughness, in float fMatAO)
+{
+    //在三个投影平面上采样并混合
+	float4 vNormalXZ = texNrm.Sample(texNrmSamplerState, vUVXZ);
+	float4 vNormalXY = texNrm.Sample(texNrmSamplerState, vUVXY);
+	float4 vNormalZY = texNrm.Sample(texNrmSamplerState, vUVZY);
+	float4 vNormal = vNormalXZ * vNormalWeight.yyyy +
+					 vNormalXY * vNormalWeight.zzzz +
+					 vNormalZY * vNormalWeight.xxxx;
+
+    //做一点简单的小调整，在采样法线的时候还原法线
+    //-------------------------------test_param____________________________
+	oNormal.xy = vNormal.xy * 2.f - 1.f;
+	oNormal.xy *= fNormalRatio;
+	oNormal.z = 1.f;
+    //-------------------------------test_param____________________________
+	oRoughess = vNormal.w + fMatRoughness;
+	oAO = pow(vNormal.z, fMatAO);
+}
+
+void BaseProjection_NormalMap(out float3 oNormal, out float oRoughess, out float oAO,
+		in Texture2D texNrm, in SamplerState texNrmSamplerState,
+		in float2 vUV, in float fNormalRatio, in float fMatRoughness, in float fMatAO)
+{
+	float4 vNormal = texNrm.Sample(texNrmSamplerState, vUV);
+	oNormal.xy = vNormal.xy * 2.f - 1.f;
+	oNormal.xy *= fNormalRatio;
+	oNormal.z = 1.f;
+	oRoughess = vNormal.w + fMatRoughness;
+	oAO = pow(vNormal.z, fMatAO);
+}
+
+float SquaredLenFade(in float fSquaredLen, in float3 vFadeParam)
+{
+	return saturate(max((fSquaredLen - vFadeParam.x) * vFadeParam.y, vFadeParam.z));
+}
+
+float4 main(PS_INPUT IN) : SV_TARGET
+{
+	float4 vBaseRatio 		= U_PSCustom0;
+	float4 vNormalRatio		= U_PSCustom1;
+	float4 vReflectance		= U_PSCustom2;
+	float4 vRoughness		= U_PSCustom3;
+	float4 vAO				= U_PSCustom4;
+	float4 vMultiplier		= U_PSCustom5;
+	float4 vProjectionPlane	= U_PSCustom6;
+
+	float4 cBaseTint0		= U_PSCustom7;
+	float4 cBaseTint1		= U_PSCustom8;
+	float4 cBaseTint2		= U_PSCustom9;
+
+	float4 SnowParam		= U_PSCustom11;
+	float4 DebugColor		= U_PSCustom12;
+
+	float3 cSplatBaseColor = (float3)0.f;
+	float3 cSplatNormal = (float3)0.f;
+	float3 cSplatMix = (float3)0.f;	// x: matellic, y: roughness, z: ao
+
+	float4 cSplattedBaseColor = S_2DExt0.Sample(S_2DExt0SamplerState, IN.i_UVBase.xy);
+	cSplattedBaseColor.rgb = pow(cSplattedBaseColor.rgb, 2.2f);
+
+	float4 cSplattedNormal = S_2DExt1.Sample(S_2DExt1SamplerState, IN.i_UVBase.xy);
+	// return cSplattedNormal;
+    cSplattedNormal.xyz = cSplattedNormal.xyz * 2.f - 1.f;
+	float2x2 matNormalTrans[4] =
+	{
+		float2x2( 1,  0,  0,  1),
+		float2x2( 0,  1, -1,  0),
+		float2x2(-1,  0,  0, -1),
+		float2x2( 0, -1,  1,  0),
+	};
+
+    //也就是说如果snow param是0的话，几何法线不会转
+	cSplattedNormal.xz = mul(cSplattedNormal.xz, matNormalTrans[(int)U_PSCustom11.y]);
+	cSplattedNormal.xyz = normalize(cSplattedNormal.xyz);
+
+	float fSnowSlope = clamp(cSplattedNormal.y, 0.f, 1.f);
+	fSnowSlope = clamp(fSnowSlope - SnowParam.x, 0.f, 1.f) / (1.f - SnowParam.x);
+	fSnowSlope *= fSnowSlope;
+	cSplattedBaseColor.rgb = lerp(cSplattedBaseColor.rgb, U_WeatherParam0.rgb, fSnowSlope * U_WeatherParam0.a);//基础色与雪的颜色插值
+	
+    //如果没有刷地形层，则用顶点颜色和顶点法线
+    #if TERRAINLAYER <= 0
+    	cSplatBaseColor = cSplattedBaseColor.rgb;
+    	cSplatNormal = cSplattedNormal.rgb;
+    	cSplatMix = float3(cSplattedBaseColor.a, cSplattedNormal.a, 1.f);
+    #endif
+	
+    //调整法线强度
+    // #ifdef NORMAL_RATIO_ADDITION
+    // 	float fBaseNDotL = saturate(dot(cSplattedNormal.xyz, -U_MainLightDirection.xyz));
+    // 	float4 vAddFactor = max(fBaseNDotL - U_PSCustom14, 0.f);
+    // 	vAddFactor /= max(1.f - U_PSCustom14, 0.0001f);
+    // 	vAddFactor = pow(vAddFactor, 0.454545f);
+    // 	vNormalRatio += vNormalRatio * U_PSCustom15 * vAddFactor;
+    // #endif
+	
+	float3 tn = float3(1.f, 0.f, 0.f);
+	
+    //刷了地形层或者刷了细节法线，这里计算三平面投影的UV和切线空间
+    #if TRIPLANER_LAYER > 0 || DETAIL_NORMAL_TRIPLANER_LAYER > 0
+    	float2 vUVXZ = IN.i_PosUV.xz;
+    	float2 vUVXY = { cSplattedNormal.z >= 0 ?  IN.i_PosUV.x : -IN.i_PosUV.x, -IN.i_PosUV.y };
+    	float2 vUVZY = { cSplattedNormal.x >= 0 ? -IN.i_PosUV.z :  IN.i_PosUV.z, -IN.i_PosUV.y };
+    	float3 vNormalWeights = calcNrmBlendWeights(cSplattedNormal.xyz);
+
+    	// The way to calculate tangent is in <Voxel-Based Terrain for Real-Time Simulation> Ch5.5.2 Tangent space
+    	// There is a little different between our method and the paper's.
+    	float3 vTangentXZ = float3(cSplattedNormal.z, 0, -cSplattedNormal.x);	// tangent field parallel to the x-z plane
+    	float fXZLen = length(vTangentXZ);
+    	vTangentXZ /= max(fXZLen, 0.0056f);
+    	float3 vTangentXY = float3(cSplattedNormal.y, -cSplattedNormal.x, 0);	// tangent field parallel to the x-y plane
+    	float fXYLen = length(vTangentXY);
+    	vTangentXY /= max(fXYLen, 0.0056f);
+    	float2 vTangentWeights = float2(max(vNormalWeights.x, vNormalWeights.z), vNormalWeights.y);
+    	vTangentWeights /= dot(vTangentWeights, 1.f);
+    	tn = vTangentXZ * vTangentWeights.xxx + vTangentXY * vTangentWeights.yyy;	// blend
+    #endif
+    
+    //如果没开启三平面投影，这里计算Base投影的uv和切线空间
+    #if TERRAINLAYER >= 1
+    	float3 nn = cSplattedNormal.xyz;
+    	float3 bn = normalize(cross(tn, nn));
+    	tn = cross(nn, bn);
+    	float3x3 MatTBN =
+    	{
+    		tn.x, bn.x, nn.x,
+    		tn.y, bn.y, nn.y,
+    		tn.z, bn.z, nn.z
+    	};
+
+    	float2 vUVPlane[3] =
+    	{
+    		float2(IN.i_PosUV.x, IN.i_PosUV.z),		// XZ Plane
+    		float2(-IN.i_PosUV.z, -IN.i_PosUV.y),	// ZY Plane
+    		float2(IN.i_PosUV.x, -IN.i_PosUV.y)		// YX Plane
+    	};
+    #endif
+
+    //这三个变量只会在关闭三平面投影之后使用，用来确定采样的UV平面
+    #if TERRAINLAYER >= 1
+    	float2 vUVLayer0 = vUVPlane[vProjectionPlane.x];
+    #endif
+    #if TERRAINLAYER >= 2
+    	float2 vUVLayer1 = vUVPlane[vProjectionPlane.y];
+    #endif
+    #if TERRAINLAYER >= 3
+    	float2 vUVLayer2 = vUVPlane[vProjectionPlane.z];
+    #endif
+
+    //采样权重贴图
+    #if TERRAINLAYER >= 2 || DETAIL_NORMAL_LAYER >= 1
+    	float4 vWeight = S_2DExt2.Sample(S_2DExt2SamplerState, IN.i_PosUV.xz);
+    #endif
+
+    float fLeastWeight = 1.f; // total weight is 1;
+
+    //笔刷刷了三层地形
+    #if TERRAINLAYER >= 3
+    	float3 cBaseColor2 = (float3)1.f;
+    	float3 cNormal2 = float3(0.f, 0.f, 1.f);
+    	float3 cBaseMix2 = (float3)1.f;
+
+        //采样地形的颜色、法线、roughness/metallic
+        #if (TRIPLANER_LAYER & 0x4) != 0
+        	TriplanerProjection_BaseColorMap(cBaseColor2, cBaseMix2[0], S_2DExt7, S_2DExt7SamplerState, cBaseTint2,
+        			vUVXZ * vMultiplier[2], vUVXY * vMultiplier[2], vUVZY * vMultiplier[2], vNormalWeights);
+        	#if (NORMAL_MAP_LAYER & 0x4) != 0
+    		TriplanerProjection_NormalMap(cNormal2, cBaseMix2[1], cBaseMix2[2], S_2DExt8, S_2DExt8SamplerState,
+    				vUVXZ * vMultiplier[2], vUVXY * vMultiplier[2], vUVZY * vMultiplier[2],
+    				vNormalWeights, vNormalRatio[2], vRoughness[2], vAO[2]);
+        	#endif
+        #else
+        	BaseProjection_BaseColorMap(cBaseColor2, cBaseMix2[0], S_2DExt7, S_2DExt7SamplerState,
+        			cBaseTint2, vUVLayer2 * vMultiplier[2]);
+        	#if (NORMAL_MAP_LAYER & 0x4) != 0
+    		BaseProjection_NormalMap(cNormal2, cBaseMix2[1], cBaseMix2[2], S_2DExt8, S_2DExt8SamplerState,
+    				vUVLayer2 * vMultiplier[2], vNormalRatio[2], vRoughness[2], vAO[2]);
+        	#endif
+        #endif
+
+        //加权贡献到最终结果中
+    	cSplatBaseColor.rgb += cBaseColor2.rgb * vWeight.g;
+    	cSplatNormal.xyz += cNormal2.xyz * vWeight.g;
+    	cSplatMix.xyz += cBaseMix2.xyz * vWeight.g;
+
+    	fLeastWeight -= vWeight.g;
+    #endif
+
+    //第二层地形
+    #if TERRAINLAYER >= 2
+    	float3 cBaseColor1 = (float3)1.f;
+    	float3 cNormal1 = float3(0.f, 0.f, 1.f);
+    	float3 cBaseMix1 = (float3)1.f;
+
+        //采样地形的颜色、法线、roughness/metallic
+        #if (TRIPLANER_LAYER & 0x2) != 0
+        	TriplanerProjection_BaseColorMap(cBaseColor1, cBaseMix1[0], S_2DExt5, S_2DExt5SamplerState, cBaseTint1,
+        			vUVXZ * vMultiplier[1], vUVXY * vMultiplier[1], vUVZY * vMultiplier[1], vNormalWeights);
+        	#if (NORMAL_MAP_LAYER & 0x2) != 0
+    		TriplanerProjection_NormalMap(cNormal1, cBaseMix1[1], cBaseMix1[2], S_2DExt6, S_2DExt6SamplerState,
+    				vUVXZ * vMultiplier[1], vUVXY * vMultiplier[1], vUVZY * vMultiplier[1],
+    				vNormalWeights, vNormalRatio[1], vRoughness[1], vAO[1]);
+        	#endif
+        #else
+        	BaseProjection_BaseColorMap(cBaseColor1, cBaseMix1[0], S_2DExt5, S_2DExt5SamplerState,
+        			cBaseTint1, vUVLayer1 * vMultiplier[1]);
+        	#if (NORMAL_MAP_LAYER & 0x2) != 0
+    		BaseProjection_NormalMap(cNormal1, cBaseMix1[1], cBaseMix1[2], S_2DExt6, S_2DExt6SamplerState,
+    				vUVLayer1 * vMultiplier[1], vNormalRatio[1], vRoughness[1], vAO[1]);
+        	#endif
+        #endif
+    	cSplatBaseColor.rgb += cBaseColor1.rgb * vWeight.r;
+    	cSplatNormal.xyz += cNormal1.xyz * vWeight.r;
+    	cSplatMix.xyz += cBaseMix1.xyz * vWeight.r;
+    
+    	fLeastWeight -= vWeight.r;
+    #endif
+
+    //第一层地形
+    #if TERRAINLAYER >= 1
+	    float3 cBaseColor0 = (float3)1.f;
+	    float3 cNormal0 = float3(0.f, 0.f, 1.f);
+	    float3 cBaseMix0 = (float3)1.f;
+
+        //采样地形的颜色、法线、roughness/metallic
+        #if (TRIPLANER_LAYER & 0x1) != 0
+        	TriplanerProjection_BaseColorMap(cBaseColor0, cBaseMix0[0], S_2DExt3, S_2DExt3SamplerState, cBaseTint0,
+        			vUVXZ * vMultiplier[0], vUVXY * vMultiplier[0], vUVZY * vMultiplier[0], vNormalWeights);
+        	#if (NORMAL_MAP_LAYER & 0x1) != 0
+        		TriplanerProjection_NormalMap(cNormal0, cBaseMix0[1], cBaseMix0[2], S_2DExt4, S_2DExt4SamplerState,
+        				vUVXZ * vMultiplier[0], vUVXY * vMultiplier[0], vUVZY * vMultiplier[0],
+        				vNormalWeights, vNormalRatio[0], vRoughness[0], vAO[0]);
+        	#endif
+        #else
+            BaseProjection_BaseColorMap(cBaseColor0, cBaseMix0[0], S_2DExt3, S_2DExt3SamplerState,
+            			cBaseTint0, vUVLayer0 * vMultiplier[0]);
+            #if (NORMAL_MAP_LAYER & 0x1) != 0
+            	BaseProjection_NormalMap(cNormal0, cBaseMix0[1], cBaseMix0[2], S_2DExt4, S_2DExt4SamplerState,
+            			vUVLayer0 * vMultiplier[0], vNormalRatio[0], vRoughness[0], vAO[0]);
+            #endif
+        #endif
+
+        //权重是后2层玩剩下的
+	    cSplatBaseColor.rgb += cBaseColor0.rgb * fLeastWeight;
+	    cSplatNormal.xyz += cNormal0.xyz * fLeastWeight;
+	    cSplatMix.xyz += cBaseMix0.xyz * fLeastWeight;
+    #endif
+
+	float3 vViewDir = U_PS_CameraPosition.xyz - IN.i_WorldPos.xyz;
+	float fSquaredLen = dot(vViewDir, vViewDir);
+
+    //刷了两层细节法线
+    #if DETAIL_NORMAL_LAYER >= 2
+    	float3 cDtlNrm1 = (float3)0.f;
+
+        //采样
+        #if (DETAIL_NORMAL_TRIPLANER_LAYER & 0x2) != 0
+        	TriplanerProjection_DetailNormalMap(
+        			cDtlNrm1, S_2DExt10, S_2DExt10SamplerState, vUVXZ * U_PSCustom10[0].zz,
+        			vUVXY * U_PSCustom10[0].zz, vUVZY * U_PSCustom10[0].zz,
+        			vNormalWeights, U_PSCustom10[0].w);
+        #else
+        	BaseProjection_DetailNormalMap(
+        			cDtlNrm1, S_2DExt10, S_2DExt10SamplerState,
+        			IN.i_PosUV.xz * U_PSCustom10[0].zz, U_PSCustom10[0].w);
+        #endif
+
+        //采样得到的细节法线强度先按距离平方衰减，再根据权重混合到最终法线中
+        float dtlNormalScale1 = SquaredLenFade(fSquaredLen, U_PSCustom10[2].xyz);
+    	cDtlNrm1.xy *= dtlNormalScale1
+    	cSplatNormal.xy += cDtlNrm1.xy * vWeight.aa;
+    #endif
+
+    #if DETAIL_NORMAL_LAYER >= 1
+    	float3 cDtlNrm0 = (float3)0.f;
+
+        //采样
+        #if (DETAIL_NORMAL_TRIPLANER_LAYER & 0x1) != 0
+        	TriplanerProjection_DetailNormalMap(
+        			cDtlNrm0, S_2DExt9, S_2DExt9SamplerState, vUVXZ * U_PSCustom10[0].xx,
+        			vUVXY * U_PSCustom10[0].xx, vUVZY * U_PSCustom10[0].xx,
+        			vNormalWeights, U_PSCustom10[0].y);
+        #else
+        	BaseProjection_DetailNormalMap(
+        			cDtlNrm0, S_2DExt9, S_2DExt9SamplerState,
+        			IN.i_PosUV.xz * U_PSCustom10[0].xx, U_PSCustom10[0].y);
+        #endif
+        
+        //采样得到的细节法线强度先按距离平方衰减，再根据权重混合到最终法线中
+        float dtlNormalScale0 = SquaredLenFade(fSquaredLen, U_PSCustom10[1].xyz);
+    	cDtlNrm0.xy *= dtlNormalScale0;
+    	cSplatNormal.xy += cDtlNrm0.xy * vWeight.bb;
+    #endif
+
+    //所有的采样都已经完成，在进光照之前整理数据
+    #if TERRAINLAYER >= 1
+        #ifdef VERTEX_COLOR
+        	//cSplatBaseColor.rgb *= IN.i_Diffuse.rgb;
+        	cSplatBaseColor.rgb *= lerp(IN.i_Diffuse.rgb, U_WeatherParam0.xyz, U_WeatherParam0.w);
+        #endif
+
+        //i_UVBase大概是一个跟距离相关的参数，这里用来控制地形层与顶点数据混合
+    	cSplatBaseColor = lerp(cSplatBaseColor, cSplattedBaseColor.rgb, IN.i_UVBase.z);
+    	cSplatNormal.z = sqrt(1.f - saturate(dot(cSplatNormal.xy, cSplatNormal.xy)));
+    	cSplatNormal.xyz = mul(MatTBN, cSplatNormal.xyz);
+    	cSplatNormal = lerp(cSplatNormal, cSplattedNormal.xyz, IN.i_UVBase.z);
+    	cSplatNormal.xyz = normalize(cSplatNormal.xyz);
+    	cSplatMix.xyz = lerp(cSplatMix, float3(cSplattedBaseColor.a, cSplattedNormal.a, 1.f), IN.i_UVBase.z);
+    #endif
+
+	vViewDir = normalize(vViewDir);
+    //--------------------test_param_____________________________
+        // cSplatBaseColor = 1.f;    
+        //cSplatMix.x = float3(0.f, 1.f, 1.f);
+
+        // float3 albedo = lerp(cSplatBaseColor.rgb, 0.f, cSplatMix.x);
+	    // float3 f0 = lerp(0.04f, cSplatBaseColor.rgb, cSplatMix.x);
+	    // float roughness = saturate(cSplatMix.y);
+	    // roughness = roughness * roughness;
+
+	    // float3 oFragColor = pbr_lighting(cSplatNormal.xyz, -U_MainLightDirection.xyz, vViewDir,
+		// 	    albedo, f0, roughness, U_PBR_MainLightColor.xyz);
+    //--------------------test_param_____________________________
+
+    float3 oFragColor = pbr_lighting_fresnel_weighted(cSplatNormal.xyz, -U_MainLightDirection.xyz, vViewDir,
+        cSplatBaseColor.xyz, saturate(cSplatMix.x), saturate(cSplatMix.y), U_PBR_MainLightColor.xyz);
+
+	// float3 cPointLightDiffAcc = 0.0f;
+	// float3 cPointLightSpecAcc = 0.0f;
+
+    // #ifdef CLUSTER_POINT_LIGHT
+        // NOTE(yanghang): Check fragment in which block region.
+        //     uint cluster_mask = getClusterLightMask(IN.i_PosInClip.xy);
+        //
+        //     if(cluster_mask != 0)
+        //     {
+        //         // NOTE(yanghang): It's may be 8,16,32 or more.
+        //         uint bit_mask = 1;
+        //
+        // #ifdef CLUSTER_DEBUG
+        //         bool hit_light = false;
+        //         int light_miss_count = 0;
+        // #endif
+        //
+        //         // NOTE(yanghang): It's may be 8,16,32
+        //         for(uint i = 0;
+        //             i < currentClusterLightCount;
+        //             i++)
+        //         {
+        //             if(cluster_mask & bit_mask)
+        //             {
+        //                 float3 pointLightDir = U_ClusterLightWorldPosArray[i].xyz - IN.i_WorldPos;
+        //                 float frag_light_square_d =
+        //                     pointLightDir.x * pointLightDir.x +
+        //                     pointLightDir.y * pointLightDir.y +
+        //                     pointLightDir.z * pointLightDir.z;
+        //
+        //                 // NOTE:(yanghang): Optimize.
+        //                 float square_outer_radius = U_ClusterLightDiffuseColorArray[i].w;
+        //                 float square_inner_radius = U_ClusterLightWorldPosArray[i].w;
+        //                 if(frag_light_square_d < square_outer_radius)
+        //                 {
+        //                     float square_inner_radius = U_ClusterLightWorldPosArray[i].w;
+        //                     //NOTE(yanghang): Optimize, float fAtten = 1.0 - clamp((frag_light_square_d - square_inner_radius) / (square_outer_radius - square_inner_radius), 0.0, 1.0);
+        //                     float fAtten = 1.0 - saturate((frag_light_square_d - square_inner_radius) * U_ClusterLightDeltaSquareRadiusINVArray[i>>2][i%4]);
+        //                     float lightattenua = fAtten * fAtten;
+        //
+        //                     float3 cPointLightColor = U_ClusterLightDiffuseColorArray[i].xyz * lightattenua;
+        //                     pointLightDir = normalize(pointLightDir);
+        //
+        //                     float fPointNdotL = clamp(dot(cSplatNormal.xyz, pointLightDir), 0.f, 1.f);
+        //                     cPointLightDiffAcc += cPointLightColor * fPointNdotL;
+        //
+        //                     // float4 vPointLit = lit(1.f, dot(normalize(vViewDir + pointLightDir), cSplatNormal.xyz), cSplatNormal.w);
+        //                     // cPointLightSpecAcc += vPointLit.z * cPointLightColor * cSplatBaseColor.w;
+        // #ifdef CLUSTER_DEBUG
+        //                     hit_light = true;
+        // #endif
+        //                 }
+        // #ifdef CLUSTER_DEBUG
+        //                 else
+        //                 {
+        //                     light_miss_count++;
+        //                 }
+        // #endif
+        //             }
+        //             bit_mask = bit_mask << 1;
+        //         }// end for
+        // #ifdef CLUSTER_DEBUG
+        //         if(!hit_light)
+        //         {
+        //             cPointLightSpecAcc = float3(0,0,0);
+        //             cPointLightDiffAcc = float3(0.03125f, 0, 0) * float(light_miss_count + 2);
+        //         }
+        // #endif
+        //     }
+
+    // #endif
+    
+    #ifdef USESHADOWMAP
+		float4 shadowSpacePos[SHADOWSPLITE];
+		ProjectToLightSpace(shadowSpacePos, IN.i_WorldPos.xyz);
+
+		float shadowFactor = calcShadowFactor(
+    		shadowSpacePos,
+    		IN.i_UVBase.w);
+
+    	shadowFactor = min(shadowFactor, 1.0);
+
+    	oFragColor.rgb *= shadowFactor;
+    #endif
+
+    float3 envColor = 0.f;
+	float3 cLightAmbient = lerp(U_PBR_GroundLightColor.rgb,
+			U_PBR_SkyLightColor.rgb, cSplatNormal.y * 0.5f + 0.5f);
+	envColor += CalculateGlossyEnvColor(cSplatNormal.xyz, vViewDir, cSplatBaseColor.xyz, saturate(cSplatMix.x),saturate(cSplatMix.y),
+     saturate(cSplatMix.z), 0.f, 0.f, U_GlobalEnvironmentCubeMipMapLevels.x, S_GlobalEnvironmentCubeMap,
+        S_GlobalEnvironmentCubeMapSamplerState);
+    
+    envColor += CalculateDiffuseEnvColor(cSplatNormal.xyz, cSplatBaseColor.xyz, saturate(cSplatMix.x), 
+        saturate(cSplatMix.z), U_PBR_RMatrix, U_PBR_GMatrix, U_PBR_BMatrix, 0.0f);
+
+    envColor *= U_PBR_Environment_Explosure.x;
+    oFragColor.rgb += envColor * cLightAmbient;
+    //---------------------------test_param-------------------------------
+
+	    // oFragColor += cLightAmbient * (albedo.rgb + f0);
+	    // oFragColor *= saturate(cSplatMix.z);
+    //---------------------------test_param-------------------------------
+
+    #ifdef EMISSION_COLOR
+    	oFragColor.rgb += cSplattedColor.rgb * IN.i_Emission.rgb;
+    #endif
+
+    // #ifdef FLOW_COLOR
+    // 	float3 cFlowColor = S_2DExt15.Sample(S_2DExt15SamplerState, IN.i_FlowUV.xy).rgb;
+    // 	cFlowColor = pow(cFlowColor, 2.2f);
+    // 	cFlowColor *= U_PSCustom13.rgb;
+    // 	cFlowColor = dot(IN.i_Flow.rgb, cFlowColor);
+    // 	oFragColor.rgb += cSplatBaseColor.rgb * cFlowColor;
+    // #endif
+
+
+	oFragColor.rgb = oFragColor.rgb * IN.i_FogColor.a + IN.i_FogColor.rgb;
+	oFragColor.rgb = pow(oFragColor.rgb, 1.0 / 2.2);
+	float overdrawlerp = ceil(U_PS_Time.w);
+	oFragColor.rgb = oFragColor.rgb * (1.0 - overdrawlerp) + float3(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp);
+ 
+	return float4(oFragColor, 1.0);
+}
+

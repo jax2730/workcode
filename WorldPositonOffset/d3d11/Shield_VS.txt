@@ -1,0 +1,180 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+float4 U_WorldViewProjectMatrix[4];
+float4 U_WorldMatrix[3];
+float4 U_InvTransposeWorldMatrix[3];
+float4 U_VSGeneralRegister2;
+
+struct VS_INPUT
+{
+    float4 i_Pos : POSITION0;
+    float4 i_Normal : NORMAL0;
+    float4 i_UV : TEXCOORD0;
+};
+
+struct VS_OUTPUT
+{
+    float4 o_PosInClip : SV_POSITION;
+    float4 o_UV : TEXCOORD0;
+    float4 o_WNormal : TEXCOORD2;
+    float4 o_WPos : TEXCOORD3;
+};
+
+float3 mod289(float3 x)
+{
+    return x - floor(x / 289.0) * 289.0;
+}
+
+float2 mod289(float2 x)
+{
+    return x - floor(x / 289.0) * 289.0;
+}
+
+float3 permute(float3 x)
+{
+    return mod289((x * 34.0 + 1.0) * x);
+}
+
+float3 taylorInvSqrt(float3 r)
+{
+    return 1.79284291400159 - 0.85373472095314 * r;
+}
+
+float snoise(float2 v)
+{
+    const float4 C = float4(0.211324865405187, // (3.0-sqrt(3.0))/6.0
+                             0.366025403784439, // 0.5*(sqrt(3.0)-1.0)
+                            -0.577350269189626, // -1.0 + 2.0 * C.x
+                             0.024390243902439); // 1.0 / 41.0
+    // First corner
+    float2 i = floor(v + dot(v, C.yy));
+    float2 x0 = v - i + dot(i, C.xx);
+
+    // Other corners
+    float2 i1;
+    i1.x = step(x0.y, x0.x);
+    i1.y = 1.0 - i1.x;
+
+    // x1 = x0 - i1  + 1.0 * C.xx;
+    // x2 = x0 - 1.0 + 2.0 * C.xx;
+    float2 x1 = x0 + C.xx - i1;
+    float2 x2 = x0 + C.zz;
+
+    // Permutations
+    i = mod289(i); // Avoid truncation effects in permutation
+    float3 p =
+      permute(permute(i.y + float3(0.0, i1.y, 1.0))
+                    + i.x + float3(0.0, i1.x, 1.0));
+
+    float3 m = max(0.5 - float3(dot(x0, x0), dot(x1, x1), dot(x2, x2)), 0.0);
+    m = m * m;
+    m = m * m;
+
+    // Gradients: 41 points uniformly over a line, mapped onto a diamond.
+    // The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
+    float3 x = 2.0 * frac(p * C.www) - 1.0;
+    float3 h = abs(x) - 0.5;
+    float3 ox = floor(x + 0.5);
+    float3 a0 = x - ox;
+
+    // Normalise gradients implicitly by scaling m
+    m *= taylorInvSqrt(a0 * a0 + h * h);
+
+    // Compute final noise value at P
+    float3 g;
+    g.x = a0.x * x0.x + h.x * x0.y;
+    g.y = a0.y * x1.x + h.y * x1.y;
+    g.z = a0.z * x2.x + h.z * x2.y;
+    return 130.0 * dot(m, g);
+}
+
+float3 hashOld33(float3 p)
+{
+    p = float3(dot(p, float3(127.1, 311.7, 74.7)),
+			  dot(p, float3(269.5, 183.3, 246.1)),
+			  dot(p, float3(113.5, 271.9, 124.6)));
+
+    return frac(sin(p) * 43758.5453123);
+}
+
+
+float hash(float3 p)    // this hash is not production ready, please
+{ // replace this by something better
+
+    // 3D -> 1D
+    int n = p.x * 3 + p.y * 113 + p.z * 311;
+
+    // 1D hash by Hugo Elias
+    n = (n << 13) ^ n;
+    n = n * (n * n * 15731 + 789221) + 1376312589;
+    return float(n & uint(0x0fffffff)) / float(0x0fffffff);
+}
+
+float noise(in float3 x)
+{
+    uint i = uint(floor(x.x));
+    float3 f = frac(x);
+    f = f * f * (3.0 - 2.0 * f);
+	
+    return lerp(lerp(lerp(hash(i + float3(0, 0, 0)),
+                        hash(i + float3(1, 0, 0)), f.x),
+                   lerp(hash(i + float3(0, 1, 0)),
+                        hash(i + float3(1, 1, 0)), f.x), f.y),
+               lerp(lerp(hash(i + float3(0, 0, 1)),
+                        hash(i + float3(1, 0, 1)), f.x),
+                   lerp(hash(i + float3(0, 1, 1)),
+                        hash(i + float3(1, 1, 1)), f.x), f.y), f.z);
+}
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+    VS_OUTPUT vsOut = (VS_OUTPUT) 0;
+    float4 pos = float4(IN.i_Pos.xyz, 1.0f);
+
+	
+    float4 WorldMatrix[3];
+    float4 InvTransposeWorldMatrix[3];
+    float4 normal = float4(IN.i_Normal.xyz, 0.0f);
+    
+    WorldMatrix[0] = U_WorldMatrix[0];
+    WorldMatrix[1] = U_WorldMatrix[1];
+    WorldMatrix[2] = U_WorldMatrix[2];
+    
+    InvTransposeWorldMatrix[0] = U_InvTransposeWorldMatrix[0];
+    InvTransposeWorldMatrix[1] = U_InvTransposeWorldMatrix[1];
+    InvTransposeWorldMatrix[2] = U_InvTransposeWorldMatrix[2];
+    
+    vsOut.o_WNormal.xyz = mul((float3x4) InvTransposeWorldMatrix, float4(normal.xyz, 0.0f));
+    vsOut.o_WPos.xyz = mul((float3x4) WorldMatrix, pos);
+    vsOut.o_WPos.w = 1.0;
+    vsOut.o_UV = IN.i_UV;
+    vsOut.o_PosInClip.x = dot(U_WorldViewProjectMatrix[0], pos);
+    vsOut.o_PosInClip.y = dot(U_WorldViewProjectMatrix[1], pos);
+    vsOut.o_PosInClip.z = dot(U_WorldViewProjectMatrix[2], pos);
+    vsOut.o_PosInClip.w = dot(U_WorldViewProjectMatrix[3], pos);
+	
+    float4 normalView = 0.0;
+    normalView.x = dot(U_ViewProjectMatrix[0], normal);
+    normalView.y = dot(U_ViewProjectMatrix[1], normal);
+    normalView.z = dot(U_ViewProjectMatrix[2], normal);
+    normalView.z = dot(U_ViewProjectMatrix[3], normal);
+    normalView = normalize(normalView);
+	// scale range[x, y]
+    float sx = 0.2;
+    float sy = 1.0;
+    float nx = snoise(U_VS_Time.x);
+    float ny = snoise(-IN.i_UV.xy);
+    
+    float scaleVal = 1.0;
+    scaleVal = abs(sin(U_VS_Time.x) * sy) + sx;
+    float norLen = length(IN.i_Normal.xyz);
+    float3 norLen1 = (sin(snoise(IN.i_Normal.xy * U_VS_Time.x)) + 0.8) / (U_VSGeneralRegister2.x / 2.0);
+    norLen1 = (sin(snoise(IN.i_Normal.xy) * U_VS_Time.x * U_VSGeneralRegister2.x) + 0.8) / 2.0;
+    scaleVal = snoise(norLen) * 1.0;
+    float2 offset = normalView.xy * norLen1.x * U_VSGeneralRegister2.y;
+    vsOut.o_PosInClip.xy += (offset * (1.0 - U_VSGeneralRegister2.w));
+	
+    // vsOut.o_Color = IN.i_Color;
+    return vsOut;
+}

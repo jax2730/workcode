@@ -1,0 +1,280 @@
+//PointLighting_PBR_PS
+/*
+* shadingModel:
+* 0x01
+* 0: use U_PBR_*
+* 1: use U_Role*
+*
+* 0x02
+* 0: no emissive
+* 1: emissive
+*
+* 0x04
+* 0: no shadow
+* 1: receive shadow
+*
+* 0x08
+* 0: no environment map
+* 1: use environment map
+*
+* 0xf0 reserve for identify PBR model
+*/
+
+#include <Common_Uniform_PS.inl>
+#include <Common_Function_Lighting.inl>
+#include <Common_ShadowFiltering.inl>
+#include <PBR_Function.inl>
+
+Texture2D S_GBuffer0;
+SamplerState S_GBuffer0SamplerState;
+Texture2D S_GBuffer1;
+SamplerState S_GBuffer1SamplerState;
+Texture2D S_GBuffer2;
+SamplerState S_GBuffer2SamplerState;
+Texture2D S_DeferredSC;
+SamplerState S_DeferredSCSamplerState;
+
+Texture2D S_Depth;
+SamplerState S_DepthSamplerState;
+
+float4 U_InvViewProjectMatrix[4];
+
+#if defined(USE_DPSM) || defined(DISABLE_INSTANCE)
+float4 U_PSCustom0; // light color / square inner radius
+float4 U_PSCustom1; // world pos / square outer radius
+float4 U_PSCustom2; // spotlight direction / cos inner angle
+float4 U_PSCustom3; // cos outer angle / invDeltaCosOuterInnerAngle / invDeltaSqrRadius / index
+#ifdef USE_DPSM
+float4x4 U_PSCustom4; // ViewMatrix
+float4 U_PSCustom5; // ShadowLightMapping
+#endif
+#else
+float4 U_PSCustom0[InstanceCount * UniformCount];
+#endif
+struct PS_INPUT
+{
+    float4 pos : SV_POSITION;
+    float4 posInClip : TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+    float4 color : SV_TARGET;
+};
+
+#ifdef USE_DPSM
+#if MAX_POINT_LIGHT_PROBE_COUNT > 0
+Texture2D S_Dpsm0;
+SamplerComparisonState S_Dpsm0SamplerState;
+#endif
+
+#if MAX_POINT_LIGHT_PROBE_COUNT == 2
+static const float4 PointShadowAtlasTransform[2] = { float4(0.5, 1.0, 0.0, 0.0), float4(0.5, 1.0, 0.5, 0.0) };
+#elif MAX_POINT_LIGHT_PROBE_COUNT == 4
+static const float4 PointShadowAtlasTransform[4] = { float4(0.5, 0.5, 0.0, 0.0), float4(0.5, 0.5, 0.5, 0.0), float4(0.5, 0.5, 0.0, 0.5), float4(0.5, 0.5, 0.5, 0.5) };
+#endif
+
+// Assuming LH-posV.z has been reversed.
+void ParaboloidMapping(inout float4 posV, float xyMul, float depthMul, float depthAdd)
+{
+    float dist = length(posV.xyz);
+    posV.xyz /= dist;
+    // reflect to d0 = (0, 0, 1)
+    // half vector h = p' + d0
+    // p'x = hx / hz
+    // p'y = hy / hz
+    posV.xy /= posV.z + 1.0;
+    posV.xy *= xyMul;
+    // posV.z = (dist - nearDist) / (farDist - nearDist);
+    posV.z = depthMul * dist + depthAdd;
+    posV.w = 1.0;
+}
+
+float calculatePointLightShadow(
+    int index,
+    float3 N,
+    float3 worldPos,
+    float3 spotlightDir,
+    float sqrPointLightDist,
+    float sqrOuter,
+    float cosAngle,
+    float cosOuterAngle)
+{
+    float shadowFactor = 1.0f;
+    if (sqrPointLightDist < sqrOuter && cosAngle > cosOuterAngle)
+    {
+        float4x4 lightViewMatrix = U_PSCustom4;
+        float4 lightSpacePosition = mul(float4(worldPos, 1.0f), lightViewMatrix);
+
+        ParaboloidMapping(lightSpacePosition, U_PSCustom5.x,
+                          U_PSCustom5.z, U_PSCustom5.w);
+
+        lightSpacePosition.xy = lightSpacePosition.xy * float2(0.5, -0.5) + float2(0.5, 0.5);
+        lightSpacePosition.z += U_PSCustom5.y *
+                                (1.0 - saturate(dot(N, spotlightDir.xyz)));
+
+        shadowFactor = calcPointLightShadowFactor(
+            S_Dpsm0,
+            S_Dpsm0SamplerState,
+            lightSpacePosition.xyz,
+            U_ShadowTexOffset.w,
+            PointShadowAtlasTransform[index]);
+    }
+    return shadowFactor;
+}
+
+uniform int4 U_PSCustom6;
+Texture2D<float> S_2DExt0;
+#define g_ScreenSpaceShadowEnable U_PSCustom6.x
+#define g_ScreenSpaceShadow S_2DExt0
+#endif
+
+PS_OUTPUT main(PS_INPUT IN, uint i_InstanceID : SV_InstanceID)
+{
+    PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+    int3 screenLocation;
+    screenLocation.x = int(IN.pos.x);
+    screenLocation.y = int(IN.pos.y);
+    screenLocation.z = 0;
+
+    float4 posInClip;
+    posInClip.xy = IN.posInClip.xy / IN.posInClip.w;
+    posInClip.z = S_Depth.Load(screenLocation).r;
+    posInClip.w = 1.0f;
+    posInClip = posInClip / posInClip.z;
+
+    float3 wPos;
+    wPos.x = dot(U_InvViewProjectMatrix[0], posInClip);
+    wPos.y = dot(U_InvViewProjectMatrix[1], posInClip);
+    wPos.z = dot(U_InvViewProjectMatrix[2], posInClip);
+    float wPosw = dot(U_InvViewProjectMatrix[3], posInClip);
+    wPos = wPos / wPosw;
+
+    // load gbuffer data
+    float4 gBuffer0Data = S_GBuffer0.Load(screenLocation); // baseColor & alpha
+    float4 gBuffer1Data = S_GBuffer1.Load(screenLocation); // normal & custom data
+    float4 gBuffer2Data = S_GBuffer2.Load(screenLocation); // shading model / roughness / metalness / diffuseAO
+    ShadingModelInfo shadingModel = DecodeShadingModel(gBuffer2Data.w);
+
+    if(shadingModel.emptyGBuffer)
+    {
+        discard;
+    }
+    if (shadingModel.usePointLight == false)
+    {
+        discard;
+    }
+
+    float3 N = DecodeNormal(gBuffer1Data.xyz);
+
+    // attenuation
+#if defined(USE_DPSM) || defined(DISABLE_INSTANCE)
+    float3 lightColor = U_PSCustom0.xyz;
+    float3 lightCenter = U_PSCustom1.xyz;
+    float squareInnerRadius = U_PSCustom0.w;
+    float squareOuterRadius = U_PSCustom1.w;
+    float invDeltaSqrRadius = U_PSCustom3.z;
+#else
+    float3 lightColor = U_PSCustom0[i_InstanceID * UniformCount].xyz;
+    float3 lightCenter = U_PSCustom0[i_InstanceID * UniformCount + 1].xyz;
+    float squareInnerRadius = U_PSCustom0[i_InstanceID * UniformCount].w;
+    float squareOuterRadius = U_PSCustom0[i_InstanceID * UniformCount + 1].w;
+    float invDeltaSqrRadius = U_PSCustom0[i_InstanceID * UniformCount + 3].z;
+#endif
+    float3 fragmentLightDirection = lightCenter - wPos;
+    float squareDistance = dot(fragmentLightDirection, fragmentLightDirection);
+    fragmentLightDirection = normalize(fragmentLightDirection);
+
+    float attenuation = 1.0f;
+    if (squareDistance < squareOuterRadius)
+    {
+        attenuation = 1.0f - saturate((squareDistance - squareInnerRadius) * invDeltaSqrRadius);
+    }
+    else
+    {
+        discard;
+    }
+
+    // spotlight
+    // NOTE: cos(0 ~ PI) from [-1,1]
+#if defined(USE_DPSM) || defined(DISABLE_INSTANCE)
+    float3 spotLightDir = U_PSCustom2.xyz;
+    float cosOuterSpotLightAngle = U_PSCustom3.x;
+    float cosInnerSpotLightAngle = U_PSCustom2.w;
+    float invDeltaCosInnerOuterAngle = U_PSCustom3.y;
+#else
+    float3 spotLightDir = U_PSCustom0[i_InstanceID * UniformCount + 2].xyz;
+    float cosOuterSpotLightAngle = U_PSCustom0[i_InstanceID * UniformCount + 3].x;
+    float cosInnerSpotLightAngle = U_PSCustom0[i_InstanceID * UniformCount + 2].w;
+    float invDeltaCosInnerOuterAngle = U_PSCustom0[i_InstanceID * UniformCount + 3].y;
+#endif
+
+    float deltaAngleCos = dot(spotLightDir, -fragmentLightDirection);
+    if (deltaAngleCos > cosOuterSpotLightAngle)
+    {
+        attenuation *= 1.0 - saturate((deltaAngleCos - cosInnerSpotLightAngle) * invDeltaCosInnerOuterAngle);
+    }
+    else
+    {
+        discard;
+    }
+    attenuation = attenuation * attenuation;
+
+    // point light shadow
+	float shadowFactor = 1.0f; // 1.0 for not occluded
+#ifdef USE_DPSM
+    int index = int(U_PSCustom3.w);
+    shadowFactor = calculatePointLightShadow(
+        index,
+        N,
+        wPos,
+        spotLightDir,
+        squareDistance,
+        squareOuterRadius,
+        deltaAngleCos,
+        cosOuterSpotLightAngle
+    );
+    
+    if (g_ScreenSpaceShadowEnable == 1)
+    {
+        shadowFactor = min(shadowFactor, g_ScreenSpaceShadow.Load(screenLocation).r);
+    }
+#endif
+
+    // lighting
+    float3 outColor;
+    if (shadingModel.lightModel == LightModel_PBR_HDR_Environment ||
+             shadingModel.lightModel == LightModel_PBR_LDR_Environment)
+    {
+        SurfaceData surface;
+        // extrct data from gBuffer and fill surface info
+        surface.worldPos = wPos;
+        surface.N = N;
+        surface.V = normalize(U_PS_CameraPosition.xyz - wPos.xyz);
+        surface.baseColor = pow(gBuffer0Data.xyz, 2.2);
+        surface.NdotV = saturate(dot(surface.N, surface.V));
+        surface.metalness = gBuffer2Data.x;
+        surface.roughness = gBuffer2Data.y;
+        surface.diffuseAO = gBuffer2Data.z;
+
+        // the following three params are just default values, real values are computed later
+        surface.specularAO = 1.f;
+        surface.preIntegratedBRDF = 1.f;
+        surface.diffuseAlbedo = 1.f;
+        LightData pointLight;
+        // fill light info
+        {
+            pointLight.colorIntensity = lightColor;
+            pointLight.direction = normalize(fragmentLightDirection.xyz);
+            pointLight.NdotL = saturate(dot(surface.N, pointLight.direction));
+            pointLight.attenuation = attenuation;  // directional light doesn't attenuate
+			pointLight.shadowFactor = shadowFactor;
+		}
+        outColor = DirectLighting(surface, pointLight);
+    }
+
+    psOut.color.rgb = outColor;
+    psOut.color.a = 1.0f;
+    return psOut;
+}

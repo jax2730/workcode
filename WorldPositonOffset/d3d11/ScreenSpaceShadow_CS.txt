@@ -1,0 +1,46 @@
+#define __HLSL_VERSION
+#include "bend_sss_gpu.h"
+
+struct PassUniforms
+{
+	float4 lightCoordinate;
+	int2 WaveOffset;
+	float2 InvDepthTextureSize;
+	float4 ShadowStrength;
+};
+
+uniform PassUniforms U_CSCustom0;
+Texture2D<float> S_Depth;
+SamplerState S_DepthSamplerState;
+RWTexture2D<float> S_ShadowMap0;
+
+[numthreads(WAVE_SIZE, 8, 1)]
+void main(int3 groupID : SV_GroupID, int3 groupThreadID : SV_GroupThreadID)
+{
+	DispatchParameters params;
+	params.SetDefaults();
+	params.ShadowStrength = U_CSCustom0.ShadowStrength.x;
+	
+	params.SurfaceThickness = SURFACE_THICKNESS;
+	params.BilinearThreshold = BILINEAR_THRESHOLD;
+	params.IgnoreEdgePixels = IGNORE_EDGE_PIXELS;
+	params.BilinearSamplingOffsetMode = BILINEAR_SAMPLING_OFFSET_MODE;
+	params.DebugOutputEdgeMask = DEBUG_OUTPUT_EDGE_MASK;
+	params.DebugOutputWaveIndex = DEBUG_OUTPUT_WAVE_INDEX;
+	
+	params.LightCoordinate = U_CSCustom0.lightCoordinate;
+	params.WaveOffset = U_CSCustom0.WaveOffset;
+#ifdef REVERSE_DEPTH
+	params.FarDepthValue  = 0.0;
+	params.NearDepthValue = 1.0;
+#else
+	params.FarDepthValue  = 1.0;
+	params.NearDepthValue = 0.0;
+#endif
+	params.InvDepthTextureSize = U_CSCustom0.InvDepthTextureSize;
+	params.DepthTexture = S_Depth;
+	params.OutputTexture = S_ShadowMap0;
+	params.PointBorderSampler = S_DepthSamplerState;
+	
+	WriteScreenSpaceShadow(params, groupID, groupThreadID.x);
+}

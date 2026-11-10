@@ -1,0 +1,202 @@
+#ifndef NUM_SAMPLES
+#define NUM_SAMPLES 5
+#endif
+
+#define ColorBuffer S_2DExt0
+#define ColorSampler S_2DExt0SamplerState
+
+#define MotionVectorsBuffer S_2DExt1
+#define MotionVectorsSampler S_2DExt1SamplerState
+
+#define DepthBuffer S_2DExt2
+#define DepthSampler S_2DExt2SamplerState
+
+Texture2D       ColorBuffer;
+SamplerState    ColorSampler;
+
+Texture2D       MotionVectorsBuffer;
+SamplerState    MotionVectorsSampler;
+
+Texture2D       DepthBuffer;
+SamplerState    DepthSampler;
+
+struct PS_INPUT
+{
+    float4 i_Position	: SV_POSITION; 
+	float4 i_UV	        : TEXCOORD0;
+	float4 i_ScreenPos	: TEXCOORD1;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+float4 U_PSCustom0;		// viewport(rangeX, rangeY, width, height)
+float4 U_PSCustom1;		// x: maxBlurRadius; y: jitter; z: depth threshold
+float4 U_PSCustom2;     // xy:near/Far Clip plane ,zw near clip plane width/height
+float4 U_PSCustom4;     // xyz: camera forward vector
+float4 U_PSCustom5;     // xyz: camera right vector
+float4 U_PSCustom6;     // xyz: camera up vector
+
+#ifdef REVERSE_DEPTH
+float linearEyeDepth( float z )// return positiive depth value(+NearClip ~ +FarClip)
+{
+    float NearClip  = U_PSCustom2.x;
+    float FarClip   = U_PSCustom2.y;
+
+    float zc0 = FarClip * NearClip;
+    float zc1 = FarClip - NearClip;
+
+    return zc0 / (NearClip + zc1 * z);
+}
+#else
+float linearEyeDepth( float z )// return positiive depth value(+NearClip ~ +FarClip)
+{
+   float NearClip  = U_PSCustom2.x;
+   float FarClip   = U_PSCustom2.y;
+
+   float zc0 = FarClip * NearClip;
+   float zc1 = FarClip - NearClip;
+
+   return zc0 / (FarClip - zc1 * z);
+}
+#endif
+
+float depthToWorldPos(float2 uv, float depth)
+{
+    float width = U_PSCustom2.z;
+    float height = U_PSCustom2.w;
+    float near = U_PSCustom2.x;
+    float3 forward = U_PSCustom4.xyz;
+    float3 right = U_PSCustom5.xyz;
+    float3 up = U_PSCustom6.xyz;
+
+    float3 toTop = up * (0.5f - uv.y) * height;
+    float3 toRight = right * (uv.x - 0.5f) * width;
+
+    float3 ray;
+    ray = forward * near + toRight + toTop;
+    float scaleFactor = length(ray) / near;
+    ray = normalize(ray) * scaleFactor;
+
+    float linearDepth = linearEyeDepth(depth);
+    return length(linearDepth * ray);
+}
+
+// 辅助函数：深度比较函数（用于前后景判断）
+float softDepthCompare(float z1, float z2)
+{
+    const float SOFT_Z_EXTENT = 0.01; // 可调参数，控制模糊过渡
+    return clamp(1.0 - (z1 - z2) / SOFT_Z_EXTENT, 0.0, 1.0);
+}
+
+// 辅助函数：圆锥权重函数，判断是否在模糊范围内
+float coneWeight(float2 pos1, float2 pos2, float2 motionVector)
+{
+    return clamp(1.0 - length(pos1 - pos2) / length(motionVector), 0.0, 1.0);
+}
+
+float cylinder(float2 pos1, float2 pos2, float2 motionVector)
+{
+    return 1.0 - smoothstep(0.95 * length(motionVector), 1.05 * length(motionVector), length(pos1 - pos2));
+}
+
+float2 getMotionVector(float2 uv, float2 screenSize, float maxBlurRadius)
+{
+    float2 mv = MotionVectorsBuffer.Sample(MotionVectorsSampler, uv).xy;
+    if (mv.x == 0 && mv.y == 0)
+    {
+        return mv;
+    }
+
+    mv = normalize(mv) * min(maxBlurRadius, length(mv));
+    return mv / screenSize;
+}
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+    PS_OUTPUT psOut = (PS_OUTPUT)1.0f;
+    psOut.o_Color.rgb = float3(0,0,0);
+
+    float2 viewPortRange = U_PSCustom0.xy;
+    float2 screenSize = U_PSCustom0.zw;
+    float maxBlurRadius = U_PSCustom1.x;
+    float jitter = U_PSCustom1.y;
+    float depthThreshold = U_PSCustom1.z;
+
+    float4 i_pos = IN.i_Position;
+    float2 i_uv = IN.i_UV.xy * viewPortRange;
+
+    float4 color = ColorBuffer.Sample(ColorSampler, i_uv.xy);
+
+    float depth = DepthBuffer.Sample(DepthSampler, i_uv.xy).r;
+
+    if (depthThreshold > 0 && depthToWorldPos(i_uv, depth) <= depthThreshold)
+    {
+        psOut.o_Color = color;
+        return psOut;
+    }
+
+#ifdef REVERSE_DEPTH
+    depth = 1.0 - depth;
+#endif
+
+    float2 motionVector = getMotionVector(i_uv.xy, screenSize, maxBlurRadius);
+    if (length(motionVector) < 0.001)
+    {
+        psOut.o_Color = color;
+        return psOut;
+    }
+
+    float totalWeight = 1.0;
+    float3 sumColor = color.rgb;
+
+    [unroll]
+    for (int i = 0; i < NUM_SAMPLES; ++i)
+    {
+        if (i == (int)((NUM_SAMPLES - 1) / 2))
+        {
+            continue;
+        }
+
+        float sampleOffset = (i - NUM_SAMPLES / 2.0) / NUM_SAMPLES;
+        float2 samplePos = i_uv + (motionVector * (sampleOffset + jitter));
+
+        float2 tempMV = getMotionVector(samplePos, screenSize, maxBlurRadius);
+        if (length(tempMV) < 0.001) 
+        {
+            continue;
+        }
+
+        float sampleDepth = DepthBuffer.Sample(DepthSampler, samplePos).r;
+
+        if (depthThreshold > 0 && depthToWorldPos(i_uv, sampleDepth) <= depthThreshold)
+        {
+            continue;
+        }
+
+#ifdef REVERSE_DEPTH
+        sampleDepth = 1.0 - sampleDepth;
+#endif
+
+        float3 sampleColor = ColorBuffer.Sample(ColorSampler, samplePos).rgb;
+
+        float f = softDepthCompare(depth, sampleDepth);    // 采样点在前景
+        float b = softDepthCompare(sampleDepth, depth);    // 采样点在背景
+
+        float2 _x = i_uv;
+        float2 _y = samplePos;
+
+        float coneW1 = coneWeight(_x, _y, motionVector);
+        float coneW2 = coneWeight(_y, _x, tempMV);
+        float weight = f * coneW2 + b * coneW1
+            + cylinder(_y, _x, tempMV) * cylinder(_x, _y, motionVector);
+
+        sumColor += sampleColor * weight;
+        totalWeight += weight;
+    }
+
+    psOut.o_Color.rgb = sumColor / totalWeight;
+    return psOut;
+}

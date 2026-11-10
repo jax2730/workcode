@@ -1,0 +1,169 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+																																							
+										
+uniform float4 	U_VSCustom0[44]; //VSCBPreMaterial															
+uniform float4	U_VSCustom1[5];  //VSCBPreDrawCall
+uniform	float4 	U_VSCustom2[4];  //VSViewProjectMatrixPt																	
+
+struct VS_INPUT
+{
+	float4 Pos : POSITION0;
+	float4 Dir : NORMAL0;
+	float4 Ext : TEXCOORD0;
+};
+																								
+struct VS_OUTPUT																				
+{				
+    float4	Pos : SV_POSITION;																				
+	float4	Col : TEXCOORD0;																	
+	float4	Tc  : TEXCOORD1;																							
+		
+#ifdef 	DOUBLETEX
+	float2	Tc1  : TEXCOORD2;
+#endif
+	float4	o_Fog : TEXCOORD3;
+};																								
+																							
+												
+static	float4	matViewProjC0 = U_VSCustom2[0];											
+static	float4	matViewProjC1 = U_VSCustom2[1];											
+static	float4	matViewProjC2 = U_VSCustom2[2];											
+static	float4	matViewProjC3 = U_VSCustom2[3];											
+																								
+static float4	vecTileParam = U_VSCustom0[33 + 0];											
+static float4	vecTileRot = U_VSCustom0[33 + 1];											
+static float4	vecTCMoveMax = U_VSCustom0[33 + 2];											
+static float4	vecTCMoveMin = U_VSCustom0[33 + 3];											
+static float4	vecTCScaleMax = U_VSCustom0[33 + 4];										
+static float4	vecTCScaleMin = U_VSCustom0[33 + 5];										
+static float4	vecTCRotateMax = U_VSCustom0[33 + 6];										
+static float4	vecTCRotateMin = U_VSCustom0[33 + 7];										
+static float4	vecTCSelect = U_VSCustom0[33 + 8];											
+static float4	vecPlayRate = U_VSCustom0[33 + 9];											
+static float4	vecPlayRand = U_VSCustom0[33 + 10];											
+
+static	float4	vecCast  = U_VSCustom1[0];
+static	float4	vecRand0 = U_VSCustom1[1];
+static	float4	vecRand1 = U_VSCustom1[2];
+static	float4	vecScale = U_VSCustom1[3];
+static	float4	vecColor = U_VSCustom1[4];	
+																								
+void CalParam(in float  _Time																	
+	, in float2 _Tc																				
+	, in float4 _Rand0																			
+	, in float4 _Rand1																			
+	, out float4 Color_																			
+	, out float4 Scale_																			
+	, out float4 Pose_																			
+	, out float4 Tc_)																			
+{																																											
+	float	Time = _Time;																		
+	float4	Rand0 = _Rand0;																		
+	float4	Rand1 = _Rand1;																		
+																								
+	float4	KFTime = frac(Time * vecPlayRate + Rand0 * vecPlayRand) * 9.99;						
+	int4	KFIndex = int4(KFTime);																
+	float4 	KFLerp = frac(KFTime);																
+																								
+	float4	Color0 = U_VSCustom0[0 + KFIndex.x];											
+	float4	Color1 = U_VSCustom0[0 + KFIndex.x + 1];										
+	Color_ = lerp(Color0, Color1, KFLerp.x);													
+																								
+	float 	Alpha0 = U_VSCustom0[0 + KFIndex.y].a;											
+	float 	Alpha1 = U_VSCustom0[0 + KFIndex.y + 1].a;										
+	Color_.a = lerp(Alpha0, Alpha1, KFLerp.y);													
+																								
+	float4 	Scale0 = U_VSCustom0[11 + KFIndex.z];											
+	float4 	Scale1 = U_VSCustom0[11 + KFIndex.z + 1];										
+	Scale_ = lerp(Scale0, Scale1, KFLerp.z);													
+																								
+	float4 	Pose0 = U_VSCustom0[22 + KFIndex.w];											
+	float4 	Pose1 = U_VSCustom0[22 + KFIndex.w + 1];										
+	Pose_ = lerp(Pose0, Pose1, KFLerp.w);														
+																								
+	float2	tc = _Tc;																			
+																								
+																								
+	float 	Tile = frac(Time * vecTileParam.x + Rand1.w * vecTileParam.y);						
+	float 	Row = vecTileParam.w;																
+	float 	Col = vecTileParam.z;																
+	float	nIdx = floor(Tile*Row*Col);															
+	float 	nRow = floor(nIdx / Col);															
+	float 	nCol = nIdx - nRow*Col;																
+	float 	fRow = nRow / Row;																	
+	float 	fCol = nCol / Col;																	
+	float2 	Tc0 = float2(tc.x, tc.y) * vecTileRot.x +											
+		float2(1.0 - tc.y, tc.x) * vecTileRot.y +												
+		float2(1.0 - tc.x, 1.0 - tc.y) * vecTileRot.z +											
+		float2(tc.y, 1.0 - tc.x) * vecTileRot.w;												
+	float2	TcTile = float2(fCol, fRow) + Tc0*float2(1.0 / Col, 1.0 / Row);						
+																								
+	float4 	TcMove = lerp(vecTCMoveMax, vecTCMoveMin, Rand1.x);									
+	float4 	TcScale = lerp(vecTCScaleMax, vecTCScaleMin, Rand1.y);								
+	float4 	TcRotate = lerp(vecTCRotateMax, vecTCRotateMin, Rand1.z);							
+																								
+	float2 	TcTran = tc - float2(0.5, 0.5);														
+	TcTran *= TcScale.zw + TcScale.xy * Time;													
+	TcTran += TcMove.zw + TcMove.xy * Time;														
+	float RotDeg = TcRotate.x * Time + TcRotate.y;												
+	float2 RotMatR0 = float2(+cos(RotDeg), -sin(RotDeg));										
+	float2 RotMatR1 = float2(+sin(RotDeg), +cos(RotDeg));										
+	TcTran = float2(dot(TcTran, RotMatR0), dot(TcTran, RotMatR1));								
+	TcTran += float2(0.5, 0.5);																	
+																								
+	Tc_.xy = lerp(TcTile, TcTran, vecTCSelect.x);
+#ifdef DOUBLETEX
+	Tc_.zw = lerp(TcTran, TcTile, vecTCSelect.x);
+#else
+	Tc_.zw = 0.0;
+#endif		
+}																								
+
+
+VS_OUTPUT main(in VS_INPUT iVtx)
+{
+	VS_OUTPUT	oVtx;
+
+	float	Time = vecScale.w;
+	float2	Tc = iVtx.Ext.yx;
+	float4	Pose;
+	float4	Scale;
+	
+	float4 outTC;
+	
+	CalParam(Time, Tc, vecRand0, vecRand1, oVtx.Col, Scale, Pose, outTC);
+	
+	oVtx.Tc.xy = outTC.xy;
+	oVtx.Tc.zw = Tc;
+#ifdef DOUBLETEX
+	oVtx.Tc1 = outTC.zw;
+#endif
+	
+	oVtx.Col *= vecColor;
+	float Width = Scale.x;
+	float3 ext_vec = normalize(cross(vecCast.xyz, iVtx.Dir.xyz));
+	ext_vec *= (iVtx.Ext.y - 0.5)*Width;
+	float4 wpos = float4(iVtx.Pos.xyz + ext_vec*vecScale.x, 1.0);
+	
+	float4	vCamPos				=	U_VS_CameraPosition;
+	float3 camToWorld =  vCamPos.xyz - wpos.xyz;
+
+	float4x4 gravityRotatePosMatrix;	
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+	
+	oVtx.o_Fog = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);	
+	
+	oVtx.Pos.x = dot(matViewProjC0, wpos);
+	oVtx.Pos.y = dot(matViewProjC1, wpos);
+	oVtx.Pos.z = dot(matViewProjC2, wpos);
+	oVtx.Pos.w = dot(matViewProjC3, wpos);
+
+	//oVtx.Col.a *= CalFade( wpos.xyz );
+
+	return oVtx;
+}																								

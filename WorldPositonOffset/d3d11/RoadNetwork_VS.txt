@@ -1,0 +1,47 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+float4	U_WorldMatrix[3];
+float4	U_WorldViewProjectMatrix[4];
+
+struct VS_INPUT
+{
+	float4 i_Position	: POSITION0;
+	float4 i_Normal		: NORMAL0;
+	float4 i_UV			: TEXCOORD0;
+	float4 i_Offset		: TEXCOORD1;
+};
+
+struct VS_OUTPUT
+{
+	float4 o_Position	: SV_POSITION;
+	float4 o_WorldPos	: TEXCOORD0;
+	float4 o_UV			: TEXCOORD1;
+	float4 o_Offset		: TEXCOORD2;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+    
+    float4 vPos = float4(IN.i_Position.xyz,1.0);
+
+	float4 vPosInWorld = vPos;	
+	vPosInWorld.x = dot( vPos , U_WorldMatrix[0] );
+	vPosInWorld.y = dot( vPos , U_WorldMatrix[1] );
+	vPosInWorld.z = dot( vPos , U_WorldMatrix[2] );
+	vPosInWorld.w = 1.0;
+
+	vsOut.o_WorldPos = vPosInWorld;
+								
+	vsOut.o_Position.x = dot( vPos , U_WorldViewProjectMatrix[0] );
+	vsOut.o_Position.y = dot( vPos , U_WorldViewProjectMatrix[1] );
+	vsOut.o_Position.z = dot( vPos , U_WorldViewProjectMatrix[2] );
+	vsOut.o_Position.w = dot( vPos , U_WorldViewProjectMatrix[3] );
+
+	vsOut.o_UV.xy = IN.i_UV.xy;
+
+	vsOut.o_Offset.x = IN.i_Offset.x;
+
+    return vsOut;
+}

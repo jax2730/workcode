@@ -1,0 +1,12 @@
+{
+  "generator_version": "manual-bootstrap-1.0",
+  "quality_standard": "project-custom-zh-clustering",
+  "generated_at": "2026-04-28T00:00:00Z",
+  "project": "cityarea",
+  "status": "initialized",
+  "focus": [
+    "cluster wiki",
+    "city_process",
+    "中文文档"
+  ]
+}

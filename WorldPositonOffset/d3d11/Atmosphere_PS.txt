@@ -1,0 +1,150 @@
+#include <Common_Uniform_PS.inl> 
+#include<Common_Function.inl>		
+
+//float4 U_MaterialCustomParam;
+
+float4 U_WorldViewProjectMatrix[4];
+float4 U_PSGeneralRegister0; //MainColor.xyz,w:alpha
+float4 U_PSGeneralRegister1; //x:Brightness, y:Permeability, z:RimAlpha, w:RimAlphaEdge
+float4 U_PSGeneralRegister2; //x:AlphaColorPower, y:CenterColorPower, z: LightTransitionPower, w:LightTransitionAlphaPower
+float4 U_PSGeneralRegister3; //DarkColor.xyz
+float4 U_PSGeneralRegister4; //RimColor.xyz w:RimPower
+float4 U_PSGeneralRegister5; //x:DarkAlpha
+
+float4 U_MaterialCustomParam1;//HDR
+float4  U_MaterialFresnel;
+
+uniform Texture2D S_Depth;
+SamplerState S_DepthSamplerState;
+
+#ifdef DISSOLVE
+    Texture2D S_Custom7;
+    SamplerState S_Custom7SamplerState;
+#endif
+struct PS_INPUT
+{
+	float4 Position				: SV_POSITION;
+    float4 o_WorldPos           : TEXCOORD0;
+    float4 o_ViewPos            : TEXCOORD1;
+    float4 o_ClipPos            : TEXCOORD2;
+    float o_NDV                 : TEXCOORD3;
+    float o_InnerPow            : TEXCOORD4;
+    float3 o_WorldNormal        : TEXCOORD5;
+    float4 o_Fog                : TEXCOORD6;
+    float4 o_UV                 : TEXCOORD7;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color				: SV_TARGET;
+};
+float3 FresnelSchlick(float cosTheta, float3 F0)
+{
+    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+}
+PS_OUTPUT main(PS_INPUT IN)
+{
+    PS_OUTPUT psOut = (PS_OUTPUT) 1.f;
+    float2 uv = IN.o_UV.xy;
+#ifdef DISSOLVE
+    if(U_MaterialCustomParam1.y > 0)
+    {
+        float4x4 thresholdMatrix =
+        {  1.0 / 17.0,  9.0 / 17.0,  3.0 / 17.0, 11.0 / 17.0,
+            13.0 / 17.0,  5.0 / 17.0, 15.0 / 17.0,  7.0 / 17.0,
+            4.0 / 17.0, 12.0 / 17.0,  2.0 / 17.0, 10.0 / 17.0,
+            16.0 / 17.0,  8.0 / 17.0, 14.0 / 17.0,  6.0 / 17.0
+        };
+        float2 pos = IN.Position.xy;
+        
+        
+        pos.xy = pos.xy/U_MaterialCustomParam1.z;
+        
+        int xindex = fmod(pos.x, 4);
+        int yindex =fmod(pos.y, 4);
+        
+        float alphaDissolve = thresholdMatrix[xindex][yindex];//* _RowAccess[yindex];
+        
+        if(alphaDissolve < U_MaterialCustomParam1.y)
+            discard;
+    }
+    else
+    {
+        if(S_Custom7.Sample(S_Custom7SamplerState, uv).a < U_MaterialFresnel.y)
+        discard;	
+    }
+#endif
+
+    half3 color = U_PSGeneralRegister0.xyz;
+    float alpha = U_PSGeneralRegister0.w;
+    half3 normal = normalize(IN.o_WorldNormal);
+    
+    color *= U_PSGeneralRegister1.x;
+
+    half3 viewDir = normalize(U_PS_CameraPosition.xyz - IN.o_WorldPos.xyz);
+	half3 L = normalize(-U_MainLightDirection.xyz);
+    half nl = dot(normal, L);
+    half value = nl * 0.5f + 0.5f;
+    value = pow(abs(value), U_PSGeneralRegister2.z);
+    half alphaValue = pow(abs(value), U_PSGeneralRegister2.w);
+    color.rgb = lerp(color, U_PSGeneralRegister3.xyz, pow(1.0f - value, U_PSGeneralRegister3.w));
+    
+    float2 screenTC = IN.o_ClipPos.xy / IN.o_ClipPos.w;
+    screenTC.x = (screenTC.x + 1.0f) * 0.5f;
+    screenTC.y = 1.0f - (screenTC.y + 1.0f) * 0.5f;
+    screenTC *= U_ViewParam.xy;
+
+    float4 tempPos = float4(screenTC, 0.0f, 1.0f);
+    tempPos.z = S_Depth.Sample(S_DepthSamplerState, screenTC).r;
+    tempPos.x = IN.o_ClipPos.x / IN.o_ClipPos.w;
+    tempPos.y = IN.o_ClipPos.y / IN.o_ClipPos.w;
+    
+    float4 viewSpacePos;
+    viewSpacePos.x = dot(U_InvProjectMatrix[0], tempPos);
+    viewSpacePos.y = dot(U_InvProjectMatrix[1], tempPos);
+    viewSpacePos.z = dot(U_InvProjectMatrix[2], tempPos);
+    viewSpacePos.w = dot(U_InvProjectMatrix[3], tempPos);
+		
+    float4 vp;
+    vp.x = dot(U_InvProjectMatrix[0], IN.o_ClipPos);
+    vp.y = dot(U_InvProjectMatrix[1], IN.o_ClipPos);
+    vp.z = dot(U_InvProjectMatrix[2], IN.o_ClipPos);
+    vp.w = dot(U_InvProjectMatrix[3], IN.o_ClipPos);
+    
+    float sceneDepth = viewSpacePos.z / viewSpacePos.w;
+    float objectDepth = vp.z / vp.w;
+    
+    float length = (objectDepth - sceneDepth);
+    float permeability = U_PSGeneralRegister1.y;
+    permeability = max(permeability, 0.01f);
+
+    alpha *= saturate(length / permeability);
+
+    alpha = saturate(alpha + 1.0f - alphaValue);
+    
+    float innerPow = pow(IN.o_InnerPow, U_PSGeneralRegister1.z);
+    
+    if (innerPow < U_PSGeneralRegister1.w)
+    {
+        innerPow = lerp(0.0f, 1.0f, innerPow / U_PSGeneralRegister1.w) ;
+        
+        alpha *= -pow(2.0f, -10.0f * innerPow) + 1.0f;
+    }
+    //暗处透明度
+    alpha = lerp(alpha, U_PSGeneralRegister5.x, saturate(-nl));
+
+    float cosTheta = saturate(dot(viewDir, normal));
+    float powerRim = U_PSGeneralRegister4.w;
+    float3 F0 = float3(powerRim, powerRim, powerRim);
+    float3 fresnel = FresnelSchlick(cosTheta, F0);
+    float fresnelPower = dot(fresnel,nl);
+    float3 RimColor = fresnelPower * U_PSGeneralRegister4.xyz;
+    RimColor = saturate(RimColor);
+
+    color += RimColor;
+    psOut.o_Color.xyz = color * U_MaterialCustomParam1.x;
+    psOut.o_Color.xyz = psOut.o_Color.xyz * IN.o_Fog.a + IN.o_Fog.rgb;
+    psOut.o_Color.a = alpha;
+    
+    return psOut;
+}

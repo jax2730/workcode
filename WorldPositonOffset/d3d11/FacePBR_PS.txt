@@ -1,0 +1,751 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+#include <Light_Function_PS.inl>
+#include <Common_Function_PS.inl>
+#ifdef CLUSTER_POINT_LIGHT
+	#include "Shadow_Light_Function_PS.inl"
+#endif
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4	U_MaterialDiffuse;
+		Texture2D	S_Diffuse;
+		SamplerState S_DiffuseSamplerState;
+		float4 texDiffuse(float2 vUV) 
+		{ 
+			return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+		}
+	#endif
+#else
+	
+	float4	U_MaterialDiffuse;
+	float4	U_MaterialSpecular;
+	float4	U_MaterialFresnel;
+	float4	U_MaterialCustomParam;
+	float4	U_MaterialCustomParam1;
+	
+	float4	U_LightPower;	//x for lightpower, y for specular offset
+	
+	float4	U_PSGeneralRegister0;
+	float4	U_PSGeneralRegister1;
+	float4	U_PSGeneralRegister2;
+	float4	U_PSGeneralRegister3;
+	float4	U_PSGeneralRegister4;
+	float4	U_PSGeneralRegister5;
+	float4	U_PSGeneralRegister6;
+	
+	Texture2D	S_Diffuse;
+	SamplerState S_DiffuseSamplerState;
+	float4 texDiffuse(float2 vUV) 
+	{ 
+		return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+	}
+	#ifdef DISSOLVE
+			Texture2D S_Custom7;
+			SamplerState S_Custom7SamplerState;
+	#endif
+
+	Texture2D	S_Bump;
+	SamplerState S_BumpSamplerState;
+	
+	TextureCube	S_EnvironmentCubeMap;
+	SamplerState S_EnvironmentCubeMapSamplerState;
+	
+	/*#ifdef DIFFUSE_SCATTERING
+		Texture2D	S_Custom;
+		SamplerState S_CustomSamplerState;
+	#endif*/
+	
+	float4	U_PSGeneralRegister7;	// y: uv mirror x;
+	float4	U_PSGeneralRegister8;	//float3 BlusherColor;	float BlusherScale;
+	float4	U_PSGeneralRegister9;	//float4 BlusherSrcSizeBias;	//xy -- size, zw -- bias
+	float4	U_PSGeneralRegister10;	//float  BlusherAlpha;
+		
+	float4	U_PSGeneralRegister11;	//float3 EyebrowColor;	float EyebrowScale;
+	float4	U_PSGeneralRegister12;	//float4 EyebrowSrcSizeBias;	//xy -- size, zw -- bias
+	float4	U_PSGeneralRegister13;	//float	 EyebrowAlpha
+	
+	float4	U_PSGeneralRegister14;	//float3 LipsColor;  float LipsScale;
+	float4	U_PSGeneralRegister15;	//float4 LipsSrcSizeBias;		//xy -- size, zw -- bias
+	float4	U_PSGeneralRegister16;	//float3 LipsColor2;
+	float4  U_PSGeneralRegister17;	//float  LipsAlpha;  float gloss
+
+	float4	U_PSGeneralRegister18;	//float3 EyeShadowColor;	float EyeShadowScale;
+	float4	U_PSGeneralRegister19;	//float4 EyeShadowSrcSizeBias;	//xy -- size, zw -- bias
+	float4	U_PSGeneralRegister20;	//float3 EyeShadowColor2;
+	float4	U_PSGeneralRegister21;	//float  EyeShadowAlpha;	float  EyeShadowgloss;
+		
+	float4	U_PSGeneralRegister22;	//float3 EyelinerColor;		float EyelinerScale;
+	float4	U_PSGeneralRegister23;	//float4 EyelinerSrcSizeBias;	//xy -- size, zw -- bias
+	float4	U_PSGeneralRegister24;	//float  EyelinerAlpha;
+	
+	float4	U_PSGeneralRegister25;	//float4 TattooSrcSizeBias;		//xy -- size, zw -- bias
+	float4	U_PSGeneralRegister26;	//float4 TattooDestSizeBias;	//xy -- size, zw -- bias
+	float4	U_PSGeneralRegister27;	//float TattooAlpha;
+
+	float4	U_PSGeneralRegister29; 	//x ---current mask percentage
+									//y --- if 1 on Lattice Cull Mask
+									//z ---alpha range
+									//w ---direction if w >= 0 Positive elseif w < 0 Reverse
+
+		
+	Texture2D S_Custom;				//Texture2D EyelinerColor;
+	SamplerState S_CustomSamplerState;
+	Texture2D S_Custom2;			//Texture2D BlusherColor;
+	SamplerState S_Custom2SamplerState;
+	Texture2D S_Custom3;			//Texture2D EyebrowColor;
+	SamplerState S_Custom3SamplerState;
+	Texture2D S_Custom10;			//Texture2D LipsColor;
+	SamplerState S_Custom10SamplerState;
+	Texture2D	S_Specular;			//TExture2d EyeShadowColor;
+	SamplerState S_SpecularSamplerState;
+
+	Texture2D S_Custom4;			//Texture2D TattooMap;
+	SamplerState S_Custom4SamplerState;
+	//Texture2D S_Custom5;			//Texture2D TattooSpecMap;
+	//SamplerState S_Custom5SamplerState;
+	Texture2D S_Custom6;			//Texture2D TattooNormalMap;
+	SamplerState S_Custom6SamplerState;
+	#ifdef AGE
+		Texture2D S_Custom8;			//Texture2D SecondNormalMap;
+		SamplerState S_Custom8SamplerState;
+	#endif
+	#ifdef DETAIL_BUMP 
+		Texture2D S_Custom9;			//Texture2D DetailNormalMap;
+		SamplerState S_Custom9SamplerState;
+	#endif
+	
+
+	
+#endif
+
+half3 RgbToHsl(half3 c)
+{
+	half4 K = half4(0.0f, -1.0f / 3.0f, 2.0f / 3.0f, -1.0f);
+	half4 p = lerp(half4(c.bg, K.wz), half4(c.gb, K.xy), step(c.b, c.g));
+	half4 q = lerp(half4(p.xyw, c.r), half4(c.r, p.yzx), step(p.x, c.r));
+
+	half d = q.x - min(q.w, q.y);
+	half e = 1.0e-10;
+	return half3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+half3 HslToRgb(half3 c)
+{
+	half4 K = half4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+	half3 p = abs(frac(c.xxx + K.xyz) * 6.0 - K.www);
+	return c.z * lerp(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+
+half3 CustomColor(half3 color, half h, half s, half l)
+{
+	half3 hsl;
+	hsl.r = h;
+	hsl.g = s;
+	hsl.b = l*GetLuminance(color);
+
+	return HslToRgb(hsl);
+}
+
+half3 CustomColor2(half3 color, float r, float g, float b)
+{
+	//half3 hsl = RgbToHsl(half3(r,g,b));
+	//hsl = GetLuminance(color);
+
+	return half3(r,g,b);//HslToRgb(hsl);
+}
+
+//#define FACE_TEX_SIZE 1024.f
+
+bool UVInRange(in half2 uv, in half4 range)
+{
+	if (uv.x >= range.z && uv.x <= range.x &&
+		uv.y >= range.w && uv.y <= range.y)
+		return true;
+	else
+		return false;
+}
+
+// Map uv from src_range to dest_range
+// *range.zw: uv start
+// *range.xy: uv end
+half2 MapUV(in half2 uv, in half4 src_range, in half4 dest_range)
+{
+	src_range.xy = max(src_range.zw + half2(0.00001, 0.00001), src_range.xy);
+	uv = clamp(uv, src_range.zw, src_range.xy);
+	uv = (uv.xy - src_range.zw) / (src_range.xy - src_range.zw);
+	return lerp(dest_range.zw, dest_range.xy, uv);
+}
+
+half2 MirrorUV(in half2 uv, in float symmetry_x)
+{
+	uv.x = 2 * symmetry_x - uv.x;
+	return uv;
+}
+
+void OverlapMakeup(inout half3 cOriColor, in half2 vUV, in half2 vMirroredUV,
+		in half4 vUVRange, in Texture2D texMask, in SamplerState samState,
+		in half4 cColor, in half fTranspancy)
+{
+	if (!UVInRange(vUV, vUVRange))
+	{
+		if (UVInRange(vMirroredUV, vUVRange))
+			vUV = vMirroredUV;
+		else
+			return;
+	}
+	vUV = MapUV(vUV, vUVRange, half4(1.h, 1.h, 0.h, 0.h));
+	half fMask = texMask.SampleLevel(samState, vUV, 0.h).g;
+	fMask = max(fMask - (1.h - cColor.w), 0.h) * fTranspancy;
+	cColor.rgb = pow(cColor.rgb, 2.2f);
+	cOriColor = lerp(cOriColor, cOriColor * cColor.rgb * 2.h, fMask);
+	cOriColor = lerp(cOriColor, cColor.rgb, fMask);
+}
+
+half3 CustomSatAndLum(half3 color, half3 colorAdjuster )
+{
+	half3 result;
+
+	result = RgbToHsl(color);
+	result.g *= colorAdjuster.r;
+	result.b *= colorAdjuster.g;
+	return HslToRgb(result);
+
+}
+
+half3 CustomColor(half3 color, half3 colorAdjuster )
+{
+	half3 result;
+
+	result = RgbToHsl(color);
+
+	if( colorAdjuster.r != 0.0f )
+	{
+		result.r = colorAdjuster.r;
+	}
+	result.g *= colorAdjuster.g;
+	result.b *= colorAdjuster.b;
+	return HslToRgb(result);
+
+}
+
+half3 CustomSaturation( half3 rgb, half satFactor )
+{
+	half3 hsl;
+	hsl = RgbToHsl(rgb);
+	hsl.b *= satFactor;
+	return HslToRgb(hsl);
+}
+
+float3 fresnelSchlick(float cosTheta, float3 F0)
+{
+	return F0 + (1.0-F0) * pow(1.0-cosTheta, 5.0);
+}
+
+float distributionGGX(float3 N, float3 H, float roughness)
+{
+	float a = roughness * roughness;
+	float a2 = a * a;
+	float NdotH = max(dot(N, H), 0.0);
+	float NdotH2 = NdotH * NdotH;
+	float nom = a2;
+	float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+	denom = 3.141592654 * denom * denom;
+	denom = max(denom, 0.00001);
+	return nom / denom;
+}
+
+float geometrySchlickGGX(float NdotV, float roughness)
+{
+	float r = roughness + 1.0;
+	float k = (r * r) / 8.0;
+	
+	float nom = NdotV;
+	float denom = NdotV * (1.0 - k) + k;
+	
+	return nom / denom;
+}
+
+float geometrySmith(float3 N, float3 V, float3 L, float roughness)
+{
+	float NdotV = max(dot(N, V), 0.0);
+	float NdotL = max(dot(N, L), 0.0);
+	float ggx2 = geometrySchlickGGX(NdotV, roughness);
+	float ggx1 = geometrySchlickGGX(NdotL, roughness);
+	
+	return ggx2 * ggx1;
+}
+
+float3 envBRDFApprox(float3 specularColor, float roughness, float NoV)
+{
+	float4 c0 = float4(-1.0,	-0.0275,	-0.572,		0.022);
+	float4 c1 = float4(1.0,		0.0425,		1.04,		-0.04);
+	
+	float4 r = roughness * c0 + c1;
+	float a004 = min(r.x * r.x, exp2(-9.28 * NoV)) * r.x + r.y;
+	float2 AB = float2(-1.04, 1.04) * a004 + r.zw;
+	return specularColor * AB.x + AB.y;
+}
+
+float3 thinTranslucency(float3 N, float3 L, float3 transmittanceColor)
+{
+	float transmittance = saturate(dot(-N, L) + 0.2);
+	float fresnel = (1.0 - transmittance) * (1.0 - transmittance);
+	fresnel *= fresnel;
+	
+	return transmittance * (1.0 - fresnel) * transmittanceColor;
+}
+
+struct PS_INPUT
+{
+    float4	i_PosInClip			: SV_POSITION;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 	i_UV			: TEXCOORD0;
+	#endif
+#else
+	float4 	i_UV				: TEXCOORD0;
+	float4 	i_Fog				: TEXCOORD1;
+	float4	i_Normal			: TEXCOORD2;
+	float4	i_WPos				: TEXCOORD3;
+	
+	float4	i_Tangent			: TEXCOORD4;
+	float4	i_Binormal			: TEXCOORD5;
+	float4	i_EyeDir			: TEXCOORD6;
+	#ifdef USESHADOWMAP
+		float	i_ViewSpaceZ					: TEXCOORD7;
+	#endif
+	#ifdef MOTIONBLUR
+		float4  i_VelUV     : TEXCOORD15;
+	#endif
+#endif
+#ifdef PARABOLOID_MAPPING
+	float	i_ClipDepth			: TEXCOORD12;
+#endif
+	float4  i_PosInModel	: TEXCOORD13;
+	float4  i_BoundBoxRange     : TEXCOORD14;
+};
+
+struct PS_OUTPUT
+{
+#ifndef SHADOWPASS
+	float4 color : SV_TARGET;
+#endif
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+#ifdef PARABOLOID_MAPPING
+	clip(IN.i_ClipDepth);
+#endif
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 color = texDiffuse(IN.i_UV.xy);
+		clip(color.a - U_MaterialDiffuse.a);
+	#endif
+#else
+	#ifdef MOTIONBLUR
+		float2 vQX = IN.i_VelUV.xy;
+	
+		float fLenQX = length(vQX);
+		vQX /= (fLenQX+0.01f);
+		float fWeight = max(0.5f, min(fLenQX, 20.0f));
+		vQX *= fWeight;
+		psOut.color.xy = vQX;
+		return psOut;
+	#endif
+	half2 uv = IN.i_UV.xy;
+	#ifdef DISSOLVE
+	
+		if(U_MaterialCustomParam1.y > 0)
+		{
+			float4x4 thresholdMatrix =
+			{  1.0 / 17.0,  9.0 / 17.0,  3.0 / 17.0, 11.0 / 17.0,
+			  13.0 / 17.0,  5.0 / 17.0, 15.0 / 17.0,  7.0 / 17.0,
+			   4.0 / 17.0, 12.0 / 17.0,  2.0 / 17.0, 10.0 / 17.0,
+			  16.0 / 17.0,  8.0 / 17.0, 14.0 / 17.0,  6.0 / 17.0
+			};
+			float2 pos = IN.i_PosInClip.xy;
+			
+			
+			pos.xy = pos.xy/U_MaterialCustomParam1.z;
+			
+			int xindex = fmod(pos.x, 4);
+			int yindex =fmod(pos.y, 4);
+			
+			float alpha = thresholdMatrix[xindex][yindex];//* _RowAccess[yindex];
+			
+			if(alpha < U_MaterialCustomParam1.y)
+				discard;
+		}
+		else
+		{
+			if(S_Custom7.Sample(S_Custom7SamplerState, uv).a < U_MaterialFresnel.y)
+			discard;	
+		}
+
+		bool needDiscard = ComputeBitmapCullMask(U_PSGeneralRegister29, IN.i_BoundBoxRange, 
+		U_MaterialCustomParam1.z, IN.i_PosInModel.xyz, IN.i_PosInClip.xyz);
+		if(needDiscard)
+			discard;
+	#endif
+	half4 diffuseColor = S_Diffuse.Sample(S_DiffuseSamplerState, uv);
+		
+	#ifdef ALPHA_TEST
+		clip(diffuseColor.a - U_MaterialDiffuse.a);
+	#endif
+	
+	half3 N = normalize(IN.i_Normal.xyz);
+	half3 V = normalize(IN.i_EyeDir.xyz);
+	half3 L = normalize(-U_MainLightDirection.xyz);
+	float3 H = normalize(L+V);
+	float NdotH = max(dot(N, H), 0.0);
+	half wetFinal = U_PSGeneralRegister5.w * NdotH;
+
+	half2 vMirroredUV = MirrorUV(uv, U_PSGeneralRegister7.y);
+
+	half4 bumpColor = 0.0;
+	half4 tattooColor = 0.0;
+	half4 tattooNormalColor = 0.0;
+	half2 vTattooUV = 0.h;
+	if (UVInRange(uv, U_PSGeneralRegister25) || UVInRange(vMirroredUV, U_PSGeneralRegister25))
+	{
+		vTattooUV = uv;
+		if (!UVInRange(uv, U_PSGeneralRegister25)) {
+			vTattooUV = vMirroredUV;
+		}
+		vTattooUV = MapUV(vTattooUV, U_PSGeneralRegister25, U_PSGeneralRegister26);
+		tattooColor = S_Custom4.SampleLevel(S_Custom4SamplerState, vTattooUV, 0.0h);
+		tattooColor.rgb = pow(tattooColor.rgb, 2.2h);
+	}
+
+	#ifdef USESHADOWMAP
+		float4 shadowSpacePos[SHADOWSPLITE];
+		ProjectToLightSpace(shadowSpacePos, IN.i_WPos.xyz, N, IN.i_ViewSpaceZ);
+	#endif
+
+	#ifdef BUMP_MAP
+		half3 nn = N;
+		half3 tn = normalize(IN.i_Tangent.xyz);
+		half3 bn = normalize(IN.i_Binormal.xyz);
+
+		tn = normalize(tn - nn * dot(tn, nn));
+		bn = normalize(bn - nn * dot(bn, nn));
+	
+		half3x3 tbn = 
+		{
+			tn.x, bn.x, nn.x,
+			tn.y, bn.y, nn.y,
+			tn.z, bn.z, nn.z 
+		};
+		
+		bumpColor = S_Bump.Sample(S_BumpSamplerState, uv);
+		
+		half3 bump = half3(0.0, 0.0, 1.0);
+		bump.xy = bumpColor.xy * 2.0 - 1.0;
+		bump *= half3(U_PSGeneralRegister2.z, U_PSGeneralRegister2.z, 1.0);
+		
+		if (UVInRange(uv, U_PSGeneralRegister25) || UVInRange(vMirroredUV, U_PSGeneralRegister25))
+		{
+			half mask = tattooColor.a;
+			if(mask > 0.005) 
+			{
+				tattooNormalColor = S_Custom6.SampleLevel(S_Custom6SamplerState, vTattooUV, 0.0h);
+				tattooNormalColor.xy = tattooNormalColor.xy * 2.0 - 1.0;
+				bump.rg += tattooNormalColor.rg * mask;
+				bump.rg *= 0.5;
+			}
+		}
+		
+		#ifdef DETAIL_BUMP
+			half2 detailUV = U_PSGeneralRegister2.y;
+			
+			half4 detailBumpColor = S_Custom9.Sample(S_Custom9SamplerState, uv * detailUV);
+			bump.xy += (detailBumpColor.xy - half2(0.5, 0.5)) * U_PSGeneralRegister2.w;
+			bump.xy *= 0.5;
+		#endif
+		
+		#ifdef AGE
+			half4 secondBumpColor = S_Custom8.Sample(S_Custom8SamplerState, uv);
+			float secondBumpAlpha = secondBumpColor.z;
+			secondBumpColor.xy = secondBumpColor.xy * 2.0 - 1.0;
+			float2 newBump = bump.xy;
+			newBump.xy += secondBumpColor.xy * U_PSGeneralRegister24.g;
+			newBump.xy *= 0.5;
+			
+			bump.xy = lerp(bump.xy, newBump, secondBumpAlpha);
+		#endif
+		
+	    bump.z = 1.0f - sqrt(dot(bump.xy, bump.xy));
+
+		N = normalize(mul(tbn, bump));
+	#endif
+
+	half metallic = 1.0;
+	half roughness = 0.0001;
+	half ao = 1.0;
+	
+	#ifdef PBR_SIMPLE
+		#ifdef	PBR_METAL	
+			metallic = 1.0;
+		#else
+			metallic = 0.0;
+		#endif
+	
+		#ifdef PBR_AO
+			ao = bumpColor.b;
+			roughness = U_PSGeneralRegister4.w;
+		#endif
+	
+		#ifdef PBR_ROUGHNESS
+			ao = 1.0;
+			roughness = bumpColor.b;
+		#endif
+	#else
+		metallic = U_PSGeneralRegister3.x;
+		roughness = clamp(bumpColor.a + U_PSGeneralRegister6.w, 0.0, 1.0);
+		ao = bumpColor.b;
+	#endif
+	
+	half3 baseMap = pow(diffuseColor.rgb, 2.2);
+	
+	#ifdef TEXTURE_MASK
+		half3 colorR = pow(U_PSGeneralRegister4.rgb, 2.2);
+		baseMap = lerp(baseMap, baseMap * colorR, diffuseColor.a);
+	#endif
+	
+	//Blusher
+	OverlapMakeup(baseMap, uv, vMirroredUV, U_PSGeneralRegister9,
+			S_Custom2, S_Custom2SamplerState,
+			U_PSGeneralRegister8, U_PSGeneralRegister10.x);
+
+	// Eyebrow
+	OverlapMakeup(baseMap, uv, vMirroredUV, U_PSGeneralRegister12,
+			S_Custom3, S_Custom3SamplerState,
+			U_PSGeneralRegister11, U_PSGeneralRegister13.x);
+	
+	// Lips
+	if (UVInRange(uv, U_PSGeneralRegister15) || UVInRange(vMirroredUV, U_PSGeneralRegister15))
+	{
+		half3 lipsColor = half3(0.h, 0.h, 0.h);
+		if (UVInRange(uv, U_PSGeneralRegister15))
+		{
+			half2 vLipsUV = MapUV(uv, U_PSGeneralRegister15, half4(1.h, 1.h, 0.h, 0.h));
+			lipsColor = S_Custom10.SampleLevel(S_Custom10SamplerState, vLipsUV, 0.0h).rgb;
+			if (UVInRange(vMirroredUV, U_PSGeneralRegister15))
+			{
+				vLipsUV = MapUV(vMirroredUV, U_PSGeneralRegister15, half4(1.h, 1.h, 0.h, 0.h));
+				half3 lipsMirroredColor = S_Custom10.SampleLevel(S_Custom10SamplerState, vLipsUV, 0.h).rgb;
+				half fMask0 = max(lipsColor.g, lipsColor.b);
+				half fMask1 = max(lipsMirroredColor.g, lipsMirroredColor.b);
+				lipsColor.r = fMask0 > fMask1 ? lipsColor.r : lipsMirroredColor.r;
+				lipsColor.gb = max(lipsColor.gb, lipsMirroredColor.gb);
+			}
+		}
+		else
+		{
+			half2 vLipsUV = MapUV(vMirroredUV, U_PSGeneralRegister15, half4(1.h, 1.h, 0.h, 0.h));
+			lipsColor = S_Custom10.SampleLevel(S_Custom10SamplerState, vLipsUV, 0.h).rgb;
+		}
+		half2 vColorMask = max(lipsColor.gb - (1.h - U_PSGeneralRegister14.ww), 0.h);
+		vColorMask *= U_PSGeneralRegister17.xx;
+
+		half3 lipsColorFinal1 = pow(U_PSGeneralRegister14.rgb, 2.2h);
+		half3 lipsColorFinal2 = pow(U_PSGeneralRegister16.rgb, 2.2h);
+
+		baseMap  = lerp(baseMap, baseMap * lipsColorFinal1 * 2, vColorMask.x);
+		roughness = lerp(roughness, lipsColor.r, lipsColor.g * U_PSGeneralRegister17.y);
+		baseMap = lerp(baseMap, lipsColorFinal1, vColorMask.x);
+		
+		baseMap  = lerp(baseMap, baseMap * lipsColorFinal2 * 2, vColorMask.y);
+		roughness = lerp(roughness, lipsColor.r, lipsColor.b * U_PSGeneralRegister17.y);
+		baseMap = lerp(baseMap, lipsColorFinal2, vColorMask.y);
+	}
+	
+	// Eye Shadow;
+	if (UVInRange(uv, U_PSGeneralRegister19) || UVInRange(vMirroredUV, U_PSGeneralRegister19))
+	{
+		half3 eyeShadowColor = half3(0.h, 0.h, 0.h);
+		if (UVInRange(uv, U_PSGeneralRegister19))
+		{
+			half2 vEyeShadowUV = MapUV(uv, U_PSGeneralRegister19, half4(1.h, 1.h, 0.h, 0.h));
+			eyeShadowColor = S_Specular.SampleLevel(S_SpecularSamplerState, vEyeShadowUV, 0.h).rgb;
+			if (UVInRange(vMirroredUV, U_PSGeneralRegister19))
+			{
+				vEyeShadowUV = MapUV(vMirroredUV, U_PSGeneralRegister19, half4(1.h, 1.h, 0.h, 0.h));
+				half3 cEyeShadowMirroredColor = S_Specular.SampleLevel(S_SpecularSamplerState, vEyeShadowUV, 0.h).rgb;
+				half fMask0 = max(eyeShadowColor.g, eyeShadowColor.b);
+				half fMask1 = max(cEyeShadowMirroredColor.g, cEyeShadowMirroredColor.b);
+				eyeShadowColor.r = fMask0 > fMask1 ? eyeShadowColor.r : cEyeShadowMirroredColor.r;
+				eyeShadowColor.gb = max(eyeShadowColor.gb, cEyeShadowMirroredColor.gb);
+			}
+		}
+		else
+		{
+			half2 vEyeShadowUV = MapUV(vMirroredUV, U_PSGeneralRegister19, half4(1.h, 1.h, 0.h, 0.h));
+			eyeShadowColor = S_Specular.SampleLevel(S_SpecularSamplerState, vEyeShadowUV, 0.h).rgb;
+		}
+		half2 vColorMask = max(eyeShadowColor.gb - (1.h - U_PSGeneralRegister18.ww), 0.h);
+		vColorMask *= U_PSGeneralRegister21.xx;
+
+		half3 eyeShadowColorFinal1 = pow(U_PSGeneralRegister18.rgb, 2.2h);
+		half3 eyeShadowColorFinal2 = pow(U_PSGeneralRegister20.rgb, 2.2h);
+		
+		baseMap  = lerp(baseMap, baseMap * eyeShadowColorFinal1 * 2, vColorMask.x);
+		roughness = lerp(roughness, eyeShadowColor.r, eyeShadowColor.g * U_PSGeneralRegister21.y);
+		baseMap = lerp(baseMap, eyeShadowColorFinal1, vColorMask.x);
+		
+		baseMap  = lerp(baseMap, baseMap * eyeShadowColorFinal2 * 2, vColorMask.y);
+		roughness = lerp(roughness, eyeShadowColor.r, eyeShadowColor.b * U_PSGeneralRegister21.y);
+		baseMap = lerp(baseMap, eyeShadowColorFinal2, vColorMask.y);
+	}
+	
+	// Eyeliner
+	OverlapMakeup(baseMap, uv, vMirroredUV, U_PSGeneralRegister23,
+			S_Custom, S_CustomSamplerState,
+			U_PSGeneralRegister22, U_PSGeneralRegister24.x);
+	
+	if (UVInRange(uv, U_PSGeneralRegister25) || UVInRange(vMirroredUV, U_PSGeneralRegister25))
+	{
+		baseMap  = lerp(baseMap, baseMap * tattooColor.rgb * 2, tattooColor.a);
+		baseMap = lerp(baseMap, tattooColor.rgb, tattooColor.a);
+		
+		metallic = lerp(metallic, tattooNormalColor.b, tattooColor.a);
+		roughness = lerp(roughness, tattooNormalColor.a * U_PSGeneralRegister27.x, tattooColor.a);
+	}
+	
+	half3 grayColor = baseMap.rgb * half3(0.333, 0.333, 0.333);
+	float gray = grayColor.r + grayColor.g + grayColor.b;
+	
+	grayColor.rgb =  half3(gray,gray,gray);
+	
+	baseMap.rgb = lerp(baseMap.rgb,grayColor,U_MaterialCustomParam.x);
+	roughness -= wetFinal;
+	roughness = max(roughness , 1e-6);
+
+	metallic = lerp(metallic, 0.5, wetFinal);
+	half3 albedo = baseMap * (1.0 - metallic);
+	half3 specularColor = lerp(half3(0.04h, 0.04h, 0.04h), baseMap, metallic);	
+	
+	specularColor = lerp(specularColor, half3(0.5, 0.5, 0.5), wetFinal);
+	
+	half3 color = 0.0;
+	
+
+	half4 mainLightColor   = 0.0;
+	half4 skyLightColor    = 0.0;
+	half4 groundLightColor = 0.0;
+	
+	#ifdef ALONE_ROLE_LIGHT
+		mainLightColor   = U_RoleMainLightColor;
+		skyLightColor    = U_RoleSkyLightColor;
+		groundLightColor = U_RoleGroundLightColor;
+	#else
+		mainLightColor   = U_PBR_MainLightColor;
+		skyLightColor    = U_PBR_SkyLightColor;
+		groundLightColor = U_PBR_GroundLightColor;
+	#endif
+	
+	color += calculateLightPower(N, V, L, mainLightColor.xyz * 0.85, baseMap, roughness, metallic);
+	
+	color = color*U_MaterialDiffuse.rgb;	
+	
+	#ifdef USESHADOWMAP
+	
+		float shadowFactor = calcShadowFactor(
+			shadowSpacePos,
+			IN.i_ViewSpaceZ);
+			
+		color *= shadowFactor;
+	#endif
+	color += calculateLightPower(N, V, -U_PS_ViewDirection.xyz, mainLightColor.xyz * 0.15, baseMap, roughness, metallic);
+
+#ifdef CLUSTER_POINT_LIGHT
+		color += calculateShadowPBRPointLight(IN.i_WPos, N, V, baseMap, roughness, metallic);
+
+        float3 clusterLightColor = 
+            calculateClusterPBRPointLight(IN.i_PosInClip.xy,
+                                          IN.i_WPos.xyz,
+                                          N,
+                                          V,
+                                          baseMap,
+                                          roughness,
+                                          metallic);
+        color += clusterLightColor;
+#endif
+
+	
+	half3 envBRDF = envBRDFApprox(specularColor, roughness, max(dot(N, V), 0.0));
+	
+	half normalY = N.y * 0.5 + 0.5;
+	half3 ambientColor = groundLightColor.rgb * (1.0-normalY) + skyLightColor.rgb * normalY;
+	
+	#ifdef ENVIRONMENT_MAP
+		half4 refl;
+		refl.xyz = reflect(-V, N);
+		refl.w = U_EnvironmentCubeMapMipLevels.x - 1.0 - (1.0 - 1.2 * log2(roughness));
+		refl.w = max(0.0, refl.w);
+		half3 reflColor = S_EnvironmentCubeMap.SampleLevel(S_EnvironmentCubeMapSamplerState, refl.xyz,refl.w).rgb;
+		envBRDF *= reflColor;
+	#else
+		envBRDF *= normalize(ambientColor);
+	#endif
+	
+	color += (albedo + envBRDF) * ambientColor;
+	color *= ao;
+	
+	#ifdef EMISSIVE
+		
+		half3 missiveColor = diffuseColor.rgb * U_PSGeneralRegister0.xyz * diffuseColor.a;
+		half3 minMissiveColor = missiveColor * U_PSGeneralRegister0.w;
+	
+		#ifdef TOD_EMISSIVE
+			half todFactor = U_LightPower.x;		
+			
+			#ifdef DYNAMIC_EMISSIVE
+				half3 maxMissiveColor = missiveColor * U_PSGeneralRegister1.x;
+				half factor = U_MaterialSpecular.w;	
+				color += lerp(minMissiveColor, maxMissiveColor, half3(factor, factor, factor)) * todFactor;
+			#else
+				color += minMissiveColor * todFactor;
+			#endif
+		#else
+		
+			#ifdef DYNAMIC_EMISSIVE
+				half3 maxMissiveColor = missiveColor * U_PSGeneralRegister1.x;
+				half factor = U_MaterialSpecular.w;	
+				color += lerp(minMissiveColor, maxMissiveColor, half3(factor, factor, factor));
+			#else
+				color += minMissiveColor;
+			#endif
+			
+		#endif
+		
+	#endif
+		
+	
+	color *= U_MaterialCustomParam1.x;
+	color = color * IN.i_Fog.a + IN.i_Fog.rgb;
+	psOut.color.rgb = pow(color, 1.0 / 2.2);
+	psOut.color.a = diffuseColor.a;
+	
+	#ifdef EditorHelp
+		psOut.color.rgb = psOut.color.rgb * 0.00001 + float3(1.0,0.0,0.0);
+		psOut.color.a = 1.0;
+	#endif
+	
+	#ifdef EDITOR_MODE
+		if(U_MaterialCustomParam.w > 0)
+			psOut.color.rgb = U_MaterialCustomParam.xyz;
+			
+	#endif
+	float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.color = psOut.color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+#endif
+	return psOut;
+}

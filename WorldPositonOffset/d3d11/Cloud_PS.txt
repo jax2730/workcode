@@ -1,0 +1,79 @@
+
+#include <Common_Uniform_PS.inl>
+#include <SphericalFog_Function.inl>
+
+
+float4	     U_PSCustom0[3];
+
+Texture2D	 S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+float4 texDiffuse(float2 vUV) 
+{ 
+    return S_Diffuse.Sample(S_DiffuseSamplerState,vUV);
+}
+
+
+struct PS_INPUT
+{
+    float4 i_Position	: SV_POSITION;
+	float4 i_UV				: TEXCOORD0;	
+	float4 i_FogColor		: TEXCOORD1;
+	float4 i_ViewDir		: TEXCOORD2;
+};
+
+struct PS_OUTPUT
+{
+    float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+	
+	IN.i_UV.x += U_PSCustom0[2].x;
+	float4 diffuseColor = texDiffuse(IN.i_UV.xy);
+	
+	psOut.o_Color = diffuseColor;
+	
+	//float3 cloudDir = normalize(IN.i_CustomParam.xyz); 
+	
+	//float factor = max(dot(cloudDir,-U_MainLightDirection.xyz), 0.0f);
+	//factor = factor * factor * factor;
+		
+	//float emendation = (1.0f - factor) * U_PSCustom0[2].z;
+	
+	//psOut.o_Color.rgb = U_PSCustom0[0].rgb * emendation + U_PSCustom0[1].rgb * diffuseColor.rgb * factor;
+
+
+	psOut.o_Color.rgb = U_PSCustom0[0].rgb * diffuseColor.rgb;
+	
+	psOut.o_Color.rgb = pow(psOut.o_Color.rgb, 2.2f);
+	psOut.o_Color.rgb = psOut.o_Color.rgb * IN.i_FogColor.a + IN.i_FogColor.rgb;
+
+	psOut.o_Color.rgb = pow(psOut.o_Color.rgb, 1.f / 2.2f);
+	
+	// Note: our mainRT is marked as linear color space, but we are writting sRGB color into it. 
+	// and spherical fog post process uses alpha blend to blend fog color and scene color.
+	// So the final result of post process is a linear interpolation of sRGB format scene color and sRGB format fog color. 
+	// So when it comes to transparent objects, we also transform scene color and fog color to sRGB space and do linear interpolation.
+
+	float4 sphFog = ComputeSphFogUnBlocked(
+		U_PS_CameraPosition.xyz,
+		normalize(IN.i_ViewDir.xyz),
+		IN.i_Position.xy
+	);
+
+	psOut.o_Color.rgb = lerp(psOut.o_Color.rgb, sphFog.rgb, sphFog.a);
+
+	// 由于球体雾不小心在srgb里面blend了，为了不影响效果并且将结果输出到线性空间，
+	// 只能先转srgb，混合球体雾效，再转线性
+	#ifdef LinearOutput
+		psOut.o_Color.rgb = pow(psOut.o_Color.rgb, 2.2f);
+	#endif
+
+	psOut.o_Color.a *= U_PSCustom0[2].y;
+	float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.o_Color = psOut.o_Color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+	return psOut;
+}

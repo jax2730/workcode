@@ -1,0 +1,139 @@
+
+#include <Common_GpuCull_CS.inl>
+
+#define thread_group_size_x 32u
+#define thread_group_size_y 1u
+
+
+StructuredBuffer<uint> B_CSCustom0;
+StructuredBuffer<InstanceData> B_CSCustom1;
+StructuredBuffer<MeshData> B_CSCustom2;
+RWByteAddressBuffer B_CSCustom3;					//m_chunkArgBufferHandle: chunkCount, 1, 1
+RWByteAddressBuffer B_CSCustom4;		//m_chunkIDBufferHandle:  InstChunkID {instanceID, chunkID}
+
+					
+cbuffer UniformBlock_Private_CS// : register( b6 )
+{
+    float4	U_CSCustom0[6];//FrustumPlanes
+	int4	U_CSCustom1;//InstanceCount
+	uint 	U_CSCustom2; //closeFlag
+};
+
+float Half2Float(uint n)
+{
+    uint frac = (n & 0x3ffu) | 0x400u;
+    int exp = int(((n & 0x7c00u) >> 10) - 25u);
+    float m;
+
+    if(frac == 0u && exp == 0x1f)
+        m = 3.4e38;//0x7F800001;//INFINITY;
+    else if (frac != 0u || exp != 0)
+        m = float(frac) * pow(2.0f, float(exp));
+    else
+        m = 0.0f;
+
+    return bool(n & 0x8000u) ? -m : m;
+}
+
+
+bool IsVisible(InstanceData instData)
+{
+	bool inFrustum = true;
+	float2 param_0 = unpackHalf2x16(instData.BoundBox[0]);
+	float2 param_1 = unpackHalf2x16(instData.BoundBox[1]);
+	float2 param_2 = unpackHalf2x16(instData.BoundBox[2]);
+	float4 minB = float4(param_0.x, param_0.y, param_1.x, 1.0f);
+	float4 maxB = float4(param_1.y, param_2.x, param_2.y, 1.0f);
+	
+	float3 minB_3;
+	minB_3.x = dot(float4(instData.Transform[0], instData.Transform[1], instData.Transform[2], instData.Transform[3]), minB);
+	minB_3.y = dot(float4(instData.Transform[4], instData.Transform[5], instData.Transform[6], instData.Transform[7]), minB);
+	minB_3.z = dot(float4(instData.Transform[8], instData.Transform[9], instData.Transform[10], instData.Transform[11]), minB);
+	
+	float3 maxB_3;
+	maxB_3.x = dot(float4(instData.Transform[0], instData.Transform[1], instData.Transform[2], instData.Transform[3]), maxB);
+	maxB_3.y = dot(float4(instData.Transform[4], instData.Transform[5], instData.Transform[6], instData.Transform[7]), maxB);
+	maxB_3.z = dot(float4(instData.Transform[8], instData.Transform[9], instData.Transform[10], instData.Transform[11]), maxB);
+	
+	
+	float3 center_3 = (minB_3 + maxB_3) * 0.5f;
+	float radius = distance(maxB_3, center_3);
+	
+	if(U_CSCustom1.w == 0)
+	{
+		for (uint i = 0u; i < 6u; ++i)
+		{
+				float d = dot(U_CSCustom0[i], float4(center_3, 1.0f));
+				inFrustum = inFrustum && (d >= -radius);
+		}
+	}
+	else
+	{
+		float3 coneVert = U_CSCustom0[0].xyz;
+		float3 coneDir = U_CSCustom0[1].xyz;
+		float sqrCos = U_CSCustom0[2].x;
+		float sqrSin = U_CSCustom0[2].y;
+		float invSinAngle = U_CSCustom0[2].z;
+		float coneRadi = U_CSCustom0[2].w;
+
+		float3 CmV = center_3 - coneVert;
+		float sumRadi = radius + coneRadi;
+		if(dot(CmV, CmV) > sumRadi * sumRadi)
+		{
+			inFrustum = false;
+		}
+		else
+		{
+			float r_s = radius * invSinAngle;
+			float3 U = coneVert - coneDir * float3(r_s, r_s, r_s);
+			float3 D = center_3 - U;
+			float dsqr = dot(D, D);
+			float E = dot(coneDir, D);
+			if(E >0.0f && E*E >= dsqr * sqrCos)
+			{
+				D    = CmV;
+				dsqr = dot(D,D);
+				E    = -dot(coneDir, D);
+				if (E > 0.0f && E*E >= dsqr * sqrSin)
+					inFrustum = dsqr <= radius * radius;
+				else
+					inFrustum = true;
+			}
+		}
+	}
+	
+	return inFrustum;
+}
+
+[numthreads(thread_group_size_x, thread_group_size_y, 1)]
+void main(uint3 threadIDInGroup : SV_GroupThreadID,
+			uint3 groupID : SV_GroupID,
+			uint groupIndex : SV_GroupIndex,
+			uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+	uint instanceIdx = dispatchThreadID.x;
+	if (instanceIdx >= U_CSCustom1.x)
+		return;
+	
+	uint instanceID = B_CSCustom0[instanceIdx];
+	InstanceData instData = B_CSCustom1[instanceID];
+
+	
+//#ifdef GPUCULL_DEBUG
+	if(U_CSCustom2 != 0u ||IsVisible(instData))
+//#else
+//	if(IsVisible(instData))
+//#endif
+	{
+		MeshData meshData = B_CSCustom2[instData.MeshID];
+		uint chunkCount = meshData.ChunkCount;
+		uint offset;
+		RawInterlockedAdd(B_CSCustom3, 0, chunkCount, offset);//InterlockedAdd(B_CSCustom3[0], chunkCount, offset);
+		for(uint i = 0u; i < chunkCount; ++i)
+		{
+			uint idx = offset + i;
+			InstChunkIDStore(B_CSCustom4, idx, instanceID, meshData.ChunkID[i]);
+		}
+	}
+}
+

@@ -1,0 +1,56 @@
+#include <Common_Uniform_PS.inl>
+#include <DeformSnowMaterial.inl>
+
+#ifndef VOXEL
+	Texture2D<uint1> S_Custom5;  
+    SamplerState S_Custom5SamplerState;
+
+    //fbm
+    Texture2D S_Custom6;
+    SamplerState S_Custom6SamplerState;
+#endif
+
+
+struct PS_INPUT
+{
+    float4 i_Position	        : SV_POSITION;
+    #ifdef VOXEL
+	  	uint2 i_Index           : TEXCOORD8;
+        float3 i_Blend          : TEXCOORD9;
+	#else
+    	float2 i_MatIDUV        : TEXCOORD2;    //用于采样MatID的UV
+	#endif
+};
+
+int3 computeTexLocation(float2 uv, int2 textureDimension)
+{
+    float2 cst = uv * textureDimension;
+    float2 temp = clamp((cst), 0.f, textureDimension - 1);
+    return int3(floor(temp), 0);
+}
+
+float4 main(PS_INPUT IN) : SV_TARGET
+{
+    #ifdef VOXEL
+         uint3 indices = uint3(
+            0xff & IN.i_Index.x, 
+            0xff & (IN.i_Index.x >> 8),
+            0xff & (IN.i_Index.x >> 16));
+
+	    float m = max(max(IN.i_Blend.x, IN.i_Blend.y), IN.i_Blend.z);
+	    uint maxIndex = (m == IN.i_Blend.x) ? 0 : (m == IN.i_Blend.y ? 1 : 2);
+	    uint matID    = indices[maxIndex];
+        float c = (1.f / 16.f) * float(matID);
+    #else
+        int2 IDMapSize = 0;
+        S_Custom5.GetDimensions(IDMapSize.x, IDMapSize.y);
+        float2 MatIDUV = SampleFBMUV(IDMapSize,IN.i_MatIDUV,S_Custom6,S_Custom6SamplerState);
+        int3 idMapSampleLocation = computeTexLocation(MatIDUV, IDMapSize);
+        int matID = S_Custom5.Load(idMapSampleLocation);
+        float c = (1.f / 16.f) * matID;
+    #endif
+
+    float4 color;
+    color.rgb = c;
+    return float4(color.rgb,1.0f);
+}

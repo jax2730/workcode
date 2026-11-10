@@ -1,0 +1,67 @@
+#include <Common_Uniform_PS.inl>
+
+uniform Texture2D S_2DExt0; //tex_BaseDiffuse
+SamplerState S_2DExt0SamplerState;
+uniform Texture2D S_2DExt1; //tex_BaseNormal
+SamplerState S_2DExt1SamplerState;
+
+uniform float4 U_PSCustom0;	//DebugColor;
+uniform float4 U_PSCustom1;	//SnowParam;
+
+struct PS_INPUT
+{
+    float4	i_PosInClip	: SV_POSITION;
+	float4  i_WorldPos  : TEXCOORD0;
+	float2	i_UVBase	: TEXCOORD1;
+	float4	i_FogColor	: TEXCOORD2;
+	float3	i_ViewDir	: TEXCOORD3;
+};
+
+float4 main(PS_INPUT IN) : SV_TARGET
+{
+	float4 oColor = (float4) 0.435294f;
+	
+	float4 DebugColor = U_PSCustom0;
+	float4 SnowParam = U_PSCustom1;
+
+	float4 cBaseDiffuse = S_2DExt0.Sample(S_2DExt0SamplerState, IN.i_UVBase.xy);
+	cBaseDiffuse = pow(cBaseDiffuse, 2.2f);
+	float4 cBaseNormal = S_2DExt1.Sample(S_2DExt1SamplerState, IN.i_UVBase.xy);
+	cBaseNormal.w *= 512.f;
+	cBaseNormal.xyz = cBaseNormal.xyz * 2.f - 1.f;
+	float2x2 matNormalTrans[4] =
+	{
+		float2x2( 1,  0,  0,  1),
+		float2x2( 0,  1, -1,  0),
+		float2x2(-1,  0,  0, -1),
+		float2x2( 0, -1,  1,  0),
+	};
+	cBaseNormal.xz = mul(cBaseNormal.xz, matNormalTrans[(int)U_PSCustom1.y]);
+	cBaseNormal.xyz = normalize(cBaseNormal.xyz);
+
+	float fSnowSlope = clamp(cBaseNormal.y, 0.f, 1.f);
+	fSnowSlope = clamp(fSnowSlope - SnowParam.x, 0.f, 1.f) / (1.f - SnowParam.x);
+	fSnowSlope *= fSnowSlope;
+	cBaseDiffuse.rgb = lerp(cBaseDiffuse.rgb, U_WeatherParam0.rgb, fSnowSlope * U_WeatherParam0.a);
+
+	float fNdotL = clamp(dot(cBaseNormal.xyz, -U_MainLightDirection.xyz), 0.0f, 1.0f);
+	float3 cLight = fNdotL * U_MainLightColor.rgb;
+	cLight += lerp(U_GroundLightColor.rgb, U_SkyLightColor.rgb, cBaseNormal.y * 0.5f + 0.5f);
+	
+	float3 vViewDir = normalize(IN.i_ViewDir);
+	float4 vLit = lit(1.f, dot(normalize(vViewDir - U_MainLightDirection.xyz), cBaseNormal.xyz), cBaseNormal.w);
+	float3 cLightSpecular = vLit.z * U_MainLightColor.rgb * cBaseDiffuse.w * U_MainLightColor.a;
+
+	float3 cPointLightDiffAcc = 0.0f;
+	float3 cPointLightSpecAcc = 0.0f;
+
+	oColor.rgb = cBaseDiffuse.rgb *(cLight + cPointLightDiffAcc);
+	oColor.rgb += cLightSpecular + cPointLightSpecAcc;
+	
+	oColor.rgb = oColor.rgb * IN.i_FogColor.a + IN.i_FogColor.rgb;
+	oColor.rgb = pow(oColor.rgb, 1.0 / 2.2);
+	oColor.a = 1.f;
+	float overdrawlerp = ceil(U_PS_Time.w);
+	oColor = oColor * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+	return oColor;
+}

@@ -1,0 +1,37 @@
+// Sub UV Animation
+// ----------------------------------------------------------------------------------------------------
+#ifdef SUB_UV_ANIMATION
+
+struct SubUVAnimationParam
+{
+    int mImageSizeX;
+    int mImageSizeY;
+    int mCurrentIndex;
+    float2 mCurrentUV;
+};
+
+struct SubUVAnimationResult
+{
+    float2 mSubUV;
+};
+
+SubUVAnimationResult SubUVAnimation(SubUVAnimationParam param)
+{
+    float x_axis = 1.0f / float(param.mImageSizeX);
+    float y_axis = 1.0f / float(param.mImageSizeY);
+
+    float x_offset = float(param.mCurrentIndex % param.mImageSizeX) * x_axis;
+    float y_offset = float(param.mCurrentIndex / param.mImageSizeX) * y_axis;
+
+    float3 mat0r = float3(x_axis, 0.0f, x_offset);
+    float3 mat1r = float3(0.0f, y_axis, y_offset);
+
+    float3 rhs = float3(param.mCurrentUV.x, param.mCurrentUV.y, 1.0f);
+
+    SubUVAnimationResult result;
+    result.mSubUV.x = dot(mat0r, rhs);
+    result.mSubUV.y = dot(mat1r, rhs);
+    return result;
+}
+
+#endif

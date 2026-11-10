@@ -1,0 +1,69 @@
+
+Texture2D	 S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+Texture2D	 S_2DExt1;
+SamplerState S_2DExt1SamplerState;
+Texture2D	 S_2DExt2;
+SamplerState S_2DExt2SamplerState;
+Texture2D	 S_2DExt3;
+SamplerState S_2DExt3SamplerState;
+Texture2D	 S_2DExt4;
+SamplerState S_2DExt4SamplerState;
+
+Texture2D	 S_2DExt5;
+SamplerState S_2DExt5SamplerState;
+
+float4 U_PSCustom0;
+float4 U_PSCustom1; //ViewPortRange
+float4 U_PSCustom2;
+float4 U_PSCustom3;
+
+float4 U_PSCustom4; //ShaftsSunCol
+
+struct PS_INPUT
+{
+    float4 i_Position	: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	
+	float4 A = float4(U_PSCustom2.xxxx);
+	float4 B = float4(U_PSCustom2.yyyy);
+	float4 C = float4(U_PSCustom2.zzzz);
+	float4 D = float4(U_PSCustom2.wwww);
+	float4 E = float4(U_PSCustom0.wwww);
+	
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+	
+	float2 uv = IN.i_UV.xy;
+	
+	//clip(U_PSCustom1.xy - uv);
+	
+	float4 sceneColor   = pow(S_2DExt0.Sample(S_2DExt0SamplerState, uv * U_PSCustom1.xy), 2.2);
+	float  exposure     = S_2DExt1.Sample(S_2DExt1SamplerState, float2(0.5f, 0.5f)).r;
+	float3 bloom        = S_2DExt2.Sample(S_2DExt2SamplerState, uv * U_PSCustom1.xy).rgb * 0.5f;
+	       bloom       += S_2DExt3.Sample(S_2DExt3SamplerState, uv * U_PSCustom1.xy).rgb * 0.3f;
+	       bloom       += S_2DExt4.Sample(S_2DExt4SamplerState, uv * U_PSCustom1.xy).rgb * 0.2f;
+	
+	
+	sceneColor.rgb += (bloom.rgb * U_PSCustom0.z);
+	
+	exposure = lerp(U_PSCustom0.x, exposure, U_PSCustom0.y);
+	
+	sceneColor *= exposure;
+	sceneColor.rgb *= U_PSCustom3.rgb;
+	
+	sceneColor = (sceneColor * (A * sceneColor + B)) / (sceneColor * (C * sceneColor + D) + E);
+	
+	float3 SunShafts_SunCol = S_2DExt5.Sample(S_2DExt5SamplerState,uv).rgb * U_PSCustom4.rgb * (1.0 - sceneColor.rgb);
+	psOut.o_Color.rgb = pow(sceneColor.rgb, 1.0 / 2.2) + SunShafts_SunCol*2.0f;
+	psOut.o_Color.a = S_2DExt0.Sample(S_2DExt0SamplerState, uv * U_PSCustom1.xy).a;
+	return psOut;
+}

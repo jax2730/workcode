@@ -1,0 +1,62 @@
+#define SrcColor		S_2DExt0
+#define PointClamp		S_2DExt0SamplerState
+#define AoQuad0			S_2DExt1
+#define LinearClamp		S_2DExt1SamplerState
+#define AoQuad1			S_2DExt2
+#define AoQuad2			S_2DExt3
+#define AoQuad3			S_2DExt4
+
+Texture2D 			SrcColor;
+SamplerState 		PointClamp;
+Texture2D<float> 	AoQuad0;
+SamplerState 		LinearClamp;
+Texture2D<float> 	AoQuad3;
+Texture2D<float> 	AoQuad1;
+Texture2D<float> 	AoQuad2;
+// TODO : remove after testing
+// U_PSCustom0: pass count
+uniform float4 U_PSCustom0;
+
+struct PS_INPUT
+{
+    float4 Position : SV_POSITION;
+    float4 TexCoord : TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+    float4 Color : SV_TARGET;
+};
+
+// edge-ignorant blur & apply, skipping half pixels in checkerboard pattern
+// (for the Lowest quality level)
+PS_OUTPUT main(PS_INPUT pIn)
+{
+    PS_OUTPUT pOut;
+
+    float4 col = SrcColor.SampleLevel(PointClamp, pIn.TexCoord.xy, 0);
+	col = pow(col, 2.2);
+	const float a = AoQuad0.SampleLevel(LinearClamp, pIn.TexCoord.xy, 0);
+	
+	[branch]
+	if (U_PSCustom0.x < 2.0)
+	{
+		col *= a;
+	}
+	else if (U_PSCustom0.x < 4.0)
+	{
+		const float d = AoQuad3.SampleLevel(LinearClamp, pIn.TexCoord.xy, 0);
+		col *= (a + d) * 0.5;
+	}
+	else
+	{
+		const float c = AoQuad1.SampleLevel(LinearClamp, pIn.TexCoord.xy, 0);
+		const float b = AoQuad2.SampleLevel(LinearClamp, pIn.TexCoord.xy, 0);
+		const float d = AoQuad3.SampleLevel(LinearClamp, pIn.TexCoord.xy, 0);
+		col *= (a + b + c + d) * 0.25;
+	}
+	col = pow(col, 1.0 / 2.2);
+	pOut.Color = col;
+	
+	return pOut;
+}

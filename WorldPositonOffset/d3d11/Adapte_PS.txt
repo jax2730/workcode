@@ -1,0 +1,37 @@
+Texture2D	S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+Texture2D	S_2DExt1;
+SamplerState S_2DExt1SamplerState;
+
+float4 U_PSCustom0;
+
+struct PS_INPUT
+{
+    float4	o_PosInClip			: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+	
+	float2 uv = IN.i_UV.xy;
+		
+	float adapted_lum = S_2DExt0.Sample(S_2DExt0SamplerState, float2(0.5f, 0.5f)).r;
+    float current_lum = S_2DExt1.Sample(S_2DExt1SamplerState, float2(0.5f, 0.5f)).r + 1e-6;
+		
+	current_lum = clamp(U_PSCustom0.x / current_lum, U_PSCustom0.y, U_PSCustom0.z);
+	
+	float new_adaptation = adapted_lum + (current_lum - adapted_lum) * U_PSCustom0.w;
+	new_adaptation = clamp(new_adaptation, 0.01f, 1.0f);
+  
+	psOut.o_Color = float4(new_adaptation, new_adaptation, new_adaptation, new_adaptation);
+
+	return psOut;
+}

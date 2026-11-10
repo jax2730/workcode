@@ -1,0 +1,47 @@
+float4 U_PSCustom1;    //U_CameraParam
+float4 U_PSCustom0;   //PS_ScreenSize
+
+Texture2D		S_2DExt0;
+SamplerState 	S_2DExt0SamplerState;
+
+Texture2D		S_2DExt1; 
+SamplerState 	S_2DExt1SamplerState;
+
+struct PS_INPUT
+{
+	float4 pos  	: SV_POSITION;
+	float4 i_UV		: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;	
+	float2 uv = IN.i_UV.xy;	
+	
+	float far = U_PSCustom1.x * 0.1;
+	float near = U_PSCustom1.y;
+	
+	float2 uv0 = uv+float2(0,1.0)*U_PSCustom0.zw;
+	float2 uv1 = uv+float2(1,0.65)*U_PSCustom0.zw;
+	float2 uv2 = uv+float2(-1,0.65)*U_PSCustom0.zw;
+#ifdef REVERSE_DEPTH
+    float depth0 = near / (far - (1.0 - S_2DExt1.Sample(S_2DExt1SamplerState, uv0).r) * (far - near));
+	float depth1 = near / (far - (1.0 - S_2DExt1.Sample(S_2DExt1SamplerState, uv1).r) * (far - near));
+	float depth2 = near / (far - (1.0 - S_2DExt1.Sample(S_2DExt1SamplerState, uv2).r) * (far - near));
+#else
+    float depth0 = near / (far - S_2DExt1.Sample(S_2DExt1SamplerState, uv0).r * (far - near));
+	float depth1 = near / (far - S_2DExt1.Sample(S_2DExt1SamplerState, uv1).r * (far - near));
+	float depth2 = near / (far - S_2DExt1.Sample(S_2DExt1SamplerState, uv2).r * (far - near));
+#endif
+	float sceneDepth=(depth0+depth1+depth2)*0.333;
+	
+	psOut.o_Color = half4(sceneDepth, sceneDepth, sceneDepth,1.0-sceneDepth.x);
+	psOut.o_Color.xyz*= dot(S_2DExt0.Sample(S_2DExt0SamplerState,uv).xyz,0.33)*4;
+    
+    return psOut;
+}

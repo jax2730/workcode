@@ -1,0 +1,106 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Light_Function_PS.inl>
+#include <KarstRiver.inl>
+
+struct PS_INPUT
+{
+    float4  i_PosInClip	    : SV_POSITION;
+    float3  i_PosInWorld	: POSITION0;
+    float4  i_ClipPos       : TEXCOORD0;
+    float4  i_FogColor		: TEXCOORD1;
+    float4  bumpCoord0      : TEXCOORD2;
+	float4  bumpCoord1      : TEXCOORD3;
+    float3  rotMatrix1      : TEXCOORD4; // first row of the 3x3 transform from tangent to obj space
+	float3  rotMatrix2      : TEXCOORD5; // second row of the 3x3 transform from tangent to obj space
+	float3  rotMatrix3      : TEXCOORD6; // third row of the 3x3 transform from tangent to obj space
+};
+
+uniform Texture2D S_Depth;
+SamplerState S_DepthSamplerState;
+
+uniform Texture2D S_Custom;				//normal tex
+SamplerState S_CustomSamplerState;
+
+uniform Texture2D S_BackbufferTex;		//backbuffer tex
+SamplerState S_BackbufferTexSamplerState;	
+
+#define KARST_RIVER
+
+float4 U_ProjectMatrix[4];	//ProjectMatrix
+float4x4 U_ViewMatrix;	//ViewMatrix
+float4 U_InvViewProjectMatrix[4]; //ViewMatrix
+#include "FidelityFX_SSSR_Intersect.inl"
+#ifdef REVERSE_DEPTH
+#define FFX_SSSR_INVERTED_DEPTH_RANGE
+#endif
+#include "ffx_sssr.h"
+
+float calcSceneDepth(in float4 _clipPos)
+{	
+    float4 clipPos = _clipPos / _clipPos.w;
+    float2 screenTC = clipPos.xy;
+    screenTC.x = (screenTC.x + 1.0f) * 0.5f;
+    screenTC.y = 1.0f - (screenTC.y + 1.0f) * 0.5f;
+    screenTC *= U_ViewParam.xy;
+
+    float4 tempPos = float4(clipPos.xy, 0.0f, 1.0f);
+    tempPos.z = S_Depth.Sample(S_DepthSamplerState, screenTC).r;
+    
+    float4 viewSpacePos;
+    viewSpacePos.z = dot(U_InvProjectMatrix[2], tempPos);
+    viewSpacePos.w = dot(U_InvProjectMatrix[3], tempPos);
+		
+    float4 vp;
+    vp.z = dot(U_InvProjectMatrix[2], _clipPos);
+    vp.w = dot(U_InvProjectMatrix[3], _clipPos);
+    
+    float sceneDepth = viewSpacePos.z / viewSpacePos.w;
+    float objectDepth = vp.z / vp.w;
+    
+    float length = objectDepth - sceneDepth;
+    return length;
+}
+
+float4 main(PS_INPUT IN) : SV_TARGET
+{
+    float depth = calcSceneDepth(IN.i_ClipPos);
+   
+    float3 E = normalize(IN.i_PosInWorld.xyz - U_PS_CameraPosition.xyz);
+    float4 t0 = S_Custom.Sample(S_CustomSamplerState, IN.bumpCoord0.xy) * 2.0 - 1.0;
+	float4 t1 = S_Custom.Sample(S_CustomSamplerState, IN.bumpCoord0.zw) * 2.0 - 1.0;
+	float4 t2 = S_Custom.Sample(S_CustomSamplerState, IN.bumpCoord1.xy) * 2.0 - 1.0;
+	float3 N = t0.xyz + t1.xyz + t2.xyz;
+
+    float3x3 m; // tangent to world matrix
+	m[0] = IN.rotMatrix1;
+	m[1] = IN.rotMatrix2;
+	m[2] = IN.rotMatrix3;
+
+	N = normalize( mul( N, m ) );
+	if (N.y < 0.0)
+	{
+		N = -N;
+	}
+
+    float fNDotL = dot(N, -U_MainLightDirection.xyz);
+    float3 H = normalize(-E - U_MainLightDirection.xyz);
+    float NdotH = dot(N, H);
+
+    float fresnel = (0.04 + (1.0 - 0.04) * (pow(1.0 - max(0.0, dot(-N, E)), 5.0)));
+    //float3 scattering = float3(0.1117, 0.1217, 0.1317) * 0.2;
+    //float3 waterColor = float3(0.2f, 0.3f, 0.4f);
+
+    float4 reflection_radiance = CastScreenSpaceRay(U_DepthRTParam.xy, (IN.i_PosInClip.xy) * U_DepthRTParam.zw, N, IN.i_PosInClip.z);
+
+    fresnel = pow(fresnel, 2.0);
+    //float3 waterColor = float3(0.2f, 0.26f, 0.23f);
+    float3 reflectColor = lerp(U_SkyLightColor.rgb, reflection_radiance.rgb, reflection_radiance.w);
+    //float3 color = (waterColor * (1.0 - fresnel) * fNDotL +  pow(NdotH, 25.0)) * U_MainLightColor + fresnel * reflectColor + scattering;
+    float3 color = riverShade(N, E, H, U_MainLightColor.rgb, reflectColor,fNDotL);
+    color.rgb = color.rgb * IN.i_FogColor.a + IN.i_FogColor.rgb;
+    color.rgb = pow(color.rgb, 0.4545);
+    float alpha = (1.0 - exp( -depth / 50.0f)) * (1.0 - fresnel) + fresnel;
+
+	return float4(color, alpha);
+}

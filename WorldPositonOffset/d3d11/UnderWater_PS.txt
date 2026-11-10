@@ -1,0 +1,427 @@
+uniform Texture2D S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+uniform float4  U_PSCustom0[2];
+uniform float4 U_PSCustom7;
+
+#ifdef CAUSTIC
+  uniform Texture2D S_2DExt1;
+  SamplerState S_2DExt1SamplerState;
+  
+  uniform Texture2D S_2DExt2;
+  SamplerState S_2DExt2SamplerState;
+  
+  uniform float4  U_InvViewProjectMatrix[4];
+  uniform float4  U_MainLightDirection;
+  uniform float4  U_MainLightColor;
+  uniform float4  U_PSCustom1; // xy:near/Far Clip plane ,zw near clip plane width/height
+  uniform float4  U_PSCustom2; //camera position
+  uniform float4  U_PSCustom3; //caustic params
+  uniform float4  U_PSCustom4; // forward
+  uniform float4  U_PSCustom5; // right
+  uniform float4  U_PSCustom6; // up
+  uniform float4  U_PSCustom8;
+  uniform float4  U_PSCustom9;
+  uniform float4  U_PSCustom10[4]; // 0.w:IsPlanetOcean; 1:planetCenter.xyz/w : radius; 
+                                   // 2:underWaterFogColor 3: x:fog density y:caustic disturb strength
+#endif
+
+struct PS_INPUT
+{
+    float4 i_Position	: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+float3 mod289(float3 x)
+{
+    return x - floor(x / 289.0) * 289.0;
+}
+
+float2 mod289(float2 x)
+{
+    return x - floor(x / 289.0) * 289.0;
+}
+
+float3 permute(float3 x)
+{
+    return mod289((x * 34.0 + 1.0) * x);
+}
+
+float3 taylorInvSqrt(float3 r)
+{
+    return 1.79284291400159 - 0.85373472095314 * r;
+}
+
+float3 ReconstructWorldPos(float2 screenPos, float depth, float4 U_InvViewProjectMatrix[4])
+{
+	#ifndef REVERSE_DEPTH
+        depth = 1.0 - depth;
+    #endif
+
+    // Using depth and screen position to create clip space position
+    float4 clipPos = float4(screenPos, depth, 1.0);
+    
+    // Using inverse view-projection matrix to get world position
+    float4 worldPos;
+    worldPos.x = dot(U_InvViewProjectMatrix[0], clipPos);
+    worldPos.y = dot(U_InvViewProjectMatrix[1], clipPos);
+    worldPos.z = dot(U_InvViewProjectMatrix[2], clipPos);
+    worldPos.w = dot(U_InvViewProjectMatrix[3], clipPos);
+    
+    return worldPos.xyz / worldPos.w;
+}
+
+// Based on Shadertoy "Water Caustics" by David Hoskins
+// https://www.shadertoy.com/view/MdKXDm
+float3 ProceduralCaustic(float2 uv, float time)
+{
+    float3 k = float3(uv * 20.0, time * 2.0); 
+    float3x3 m = float3x3(-2,-1,2, 3,-2,1, 1,2,2);
+
+    k = mul(k, m);
+    float v1 = length(0.5 - frac(k * 0.1));
+
+    k = mul(k, m);
+    float v2 = length(0.5 - frac(k * 0.025));
+
+    k = mul(k, m);
+    float v3 = length(0.5 - frac(k * 0.01));
+    
+    float val = pow(min(min(v1, v2), v3), 7.0) * 5.0;
+    val = clamp(val, 0.0, 5.0);
+    
+    return float3(val, val, val);
+}
+
+float snoise(float2 v)
+{
+    const float4 C = float4( 0.211324865405187,  // (3.0-sqrt(3.0))/6.0
+                             0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
+                            -0.577350269189626,  // -1.0 + 2.0 * C.x
+                             0.024390243902439); // 1.0 / 41.0
+    // First corner
+    float2 i  = floor(v + dot(v, C.yy));
+    float2 x0 = v -   i + dot(i, C.xx);
+
+    // Other corners
+    float2 i1;
+    i1.x = step(x0.y, x0.x);
+    i1.y = 1.0 - i1.x;
+
+    // x1 = x0 - i1  + 1.0 * C.xx;
+    // x2 = x0 - 1.0 + 2.0 * C.xx;
+    float2 x1 = x0 + C.xx - i1;
+    float2 x2 = x0 + C.zz;
+
+    // Permutations
+    i = mod289(i); // Avoid truncation effects in permutation
+    float3 p =
+      permute(permute(i.y + float3(0.0, i1.y, 1.0))
+                    + i.x + float3(0.0, i1.x, 1.0));
+
+    float3 m = max(0.5 - float3(dot(x0, x0), dot(x1, x1), dot(x2, x2)), 0.0);
+    m = m * m;
+    m = m * m;
+
+    // Gradients: 41 points uniformly over a line, mapped onto a diamond.
+    // The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
+    float3 x = 2.0 * frac(p * C.www) - 1.0;
+    float3 h = abs(x) - 0.5;
+    float3 ox = floor(x + 0.5);
+    float3 a0 = x - ox;
+
+    // Normalise gradients implicitly by scaling m
+    m *= taylorInvSqrt(a0 * a0 + h * h);
+
+    // Compute final noise value at P
+    float3 g;
+    g.x = a0.x * x0.x + h.x * x0.y;
+    g.y = a0.y * x1.x + h.y * x1.y;
+    g.z = a0.z * x2.x + h.z * x2.y;
+    return 130.0 * dot(m, g);
+}
+
+float3 snoise_grad(float2 v)
+{
+    const float4 C = float4( 0.211324865405187,  // (3.0-sqrt(3.0))/6.0
+                             0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
+                            -0.577350269189626,  // -1.0 + 2.0 * C.x
+                             0.024390243902439); // 1.0 / 41.0
+    // First corner
+    float2 i  = floor(v + dot(v, C.yy));
+    float2 x0 = v -   i + dot(i, C.xx);
+
+    // Other corners
+    float2 i1;
+    i1.x = step(x0.y, x0.x);
+    i1.y = 1.0 - i1.x;
+
+    // x1 = x0 - i1  + 1.0 * C.xx;
+    // x2 = x0 - 1.0 + 2.0 * C.xx;
+    float2 x1 = x0 + C.xx - i1;
+    float2 x2 = x0 + C.zz;
+
+    // Permutations
+    i = mod289(i); // Avoid truncation effects in permutation
+    float3 p =
+      permute(permute(i.y + float3(0.0, i1.y, 1.0))
+                    + i.x + float3(0.0, i1.x, 1.0));
+
+    float3 m = max(0.5 - float3(dot(x0, x0), dot(x1, x1), dot(x2, x2)), 0.0);
+    float3 m2 = m * m;
+    float3 m3 = m2 * m;
+    float3 m4 = m2 * m2;
+
+    // Gradients: 41 points uniformly over a line, mapped onto a diamond.
+    // The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
+    float3 x = 2.0 * frac(p * C.www) - 1.0;
+    float3 h = abs(x) - 0.5;
+    float3 ox = floor(x + 0.5);
+    float3 a0 = x - ox;
+
+    // Normalise gradients
+    float3 norm = taylorInvSqrt(a0 * a0 + h * h);
+    float2 g0 = float2(a0.x, h.x) * norm.x;
+    float2 g1 = float2(a0.y, h.y) * norm.y;
+    float2 g2 = float2(a0.z, h.z) * norm.z;
+
+    // Compute noise and gradient at P
+    float2 grad =
+      -6.0 * m3.x * x0 * dot(x0, g0) + m4.x * g0 +
+      -6.0 * m3.y * x1 * dot(x1, g1) + m4.y * g1 +
+      -6.0 * m3.z * x2 * dot(x2, g2) + m4.z * g2;
+    float3 px = float3(dot(x0, g0), dot(x1, g1), dot(x2, g2));
+    return 130.0 * float3(grad, dot(m4, px));
+}
+
+// NOTE(changziheng):here we return a positive depth value JUST for convenience,
+// engine define camera look at -z direction.
+#ifdef CAUSTIC
+#ifdef REVERSE_DEPTH
+float LinearEyeDepth( float z )// return positiive depth value(+NearClip ~ +FarClip)
+{
+    float NearClip  = U_PSCustom1.x;
+    float FarClip   = U_PSCustom1.y;
+
+    float zc0 = FarClip * NearClip;
+    float zc1 = FarClip - NearClip;
+
+    return zc0 / (NearClip + zc1 * z);
+}
+#else
+float LinearEyeDepth( float z )// return positiive depth value(+NearClip ~ +FarClip)
+{
+   float NearClip  = U_PSCustom1.x;
+   float FarClip   = U_PSCustom1.y;
+
+   float zc0 = FarClip * NearClip;
+   float zc1 = FarClip - NearClip;
+
+   return zc0 / (FarClip - zc1 * z);
+}
+#endif
+#endif
+
+#define IsPlanetOcean U_PSCustom10[0].w
+#define PlanetOceanPlane U_PSCustom10[1]
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+			
+	float2 uv = IN.i_UV.xy;
+	
+	//clip(U_PSCustom0[0].xy - uv);
+	
+	float newWaterLine = U_PSCustom0[1].x + (sin(( uv.x*6.2831852) * 5.0 + U_PSCustom7.x) + cos(( uv.x*6.2831852+ U_PSCustom7.x)* 10.0 ) - 2.0)*0.002;
+	
+	float _distortAmt = U_PSCustom0[1].y;
+	float _distortScale = U_PSCustom0[1].z;
+	float _distortSpeed = U_PSCustom0[1].w;
+	float Time = fmod(U_PSCustom7.x,10240.0f);
+
+#ifdef CAUSTIC	
+	float noise = snoise(uv * _distortScale + float2(Time *_distortSpeed, - Time *_distortSpeed));
+    float noiseDistort=noise*_distortAmt;	
+    
+    float2 uvDepth = (uv+noiseDistort)*U_PSCustom0[0].xy;
+
+    float2 ndcPos;
+    ndcPos.x = uvDepth.x * 2.0 - 1.0;
+    ndcPos.y = (1.0 - uvDepth.y) * 2.0 - 1.0; 
+
+	float zValue = S_2DExt2.Sample(S_2DExt2SamplerState, uvDepth).r;
+    float3 worldSpacePos = ReconstructWorldPos(ndcPos, zValue, U_InvViewProjectMatrix);
+    float depth  = LinearEyeDepth(zValue);
+
+	float  width   = U_PSCustom1.z;
+	float  height  = U_PSCustom1.w;
+	float  near    = U_PSCustom1.x;
+	float3 forward = U_PSCustom4.xyz;
+	float3 right   = U_PSCustom5.xyz;
+	float3 up      = U_PSCustom6.xyz;
+    
+	float3 toTop   = up*(0.5f-uv.y)*height;
+	float3 toRight = right*(uv.x-0.5f)*width;
+
+	float3 ray;
+    ray = forward*near+toRight+toTop;
+    float scaleFactor = length(ray)/near;
+    ray = ray / near;	
+
+
+    //float3 worldSpacePos = ReconstructWorldPos(ndcPos, zValue, U_InvViewProjectMatrix);
+    //float3 worldNormal = normalize(worldSpacePos.xyz - PlanetOceanPlane.xyz); 
+
+    //TODO(yanghang):Move this to CPU side or pre-calculate.
+    float3 lightDir = normalize(-U_MainLightDirection.xyz);
+	float3 frameForward = normalize(float3(-1.f,-2.f,-1.f));
+	float3 frameUp      = float3(0,-1,0);
+	float3 frameRight   = cross(frameForward,frameUp);
+	
+	float3 tmpPos ; 
+	tmpPos.x=dot(worldSpacePos,frameRight);
+    tmpPos.y=dot(worldSpacePos,frameUp);
+    tmpPos.z=dot(worldSpacePos,frameForward);		
+	float2 texcoord = tmpPos.xz;
+#endif
+	 
+	//[branch]
+	if(uv.y < newWaterLine)
+		psOut.o_Color = S_2DExt0.Sample( S_2DExt0SamplerState,uv.xy*U_PSCustom0[0].xy);
+	else
+	{		
+#ifdef CAUSTIC	
+		psOut.o_Color = S_2DExt0.Sample( S_2DExt0SamplerState, uvDepth);	
+		 //caustic
+        float3 caustic    = float3(0,0,0);
+        float2 dir        = float2(1,1);
+	    float  distance   = length(U_PSCustom2.xyz-worldSpacePos.xyz);
+        float3 viewDir = normalize(worldSpacePos.xyz - U_PSCustom2.xyz);
+
+        float  isCaustic;
+        float depthFade = 0;
+        float distToPlane = 0;
+        if(IsPlanetOcean == 1.0f)
+        {
+            distToPlane = PlanetOceanPlane.w - (length(worldSpacePos.xyz - PlanetOceanPlane.xyz));
+            isCaustic = smoothstep(2.5f, 10.f, distToPlane);  
+            depthFade = 1 - saturate(distToPlane / (U_PSCustom3.z * 0.25f));
+        }
+        else
+        {
+            isCaustic  = step(worldSpacePos.y,U_PSCustom9.x);
+        }
+	    
+	    float  distFade   = (distance)/(U_PSCustom3.z * 1.5f);
+		distFade=clamp(1.f-distFade,0.f,1.f);
+		
+	    //float depthFade = (abs(worldSpacePos.y)-U_PSCustom3.x)/(U_PSCustom3.y-U_PSCustom3.x);
+		//depthFade=clamp(1.0f-depthFade,0.f,1.f);
+		
+		//float2 causticUV  = (texcoord*U_PSCustom3.z * 2.5f)+dir*noise*_distortAmt*U_PSCustom3.w;
+		
+        float fade= distFade * depthFade;		
+        //fade=pow(fade,1.f);
+
+        // --------------------------Reconstruct world normal----------------------------------
+        // float depthW, depthH;
+        // S_2DExt2.GetDimensions(depthW, depthH);
+        // float2 texelSize = float2(1.0/depthW, 1.0/depthH);
+        
+        // float2 uvRight = uvDepth + float2(texelSize.x * 2.0, 0);
+        // float zRight = S_2DExt2.Sample(S_2DExt2SamplerState, uvRight).r;
+
+        // float2 uvDown = uvDepth + float2(0, texelSize.y * 2.0);
+        // float zDown = S_2DExt2.Sample(S_2DExt2SamplerState, uvDown).r;
+
+        // // Right
+        // float2 ndcStep = texelSize * 2.0 / U_PSCustom0[0].xy;
+        // float2 ndcRight = ndcPos + float2(ndcStep.x * 2.0, 0);
+        // float3 posRight = ReconstructWorldPos(ndcRight, zRight, U_InvViewProjectMatrix);
+        
+        // // Down (NDC Y 轴方向与 UV 相反)
+        // float2 ndcDown = ndcPos - float2(0, ndcStep.y * 2.0);
+        // float3 posDown = ReconstructWorldPos(ndcDown, zDown, U_InvViewProjectMatrix);
+
+        // float3 tangentX = posRight - worldSpacePos;
+        // float3 tangentY = posDown  - worldSpacePos;
+
+        float3 worldNormal = (normalize(worldSpacePos.xyz - PlanetOceanPlane.xyz));
+        
+        // ------------------------------------------------------------------------------------
+        // float3 blendWeights = pow(worldNormal, 8.0f);
+        // blendWeights /= max(dot(blendWeights, float3(1,1,1)), 0.0001);
+        float causticScale = U_PSCustom3.x * 0.05f; 
+        float causticTime = Time * U_PSCustom3.y; // Adjust speed if necessary
+        
+        // 计算扰动偏移
+        //float2 distortionOffset = dir * noise * _distortAmt * U_PSCustom3.w;
+        // Sample caustic patterns along each axis
+        // float3 causticX = ProceduralCaustic((worldSpacePos.yz) * causticScale, causticTime);
+        // float3 causticY = ProceduralCaustic((worldSpacePos.xz) * causticScale, causticTime);
+        // float3 causticZ = ProceduralCaustic((worldSpacePos.xy) * causticScale, causticTime);
+        
+        // float3 causticPattern = causticX * blendWeights.x + causticY * blendWeights.y + causticZ * blendWeights.z;
+        // Mix (min creates sharper patterns)
+        float3 tempUp = abs(lightDir.y) < 0.999 ? float3(0, 1, 0) : float3(1, 0, 0);
+        float3 lightRight = normalize(cross(tempUp, lightDir));
+        float3 lightUp = cross(lightDir, lightRight);
+        float2 causticUV;
+        causticUV.x = dot(worldSpacePos, lightRight);
+        causticUV.y = dot(worldSpacePos, lightUp);
+
+        float3 causticPattern1 = ProceduralCaustic(causticUV * causticScale, causticTime);
+        float3 causticPattern2 = ProceduralCaustic(causticUV * causticScale * 2.0, causticTime * 2.0);
+        caustic = (causticPattern1 + causticPattern2) * fade * U_PSCustom8.xyz;
+        float3 NdotL = pow(saturate(dot(worldNormal, lightDir)), 8.0f);
+        caustic *= U_MainLightColor.rgb * (NdotL) * U_PSCustom3.w * 5.0; // Intensity control
+
+		psOut.o_Color.rgb += caustic * isCaustic;
+
+#ifdef FALSE
+		// ---------------------------------------------------------
+        // Underwater Fog Implementation
+        // ---------------------------------------------------------
+		float3 fogColor = U_PSCustom10[2].xyz;
+		float finalFogFactor = 1.0;
+		float lightAttenuationFactor = U_PSCustom10[3].x;
+		float camDepth = max(0.0, PlanetOceanPlane.w - length(U_PSCustom2.xyz - PlanetOceanPlane.xyz));
+        // TODO: Temp parameter for light attenuation
+		float underWaterFogStart = U_PSCustom10[3].y;
+        // Avoid division by zero
+		float underWaterFogEnd	 = U_PSCustom10[3].z  + 1e-5f;
+		
+		float depthMultiplier = 1 + saturate(distToPlane / underWaterFogEnd);
+
+		float avgDepth = (camDepth + distToPlane) * 0.01f;
+		float pathDensity = (1 + avgDepth);
+		float fogFactor_path = exp(-(distance - underWaterFogStart) * pathDensity / underWaterFogEnd);
+
+		float lightAttenuation = exp(-distToPlane * 0.0005f * lightAttenuationFactor); 
+		float camDepthFade = exp(-camDepth * 0.001f * lightAttenuationFactor);
+		lightAttenuation *= camDepthFade; // Affected by camera depth
+				
+		finalFogFactor = saturate(fogFactor_path);
+        fogColor = U_PSCustom10[2].xyz * camDepthFade * (1 + 0.5 * saturate(dot(viewDir, lightDir)) * NdotL); // Fog Color
+		psOut.o_Color.rgb = lerp(fogColor, ((psOut.o_Color.rgb ) * lerp(1, U_PSCustom10[2].xyz, 1 - exp(-distToPlane * 0.025f * lightAttenuationFactor))) , finalFogFactor);
+        // ---------------------------------------------------------
+#endif
+
+#endif 		
+		
+		//求纹理坐标偏移量(从法线图中取出法线)
+		//float3 vNormal0 = tex2Dlod( S_Bump, float4(IN.i_UV0.xy, 0, 0) ).rbg;
+		//float3 vNormal1 = tex2Dlod( S_Bump, float4(IN.i_UV0.zw, 0, 0) ).rbg;
+		//float3 vNormal2 = tex2Dlod( S_Bump, float4(IN.i_UV1.xy, 0, 0) ).rbg;
+		//float3 vNormal =  (vNormal0.xyz + vNormal1.xyz + vNormal2.xyz) / 1.5 * 0.02 - 1.0 * 0.02;
+		//half2 vTexOffset = vNormal.xz;//0.02 * vNormal.xz;
+		//psOut.o_Color = tex2D( S_2DExt0,IN.i_UV1.zw + vTexOffset);
+	}
+	
+	return psOut;
+}

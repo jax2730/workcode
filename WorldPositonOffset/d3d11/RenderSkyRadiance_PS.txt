@@ -1,0 +1,155 @@
+#define VIEWDATA_AVAILABLE
+
+struct PS_INPUT
+{
+    float4 svPos        : SV_POSITION;
+    float4 uv			: TEXCOORD0;
+};
+
+#include<AtmosphereDataStructures.inl>
+
+Texture2D<float4> S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+Texture2D<float4> S_2DExt1;
+
+#define TransmittanceTex S_2DExt0
+#define SkyViewLutTex S_2DExt1
+#define BilinearSampler S_2DExt0SamplerState
+Texture2D<float> S_Depth;
+
+#include<FastMathThirdParty.inl>
+#include<AtmosphereCommon.inl>
+#include <AtmosphereScattering.inl>
+
+uniform float4          U_PSCustom2;
+uniform ViewportRect    U_PSCustom3;
+
+#define SourceDiskEnabled   U_PSCustom2.x
+#define QuarterSizeViewport U_PSCustom3
+
+float4 PrepareOutput(float3 preExposedLuminance, float3 transmittance = float3(1.f, 1.f, 1.f))
+{
+    const float Max10BitsFloat = 64512.f;
+
+    // sky materials can result in high luminance values, e.g. the sun disk.
+    // this is so we makesure to at least stay winth in boundaries of fp10 and not cause NaN on some platforms
+    // we also half that range to also make sure we have room for other additive elements such as bloom, cloud or particle value
+    const float3 safePreExposedLuminance = min(preExposedLuminance, Max10BitsFloat.xxx * 0.5f);
+
+    const float greyScaleTransmittance  = dot(transmittance, float3(1.f / 3.0f, 1.f / 3.f, 1.f / 3.f));
+    float4 luminanceAlpha = float4(safePreExposedLuminance, greyScaleTransmittance);
+
+    return luminanceAlpha;
+}
+
+float3 GetLightDiskLuminance(float3 planetCenterToCamera, float3 worldDir)
+{
+    float t = RaySphereIntersectNearest(planetCenterToCamera, worldDir, float3(0.f, 0.f, 0.f), Atmosphere.bottomRadius);
+    
+    // ray is not blocked by planet
+    if(t < 0.f)
+    {
+        float3 lightDiskLuminance = GetLightDiskLuminance(
+            planetCenterToCamera,
+            worldDir,
+            Atmosphere.bottomRadius,
+            Atmosphere.topRadius,
+            TransmittanceTex,
+            BilinearSampler,
+            -U_MainLightDirection.xyz,
+            Atmosphere.sunAngularRadius,
+            U_PBR_MainLightColor.rgb
+        );
+
+        const float3 maxLightLuminance = 64000.f;
+        float3 exposedLightLuminance = min(lightDiskLuminance, maxLightLuminance);
+        return exposedLightLuminance;
+    }
+    return 0.f;
+}
+
+float4 linearTosRGB(float4 color)
+{
+    return color;
+    float3 rgb = pow(color.rgb, 1.0f / 2.2f);
+    return float4(rgb, color.a);
+}
+
+float4 GetNdcPos(
+    in float2 svPos, 
+    in float deviceZ,
+    in ViewportRect viewport
+){
+    float2 pixelPos = svPos.xy - viewport.rectMinAndMax.xy; // [0, viewRectSize]
+    float2 xy =
+      float2(2.f, -2.f) * (pixelPos.xy * viewport.rectSizeAndInvSize.zw - 0.5f); // [-1. 1]
+    return float4(xy, deviceZ, 1.f);
+}
+
+float3 GetScreenWorldDirection(
+    in float4 svPos,
+    in ViewportRect viewport
+){
+    float4 NDCPos = GetNdcPos(svPos.xy, 1.f, viewport);
+    float3 direction = normalize(float3(View.cameraXYRatio.xy * NDCPos.xy, -1.f));
+    return normalize(mul(float4(direction, 0.f), View.cameraToWorldMatrix).xyz);
+}
+
+float4 main(PS_INPUT IN):SV_TARGET
+{
+    float4 outLuminance = 0.f;
+
+    float2 pixelPos = IN.svPos.xy;
+    float2 uvBuffer = pixelPos * Viewport.rectSizeAndInvSize.zw;
+
+    float3 worldPos = GetTranslatedCameraPlanetPos();
+    float3 worldDir = GetScreenWorldDirection(IN.svPos, QuarterSizeViewport);
+
+    float3 preExposedL = 0.f;
+    float3 luminanceScale = 1.f;
+
+    float viewHeight = length(worldPos);
+    // render sky
+    if(viewHeight < (Atmosphere.topRadius * PLANET_RADIUS_RATIO_SAFE_EDGE))
+    {   
+        // using sky view lut enabled and current pixel at far 
+        float2 uv;
+
+        // the referencial used to build the sky view lut
+
+        float3x3 localReferential = GetSkyViewReferential(View.skyViewLutReferential);
+
+        // input vectors expressed in this referencial: Up is always Z.
+        // also note that viewHeight is unchanged in this referential.
+        float3 worldPosLocal = float3(0.f, 0.f, viewHeight);
+        float3 upVectorLocal = float3(0.f, 0.f, 1.f);
+        float3 worldDirLocal = mul(localReferential, worldDir);
+        float viewZenithCosAngle = dot(worldDirLocal, upVectorLocal);
+
+        // now evaluate inputs in the referential
+        bool intersectGround = RaySphereIntersectNearest(
+            worldPosLocal, 
+            worldDirLocal, 
+            float3(0.f, 0.f, 0.f), 
+            Atmosphere.bottomRadius) > 0.f;
+
+        SkyViewLutParamsToUv(
+            intersectGround, 
+            viewZenithCosAngle, 
+            worldDirLocal, 
+            viewHeight, 
+            Atmosphere.bottomRadius,
+            SkyAtmosphere.skyViewLutSizeAndInvSize,
+            uv);
+
+        float4 skyLuminanceTransmittance = SkyViewLutTex.SampleLevel(BilinearSampler, uv, 0);
+        float3 skyLuminance = skyLuminanceTransmittance.rgb;
+
+        float3 skyGreyTransmittance = 1.f;
+        preExposedL += skyLuminance * luminanceScale;//  * (ViewOneOverPreExposure * outputPreExposure);
+
+        outLuminance = PrepareOutput(preExposedL, skyGreyTransmittance);
+        return linearTosRGB(outLuminance);
+    }
+    return float4(0.f, 0.f, 0.f, 1.f);
+}

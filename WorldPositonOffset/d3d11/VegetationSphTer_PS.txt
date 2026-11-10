@@ -1,0 +1,279 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+#include <Light_Function_PS.inl>
+#include <EnvironmentLight_Function.inl>
+#include <Common_Function_PS.inl>
+
+#ifdef CLUSTER_POINT_LIGHT
+	#include "Shadow_Light_Function_PS.inl"
+#endif // CLUSTER_POINT_LIGHT
+
+Texture2D S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+float4 	U_MaterialDiffuse;
+float4	U_MaterialSpecular;		// x: normal ratio, y: metallic, z: speculay exp (useless)
+
+float4  U_PSGeneralRegister3;	// x: ao ratio, y: roughness
+float4  U_PSGeneralRegister4;	// x: weather range, y: weather strength, z: height weight
+
+float4 U_PSGeneralRegister30;
+
+#ifdef BUMP_MAP
+	Texture2D S_Bump;
+	SamplerState S_BumpSamplerState;
+#endif
+
+//	#ifdef ENVIRONMENT_MAP
+	//glossy info
+	TextureCube	S_GlobalEnvironmentCubeMap;
+	SamplerState S_GlobalEnvironmentCubeMapSamplerState;
+	float4 U_GlobalEnvironmentCubeMipMapLevels;
+
+	//diffuse info
+	float4x4 U_PBR_RMatrix;
+	float4x4 U_PBR_GMatrix;
+	float4x4 U_PBR_BMatrix;
+
+	//total luminance
+	float4  U_PBR_Environment_Explosure;
+//	#endif	
+
+float4 U_PSCustom0[2]; 		// 0.xyz: DiffuseTop, 0.w: slope; 1.xyz: DiffuseBottom, 1.w: intercept
+
+struct PS_INPUT
+{
+    float4 i_PosInClip		: SV_POSITION;
+	float4 i_UV				: TEXCOORD0;		//	xy: diffuse tex uv, z: cam spac pos
+	float4 i_Fog			: TEXCOORD1;		//	fog color
+	float4 i_WPos			: TEXCOORD2;		//	xyz: world pos, w: 1
+	float3 i_WNormal		: TEXCOORD3;
+
+#ifdef BUMP_MAP
+	float3	i_Tangent	: TEXCOORD4;
+	float3	i_Binormal	: TEXCOORD5;
+#endif
+
+	float4 i_Diffuse		: COLOR0;			//	xyz: mesh color, w: height factor
+	float4 i_FadeFac		: COLOR1;			//	x: common, y: fade out, z: fade in, w: penetrate value
+};
+
+float4 main(PS_INPUT IN) : SV_TARGET
+{	
+	float4 cTexDiffuse = S_Diffuse.Sample(S_DiffuseSamplerState, IN.i_UV.xy);
+
+	//	Alpha test clip invalid pixel
+	#ifdef ALPHA_TEST
+
+		#ifdef LOD_HIGH
+			float fAlphaRef = lerp(U_MaterialDiffuse.a, 1.01f, IN.i_FadeFac.y);
+			clip(cTexDiffuse.a - fAlphaRef);
+		#elif defined(LOD_LOW)
+			float fAlphaRef = lerp(U_MaterialDiffuse.a, 1.01f, IN.i_FadeFac.z);
+			clip(fAlphaRef - cTexDiffuse.a);
+			clip(cTexDiffuse.a - U_MaterialDiffuse.a);
+
+			fAlphaRef = lerp(U_MaterialDiffuse.a, 1.01f, IN.i_FadeFac.y);
+			clip(cTexDiffuse.a - fAlphaRef);
+		#else
+			float fAlphaRef = lerp(U_MaterialDiffuse.a, 1.01f, IN.i_FadeFac.x);
+			clip(cTexDiffuse.a - fAlphaRef);
+		#endif
+
+		//	用点阵剔除实现相机穿透效果
+		{
+			#ifdef LOD_HIGH
+				// Dither（点阵）剔除阶段
+				float4x4 thresholdMatrix =
+				{  
+					1.0  / 17.0,  9.0 / 17.0,  3.0 / 17.0, 11.0 / 17.0,
+					13.0 / 17.0,  5.0 / 17.0, 15.0 / 17.0,  7.0 / 17.0,
+					4.0  / 17.0, 12.0 / 17.0,  2.0 / 17.0, 10.0 / 17.0,
+					16.0 / 17.0,  8.0 / 17.0, 14.0 / 17.0,  6.0 / 17.0
+				};
+
+				float2 pos = IN.i_PosInClip.xy;
+				//float2 pos = IN.i_PosInClip.xy / U_MaterialCustomParam1.z; // 控制点阵密度
+
+				int xindex = fmod(pos.x, 4);
+				int yindex = fmod(pos.y, 4);
+				float dither = thresholdMatrix[xindex][yindex];
+
+				// 用fade做dither剔除
+				float fade = saturate(IN.i_FadeFac.w); // 剔除程度，0~1
+				clip(dither - fade);
+			#endif
+		}
+
+		#ifdef PRE_Z
+			return float4(0.f, 0.f, 0.f, 1.f);
+		#endif
+	#endif
+
+	//	Trans linear spac to mul mesh diffuse color
+	{
+		cTexDiffuse.rgb = pow(cTexDiffuse.rgb, 2.2);
+		cTexDiffuse.rgb *= U_MaterialDiffuse.rgb;
+
+		float F = saturate(IN.i_Diffuse.w * U_PSCustom0[0].w + U_PSCustom0[1].w);
+		float3 cVtxDiffuse = lerp(U_PSCustom0[1].rgb, U_PSCustom0[0].rgb, F);
+		cTexDiffuse.rgb *= cVtxDiffuse * IN.i_Diffuse.rgb;
+	}
+
+
+	half3 baseMap = cTexDiffuse.rgb;	
+	half metallic = U_MaterialSpecular.y;
+	half ao = U_PSGeneralRegister3.x;
+	half roughness = U_PSGeneralRegister3.y;
+
+	half3 V = normalize(U_PS_CameraPosition.xyz - IN.i_WPos.xyz);
+	half3 L = normalize(-U_MainLightDirection.xyz);
+	half3 N = normalize(IN.i_WNormal.xyz);
+
+	#ifdef USESHADOWMAP
+		float4 shadowSpacePos[SHADOWSPLITE];
+		ProjectToLightSpace(shadowSpacePos, IN.i_WPos.xyz);
+	#endif
+
+#ifdef BUMP_MAP
+	half normalRatio = U_MaterialSpecular.x;
+
+	half4 bumpSamplerValue = S_Bump.Sample(S_BumpSamplerState, IN.i_UV.xy);
+	ao = bumpSamplerValue.z;
+	roughness = bumpSamplerValue.w;
+
+	half3 nn = N;
+	half3 tn = normalize(IN.i_Tangent.xyz);
+	half3 bn = normalize(IN.i_Binormal.xyz);
+	half3x3 tbn = {
+		tn.x, bn.x, nn.x,
+		tn.y, bn.y, nn.y,
+		tn.z, bn.z, nn.z 
+	};
+
+	half3 bump = half3(0.h, 0.h, 1.h);
+	bump.xy = normalRatio * (2.h * bumpSamplerValue.xy - 1.h);
+	N = normalize(mul(tbn, bump));
+#endif
+
+	//	tod effects: weather cover
+	{
+		half cosTheta_Normal_WorldUp = dot(N, U_PS_GravityDirection.xyz);
+		float coverMask = 1.0; 					// using rain mask
+		coverMask *= pow(IN.i_Diffuse.w, U_PSGeneralRegister4.z);
+
+		ComputeWeatherCover(
+			half4(U_WeatherParam0),				// 每个shader的前七个参数固定填这些
+			half4(U_WeatherParam1),				//
+			U_CoverColorParams,					//
+			U_CoverColorRotation,				//
+			IN.i_WPos.xyz,						//
+			coverMask,
+			half(U_PSGeneralRegister30.x),		//
+			cosTheta_Normal_WorldUp,			//
+			half(U_PSGeneralRegister4.y),		// custom weather cover scale
+			half(U_PSGeneralRegister4.x),		// custom weather cover range 材质面板上需要提供
+			baseMap,
+			roughness,
+			metallic
+		);
+	}
+
+	float4 oFragColor = float4(0.f, 0.f, 0.f, 1.f);
+
+	//	Calculate Lighting
+	{
+		half4 mainLightColor = U_PBR_MainLightColor;
+		half3 Lo = 0.0h; // output scarttered
+
+		// directional light
+		{
+			half3 directionLightLo = 0.0h;
+
+			directionLightLo += calculateLightPower(N, V, L, mainLightColor.xyz, baseMap, roughness, metallic);
+			#ifdef USESHADOWMAP
+				float shadowFactor = calcShadowFactor(shadowSpacePos, IN.i_UV.z);
+				directionLightLo *= shadowFactor;
+			#endif // USESHADOWMAP
+			
+			// 可见光分量
+			// directionLightLo += calculateLightPower(N, V, -U_PS_ViewDirection.xyz, mainLightColor.xyz, baseMap, roughness, metallic);
+
+			Lo += directionLightLo;
+		}
+
+		// point light & spot light
+		{
+			half3 pointLightLo = 0.0h;
+
+			#ifdef CLUSTER_POINT_LIGHT
+				pointLightLo += calculateShadowPBRPointLight(IN.i_WPos,
+															N, 
+															V, 
+															baseMap, 
+															roughness,
+															metallic);
+
+				float3 clusterLightColor = calculateClusterPBRPointLight(IN.i_PosInClip.xy,
+																		IN.i_WPos.xyz,
+																		N,
+																		V,
+																		baseMap,
+																		roughness,
+																		metallic);
+				pointLightLo += clusterLightColor;
+			#endif // CLUSTER_POINT_LIGHT
+
+			Lo += pointLightLo;
+		}
+
+		// environment light
+		{
+			half3 environmentLo = 0.0h;
+			half4 skyLightColor = U_PBR_SkyLightColor;
+			half4 groundLightColor = U_PBR_GroundLightColor;
+			half  blendThreshold = U_PS_AmbientBlendThreshold.y;
+			half3 ambientColor = ComputeAmbientLight(skyLightColor.xyz, groundLightColor.xyz, N, blendThreshold, U_PS_GravityDirection.xyz);
+
+			environmentLo += CalculateGlossyEnvColor(
+								N, 
+								V, 
+								baseMap, 
+								metallic, 
+								roughness, 
+								1.0, // prebaked diffuse ao, 应美术要求该参数应用到整个光照里, 环境光不再计算该参数
+								0.0, // wet final param, deprecated
+								0.0, // 环境光旋转，目前默认填0，将来有空配置到场景或者区域里
+								U_GlobalEnvironmentCubeMipMapLevels.x, 
+								S_GlobalEnvironmentCubeMap,
+								S_GlobalEnvironmentCubeMapSamplerState);
+
+			environmentLo += CalculateDiffuseEnvColor(
+				N, 
+				baseMap, 
+				metallic, 
+				1.0, // prebaked diffuse ao, 应美术要求该参数应用到整个光照里, 环境光不再计算该参数
+				U_PBR_RMatrix, 
+				U_PBR_GMatrix, 
+				U_PBR_BMatrix,
+				0.0); // 环境光旋转，目前默认填0，将来有空配置到场景或者区域里
+
+			environmentLo *= U_PBR_Environment_Explosure.x;
+
+			Lo += environmentLo * ambientColor;
+		}
+
+		oFragColor.rgb += Lo * ao; // 应美术要求, 前向渲染ao应用到整个光照效果中
+	}
+
+	//	Use Fog
+	{
+		oFragColor.rgb = max(oFragColor.rgb, float3(0.0, 0.0, 0.0));
+		oFragColor.rgb = oFragColor.rgb * IN.i_Fog.a + IN.i_Fog.rgb;
+	}
+
+	oFragColor.rgb = pow(oFragColor.rgb, 1.0 / 2.2);
+	return oFragColor;
+}

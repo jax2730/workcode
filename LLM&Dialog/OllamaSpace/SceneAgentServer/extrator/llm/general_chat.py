@@ -21,11 +21,11 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from langchain_ollama import ChatOllama
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, trim_messages
 from langchain_community.chat_message_histories import SQLChatMessageHistory
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables.history import RunnableWithMessageHistory
+from .model_factory import create_chat_model
 
 
 # ==================== 人设配置加载 ====================
@@ -98,7 +98,10 @@ class ChatManager:
     
     def __init__(self, default_persona: str = "general_assistant"):
         self.current_persona = default_persona
-        self.llm = ChatOllama(temperature=0.7, model="qwen2.5")
+        self.llm = create_chat_model()
+        self._openai_mode = bool(
+            getattr(self.llm, "is_openai_compatible", False)
+        )
         self.history_cache = {}
         self._chain_cache = {}  # 缓存不同人设的对话链
     
@@ -166,14 +169,19 @@ class ChatManager:
         
         try:
             start_time = time.time()
-            chain = self._get_chain(persona)
-            
-            response = chain.invoke(
-                {"input": [HumanMessage(content=message)]},
-                config={"configurable": {"session_id": session_id}}
-            )
-            
-            result["msg"] = response.content
+            if self._openai_mode:
+                result["msg"] = self._chat_openai_compat(
+                    message=message,
+                    session_id=session_id,
+                    persona=persona,
+                )
+            else:
+                chain = self._get_chain(persona)
+                response = chain.invoke(
+                    {"input": [HumanMessage(content=message)]},
+                    config={"configurable": {"session_id": session_id}}
+                )
+                result["msg"] = response.content
             result["response_time"] = time.time() - start_time
             
         except Exception as e:
@@ -182,6 +190,39 @@ class ChatManager:
             print(f"[GeneralChat] Error: {e}")
         
         return result
+
+    def _chat_openai_compat(
+        self,
+        message: str,
+        session_id: str,
+        persona: str,
+    ) -> str:
+        """使用OpenAI兼容接口进行对话并维护历史。"""
+
+        history = self.get_session_history(session_id)
+        system_prompt = build_system_prompt(persona)
+
+        messages = [{"role": "system", "content": system_prompt}]
+
+        for item in history.messages[-12:]:
+            if isinstance(item, HumanMessage):
+                messages.append({"role": "user", "content": str(item.content)})
+            elif isinstance(item, AIMessage):
+                messages.append(
+                    {"role": "assistant", "content": str(item.content)}
+                )
+            elif isinstance(item, SystemMessage):
+                messages.append(
+                    {"role": "system", "content": str(item.content)}
+                )
+
+        messages.append({"role": "user", "content": message})
+        response = self.llm.invoke(messages)
+        reply = response.content if hasattr(response, "content") else str(response)
+
+        history.add_user_message(message)
+        history.add_ai_message(reply)
+        return reply
     
     def clear_history(self, session_id: str) -> dict:
         """清除会话历史"""

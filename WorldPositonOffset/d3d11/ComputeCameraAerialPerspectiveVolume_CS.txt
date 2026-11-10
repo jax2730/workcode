@@ -1,0 +1,179 @@
+#define MULTISCATTERING_APPROX_SAMPLING_ENABLED
+#define VIEWDATA_AVAILABLE
+
+#include <AtmosphereDataStructures.inl>
+
+uniform float4 U_PSCustom2;
+#define AerialPerspectiveStartDepthKm U_PSCustom2.x
+
+Texture2D<float4> S_2DExt0;
+Texture2D<float4> S_2DExt1;
+SamplerState S_2DExt0SamplerState;
+RWTexture3D<float4> S_2DExt2;
+#define TransmittanceTex S_2DExt0
+#define MultiScatteredLuminanceTex S_2DExt1
+#define BilinearSampler S_2DExt0SamplerState
+#define CameraAerialPerspectiveVolume S_2DExt2
+
+#include <FastMathThirdParty.inl>
+#include <AtmosphereCommon.inl>
+#include <AtmosphereScattering.inl>
+
+// float3 GetScreenWorldDirection(in float4 svPos)
+// {
+//     float2 pixelPos = svPos.xy - ViewSetting.viewRectMinAndMax.xy;// [0, viewRectSize]
+//     float3 NDCPos = float3((pixelPos * ViewSetting.viewRectSizeAndInvSize.zw - 0.5f) * float2(2, -2),
+//         svPos.z); // [-1, 1]
+//     float4 screenPos = float4(NDCPos.xy, NDCPos.z, 1.f) * svPos.w;
+//     float3 direction = normalize(float3(CameraXYRatio.xy * screenPos.xy, -1.f));
+//     return normalize(mul(float4(direction, 0.f), CameraToWorldMatrix).xyz);
+// }
+
+[numthreads(THREADGROUP_SIZE, THREADGROUP_SIZE, THREADGROUP_SIZE)]
+void main(uint3 threadId: SV_DispatchThreadID)
+{
+    #ifdef AERIAL_PERSPECTIVE_DISABLED
+
+        CameraAerialPerspectiveVolume[threadId] = float4(0.f, 0.f, 0.f, 1.f);
+        #if SEPARATE_MIE_RAYLEIGH_SCATTERING
+            CameraAerialPerspectiveVolumeMieOnly = float4(0.f, 0.f, 0.f, 1.f);
+            CameraAerialPerspectiveVolumeRayOnly = float4(0.f, 0.f, 0.f, 1.f);
+        #endif
+        return;
+    #else // AERIAL_PERSPECTIVE_DISABLED
+
+        float2 pixelPos = float2(threadId.xy) + 0.5f;
+        float2 uv = pixelPos * SkyAtmosphere.aerialPerspectiveVolumeScreenSizeAndInvSize.zw;
+
+        float4 svPos = float4(Viewport.rectMinAndMax.xy + Viewport.rectSizeAndInvSize.xy * uv, 0.f, 1.f);
+        float3 worldDir = GetScreenWorldDirection(svPos);
+
+        float3 camPos = GetTranslatedCameraPlanetPos();
+
+        float slice = ((float(threadId.z) + 0.5f) * SkyAtmosphere.aerialPerspectiveVolumeDepthResolutionAndInvResolution.y);
+        slice *= slice;// [0, 1] squared distribution
+        slice *= SkyAtmosphere.aerialPerspectiveVolumeDepthResolutionAndInvResolution.x; // [0, depthResolution]
+
+        // ray default start at camera pos
+        float3 rayStartWorldPos = camPos + AerialPerspectiveStartDepthKm * worldDir;
+        float viewHeight;
+
+        // compute voxel position from froxel information
+        float tMax = slice * SkyAtmosphere.aerialPerspectiveVolumeDepthSliceLengthAndInvLength.x;
+        float3 voxelWorldPos = rayStartWorldPos + tMax * worldDir;
+        float voxelHeight = length(voxelWorldPos);
+
+        const float voxelUnderGround = voxelHeight < Atmosphere.bottomRadius;
+        float3 cameraToVoxel = voxelWorldPos - camPos;
+        float cameraToVoxelLen = length(cameraToVoxel);
+        float3  cameraToVoxelDir = cameraToVoxel / cameraToVoxelLen;
+        float planetNearT = RaySphereIntersectNearest(camPos, cameraToVoxelDir, float3(0.f, 0.f, 0.f), Atmosphere.bottomRadius);
+        bool voxelBelowHorizon = planetNearT > 0.f && cameraToVoxelLen > planetNearT;
+
+        // voxel invisible
+        // move voxel to a visible pos and update view dir
+        if(voxelBelowHorizon || voxelUnderGround)
+        {
+            // unreal's note:
+            // TODO: investigate why we need this workaround. Without it, we get some bad color and flickering on the ground only (floating point issue with sphere intersection code?).
+            camPos += normalize(camPos) * 0.02f;
+
+            float3 voxelWorldPosNorm = normalize(voxelWorldPos);
+            float3 camProjOnGround = normalize(camPos) * Atmosphere.bottomRadius;
+            float3 voxelProjOnGround = voxelWorldPosNorm * Atmosphere.bottomRadius;
+            float3 voxelGroundToRayStart = camPos - voxelProjOnGround;
+            if(voxelBelowHorizon && dot(normalize(voxelGroundToRayStart), voxelWorldPosNorm) < 0.0001f)
+            {
+                // We are behind the sphere and the sphere normal is pointing away from V: we are below the horizon.
+                float3 middlePoint = 0.5f * (camProjOnGround + voxelProjOnGround);
+                float3 middlePointHeight = length(middlePoint);
+
+                // compute a new position to evaluate and store the value in the voxel
+                // the position is the opposite side of the horizon point from view point
+                float3 middlePointOnGround = normalize(middlePoint) * Atmosphere.bottomRadius;
+                voxelWorldPos = camPos + 2.f * (middlePointOnGround - camPos);
+            }
+            else if(voxelUnderGround)
+            {
+                // move voxel pos to ground
+                voxelWorldPos = normalize(voxelWorldPos) * (Atmosphere.bottomRadius);
+            }
+
+            worldDir = normalize(voxelWorldPos - camPos);
+            rayStartWorldPos = camPos + AerialPerspectiveStartDepthKm * worldDir;
+            tMax = length(voxelWorldPos - rayStartWorldPos);
+        }
+        float tMaxMax = tMax;
+
+        // camera out side atmosphere
+        viewHeight = length(rayStartWorldPos);
+        if(viewHeight >= Atmosphere.topRadius)
+        {
+            // map start point to top atmosphere
+            float3 preWorldPos = rayStartWorldPos;
+            if(!MoveToTopAtmosphere(rayStartWorldPos, worldDir, Atmosphere.topRadius))
+            {
+                // ray is not intersecting the atmosphere, mapping failed
+                CameraAerialPerspectiveVolume[threadId] = float4(0.f, 0.f, 0.f ,1.f);
+                #if SEPARATE_MIE_RAYLEIGH_SCATTERING
+                    CameraAerialPerspectiveVolumeMieOnly[threadId] = float4(0.f, 0.f, 0.f, 1.f);
+                    CameraAerialPerspectiveVolumeRayOnly[threadId] = float4(0.f, 0.f, 0.f, 1.f);
+                #endif
+                return;
+            }
+
+            float lengthToAtmosphere = length(preWorldPos - rayStartWorldPos);
+            if(tMaxMax < lengthToAtmosphere)
+            {
+                // tMaxMax for this voxel is not within the planet atmosphere
+                CameraAerialPerspectiveVolume[threadId] = float4(0.f, 0.f, 0.f, 1.f);
+                #if SEPARATE_MIE_RAYLEIGH+SCATTERING
+                    CameraAerialPerspectiveVolumeMieOnly[threadId] = float4(0.f, 0.f, 0.f, 1.f);
+                    CameraAerialPerspectiveVolumeRayOnly[threadId] = float4(0.f, 0.f, 0.f, 1.f);           
+                #endif
+                return;
+            }
+            // reduce tMaxMax since ray starting point has been moved to atmosphere top. 
+            tMaxMax = max(0.f, tMaxMax - lengthToAtmosphere);
+        }
+
+        // adding more samples as volume depth grow larger
+        SamplingSetup sampling = (SamplingSetup)0;
+        {
+            sampling.variableSampleCount = false;
+            sampling.sampleCountIni = max(1.f, 
+                (float(threadId.z) + 1.f) * SkyAtmosphere.aerialPerspectiveSampleCountPerSlice);
+        }
+
+        // marching from starting point toward voxel
+        const bool ground = false;
+        const float deviceZ = FAR_DEPTH_VALUE;
+        const bool mieRayPhase = true;
+        float3 atmosphereLightDirection = -U_MainLightDirection.xyz;
+        float3 atmosphereLightIlluminance = U_PBR_MainLightColor.rgb;
+        const float aerialPerspectiveViewDistanceScale = SkyAtmosphere.aerialPerspectiveDistanceScale;
+
+        SingleScatteringResult ss = IntegrateSingleScatteredLuminance(
+            float4(pixelPos, 0.f, 1.f),
+            rayStartWorldPos, 
+            worldDir,
+            ground, 
+            sampling, 
+            deviceZ, 
+            mieRayPhase,
+            atmosphereLightDirection,
+            atmosphereLightIlluminance,
+            aerialPerspectiveViewDistanceScale,
+            tMaxMax);
+
+        // average rgb dependent tranmittance to get isotropic transmittance
+        const float transmittance = dot(ss.transmittance, 0.33333333333f);
+        CameraAerialPerspectiveVolume[threadId] = float4(ss.L, transmittance);
+        #if SEPARATE_MIE_RAYLEIGH_SCATTERING
+            const float transmittanceMieOnly = dot(ss.transmittanceMieOnly, 0.33333333333f);
+            const float transmittanceRayOnly = dot(ss.transmittanceRayOnly, 0.33333333333f);
+            CameraAerialPerspectiveVolume[threadId] = float4(ss.LMieOnly, transmittanceMieOnly);
+            CameraAerialPerspectiveVolume[threadId] = float4(ss.LRayOnly, transmittanceRayOnly);
+        #endif // SEPARATE_MIE_RAYLEIGH_SCATTERING
+    #endif // !AERIAL_PERSPECTIVE_DISABLED
+}

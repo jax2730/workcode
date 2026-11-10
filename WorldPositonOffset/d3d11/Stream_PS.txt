@@ -1,0 +1,132 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Common_ShadowFiltering.inl>
+#include <Light_Function_PS.inl>
+
+Texture2D S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+Texture2D S_Bump;
+SamplerState S_BumpSamplerState;
+
+
+float4 	U_PSCustom0; //Glossniess_TillingU_TillingV_SpecularPower
+float4  U_PSCustom1; //FresnelBias_FresnelPower_AlphaMax_AlphaMin
+float4  U_PSCustom2; //UVRoll
+
+#ifdef CLUSTER_POINT_LIGHT
+	#include "Shadow_Light_Function_PS.inl"
+#endif
+
+struct PS_OUTPUT
+{
+    float4 color	: SV_TARGET;
+};
+
+PS_OUTPUT main(	float4 	o_PosInClip			: SV_POSITION,
+				float4	o_Color				: TEXCOORD0,
+				float4	o_UV0				: TEXCOORD1,
+				float3	o_Normal			: TEXCOORD2,
+				float3	o_Tangent			: TEXCOORD3,
+				float3	o_Binormal			: TEXCOORD4,
+				float4	o_EyeDir			: TEXCOORD5,
+				float4  o_FogParams 		: TEXCOORD6,
+				float4  o_WPos 				: TEXCOORD7
+#ifdef PARABOLOID_MAPPING
+				,float	o_ClipDepth			: TEXCOORD12
+#endif
+				)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0.f;
+#ifdef PARABOLOID_MAPPING
+	clip(o_ClipDepth);
+#endif
+	o_UV0.zw = o_UV0.xy;
+	o_UV0.xy *= U_PSCustom0.yz;
+
+	o_UV0.xy += frac(U_PS_Time.z * float2(U_PSCustom2.x, 0.0));
+
+	half3 nn = normalize(o_Normal);
+	half3 tn = normalize(o_Tangent);
+	half3 bn = normalize(o_Binormal);
+
+	tn = normalize(tn - nn * dot(tn, nn));
+	bn = normalize(bn - nn * dot(bn, nn));
+
+	half3x3 tbn = 
+	{
+		tn.x, bn.x, nn.x,
+		tn.y, bn.y, nn.y,
+		tn.z, bn.z, nn.z 
+	};
+		
+	half4 bumpColor = S_Bump.Sample(S_BumpSamplerState, o_UV0.xy);
+	half3 bump = bumpColor.rgb * 2.0 - 1.0;
+	half3 normal = normalize(mul(tbn, bump));
+	half3 vn = normalize(o_EyeDir.xyz);
+	
+	half3 cDiffuseAcc = 0;
+	half3 cSpecular = 0;
+
+#ifdef CLUSTER_POINT_LIGHT
+	PointLightAndSpecularOutput shadowLightResult = calculateShadowPointLightAndSpecular(
+		o_WPos, normal, vn, 20.0f);
+	cDiffuseAcc += shadowLightResult.color;
+	cSpecular += shadowLightResult.specular;
+	
+    PointLightAndSpecularOutput lightResult = 
+        calculateClusterPointLightAndSpecular(o_PosInClip.xy,
+                                              o_WPos.xyz,
+                                              normal,
+                                              20.0f,
+                                              vn);
+    cDiffuseAcc += lightResult.color;
+    cSpecular += lightResult.specular;    
+#endif
+
+
+	half4 diffuse_color = S_Diffuse.Sample(S_DiffuseSamplerState, o_UV0.xy);
+	diffuse_color.rgb = pow(diffuse_color.rgb, 2.2f);
+	diffuse_color.a *= o_Color.a;
+	diffuse_color.rgb *= o_Color.rgb;
+
+	
+	half3 ln = normalize(-U_MainLightDirection.xyz);
+	half fNdotL = dot(ln, normal);
+	half fNdotE = dot(vn,normal);
+	
+	half Glossiness = U_PSCustom0.x;
+	
+	Glossiness += 1e-6;
+
+	
+	
+	half4 litV = lit(fNdotL, dot(normalize(vn + ln), normal), Glossiness);
+
+	half3 sunColor = U_MainLightColor.xyz;
+	cDiffuseAcc += sunColor * litV.y;
+	
+	cSpecular += sunColor * litV.z;
+	half3 ambient = lerp( U_GroundLightColor.xyz, U_SkyLightColor.xyz, 0.5h * normal.y + 0.5h);
+
+	half3 cDiffuse = diffuse_color.xyz * (cDiffuseAcc + ambient);
+
+	half sidealpha = 1-abs(o_UV0.w-0.5)*2;
+	sidealpha = U_PSCustom1.z * sidealpha + U_PSCustom1.w - U_PSCustom1.w * sidealpha;
+	sidealpha = saturate(sidealpha);
+	diffuse_color.a *= sidealpha;
+
+	half fresnel = U_PSCustom1.x + (1-U_PSCustom1.x) * pow(1.001h - saturate(fNdotE),U_PSCustom1.y);
+	cSpecular *= fresnel;
+	
+	psOut.color.xyz += cDiffuse;
+	psOut.color.a = diffuse_color.a;
+	psOut.color.xyz += cSpecular * U_PSCustom0.w;
+	psOut.color.rgb = psOut.color.rgb * o_FogParams.a + o_FogParams.rgb;
+	psOut.color.rgb = pow(psOut.color.rgb, 1.0 / 2.2);
+	#ifdef EditorHelp
+		psOut.color.rgb = psOut.color.rgb*0.001 + float3(1.0,0.0,0.0);
+	#endif
+	float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.color = psOut.color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+	return psOut;
+}

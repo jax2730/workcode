@@ -1,0 +1,292 @@
+#include <Common_GpuCull_CS.inl>
+
+#define thread_group_size_x 64u
+#define thread_group_size_y 1u
+
+
+ByteAddressBuffer B_CSCustom0;						//m_clusterArgBufferHandle
+RWByteAddressBuffer B_CSCustom1;					//InstClusterID
+StructuredBuffer<InstanceData> B_CSCustom2;			//InstanceData
+StructuredBuffer<ClusterData> B_CSCustom3;			//ClusterData
+StructuredBuffer<uint> B_CSCustom4;					//CCPP	
+RWByteAddressBuffer B_CSCustom5;					//culled data， draw args
+RWByteAddressBuffer B_CSCustom6;					//cluster instance offset
+RWByteAddressBuffer B_CSCustom7;					//cluster vertex offset
+cbuffer UniformBlock_Private_CS
+{
+    float4 U_CSCustom0[6];//FrustumPlanes
+    float3 U_CSCustom1;     //CameraPos
+    float4 U_CSCustom2;    //CameraDir,fov
+    float4 U_CSCustom3[4];//LastVP
+    int4 U_CSCustom4;    //Width,Height,maxLevel,isSkip
+    int4 U_CSCustom5; //depthTextureW/H
+//#ifdef GPUCULL_DEBUG
+	int4 U_CSCustom6; //x: visiable, y: cone, z: HiZ, w: Triangle
+//#endif
+};
+Texture2D 	S_2DExt0;							//Hiz Texture
+SamplerState S_2DExt0SamplerState;
+
+
+bool IsVisible(float4 sphereData)
+{
+    bool inFrustum = true;
+//#ifdef GPUCULL_DEBUG
+	if(U_CSCustom6.x != 0)
+		return true;
+//#endif
+    for (uint i = 0u; i < 6u; ++i)
+    {
+        float d = dot(U_CSCustom0[i], float4(sphereData.xyz, 1.0f));
+        inFrustum = inFrustum && (d >= -sphereData.w);
+    }
+
+    return inFrustum;
+}
+
+bool IsInTheCone(InstanceData instData, ClusterData clusterData)
+{
+//#ifdef GPUCULL_DEBUG
+	if(U_CSCustom6.y != 0)
+		return true;
+//#endif
+	if((clusterData.ConeData[3] & 0xFFFFu) == 15360u)
+		return true;
+		
+	float2 param_0 = unpackHalf2x16(clusterData.ConeData[0]);
+	float2 param_1 = unpackHalf2x16(clusterData.ConeData[1]);
+	float2 param_2 = unpackHalf2x16(clusterData.ConeData[2]);
+	float2 param_3 = unpackHalf2x16(clusterData.ConeData[3]);
+	
+	float4 apex_4 = float4(param_0.x, param_0.y, param_1.x, 1.0f);
+	float3 axis = float3(param_1.y, param_2.x, param_2.y);
+	float cutoff = param_3.x;
+	float3 worldAxis = float3(dot(float3(instData.Transform[0], instData.Transform[1], instData.Transform[2]), axis),
+					dot(float3(instData.Transform[4], instData.Transform[5], instData.Transform[6]), axis),
+					dot(float3(instData.Transform[8], instData.Transform[9], instData.Transform[10]), axis));
+	float3 worldApex = float3(dot(float4(instData.Transform[0], instData.Transform[1], instData.Transform[2], instData.Transform[3]), apex_4),
+					dot(float4(instData.Transform[4], instData.Transform[5], instData.Transform[6], instData.Transform[7]), apex_4),
+					dot(float4(instData.Transform[8], instData.Transform[9], instData.Transform[10], instData.Transform[11]), apex_4));
+	return dot(normalize(worldApex - U_CSCustom1), normalize(worldAxis)) <= cutoff + 0.09f;//offset 5°
+}
+
+
+bool HiZ(InstanceData instData, ClusterData clusterData, float3 minBox, float3 maxBox)
+{
+	
+	if(U_CSCustom6.z != 0)
+		return true;
+	float4 BBox[8];
+	float4x4 vpMatrix;
+	vpMatrix[0] = U_CSCustom3[0];
+	vpMatrix[1] = U_CSCustom3[1];
+	vpMatrix[2] = U_CSCustom3[2];
+	vpMatrix[3] = U_CSCustom3[3];
+	BBox[0] = mul(vpMatrix, float4(minBox.x, minBox.y, minBox.z, 1.0f));
+	BBox[1] = mul(vpMatrix, float4(maxBox.x, minBox.y, minBox.z, 1.0f));
+	BBox[2] = mul(vpMatrix, float4(minBox.x, minBox.y, maxBox.z, 1.0f));
+	BBox[3] = mul(vpMatrix, float4(maxBox.x, minBox.y, maxBox.z, 1.0f));
+	
+	BBox[4] = mul(vpMatrix, float4(minBox.x, maxBox.y, minBox.z, 1.0f));
+	BBox[5] = mul(vpMatrix, float4(maxBox.x, maxBox.y, minBox.z, 1.0f));
+	BBox[6] = mul(vpMatrix, float4(minBox.x, maxBox.y, maxBox.z, 1.0f));
+	BBox[7] = mul(vpMatrix, float4(maxBox.x, maxBox.y, maxBox.z, 1.0f));
+	
+	
+	float3 minPos = float3(100000, 100000, 100000);
+    float3 maxPos = float3(-100000, -100000, -100000);
+	
+	for (int i=0; i<8; i++)
+	{
+		BBox[i].xyz /= BBox[i].w;
+		minPos = min(minPos, BBox[i].xyz);
+        maxPos = max(maxPos, BBox[i].xyz);
+	}
+	
+	float minU = minPos.x * 0.5 + 0.5;
+	float maxU = maxPos.x * 0.5 + 0.5;
+
+	float v1 = 0.5 - minPos.y * 0.5;
+	float v2 = 0.5 - maxPos.y * 0.5;
+
+	float minV = min(v1, v2);
+	float maxV = max(v1, v2);
+		
+	float2 minUV = float2(minU, minV);
+    float2 maxUV = float2(maxU, maxV);
+		
+	float InstanceDepth = CloserFunc(minPos.z, maxPos.z);
+	
+	float2 size = (maxUV - minUV) * float2(U_CSCustom5.x, U_CSCustom5.y);
+	float maxDim = max(size.x, size.y);
+	float mips = floor(log2(maxDim)); 
+	mips = clamp(mips, 0.0, float(U_CSCustom4.z));
+	//------------
+	float4 Samples;
+    Samples.x = S_2DExt0.SampleLevel(S_2DExt0SamplerState, float2(minUV.x, minUV.y), mips).r;
+    Samples.y = S_2DExt0.SampleLevel(S_2DExt0SamplerState, float2(maxUV.x, minUV.y), mips).r;
+    Samples.z = S_2DExt0.SampleLevel(S_2DExt0SamplerState, float2(minUV.x, maxUV.y), mips).r;
+    Samples.w = S_2DExt0.SampleLevel(S_2DExt0SamplerState, float2(maxUV.x, maxUV.y), mips).r;
+	//------------
+
+	float maxDepth = CompFunc( CompFunc( Samples.x, Samples.y ), CompFunc( Samples.z, Samples.w ) );
+	
+	if(FilterFunc(maxDepth, InstanceDepth)) 
+	{
+		return false;
+	}
+	else
+	{
+		return true;
+	}
+}
+
+void invalidCluster(uint clusterIdx)
+{
+	//B_CSCustom1[clusterIdx].ClusterID = 0xF0000000u;
+	InstClusterIDStore_ClusterID(B_CSCustom1, clusterIdx, 0xF0000000u);
+}
+
+uint CullTriangle(InstanceData instData, ClusterData clusterData, float4 sphereData, uint mask1, uint mask2)
+{
+	float3 camDir =  U_CSCustom1 - sphereData.xyz;
+	float3x3 invWorldMat;
+	invWorldMat[0] = float3(instData.InvTransposeTransform[0],instData.InvTransposeTransform[1],instData.InvTransposeTransform[2]);
+	invWorldMat[1] = float3(instData.InvTransposeTransform[4],instData.InvTransposeTransform[5],instData.InvTransposeTransform[6]);
+	invWorldMat[2] = float3(instData.InvTransposeTransform[8],instData.InvTransposeTransform[9],instData.InvTransposeTransform[10]);
+	//worldMat = transpose(worldMat);
+	//mat3 invWorldMat = inverse(worldMat);
+	float3 camInModel = mul(camDir, invWorldMat);
+	float absX = abs(camInModel.x);
+	float absY = abs(camInModel.y);
+	float absZ = abs(camInModel.z);
+	float maxV = max(max(absX, absY), absZ);
+	int idx = 0;
+	if(abs(maxV - absX) <= 1e-5)
+	{
+		if(camInModel.x > 0.0f)
+		{
+			idx = 2;
+		}
+		else
+		{
+			idx = 0;
+		}
+		//idx += int(sign(camInModel.x)) * -2 * int(instData.Flip & 1u);
+	}
+	else if(abs(maxV - absY) <= 1e-5)
+	{
+		if(camInModel.y > 0.0f)
+		{
+			idx = 6;
+		}
+		else
+		{
+			idx = 4;
+		}
+		//idx += int(sign(camInModel.y)) * -2 * int(instData.Flip>>1 & 1u);
+	}
+	else
+	{
+		if(camInModel.z > 0.0f)
+		{
+			idx = 10;
+		}
+		else
+		{
+			idx = 8;
+		}
+		//idx += int(sign(camInModel.z)) * -2 * int(instData.Flip>>2 & 1u);
+	}
+	uint triCount = 0u;
+	for(int i = 0; i < 2; ++i)
+	{
+		uint mask = clusterData.CubeMap[idx+i];
+		uint n = (mask & 0x55555555u) + ((mask & 0xAAAAAAAAu) >> 1);
+		n = (n & 0x33333333u) + ((n & 0xCCCCCCCCu) >> 2);
+		n = (n & 0x0F0F0F0Fu) + ((n & 0xF0F0F0F0u) >> 4);
+		n = (n & 0x00FF00FFu) + ((n & 0xFF00FF00u) >> 8);
+		n = (n & 0x0000FFFFu) + ((n & 0xFFFF0000u) >> 16);
+		triCount += n;
+	}
+	mask1 = clusterData.CubeMap[idx];
+	mask2 = clusterData.CubeMap[idx+1];
+	return triCount;
+}
+
+			
+[numthreads(thread_group_size_x, thread_group_size_y, 1)]
+void main(uint3 threadIDInGroup : SV_GroupThreadID,
+			uint3 groupID : SV_GroupID,
+			uint groupIndex : SV_GroupIndex,
+			uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+	uint clusterIdx = dispatchThreadID.x;
+	if (clusterIdx >= RawBufferLoadUint(B_CSCustom0, 0))
+		return;
+		
+	InstClusterID inst2Cluster = InstClusterIDLoad(B_CSCustom1, clusterIdx); //B_CSCustom1[clusterIdx];
+	InstanceData instData = B_CSCustom2[inst2Cluster.InstanceID];
+	ClusterData clusterData = B_CSCustom3[inst2Cluster.ClusterID];
+	
+	float4 sphereData;
+	float3 minBox;
+	float3 maxBox;
+	
+	//Caculate SphereData
+	float2 param_0 = unpackHalf2x16(clusterData.BoundBox[0]);
+	float2 param_1 = unpackHalf2x16(clusterData.BoundBox[1]);
+	float2 param_2 = unpackHalf2x16(clusterData.BoundBox[2]);
+	
+	float4 _tmpMin = float4(param_0.x, param_0.y, param_1.x, 1.0f);
+	float4 _tmpMax = float4(param_1.y, param_2.x, param_2.y, 1.0f);
+	
+	minBox.x = dot(float4(instData.Transform[0], instData.Transform[1], instData.Transform[2], instData.Transform[3]), _tmpMin);
+	minBox.y = dot(float4(instData.Transform[4], instData.Transform[5], instData.Transform[6], instData.Transform[7]), _tmpMin);
+	minBox.z = dot(float4(instData.Transform[8], instData.Transform[9], instData.Transform[10], instData.Transform[11]), _tmpMin);
+	
+	maxBox.x = dot(float4(instData.Transform[0], instData.Transform[1], instData.Transform[2], instData.Transform[3]), _tmpMax);
+	maxBox.y = dot(float4(instData.Transform[4], instData.Transform[5], instData.Transform[6], instData.Transform[7]), _tmpMax);
+	maxBox.z = dot(float4(instData.Transform[8], instData.Transform[9], instData.Transform[10], instData.Transform[11]), _tmpMax);
+	
+	sphereData.xyz = minBox + maxBox;
+	sphereData.xyz *= float3(0.5f, 0.5f, 0.5f);
+	sphereData.w = length(maxBox - sphereData.xyz);
+	
+	minBox -= U_CSCustom1;
+	maxBox -= U_CSCustom1;
+	
+	bool isSkip = (instData.Flip & 0x80u) == 0x80u;
+	
+	uint argOffset = MAX_PIPELINE + DISPATCH_OFFSET * instData.Pipeline;
+	if(IsVisible(sphereData) && (isSkip || IsInTheCone(instData, clusterData)))
+	{
+		if(U_CSCustom4.w == 0 || HiZ(instData, clusterData, minBox, maxBox))
+		{
+			
+			uint argIdx;
+			RawInterlockedAdd(B_CSCustom5, instData.Pipeline, 1u, argIdx); //InterlockedAdd(B_CSCustom5[instData.Pipeline], 1u, argIdx);
+			uint cOffsetPerPipeline = B_CSCustom4[instData.Pipeline];
+			uint perInstDataOffset = (argIdx + cOffsetPerPipeline);
+			RawBufferStoreUint(B_CSCustom6, perInstDataOffset, inst2Cluster.InstanceID); //B_CSCustom6[perInstDataOffset] = inst2Cluster.InstanceID;
+			RawBufferStoreUint(B_CSCustom7, perInstDataOffset, clusterData.VertexOffset); //B_CSCustom7[perInstDataOffset] = clusterData.VertexOffset;
+			
+			//atomicAdd(CullArg[2], 1u);
+			if(argIdx == 0u)
+			{
+				RawBufferStoreUint(B_CSCustom5, argOffset + 0u, INDEX_COUNT_PER_CLUSTER); //B_CSCustom5[argOffset + 0u] = INDEX_COUNT_PER_CLUSTER;
+				RawBufferStoreUint(B_CSCustom5, argOffset + 2u, 0u); //B_CSCustom5[argOffset + 2u] = 0u;
+				RawBufferStoreUint(B_CSCustom5, argOffset + 3u, cOffsetPerPipeline); //B_CSCustom5[argOffset + 3u] = cOffsetPerPipeline;
+			}
+	
+			RawInterlockedAdd_NoRet(B_CSCustom5, argOffset + 1u, 1u); //InterlockedAdd(B_CSCustom5[argOffset + 1u], 1u);
+
+			invalidCluster(clusterIdx);
+		}
+	}
+	else
+	{
+		invalidCluster(clusterIdx);
+	}
+	
+}

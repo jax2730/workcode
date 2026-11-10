@@ -1,0 +1,366 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+#include <Effect_Function_VS.txt>
+
+
+uniform float4 U_VSCustom0; //VSCBTileParam;
+uniform float4 U_VSCustom1; //VSCBTileParam2;
+uniform float4 U_VSCustom2; //VSCBMoveMax;
+uniform float4 U_VSCustom3; //VSCBMoveMin;
+uniform float4 U_VSCustom4; //VSCBScaleMax;
+uniform float4 U_VSCustom5; //VSCBScaleMin;
+uniform float4 U_VSCustom6; //VSCBRotateMinMax;
+uniform float4 U_VSCustom7; //VSCBTCSelect;
+
+#ifdef USEINSTANCE
+
+uniform float4 U_VSCustom8[50];
+uniform float4 U_VSCustom9[MAX_UNIFORM_COUNT];
+
+#else
+
+uniform float4 U_VSCustom8[1];
+uniform float4 U_VSCustom9[ONE_TRAIL_MAX_UNIFORM_COUNT];
+
+#endif 
+
+uniform float4 U_VSCustom10[TRAIL_CUSTOM_PARAM_CNT];
+
+struct VS_INPUT
+{
+	float4 i_Position	: POSITION0;
+};
+
+struct VS_OUTPUT
+{
+	float4 o_PosInClip	: SV_POSITION;
+	float4 o_Diffuse	: COLOR0;
+	float4 o_UV			: TEXCOORD0;
+	float4 o_Rand0		: TEXCOORD1;
+
+#ifdef DOUBLETEX
+	float2 o_UV2		: TEXCOORD2;
+#endif
+
+#if defined(SCREENDISTORT) || defined(DEPTH_FADE) || defined(BASE_MAP1_USE_SCREEN_UV) 
+	float4 o_PosInClipOut: TEXCOORD3;
+#endif
+
+	float4 o_Fog		: TEXCOORD4;
+	float4 o_EyeDir	: TEXCOORD5;
+	float4 o_AlphaDis	: TEXCOORD6;	
+
+#ifdef EnableAlphaDistance
+	float4 cam_to_obj_len : TEXCOORD7;
+#endif
+
+#ifdef DISTURBANCE_TEXTURE
+	float4 disturbance_texture_params0 : TEXCOORD8;
+	float4 disturbance_texture_params1 : TEXCOORD9;
+#endif
+
+#ifdef DISTORT
+	float4 Custom_Params : TEXCOORD10;
+#endif
+
+	nointerpolation float4 CurrentObjIndex : TEXCOORD11;
+	
+	float4  o_ParticleU: TEXCOORD12;
+	float4	o_WPos	:TEXCOORD13;
+
+#ifdef SEGMENT_COLOR
+	float4 o_SegColor : COLOR1;
+#endif
+};
+
+void CalTexcoord(in float  _Time, in float2 _TC, in float4 _Rand0, out float4 TC_)
+{
+ 
+	float 	Tile = frac(_Time * U_VSCustom0.x + _Rand0.x / 255.0 * U_VSCustom0.y);	
+	
+	Tile = lerp(U_VSCustom1.x, U_VSCustom1.y, Tile);
+ 
+ 
+	float 	Row = U_VSCustom0.w;																	
+	float 	Col = U_VSCustom0.z;																	
+	float	nIdx = floor(Tile*Row*Col);																
+	float 	nRow = floor(nIdx / Col);																
+	float 	nCol = nIdx - nRow*Col;																	
+	float 	fRow = nRow / Row;																	
+	float 	fCol = nCol / Col;																									
+	float2 TcTile = float2(fCol, fRow) + _TC*float2(1.0 / Col, 1.0 / Row);	
+
+	float4 TcMove = lerp(U_VSCustom2, U_VSCustom3, _Rand0.x / 255.0);
+	float4 TcScale = lerp(U_VSCustom4, U_VSCustom5, _Rand0.y / 255.0);
+	float2 TcRotate = lerp(U_VSCustom6.xy, U_VSCustom6.zw, _Rand0.z / 255.0);
+	
+	float2 TcTran = _TC - float2(0.5, 0.5);
+	TcTran *= TcScale.zw + TcScale.xy * _Time;
+	TcTran += TcMove.zw + TcMove.xy * _Time;
+	float RotDeg = TcRotate.x * _Time + TcRotate.y;
+	float2 RotMatR0 = float2(+cos(RotDeg), -sin(RotDeg));
+	float2 RotMatR1 = float2(+sin(RotDeg), +cos(RotDeg));
+	TcTran = float2(dot(TcTran, RotMatR0), dot(TcTran, RotMatR1));
+	TcTran += float2(0.5, 0.5);
+	
+	TC_.xy = lerp(TcTile, TcTran, U_VSCustom7.x);
+#ifdef DOUBLETEX
+	TC_.zw = lerp(TcTran, TcTile, U_VSCustom7.x);
+#else
+	TC_.zw = 0.0;
+#endif
+}
+
+
+float3 rotate (float4 qvec, float3 v) 
+{
+	float3 uv, uuv;
+	 
+	uv = cross(qvec.xyz, v);
+	uuv = cross(qvec.xyz, uv);
+	uv *= (2.0 * qvec.w);
+	uuv *= 2.0;
+		
+	return v + uv + uuv;
+}
+
+float4 makeQuaternion(float3 rkAxis, float rfAngle)
+{
+	float4 qvec;
+	float fHalfAngle = 0.5f*rfAngle;
+	float fSin = sin(fHalfAngle);
+	qvec.w = cos(fHalfAngle);
+	qvec.x = fSin*rkAxis.x;
+	qvec.y = fSin*rkAxis.y;
+	qvec.z = fSin*rkAxis.z;
+	return qvec;
+}
+
+VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID : SV_InstanceID)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	
+#ifdef DISTURBANCE_TEXTURE
+	vsOut.disturbance_texture_params0 = U_VSCustom10[0];
+	vsOut.disturbance_texture_params1.x = U_VSCustom10[1].x;
+#endif
+
+#ifdef DISTORT
+	vsOut.Custom_Params.x = U_VSCustom10[1].y;
+#endif
+
+	
+	float4 customIndex = U_VSCustom8[i_InstanceID];
+	int startIndex = customIndex[0];
+	float4 color = U_VSCustom9[startIndex+0];
+	float4 rand = U_VSCustom9[startIndex+1]; //xyz:rand, w:dissolve
+	float3 size = U_VSCustom9[startIndex+2].xyz;
+	float  time = U_VSCustom9[startIndex+2].w;
+	float3 axis = U_VSCustom9[startIndex+3].xyz;
+	float  trailTotalLength = U_VSCustom9[startIndex+4].x;
+	float  trailSegmentLength = U_VSCustom9[startIndex+4].y;
+	float  trailFirstU = U_VSCustom9[startIndex+4].z;
+
+	#ifdef TUBE_RENDER
+		//圆柱的形式渲染
+		int row_segement_num = 1;
+		int segementNum = customIndex.z;
+		int one_cone_cnt = segementNum * row_segement_num;
+
+		int ver_index = IN.i_Position.x;
+		int index =  int(ver_index / one_cone_cnt) * TRAIL_MAX_VERTEX_ELEMENT + TRAIL_UNIFORM_CNT_OFFSET;
+
+		float3 delta = U_VSCustom9[index + 0].xyz;
+		float  u = 	U_VSCustom9[index + 0].w;
+		float4 center = U_VSCustom9[index + 1];
+		float4 geoRight = U_VSCustom9[index + 2];
+		#ifdef SEGMENT_COLOR
+			float4 segColor = U_VSCustom9[index + 3];
+		#endif
+		
+		int    nextIndex = (int(ver_index / one_cone_cnt) + 1)* TRAIL_MAX_VERTEX_ELEMENT + TRAIL_UNIFORM_CNT_OFFSET;
+		float3 next_delta = U_VSCustom9[nextIndex + 0].xyz;
+		float  next_u = U_VSCustom9[nextIndex + 0].w;
+		float4 next_center = U_VSCustom9[nextIndex + 1];
+		float4 next_geoRight = U_VSCustom9[nextIndex + 2];
+		#ifdef SEGMENT_COLOR
+			float4 next_segColor = U_VSCustom9[nextIndex + 3];
+		#endif
+
+		int column = int(ver_index % one_cone_cnt) % segementNum;
+		int row = (ver_index % one_cone_cnt) / segementNum;
+		
+		//是否圆柱上面的点
+		float  isTop = IN.i_Position.y;
+		float  isBot = 1.0 - isTop;
+
+		//第一个点和第二个点
+		float  isFirst = IN.i_Position.z;
+		float  isSecond = 1.0 - isFirst;
+		float  deltaTh = 3.1415926 * 2 / segementNum;
+		float  vertexU = u * isBot + next_u * isTop;
+
+		//Y轴
+		float3 rotate_axis1 = normalize(delta);
+		float3 rotate_axis2 = normalize(next_delta);
+
+		float3 diff = geoRight.xyz;
+		float3 next_diff = next_geoRight.xyz;
+
+		float  angle = column * deltaTh;
+		float4 quatVec1 = makeQuaternion(rotate_axis1 * isBot + rotate_axis2 * isTop, angle);
+
+		float columnPlus = column + 1;
+		angle = columnPlus * deltaTh;
+		float4 quatVec2 = makeQuaternion(rotate_axis1 * isBot + rotate_axis2 * isTop, angle);
+		//
+		float3 cone_center = float3(center.xyz * isBot + isTop * next_center.xyz);
+		float3 facing = float3(diff.xyz * isBot + isTop * next_diff.xyz) * size.xyz* center.w;
+		
+		#ifdef SEGMENT_COLOR
+			vsOut.o_SegColor = segColor* isBot + isTop *next_segColor;
+		#endif
+
+		//pos
+		float3 localPos = float3(0.0f, 0.0f, 0.0f);
+		localPos = cone_center + rotate(quatVec1 * isFirst + quatVec2 * isSecond, facing);
+		
+	#else
+		float isUp = IN.i_Position.y; //1 or 0
+		float extendFlag = IN.i_Position.z; //1 or -1
+		int index = IN.i_Position.x;
+		int indexCnt = customIndex[1];
+		index = min(index,indexCnt-1);
+		index = index * TRAIL_MAX_VERTEX_ELEMENT + startIndex + TRAIL_UNIFORM_CNT_OFFSET;
+		float3 delta = U_VSCustom9[index + 0].xyz;
+		float  u = U_VSCustom9[index + 0].w;
+		float4 center = U_VSCustom9[index + 1];
+
+		#ifdef SEGMENT_COLOR
+			float4 segColor = U_VSCustom9[index + 2];
+			vsOut.o_SegColor = segColor;
+		#endif
+		float  vertexU = u;
+	#endif
+	
+
+
+
+	vsOut.CurrentObjIndex = float4(i_InstanceID, 0.0f, 0.0f, 0.0f);
+	vsOut.o_AlphaDis.x = rand.y;
+	vsOut.o_AlphaDis.y = rand.z;
+
+	if(abs(trailSegmentLength) < 0.0001f)
+	{
+		vsOut.o_ParticleU.x = vertexU;
+	}
+	else
+	{
+		#ifdef DYNAMIC_TRAIL
+			vsOut.o_ParticleU.x = abs(vertexU - trailFirstU)*trailSegmentLength/trailTotalLength;
+		#else
+			vsOut.o_ParticleU.x = vertexU * trailSegmentLength / trailTotalLength;
+		#endif
+	}
+	vsOut.o_ParticleU.y = trailTotalLength;
+
+	rand.y = 255.0 - rand.x;
+	rand.z = rand.x * 0.5;
+
+#ifdef LIGHTNING_TRAIL
+	float3 temp = delta;
+	delta = size;
+	size.xyz = temp;
+#endif
+	
+	//pos
+	float4 pos = float4(0.0,0.0,0.0,1.0);
+
+
+#ifdef TUBE_RENDER
+
+	pos.xyz = localPos.xyz;
+
+#else
+	#ifdef WEAPON_TRAIL
+		pos.xyz = isUp * center.xyz + (1.0 - isUp) * delta;
+	#else
+		float3 diff = float3(0.0,0.0,0.0);
+		#ifdef FACE_TO_CAMERA
+			float3 camPos = U_VS_CameraPosition.xyz;
+			float3 viewDir = camPos - center.xyz;
+			diff = normalize(cross(viewDir, delta));
+		#else
+			#ifdef STATIC_TRAIL
+				diff = delta;
+			#endif
+			#ifdef DYNAMIC_TRAIL
+				diff = normalize(cross(axis, delta));	 
+			#endif
+		#endif
+		pos.xyz = center.xyz + extendFlag * diff * size.xyz * center.w;
+	#endif
+#endif
+	vsOut.o_WPos = pos;
+#ifdef SCREENEFFECT
+	vsOut.o_PosInClip = pos;
+	vsOut.o_Fog = float4(0.0f, 0.0f, 0.0f, 1.0f);
+#else
+	float3 camToWorld =  U_VS_CameraPosition.xyz - pos.xyz;
+
+	float4x4 gravityRotatePosMatrix;
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+	
+	vsOut.o_Fog = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+	vsOut.o_PosInClip.x = dot( pos , U_ViewProjectMatrix[0] );
+	vsOut.o_PosInClip.y = dot( pos , U_ViewProjectMatrix[1] );
+	vsOut.o_PosInClip.z = dot( pos , U_ViewProjectMatrix[2] );
+	vsOut.o_PosInClip.w = dot( pos , U_ViewProjectMatrix[3] );
+	vsOut.o_EyeDir.xyz = camToWorld;
+
+	#ifdef EnableAlphaDistance
+	{
+		vsOut.cam_to_obj_len.x = sqrt(dot(camToWorld, camToWorld));
+	}
+	#endif
+#endif
+
+	//uv
+#ifdef TUBE_RENDER
+	float2 uv = float2(vertexU, (column * isFirst + columnPlus * isSecond) / segementNum);
+#else
+	float2 uv = float2(vertexU, isUp);
+#endif
+	CalTexcoord(time, uv, rand, vsOut.o_UV);
+#ifdef SUB_UV_ANIMATION
+{
+	SubUVAnimationParam param;
+	param.mImageSizeX = int(U_VSCustom10[1].z);
+	param.mImageSizeY =  int(U_VSCustom10[1].w);
+	param.mCurrentIndex = int(U_VSCustom10[2].x);
+	param.mCurrentUV = vsOut.o_UV.xy;
+
+	SubUVAnimationResult result = SubUVAnimation(param);
+	vsOut.o_UV.xy = result.mSubUV;
+}
+#endif
+
+#ifdef DOUBLETEX
+	vsOut.o_UV2 = vsOut.o_UV.zw;
+#endif
+	vsOut.o_UV.zw = uv;
+
+	vsOut.o_Diffuse = color;
+	vsOut.o_Rand0 = rand;
+	
+#if defined(SCREENDISTORT) || defined(DEPTH_FADE) || defined(BASE_MAP1_USE_SCREEN_UV) 
+	vsOut.o_PosInClipOut = vsOut.o_PosInClip;
+#endif
+
+	return vsOut;
+}

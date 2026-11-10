@@ -1,0 +1,100 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Light_Function_PS.inl>
+
+
+Texture2D S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+Texture2D S_Specular;
+SamplerState S_SpecularSamplerState;
+
+struct PS_INPUT
+{
+    float4 i_PosInClip : SV_POSITION;
+    float4 i_UV : TEXCOORD0;
+    float4 i_Normal : TEXCOORD2;
+    float4 i_WPos : TEXCOORD3;
+};
+
+float4 U_MaterialDiffuse;
+float4 U_MaterialSpecular;
+
+float4 U_PSGeneralRegister0;
+float4 U_PSGeneralRegister1;
+float4 U_PSGeneralRegister2;
+float4 U_PSGeneralRegister3;
+float4 U_PSGeneralRegister4;
+float4 U_PSGeneralRegister5;
+float4 U_PSGeneralRegister6;
+float4 U_PSGeneralRegister7;
+
+struct PS_OUTPUT
+{
+    float4 color : SV_TARGET;
+};
+
+float4 Grayscale(float4 texCol, float4 texVal, float texIntensity, float invVar)
+{
+    float4 texRes;
+    float4 grayColor = dot(texVal, float4(0.299, 0.587, 0.114, 1.0));
+    texRes = float4((invVar * (1.0 - grayColor.xyz) + (1.0 - invVar) * grayColor.xyz), 1.0);
+    texRes = texRes * texIntensity * texCol;
+    return texRes;
+}
+
+float4 sphereMask(float4 Coords, float4 Center, float Radius, float Hardness)
+{
+    float4 Out = 1.0 - saturate((distance(Coords, Center) - Radius) / (1 - Hardness));
+    return Out;
+}
+
+PS_OUTPUT main(PS_INPUT IN, bool isFrontFacing : SV_IsFrontFace)
+{
+    PS_OUTPUT psOut = (PS_OUTPUT) 0;
+    float2 uv = IN.i_UV.xy;
+    half3 N = normalize(IN.i_Normal.xyz);
+    half3 V = normalize(U_PS_CameraPosition.xyz - IN.i_WPos.xyz);
+    half3 L = normalize(-U_MainLightDirection.xyz);
+	
+    half3 H = normalize(L + V);
+    half NdotH = max(dot(N, H), 0.0h);
+    float fresnelNdotV1 = dot(N, V);
+    float bias = U_PSGeneralRegister0.x;
+    float scale = U_PSGeneralRegister0.y;
+    float power = U_PSGeneralRegister0.z;
+    float fresnelNode1 = (bias + scale * pow(1.0 - fresnelNdotV1, power));
+    float outerfresnelintensity = U_PSGeneralRegister1.x;
+    float innerfresnelintensity = U_PSGeneralRegister1.y;
+    float clampResult170 = clamp(((outerfresnelintensity * fresnelNode1) + ((1.0 - fresnelNode1) * innerfresnelintensity)), 0.0, 1.0);
+    float FresnelMask68 = clampResult170;
+    
+    float noiseSpeed = U_PSGeneralRegister2.x;
+    float noiseScale = U_PSGeneralRegister2.y;
+    float secondTexIntensity = U_PSGeneralRegister2.z;
+    float mainTexIntensity = U_PSGeneralRegister4.w;
+    float invertSecondTex = U_PSGeneralRegister2.w;
+    float invertMainTex = U_PSGeneralRegister4.z;
+    float4 mainColor = U_MaterialDiffuse;
+    float4 secondColor = U_MaterialSpecular;
+    float secTilling = U_PSGeneralRegister4.x;
+    float mainTilling = U_PSGeneralRegister4.y;
+    
+    float4 edgeColor = U_PSGeneralRegister3;
+    float4 fresnelRes = edgeColor * clampResult170;
+
+    float4 secondTexColor = S_Specular.Sample(S_SpecularSamplerState, uv * secTilling);
+    float4 mainTexColor = S_Diffuse.Sample(S_DiffuseSamplerState, uv * mainTilling);
+    float4 mainTexRes = Grayscale(mainColor, mainTexColor, mainTexIntensity, invertMainTex);
+    float4 secondTexRes = Grayscale(secondColor, secondTexColor, secondTexIntensity, invertSecondTex);
+    psOut.color.rgb = float3((secondTexRes + fresnelRes).xyz);
+    psOut.color.a = saturate(FresnelMask68);
+
+    float4 spheremask = sphereMask(IN.i_WPos, float4(U_PSGeneralRegister6.xyz, 1.0), U_PSGeneralRegister6.w, 0.9);
+    float enableHitShow = noiseScale;
+    spheremask *= enableHitShow;
+    //mainTexRes.xyz *= (U_PSGeneralRegister7.xyz);
+    psOut.color.rgb = lerp(psOut.color.rgb, (mainTexRes * U_PSGeneralRegister7).xyz, spheremask.x);
+    psOut.color.a = lerp(psOut.color.a, mainTexColor.x, spheremask.x);
+    return psOut;
+}

@@ -1,0 +1,22 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+struct VS_INPUT
+{
+	float3	pos		: POSITION0;
+	float2  uv      : TEXCOORD0;
+};
+
+struct VS_OUTPUT
+{
+	float4	o_PosInClip	: SV_POSITION;
+	float2	o_UVBase	: TEXCOORD0;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	vsOut.o_PosInClip = float4(IN.pos, 1.0f);
+	vsOut.o_UVBase = IN.uv;
+	return vsOut;
+}

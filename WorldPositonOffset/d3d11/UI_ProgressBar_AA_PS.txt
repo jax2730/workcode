@@ -1,0 +1,127 @@
+#include <Common_Uniform_PS.inl>
+/*
+  Author: yanghang
+  Data: 2022-8-3
+ */
+
+Texture2D	S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+float4 texDiffuse(float2 vUV) 
+{ 
+   return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+}
+
+#ifdef USE_TEXTURE_CONTROL_PROGRESS
+uniform Texture2D S_Custom;
+SamplerState S_CustomSamplerState;
+
+float4 texProgressMask(float2 vUV) 
+{ 
+    return S_Custom.Sample(S_CustomSamplerState, vUV); 
+}
+#endif
+
+#ifdef DISSOLVE
+    Texture2D S_Custom7;
+    SamplerState S_Custom7SamplerState;
+#endif
+
+
+struct PS_INPUT
+{
+    float4	i_PosInClip			: SV_POSITION;
+#ifndef SHADOWPASS
+	float4 	i_UV				: TEXCOORD0;
+#endif
+#ifdef PARABOLOID_MAPPING
+	float	i_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+struct PS_OUTPUT
+{
+#ifndef SHADOWPASS
+	float4 color : SV_TARGET;
+#endif
+};
+
+//NOTE(yanghang):For dissolve control
+float4	U_MaterialCustomParam1;
+float4  U_MaterialFresnel;
+
+float4 U_PSGeneralRegister0;
+float4 U_PSGeneralRegister1;
+float4 U_PSGeneralRegister2;
+float4 U_PSGeneralRegister3;
+
+#define TransparentColor U_PSGeneralRegister1.rgb
+#define TransparentAlpha U_PSGeneralRegister1.a
+
+#define Progress U_PSGeneralRegister2.x
+#define Alpha U_PSGeneralRegister2.y
+#define HDRFactor U_PSGeneralRegister2.z
+#define TransparentHDR U_PSGeneralRegister2.w
+#define DiffuseColor U_PSGeneralRegister3.rgb 
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+#ifdef PARABOLOID_MAPPING
+	clip(IN.i_ClipDepth);
+#endif
+#ifndef SHADOWPASS
+
+    float4 diffuseTexColor = texDiffuse(IN.i_UV.xy);
+    
+    float progress_factor = 1.0f;
+    #ifdef USE_TEXTURE_CONTROL_PROGRESS
+    float progress_mask = texProgressMask(IN.i_UV.xy).a;
+    progress_factor = progress_mask;
+    #endif
+
+    diffuseTexColor.rgb *= DiffuseColor;
+    diffuseTexColor.rgb *= HDRFactor;
+    // NOTE(yanghang):Highlight
+    if(Progress < progress_factor)
+    {
+        diffuseTexColor.rgb = TransparentColor * TransparentHDR;
+        diffuseTexColor.a = TransparentAlpha;
+    }
+    
+    psOut.color.rgb = diffuseTexColor.rgb;
+    psOut.color.a = diffuseTexColor.a * Alpha;
+    
+    {
+        //dither discard
+        if(U_MaterialCustomParam1.y > 0)
+        {
+            static float4x4 thresholdMatrix =
+			{   1.0  / 17.0,  9.0  / 17.0,  3.0  / 17.0,  11.0 / 17.0,
+                13.0 / 17.0,  5.0  / 17.0,  15.0 / 17.0,  7.0  / 17.0,
+			    4.0  / 17.0,  12.0 / 17.0,  2.0  / 17.0,  10.0 / 17.0,
+                16.0 / 17.0,  8.0  / 17.0,  14.0 / 17.0,  6.0  / 17.0
+			};
+            
+            float2 pos = IN.i_PosInClip.xy;
+        
+            pos.xy = pos.xy/U_MaterialCustomParam1.z;
+			
+            int xindex = fmod(pos.x, 4);
+            int yindex = fmod(pos.y, 4);
+        
+             float alpha = thresholdMatrix[xindex][yindex];//* _RowAccess[yindex];
+			
+            if(alpha < U_MaterialCustomParam1.y)
+                psOut.color.a = 0;
+        }
+    }
+
+    #ifdef DISSOLVE
+        if(S_Custom7.Sample(S_Custom7SamplerState, IN.i_UV).a < U_MaterialFresnel.y)
+			psOut.color.a = 0;
+	#endif
+
+#endif
+    
+    return psOut;
+}

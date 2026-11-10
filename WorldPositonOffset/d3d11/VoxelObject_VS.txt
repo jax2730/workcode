@@ -1,0 +1,194 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+#include <TriPlanarMapping_Function_VS.inl>
+
+float4 U_WorldRotationMatrix[3];
+float4 U_WorldViewProjectMatrix[4];
+float4 U_WorldMatrix[3];
+float4 U_InvTransposeWorldMatrix[3];
+#ifdef USESHADOWMAP
+float4 U_WorldMatrixBaseView[4];
+#endif
+
+struct VS_INPUT
+{
+    float3  i_Pos       : POSITION0;
+    #ifndef SHADOWPASS
+        float3  i_Normal    : NORMAL0;
+        uint2   i_Index     : TEXCOORD0; //现在已经不用
+        float3  i_Blend     : TEXCOORD1;
+        #ifdef TRIPLANAR_WEIGHT
+        float3  i_FaceNormal     : TEXCOORD2; 
+        #endif
+    #endif
+};
+
+struct VS_OUTPUT
+{
+    float4 o_PosInClip  : SV_POSITION;
+    #ifndef SHADOWPASS
+        float3 o_Normal     : TEXCOORD0;
+        float3 o_WorldPos   : TEXCOORD1;
+        float3 o_Blend      : TEXCOORD2;
+        nointerpolation uint2  o_Index      : TEXCOORD3;//现在已经不用
+        float3 o_ModelP     : TEXCOORD4;
+        float3 o_ModelN     : TEXCOORD5;
+        float3 o_Tangent1   : TEXCOORD6;
+        float3 o_Tangent2   : TEXCOORD7;
+        float3 o_Bitangent1 : TEXCOORD8;
+        float3 o_Bitangent2 : TEXCOORD9;
+        #ifdef TRIPLANAR_WEIGHT
+            float3 o_FModelN     : TEXCOORD17;
+        #endif
+        float4 o_Fog        : TEXCOORD11;
+        #ifdef USESHADOWMAP
+            float   o_ViewSpaceZ      : TEXCOORD12;
+            float3  o_WPosViewBase  : TEXCOORD13;
+        #endif
+    #endif
+    #ifdef PARABOLOID_MAPPING
+        float   o_ClipDepth  : TEXCOORD10;
+    #endif
+};
+
+
+
+// uniform float4 U_VSCustom0; //xyz --- 包围盒的左下角
+// uniform float4 U_VSCustom1; //xyz --- 包围盒的右上角
+// uniform float4 U_VSCustom2; //xy --- uv tiling
+uniform float4 U_VSGeneralRegister0; // xyz --- 体素块在一组体素中的位置
+
+float3 CalculateTransNormal(float3 vNormal, float3 fNormal, float mixValue, float threshold_Angle)
+{
+    float threshold_cos_theta = cos(threshold_Angle);
+    float cos_theta = dot(vNormal, fNormal);
+
+    return (cos_theta < threshold_cos_theta) ? normalize(mixValue * vNormal + (1 - mixValue) * fNormal) : vNormal;
+}
+
+VS_OUTPUT main(VS_INPUT IN){
+    VS_OUTPUT vsOut = (VS_OUTPUT)0;
+
+    //使用三平面映射计算UV和切线空间，目前切线空间在VS中计算，UV坐标在PS中计算，后续可能会调整
+    //由于顶点数据在进入PS时会插值，UV发生突变的两个顶点之间的UV可能会因为插值变化的很离谱
+    //（比如前一个顶点的UV为500，后一个顶点因为法线背对投影平面变成-500，两个顶点之间片元的UV会因为插值出问题）
+    //虽然UV可能发生阶跃，但是三平面映射的切线空间在模型表面是连续变化的，所以可以在VS中计算切线空间
+    
+    float4 p = float4(IN.i_Pos.xyz, 1.0);
+
+
+    float4 vWVPMatrixC0 = U_WorldViewProjectMatrix[0];
+    float4 vWVPMatrixC1 = U_WorldViewProjectMatrix[1];
+    float4 vWVPMatrixC2 = U_WorldViewProjectMatrix[2];
+    float4 vWVPMatrixC3 = U_WorldViewProjectMatrix[3];
+
+    vsOut.o_PosInClip.x = dot(vWVPMatrixC0, p);
+    vsOut.o_PosInClip.y = dot(vWVPMatrixC1, p);
+    vsOut.o_PosInClip.z = dot(vWVPMatrixC2, p);
+    vsOut.o_PosInClip.w = dot(vWVPMatrixC3, p);
+
+    #ifdef PARABOLOID_MAPPING
+    	vsOut.o_ClipDepth = vsOut.o_PosInClip.z;
+    	ParaboloidMapping(vsOut.o_PosInClip, U_ShadowLightDepthMulAdd.x, U_ShadowLightDepthMulAdd.z, U_ShadowLightDepthMulAdd.w);
+    #endif
+
+    #ifdef SHADOWPASS
+        #ifndef PARABOLOID_MAPPING
+            vsOut.o_PosInClip.z = ClampToNearPlane(vsOut.o_PosInClip.z);
+        #endif
+    #else
+
+#ifdef TRIPLANAR_WEIGHT
+        float3 vNormal = normalize(IN.i_Normal);
+        float3 transNormal = CalculateTransNormal(vNormal, normalize(IN.i_FaceNormal.xyz), 0.45f, 50.f);//由外部算好翻转法线直接传入，和这里计算翻转法线，只在这里有区别
+#endif
+
+        float4 n = float4(normalize(IN.i_Normal).xyz, 0.f);
+
+        //变换到世界坐标系不涉及投影操作，矩阵只需要三行，也不需要透视除法
+        vsOut.o_WorldPos.x = dot(U_WorldMatrix[0], p);
+        vsOut.o_WorldPos.y = dot(U_WorldMatrix[1], p);
+        vsOut.o_WorldPos.z = dot(U_WorldMatrix[2], p);
+
+        vsOut.o_Normal.x = dot(U_InvTransposeWorldMatrix[0], n);
+        vsOut.o_Normal.y = dot(U_InvTransposeWorldMatrix[1], n);
+        vsOut.o_Normal.z = dot(U_InvTransposeWorldMatrix[2], n);
+
+        float3 camToWorld = U_VS_CameraPosition.xyz - vsOut.o_WorldPos.xyz;
+        float4x4 gravityRotatePosMatrix;
+        gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+        gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+        gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+        gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+        camToWorld = mul(gravityRotatePosMatrix, float4(camToWorld.xyz, 0.0f)).xyz;
+
+        vsOut.o_Fog = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+
+	#ifdef USESHADOWMAP
+		float4 wposView;
+		wposView.x = dot(U_WorldMatrixBaseView[0], p);
+		wposView.y = dot(U_WorldMatrixBaseView[1], p);
+		wposView.z = dot(U_WorldMatrixBaseView[2], p);
+		wposView.w = 1.0f;
+
+		float4 viewRow2 = U_ViewMatrix[2];
+		viewRow2[3] = 0.0f;
+		vsOut.o_ViewSpaceZ = -dot(viewRow2, wposView);
+        vsOut.o_WPosViewBase = wposView.xyz;
+	#endif
+
+
+        // //note by hejiwei:由于世界空间都是右手系，但是UV坐标的起点不同，tangent的计算结果与原文中有所出入
+        // //由于d3d11中uv坐标的起点在左上角，biTangent的方向应该为v的反方向，这里也与原文中有所出入
+        // float3 absN = abs(IN.i_Normal.xyz);
+        // float epsilon = 1e-5f;
+        // //如果法线对应的平面垂直于UV投影平面，设置tangent于bitangent为0，此时该平面的采样结果对于最终混合的结果没有贡献并且切线空间也没有意义
+        // // XY、YZ平面的投影对应tangent space 1 
+        // float3 tangent1 = absN.z < epsilon && absN.x < epsilon ? 0.f : float3(absN.z, 0.f, -absN.x) / (absN.z * absN.z + absN.x * absN.x);
+        // float3 biTangent1 = dot(tangent1, tangent1) < epsilon ? 0.f : normalize(cross(n.xyz, tangent1));
+
+        // // XZ平面的投影对应tangent space 2
+        // float3 tangent2 = absN.y < epsilon && absN.x < epsilon ? 0.f : float3(absN.y, -absN.x, 0.f) / (absN.x * absN.x + absN.y * absN.y);
+        // float3 biTangent2 = dot(tangent2, tangent2) < epsilon ? 0.f: normalize(cross(n.xyz, tangent2));
+
+        // //上述计算得到的Tangent如果不为0，则应该是标准化后的长度,变换到世界坐标不是零向量就应该是标准化后的切线
+        // vsOut.o_Tangent1.x = dot(U_WorldMatrix[0], float4(tangent1, 0.0f));
+        // vsOut.o_Tangent1.y = dot(U_WorldMatrix[1], float4(tangent1, 0.0f));
+        // vsOut.o_Tangent1.z = dot(U_WorldMatrix[2], float4(tangent1, 0.0f));
+
+        // vsOut.o_Bitangent1.x = dot(U_WorldMatrix[0], float4(biTangent1, 0.0f));
+        // vsOut.o_Bitangent1.y = dot(U_WorldMatrix[1], float4(biTangent1, 0.0f));
+        // vsOut.o_Bitangent1.z = dot(U_WorldMatrix[2], float4(biTangent1, 0.0f));
+
+        // vsOut.o_Tangent2.x = dot(U_WorldMatrix[0], float4(tangent2, 0.0f));
+        // vsOut.o_Tangent2.y = dot(U_WorldMatrix[1], float4(tangent2, 0.0f));
+        // vsOut.o_Tangent2.z = dot(U_WorldMatrix[2], float4(tangent2, 0.0f));
+
+        // vsOut.o_Bitangent2.x = dot(U_WorldMatrix[0], float4(biTangent2, 0.0f));
+        // vsOut.o_Bitangent2.y = dot(U_WorldMatrix[1], float4(biTangent2, 0.0f));
+        // vsOut.o_Bitangent2.z = dot(U_WorldMatrix[2], float4(biTangent2, 0.0f));
+
+        float4 norm = float4(IN.i_Normal, 0.f);
+        float3 worldNormal;
+        worldNormal.x = dot(U_WorldRotationMatrix[0], norm);
+        worldNormal.y = dot(U_WorldRotationMatrix[1], norm);
+        worldNormal.z = dot(U_WorldRotationMatrix[2], norm);
+        worldNormal = normalize(worldNormal);
+        computeTangentSpaceVectors(
+                                    worldNormal, 
+                                    vsOut.o_Tangent1.xyz, 
+                                    vsOut.o_Bitangent1.xyz,
+                                    vsOut.o_Tangent2.xyz,
+                                    vsOut.o_Bitangent2.xyz);
+
+        vsOut.o_Blend   = IN.i_Blend;
+        vsOut.o_Index   = IN.i_Index;
+	    vsOut.o_ModelP = IN.i_Pos + U_VSGeneralRegister0.xyz;
+        vsOut.o_ModelN  = IN.i_Normal;
+        #ifdef TRIPLANAR_WEIGHT
+            vsOut.o_FModelN = transNormal;//偏转后的模型法线
+        #endif
+    #endif
+
+    return vsOut;
+}

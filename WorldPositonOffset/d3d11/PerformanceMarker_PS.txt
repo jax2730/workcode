@@ -1,0 +1,21 @@
+
+Texture2D	 S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+struct PS_INPUT
+{
+    float4 i_PosInClip	: SV_POSITION;
+	float2 i_UV		    : TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color		: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+    PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+    psOut.o_Color.rgb = S_Diffuse.Sample(S_DiffuseSamplerState, IN.i_UV.xy).rgb;
+    return psOut;
+}

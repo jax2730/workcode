@@ -1,0 +1,2941 @@
+{
+	"archive" : {},
+	"artifacts" : 
+	[
+		{
+			"path" : "G:/Echo_SU_Develop/EchoSDK/Lib/Android/ARM64/Release/libEchoEngine.a"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"add_definitions",
+			"include_directories"
+		],
+		"files" : 
+		[
+			"EchoEngine/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 27,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 21,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 37,
+				"parent" : 0
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : " -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++20 -Wall -frtti -fexceptions -fsigned-char -Werror -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-const-variable -O2 -g -DNDEBUG -fPIC"
+				}
+			],
+			"defines" : 
+			[
+				{
+					"backtrace" : 2,
+					"define" : "NDEBUG"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoEngine/../../../../../../GameEngine/Include"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoEngine/../../../../../../GameEngine/PrivateInclude"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoEngine/../../../../../../EchoEngine/Code/Core/Include"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoEngine/../../../../../../EchoEngine/Code/Core/Include/Role"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoEngine/../../../../../../EchoEngine/Code/Core/PrivateInclude"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoEngine/../../../../../../EchoCommon/Include"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoEngine/../../../../../../EchoCommon/PrivateInclude"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoEngine/../../../../../../EchoPhysics/Include"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoEngine/../../../../../../EchoPhysics/PrivateInclude"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoEngine/../../../../../../EchoSDK/Include/ThirdParty/tinythread"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoEngine/../../../../../../EchoSDK/Include/ThirdParty/freetype"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoEngine/../../../../../../EchoSDK/Include/ThirdParty/cjson"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoEngine/../../../../../../EchoSDK/Include/ThirdParty/FMOD/core"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoEngine/../../../../../../EchoSDK/Include/ThirdParty/FMOD/studio"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoEngine/../../../../../../EchoSDK/Include/ThirdParty/cpp-httplib"
+				}
+			],
+			"language" : "CXX",
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20,
+				21,
+				22,
+				23,
+				24,
+				25,
+				26,
+				27,
+				28,
+				29,
+				30,
+				31,
+				32,
+				33,
+				34,
+				35,
+				36,
+				37,
+				38,
+				39,
+				40,
+				41,
+				42,
+				43,
+				44,
+				45,
+				46,
+				47,
+				48,
+				49,
+				50,
+				51,
+				52,
+				53,
+				54,
+				55,
+				56,
+				57,
+				58,
+				59,
+				60,
+				61,
+				62,
+				63,
+				64,
+				65,
+				66,
+				67,
+				68,
+				69,
+				70,
+				71,
+				72,
+				73,
+				74,
+				75,
+				76,
+				77,
+				78,
+				79,
+				80,
+				81,
+				82,
+				83,
+				84,
+				85,
+				86,
+				87,
+				88,
+				89,
+				90,
+				91,
+				92,
+				93,
+				94,
+				95,
+				96,
+				97,
+				98,
+				99,
+				100,
+				101,
+				102,
+				103,
+				104,
+				105,
+				106,
+				107,
+				108,
+				109,
+				110,
+				111,
+				112,
+				113,
+				114,
+				115,
+				116,
+				117,
+				118,
+				119,
+				120,
+				121,
+				122,
+				123,
+				124,
+				125,
+				126,
+				127,
+				128,
+				129,
+				130,
+				131,
+				132,
+				133,
+				134,
+				135,
+				136,
+				137,
+				138,
+				139,
+				140,
+				141,
+				142,
+				143,
+				144,
+				145,
+				146,
+				147,
+				148,
+				149,
+				150,
+				151,
+				152,
+				153,
+				154,
+				155,
+				156,
+				157,
+				158,
+				159,
+				160,
+				161,
+				162,
+				163,
+				164,
+				165,
+				166,
+				167,
+				168,
+				169,
+				170,
+				171,
+				172,
+				173,
+				174,
+				175,
+				176,
+				177,
+				178,
+				179,
+				180,
+				181,
+				182,
+				183,
+				184,
+				185,
+				186,
+				187,
+				188,
+				189,
+				190,
+				191,
+				192,
+				193,
+				194,
+				195,
+				196,
+				197,
+				198,
+				199,
+				200,
+				201,
+				202,
+				203,
+				204,
+				205,
+				206,
+				207,
+				208,
+				209,
+				210,
+				211,
+				212,
+				213,
+				214,
+				215,
+				216,
+				217,
+				218,
+				219,
+				220,
+				221,
+				222,
+				223,
+				224,
+				225,
+				226,
+				227,
+				228,
+				229,
+				230,
+				231,
+				232,
+				233,
+				234,
+				235,
+				236,
+				237,
+				238,
+				239,
+				240,
+				241,
+				242,
+				243,
+				244,
+				245,
+				246,
+				247,
+				248,
+				249,
+				250,
+				251,
+				252,
+				253,
+				254,
+				255,
+				256,
+				257,
+				258,
+				259,
+				260,
+				261,
+				262,
+				263,
+				264,
+				265,
+				266,
+				267,
+				268,
+				269,
+				270,
+				271,
+				272,
+				273,
+				274,
+				275,
+				276,
+				277,
+				278,
+				279,
+				280,
+				281,
+				282,
+				283,
+				284,
+				285,
+				286,
+				287,
+				288,
+				289,
+				290,
+				291,
+				292,
+				293,
+				294,
+				295,
+				296,
+				297,
+				298,
+				299,
+				300,
+				301,
+				302,
+				303,
+				304,
+				305,
+				306,
+				307,
+				308,
+				309,
+				310,
+				311,
+				312,
+				313,
+				314,
+				315,
+				316,
+				317,
+				318,
+				319,
+				320,
+				321,
+				322,
+				323,
+				324,
+				325,
+				326,
+				327,
+				328,
+				329,
+				330,
+				331,
+				332,
+				333,
+				334,
+				335,
+				336,
+				337,
+				338,
+				339,
+				340,
+				341,
+				342,
+				343,
+				344,
+				345,
+				346,
+				347
+			],
+			"sysroot" : 
+			{
+				"path" : "D:/AndroidSDk/NDK/26.1.10909125/toolchains/llvm/prebuilt/windows-x86_64/sysroot"
+			}
+		}
+	],
+	"id" : "EchoEngine::@0e49147075b65a8e5843",
+	"name" : "EchoEngine",
+	"nameOnDisk" : "libEchoEngine.a",
+	"paths" : 
+	{
+		"build" : "EchoEngine",
+		"source" : "EchoEngine"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20,
+				21,
+				22,
+				23,
+				24,
+				25,
+				26,
+				27,
+				28,
+				29,
+				30,
+				31,
+				32,
+				33,
+				34,
+				35,
+				36,
+				37,
+				38,
+				39,
+				40,
+				41,
+				42,
+				43,
+				44,
+				45,
+				46,
+				47,
+				48,
+				49,
+				50,
+				51,
+				52,
+				53,
+				54,
+				55,
+				56,
+				57,
+				58,
+				59,
+				60,
+				61,
+				62,
+				63,
+				64,
+				65,
+				66,
+				67,
+				68,
+				69,
+				70,
+				71,
+				72,
+				73,
+				74,
+				75,
+				76,
+				77,
+				78,
+				79,
+				80,
+				81,
+				82,
+				83,
+				84,
+				85,
+				86,
+				87,
+				88,
+				89,
+				90,
+				91,
+				92,
+				93,
+				94,
+				95,
+				96,
+				97,
+				98,
+				99,
+				100,
+				101,
+				102,
+				103,
+				104,
+				105,
+				106,
+				107,
+				108,
+				109,
+				110,
+				111,
+				112,
+				113,
+				114,
+				115,
+				116,
+				117,
+				118,
+				119,
+				120,
+				121,
+				122,
+				123,
+				124,
+				125,
+				126,
+				127,
+				128,
+				129,
+				130,
+				131,
+				132,
+				133,
+				134,
+				135,
+				136,
+				137,
+				138,
+				139,
+				140,
+				141,
+				142,
+				143,
+				144,
+				145,
+				146,
+				147,
+				148,
+				149,
+				150,
+				151,
+				152,
+				153,
+				154,
+				155,
+				156,
+				157,
+				158,
+				159,
+				160,
+				161,
+				162,
+				163,
+				164,
+				165,
+				166,
+				167,
+				168,
+				169,
+				170,
+				171,
+				172,
+				173,
+				174,
+				175,
+				176,
+				177,
+				178,
+				179,
+				180,
+				181,
+				182,
+				183,
+				184,
+				185,
+				186,
+				187,
+				188,
+				189,
+				190,
+				191,
+				192,
+				193,
+				194,
+				195,
+				196,
+				197,
+				198,
+				199,
+				200,
+				201,
+				202,
+				203,
+				204,
+				205,
+				206,
+				207,
+				208,
+				209,
+				210,
+				211,
+				212,
+				213,
+				214,
+				215,
+				216,
+				217,
+				218,
+				219,
+				220,
+				221,
+				222,
+				223,
+				224,
+				225,
+				226,
+				227,
+				228,
+				229,
+				230,
+				231,
+				232,
+				233,
+				234,
+				235,
+				236,
+				237,
+				238,
+				239,
+				240,
+				241,
+				242,
+				243,
+				244,
+				245,
+				246,
+				247,
+				248,
+				249,
+				250,
+				251,
+				252,
+				253,
+				254,
+				255,
+				256,
+				257,
+				258,
+				259,
+				260,
+				261,
+				262,
+				263,
+				264,
+				265,
+				266,
+				267,
+				268,
+				269,
+				270,
+				271,
+				272,
+				273,
+				274,
+				275,
+				276,
+				277,
+				278,
+				279,
+				280,
+				281,
+				282,
+				283,
+				284,
+				285,
+				286,
+				287,
+				288,
+				289,
+				290,
+				291,
+				292,
+				293,
+				294,
+				295,
+				296,
+				297,
+				298,
+				299,
+				300,
+				301,
+				302,
+				303,
+				304,
+				305,
+				306,
+				307,
+				308,
+				309,
+				310,
+				311,
+				312,
+				313,
+				314,
+				315,
+				316,
+				317,
+				318,
+				319,
+				320,
+				321,
+				322,
+				323,
+				324,
+				325,
+				326,
+				327,
+				328,
+				329,
+				330,
+				331,
+				332,
+				333,
+				334,
+				335,
+				336,
+				337,
+				338,
+				339,
+				340,
+				341,
+				342,
+				343,
+				344,
+				345,
+				346,
+				347
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActor.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActorBuilding.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActorComAsyncManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActorComFactoryManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActorComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActorDynamicBVH.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActorHelper.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActorInfo.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActorInfoLoadManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActorInfoManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActorLayerLayoutManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActorLayerManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActorLayerPageManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActorLayoutPage.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActorLayoutPagedLayer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActorManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActorPage.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActorPagedLayer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActorQuadtree.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActorQuadtreeNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoActorSystem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoInOutsideDivisionComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoLocalQuadTreeComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoNodeActorComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoNodeComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoProtocolActorComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoReflect.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoResLoadManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoResLoaderComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Actor/EchoRoomPortalManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Cloth/EchoClothCollider.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Cloth/EchoClothGroup.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Cloth/EchoClothHalfEdgeMesh.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Cloth/EchoClothParticlesUpdateJob.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Cloth/EchoClothSimulationJob.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Cloth/EchoClothingSystem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoActorPageContentCollection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoAreaManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoAssembly.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoAssemblyPageContentCollection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoAutoObjectBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoAutoObjectManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoAutoObjectSystem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoAuxiliaryManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoBellBusManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoBellCommandReplay.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoBellEvent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoBellEventArea.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoBellEventAreaPage.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoBellEventPage.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoBellResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoBellResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoBellSystem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoBellUtils.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoBellVCAManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoBellWeatherPlayer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoBuildingBlock.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoBuildingEntity.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoBuildingMovable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoBuildingObject.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoBuildingPageContentCollection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoCameraControl.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoCameraPathHelper.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoCharacterObj.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoConsoleCommand.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoCoverPlanePageContentCollection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoCurve.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoCurveBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoCurveManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoCurvedObject.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoCurvedObjectManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoCurvedRole.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoCurvedRolePageContentCollection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoCurvedRoleResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoCurvedRoleResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoCustomObject.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoCustomObjectHelper.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoCustomPlayerHelperEntity.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoCustomPlayerHelperManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoEngine.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoEntityClutter.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoEntityObject.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoEntityObjectBatch.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoEntityPageContentCollection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoEnvChangeTrigger.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoEnvTriggerEvent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoGalaxyArea.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoGravityArea.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoGravityAreaManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoGravityAreaPageContentCollection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoGrid2DPageStrategy.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoHandUpPanel.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoHelperObj.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoHelperPreloading.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoIKAsyncInfo.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoIKAsyncManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoLightPageContentCollection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoLogicArea.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoLogicFillArea.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoMountainObject.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoMountainPageContentCollection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoOcclusionObject.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPCG.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPCGBaseElement.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPCGClutter.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPCGData.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPCGObject.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPCGOctree.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPage.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPageContent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPageContentCollection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPageManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPageResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPageResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPageStrategy.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPagedWorld.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPagedWorldSection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoParticlePageContentCollection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPetBatchMovable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPetBatchRenderable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPhysXManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPhysXMeshSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPhysXResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPreResLoadManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoPrecompiledHeaders.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoReflectProbePageContentCollection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoResourceStatistic.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoRoadMeshPageContentCollection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoRoadPageContentCollection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoRoleMakeupComponentSU.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoRoleObject.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoRolePageContentCollection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoRoomOcclusionPortal.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSceneArea.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSceneArtData.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSceneArtDataManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSceneArtTemplate.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSceneArtTemplateManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSceneArtTemplateResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSceneArtTemplateResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSceneBasicElementManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSceneBasicElementResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSceneBasicElementResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSceneCommonInfoMgr.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSceneTriggerData.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoShadowStrategyAllScene.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSimplePagedWorldSection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSound.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSoundArea.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSoundAreaPageContentCollection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSoundPageContentCollection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSoundResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSoundResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSoundSystem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoSoundUtil.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoStreamPageContentCollection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoTerrainPagedWorldSection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoTextureTool.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoTriggerArea.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoTriggerAreaManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoTriggerAreaPageContentCollection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoTriggerEvent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoVegetationAreaPageContentCollection.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoVideoConfig.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoVideoConfigSystem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoVideoPlayer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoVoxelObject.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoVoxelObjectHelper.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoVoxelObjectManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoWeatherModifier.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoWorldManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/EchoWorldSystem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectAffectorBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectAffectors.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectBatchManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectBatchRenderable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectBillboardRender.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectBillboardSet.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectChildElementRender.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectConeRender.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectConeSet.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectDecalRender.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectDecalSet.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectDynamicTrailSet.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectElement.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectEmitterBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectEmitterObject.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectEmitters.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectFactory.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectHolder.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectHolderManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectHolderSystem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectLightRender.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectLightningTrailSet.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectMarkRender.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectMergeTrailSet.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectModelRender.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectObject.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectObjectData.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectRenderBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectRoleRender.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectSet.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectStaticTrailSet.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectTorusRender.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectTorusSet.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectTrailRender.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectTrailSet.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Effect/EchoEffectWeaponTrailSet.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoAnimatorComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoAudioTrackComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoAudioTrackTimelineGroup.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoCameraComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoCameraInstance.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoColorChartComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoColorChartTimelineGroup.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoComponentBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoComponentInstanceBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoEventDialogue.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoEventFactoryBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoEventScene.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoEventSceneBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoEventSceneManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoExportOBJComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoMeshComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoMultiEventScene.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoParticleComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoParticleInstance.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoRoleComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoSoundComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoSoundInstance.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoTODComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoTODInstance.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoTransformComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoTransformInstance.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Event/EchoVirtualNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoAimController.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoAimIK.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoBodyTilt.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoEffectorOffest.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoFBBIKHeadEffector.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoFBIKChain.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoFullBodyBipedIK.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoGrounder.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoGrounderFBBIK.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoGrounderIK.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoGrounderQuadruped.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoGrounding.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoGroundingLeg.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoGroundingPelvis.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoHitReaction.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoHoldingHands.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIK.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKBipedLimbOrientations.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKBipedReferences.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKCCDIK.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKCommon.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKConstraintBend.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKEffector.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKMapping.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKMappingBone.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKMappingLimb.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKMappingSpine.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKSkeletonPosture.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKSolver.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKSolverAim.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKSolverCCDIK.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKSolverFABRIK.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKSolverFullBody.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKSolverFullBodyBiped.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKSolverHeuristic.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKSolverLimb.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKSolverLookAt.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoIKSolverTrigonometric.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoInertia.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoInterp.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoLookAtIK.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoOffsetModifier.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoOffsetPose.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoPenetrationAvoidance.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoRecoil.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoRotationLimit.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoRotationLimitAngle.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoRotationLimitHinge.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoSolverManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/IK/EchoTargetFBBIK.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Particle/EchoBulletParticle.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Particle/EchoMorphMeshResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Particle/EchoMorphMeshResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Particle/EchoParticleExternalForces.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Particle/EchoParticlePrivate.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Particle/EchoPerlinNoise.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Profiling/StatusGather/EchoStatusGather.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Ragdoll/EchoCollider.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Ragdoll/EchoConfigurableJoint.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Ragdoll/EchoDynamics.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Ragdoll/EchoJointBreakBroadcaster.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Ragdoll/EchoMuscle.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Ragdoll/EchoMuscleCollisionBroadcaster.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Ragdoll/EchoPhysxTools.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Ragdoll/EchoRagdoll.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Ragdoll/EchoRagdollProp.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Ragdoll/EchoRigidbody.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/RemoteContorl/EchoRemoteControl.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Role/EchoRoleAnimationComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Role/EchoRoleClickEntity.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Role/EchoRoleCommand.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Role/EchoRoleCommonComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Role/EchoRoleDriftComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Role/EchoRoleEntityComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Role/EchoRoleIKComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Role/EchoRoleMakeupComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Role/EchoRoleRootMotionComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Role/EchoRoleShatterComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Role/EchoRoleSkeletonComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Role/EchoRoleTagPointComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Shatter/EchoColorMapper.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Shatter/EchoFastHull.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Shatter/EchoTriangulator.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/Shatter/EchoUvMapper.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoTransvoxel.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelAsyncJob.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelAsyncTask.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelChunkMeshBuffers.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelData.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelDataOctree.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelDataUpdateListener.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelDefaultLODManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelDefaultRenderer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelInvoker.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelKarstTerrainGenerator.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelLODManagerBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelLegacyTerrainGenerator.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelMarchingCubeMesher.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelMesher.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelMeshingTask.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelRenderOctree.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelRenderUtilities.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelRendererBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelRendererBasicMeshHandler.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelRendererMeshHandlerBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelTaskPool.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelTerrain.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelTerrainBlock.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelTerrainResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelUberNoise3D.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/EchoVoxelWorld.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/VoxelTerrain/VoxelTerrainTool.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/GameEngine/Source/filemonitor.cpp",
+			"sourceGroupIndex" : 0
+		}
+	],
+	"type" : "STATIC_LIBRARY"
+}

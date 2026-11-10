@@ -1,0 +1,18 @@
+#include "EchoPhysicsManager.h"
+#include "EchoRigidBodyComponent.h"
+//#include "EchoRigidBodyGroupComponent.h"
+#include "EchoCharactorControllerComponent.h"
+#include "EchoConstantForceComponent.h"
+#include "EchoAggregateComponent.h"
+
+#include "EchoColliderComponent.h"
+#include "EchoBoxColliderComponent.h"
+#include "EchoCapsuleColliderComponent.h"
+#include "EchoMeshColliderComponent.h"
+#include "EchoSphereColliderComponent.h"
+//#include "EchoWheelColliderComponent.h"
+#include "EchoTerrainColliderComponent.h"
+
+#include "EchoJointComponent.h"
+#include "EchoFixedJointComponent.h"
+#include "EchoConfigurableJointComponent.h"

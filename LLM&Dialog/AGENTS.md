@@ -1,123 +1,89 @@
+# Project Skills for Codex
 
+This project has a local skill library in `skills/`. Treat that directory as the canonical source for project-specific skills.
 
-<skills_system priority="1">
+The local `skills/` directory is also exposed for Codex discovery through these Windows junctions:
+
+- `C:\Users\Pixel\.codex\skills\llm-dialog-project`
+- `C:\Users\Pixel\.agents\skills\llm-dialog-project`
+
+If native skill discovery has not refreshed yet, load skills directly from this repository with:
+
+```powershell
+Get-Content -Raw "skills\<skill-name>\SKILL.md"
+```
+
+For the collection overview skill, read `skills\SKILL.md`.
+
+Do not use `openskills read` in this project. These skills are plain Codex-compatible `SKILL.md` folders.
+
+## Skill Loading Rules
+
+- Before meaningful work, check whether a skill below applies.
+- If a skill applies, read only that skill's `SKILL.md` first.
+- Load referenced files such as `references/`, `rules/`, `scripts/`, or `assets/` only when the skill says they are relevant.
+- Prefer project-local skills over generic memory when the task overlaps with a listed skill.
+- Announce the skill briefly when using it, then follow its workflow.
+- Keep unrelated skills out of context.
 
 ## Available Skills
 
-<!-- SKILLS_TABLE_START -->
-<usage>
-When users ask you to perform tasks, check if any of the available skills below can help complete the task more effectively. Skills provide specialized capabilities and domain knowledge.
+### Context Engineering
 
-How to use skills:
-- Invoke: Bash("openskills read <skill-name>")
-- The skill content will load with detailed instructions on how to complete the task
-- Base directory provided in output for resolving bundled resources (references/, scripts/, assets/)
+- `context-engineering-collection`: overview of the local context engineering skill collection at `skills/SKILL.md`.
+- `context-fundamentals`: use for explaining or designing effective LLM context.
+- `context-degradation`: use for diagnosing lost-in-middle, context poisoning, distraction, or context rot.
+- `context-compression`: use for summarizing, compacting, or preserving long-running agent sessions.
+- `context-optimization`: use for improving token efficiency, context partitioning, or retrieval strategy.
+- `filesystem-context`: use for file-system-as-memory patterns and durable context handoff.
+- `memory-systems`: use for agent memory, vector stores, knowledge graphs, or persistence design.
+- `multi-agent-patterns`: use for orchestrators, supervisors, swarms, and sub-agent architectures.
+- `tool-design`: use for designing deterministic tools and agent tool contracts.
+- `hosted-agents`: use for hosted/background coding agents and sandbox infrastructure.
+- `evaluation`: use for evaluating agent behavior or LLM pipelines.
+- `advanced-evaluation`: use for production-grade evaluation systems, rubrics, bias checks, and metrics.
+- `project-development`: use for planning LLM-powered applications and staged processing pipelines.
+- `bdi-mental-states`: use for belief-desire-intention and cognitive architecture modeling.
 
-Usage notes:
-- Only use skills listed in <available_skills> below
-- Do not invoke a skill that is already loaded in your context
-- Each skill invocation is stateless
-</usage>
+### Development Workflow
 
-<available_skills>
+- `using-superpowers`: use as the entry point for the Superpowers workflow library.
+- `brainstorming`: use before open-ended design, feature planning, or UX/product exploration.
+- `systematic-debugging`: use for bugs, test failures, regressions, or unexplained behavior.
+- `test-driven-development`: use before implementing features or bug fixes that need tests.
+- `verification-before-completion`: use before claiming a fix or implementation is complete.
+- `writing-plans`: use to turn an approved spec into a concrete implementation plan.
+- `executing-plans`: use when executing an existing implementation plan.
+- `subagent-driven-development`: use when a plan can be split into independent agent-sized tasks.
+- `dispatching-parallel-agents`: use when independent tasks can run in parallel.
+- `requesting-code-review`: use before asking for or performing a review of completed work.
+- `receiving-code-review`: use when applying review feedback.
+- `using-git-worktrees`: use when isolated feature work or parallel branches are needed.
+- `finishing-a-development-branch`: use when implementation is complete and the branch needs final handling.
+- `writing-skills`: use when creating or improving skills.
 
-<skill>
-<name>brand-guidelines</name>
-<description>Applies Anthropic's official brand colors and typography to any sort of artifact that may benefit from having Anthropic's look-and-feel. Use it when brand colors or style guidelines, visual formatting, or company design standards apply.</description>
-<location>project</location>
-</skill>
+### UI
 
-<skill>
-<name>canvas-design</name>
-<description>Create beautiful visual art in .png and .pdf documents using design philosophy. You should use this skill when the user asks to create a poster, piece of art, design, or other static piece. Create original visual designs, never copying existing artists' work to avoid copyright violations.</description>
-<location>project</location>
-</skill>
+- `shadcn`: use for shadcn/ui projects, component registries, presets, `components.json`, component installation, styling, debugging, and composition.
 
-<skill>
-<name>doc-coauthoring</name>
-<description>Guide users through a structured workflow for co-authoring documentation. Use when user wants to write documentation, proposals, technical specs, decision docs, or similar structured content. This workflow helps users efficiently transfer context, refine content through iteration, and verify the doc works for readers. Trigger when user mentions writing docs, creating proposals, drafting specs, or similar documentation tasks.</description>
-<location>project</location>
-</skill>
+### Documentation
 
-<skill>
-<name>docx</name>
-<description>"Comprehensive document creation, editing, and analysis with support for tracked changes, comments, formatting preservation, and text extraction. When Claude needs to work with professional documents (.docx files) for: (1) Creating new documents, (2) Modifying or editing content, (3) Working with tracked changes, (4) Adding comments, or any other document tasks"</description>
-<location>project</location>
-</skill>
+- `mini-wiki`: use to generate or update a professional project wiki in `.mini-wiki/`, including architecture docs, module/API docs, Mermaid diagrams, source references, incremental updates, and mini-wiki plugin management.
 
-<skill>
-<name>frontend-design</name>
-<description>Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build web components, pages, artifacts, posters, or applications (examples include websites, landing pages, dashboards, React components, HTML/CSS layouts, or when styling/beautifying any web UI). Generates creative, polished code and UI design that avoids generic AI aesthetics.</description>
-<location>project</location>
-</skill>
+## Folder Selection Note
 
-<skill>
-<name>internal-comms</name>
-<description>A set of resources to help me write all kinds of internal communications, using the formats that my company likes to use. Claude should use this skill whenever asked to write some sort of internal communications (status reports, leadership updates, 3P updates, company newsletters, FAQs, incident reports, project updates, etc.).</description>
-<location>project</location>
-</skill>
+In the Codex UI, `@` may feel like it only selects one folder at a time. You do not need to rely on `@` for this project:
 
-<skill>
-<name>mcp-builder</name>
-<description>Guide for creating high-quality MCP (Model Context Protocol) servers that enable LLMs to interact with external services through well-designed tools. Use when building MCP servers to integrate external APIs or services, whether in Python (FastMCP) or Node/TypeScript (MCP SDK).</description>
-<location>project</location>
-</skill>
+- Start Codex from the repository root `E:\C++pandan\workcode\LLM&Dialog` whenever possible.
+- If you want to point at several folders, mention them as plain paths in the prompt, for example `ui-main`, `Agent-Skills-for-Context-Engineering-main`, and `superpowers-main`.
+- You can also insert multiple folder mentions one by one with `@`.
+- The configured skills now live under `skills/`, so future prompts can simply say "use the project skills" or name a skill such as `shadcn` or `systematic-debugging`.
 
-<skill>
-<name>pdf</name>
-<description>Comprehensive PDF manipulation toolkit for extracting text and tables, creating new PDFs, merging/splitting documents, and handling forms. When Claude needs to fill in a PDF form or programmatically process, generate, or analyze PDF documents at scale.</description>
-<location>project</location>
-</skill>
 
-<skill>
-<name>pptx</name>
-<description>"Presentation creation, editing, and analysis. When Claude needs to work with presentations (.pptx files) for: (1) Creating new presentations, (2) Modifying or editing content, (3) Working with layouts, (4) Adding comments or speaker notes, or any other presentation tasks"</description>
-<location>project</location>
-</skill>
+<claude-mem-context>
+# Memory Context
 
-<skill>
-<name>skill-creator</name>
-<description>Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Claude's capabilities with specialized knowledge, workflows, or tool integrations.</description>
-<location>project</location>
-</skill>
+# [LLM&Dialog] recent context, 2026-05-08 2:49pm GMT+8
 
-<skill>
-<name>slack-gif-creator</name>
-<description>Knowledge and utilities for creating animated GIFs optimized for Slack. Provides constraints, validation tools, and animation concepts. Use when users request animated GIFs for Slack like "make me a GIF of X doing Y for Slack."</description>
-<location>project</location>
-</skill>
-
-<skill>
-<name>template</name>
-<description>Replace with description of the skill and when Claude should use it.</description>
-<location>project</location>
-</skill>
-
-<skill>
-<name>theme-factory</name>
-<description>Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc. There are 10 pre-set themes with colors/fonts that you can apply to any artifact that has been creating, or can generate a new theme on-the-fly.</description>
-<location>project</location>
-</skill>
-
-<skill>
-<name>web-artifacts-builder</name>
-<description>Suite of tools for creating elaborate, multi-component claude.ai HTML artifacts using modern frontend web technologies (React, Tailwind CSS, shadcn/ui). Use for complex artifacts requiring state management, routing, or shadcn/ui components - not for simple single-file HTML/JSX artifacts.</description>
-<location>project</location>
-</skill>
-
-<skill>
-<name>webapp-testing</name>
-<description>Toolkit for interacting with and testing local web applications using Playwright. Supports verifying frontend functionality, debugging UI behavior, capturing browser screenshots, and viewing browser logs.</description>
-<location>project</location>
-</skill>
-
-<skill>
-<name>xlsx</name>
-<description>"Comprehensive spreadsheet creation, editing, and analysis with support for formulas, formatting, data analysis, and visualization. When Claude needs to work with spreadsheets (.xlsx, .xlsm, .csv, .tsv, etc) for: (1) Creating new spreadsheets with formulas and formatting, (2) Reading or analyzing data, (3) Modify existing spreadsheets while preserving formulas, (4) Data analysis and visualization in spreadsheets, or (5) Recalculating formulas"</description>
-<location>project</location>
-</skill>
-
-</available_skills>
-<!-- SKILLS_TABLE_END -->
-
-</skills_system>
+No previous sessions found.
+</claude-mem-context>

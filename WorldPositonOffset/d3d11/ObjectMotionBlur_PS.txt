@@ -1,0 +1,147 @@
+
+float4 U_PSCustom0;
+
+Texture2D   S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+Texture2D   S_2DExt1;
+SamplerState S_2DExt1SamplerState;
+
+Texture2D   S_2DExt2;
+SamplerState S_2DExt2SamplerState;
+
+Texture2D   S_2DExt3;
+SamplerState S_2DExt3SamplerState;
+
+Texture2D	S_Depth;
+SamplerState S_DepthSamplerState;
+
+static const float EPSILON1 = 0.01f;
+static const float HALF_VELOCITY_CUTOFF = 0.25f;
+static const float VARIANCE_THRESHOLD = 1.5f;
+static const float WEIGHT_CORRECTION_FACTOR = 60.0f;
+static const float SOFT_Z_EXTENT = 0.10f;
+static const float CYLINDER_CORNER_1 = 0.95f;
+static const float CYLINDER_CORNER_2 = 1.05f;
+static const float2 VHALF = float2(0.5f, 0.5f);
+
+struct PS_INPUT
+{
+    float4 i_Position	: SV_POSITION; 
+	float4 i_UV	: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+
+float GetDepth(float2 uv)
+{
+#ifdef REVERSE_DEPTH
+	return (1.0f - S_Depth.SampleLevel(S_DepthSamplerState, uv,0).r);
+#else
+	return (S_Depth.SampleLevel(S_DepthSamplerState, uv,0).r);	
+#endif
+};
+
+float psseudoRandom(float2 uv)
+{
+	return S_2DExt3.SampleLevel(S_2DExt3SamplerState, uv, 0).r - 0.5f;
+};
+
+float2 textureSize(Texture2D tex)
+{
+	uint width, height;
+	tex.GetDimensions(width, height);
+	return float2(width, height);
+};
+float softDepthCompare(float za, float zb)
+{
+	return clamp((1.0 - (za - zb) / SOFT_Z_EXTENT), 0.0, 1.0);
+};
+float cone(float magDiff, float magV)
+{
+	return clamp((1.0f - magDiff / magV),0.0f,1.0f);
+};
+float cylinder(float magDiff, float magV)
+{
+	return 1.0 - smoothstep(CYLINDER_CORNER_1 * magV, CYLINDER_CORNER_2 * magV, abs(magDiff));
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+    PS_OUTPUT psOut=(PS_OUTPUT)1.f;
+	psOut.o_Color.rgb = float3(0,0,0);
+	
+	float c_k = 20.0f;
+	float c_s = 15;
+	
+	float2 texCoordBase = IN.i_UV.xy * U_PSCustom0.xy;
+	float2 texSize = textureSize(S_2DExt0);
+	float4 texColor = S_2DExt0.SampleLevel(S_2DExt0SamplerState, texCoordBase,0);
+	
+	//相邻最大速度变量
+	float2 nVelocity = S_2DExt1.SampleLevel(S_2DExt1SamplerState, texCoordBase,0).xy;
+	if(length(nVelocity) < 0.5f)
+	{
+		psOut.o_Color.rgb = texColor.rgb;
+		return psOut;
+	}
+	
+	
+	//速度变量
+	float2 velocity = S_2DExt2.SampleLevel(S_2DExt2SamplerState, texCoordBase,0).xy;
+	float velocityLen = length(velocity);
+	velocityLen = clamp(velocityLen,0.1f,c_k);
+	
+	
+	
+	//在【-0.5f, 0.5f】之间的随机值
+	float r = psseudoRandom(texCoordBase);
+	//获取深度缓存值
+	float depth = GetDepth(texCoordBase);
+
+	//权重值
+	float weight = 1.0 / velocityLen;
+	//累积和
+	float3 sum = texColor.xyz * weight;
+	//相同片元的下标
+	int selfIndex = (c_s - 1) / 2;
+	float2 half_texel = VHALF / texSize.xy;
+
+	//循环进行重构采样中
+	if(1)
+	{
+		for (int i = 0; i < c_s; ++i)
+		{
+			//跳过相同的片元
+			if (i == selfIndex) { continue; }
+
+			//T为目前片元和采样片元之间的距离
+			//采样不是邻居的片元，而是更远的
+			float lerpAmount = (float(i) + r + 1.0f) / (c_s + 1.0f);
+			float T = lerp(-1, 1, lerpAmount);
+
+			//目前采样的位置
+			float2 newSampleTexcoord = float2(texCoordBase + float2(nVelocity/texSize* T + half_texel));
+			float2 newVelocity =  S_2DExt2.SampleLevel(S_2DExt2SamplerState,newSampleTexcoord,0).xy;
+			//float newVelocityLen = length(newVelocity);
+			
+			//新采样点的深度
+			float newDepth = GetDepth(newSampleTexcoord);
+			float uvDif = length(texCoordBase-newSampleTexcoord);
+			float alphaY = softDepthCompare(depth, newDepth) * cone(uvDif,newVelocity/texSize)+
+				softDepthCompare(newDepth, depth) * cone(uvDif, velocity/texSize)+ cylinder(uvDif, newVelocity/texSize) * cylinder(uvDif, velocity/texSize) * 2.0;
+			weight += alphaY;
+			
+			sum += (alphaY *  S_2DExt0.SampleLevel(S_2DExt0SamplerState, newSampleTexcoord, 0)).xyz;
+		}
+	}
+	
+	
+	psOut.o_Color.rgb = sum / weight;
+	return psOut;
+
+}

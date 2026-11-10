@@ -1,0 +1,875 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="EditorDebug|Win32">
+      <Configuration>EditorDebug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="EditorDebug|x64">
+      <Configuration>EditorDebug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="EditorRelease|Win32">
+      <Configuration>EditorRelease</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="EditorRelease|x64">
+      <Configuration>EditorRelease</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIBaseComponent.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIButtonComponent.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIComboBoxComponent.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIComponent.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIComponentManager.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIGraphComponent.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIGroupComponent.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIImageComponent.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIInputTextComponent.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUILabelComponent.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIListComponent.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUILoaderComponent.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIMovieclipComponent.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUINodeComponent.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIObject.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIObjectBase.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIProgressBarComponent.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIRichTextComponent.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIScrollBarComponent.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUISliderComponent.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUISWFComponent.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUITextComponent.h" />
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUITreeViewComponent.h" />
+    <ClInclude Include="..\..\Include\ControlHelperRenderable.h" />
+    <ClInclude Include="..\..\Include\EchoActorEntityComponent.h" />
+    <ClInclude Include="..\..\Include\EchoActorProFuncImp.h" />
+    <ClInclude Include="..\..\Include\EchoActorRoleComponent.h" />
+    <ClInclude Include="..\..\Include\EchoActorScriptComponent.h" />
+    <ClInclude Include="..\..\Include\EchoAggregateComponent.h" />
+    <ClInclude Include="..\..\Include\EchoAtmosphereComponent.h" />
+    <ClInclude Include="..\..\Include\EchoBuildingComponent.h" />
+    <ClInclude Include="..\..\Include\EchoColorFilterComponent.h" />
+    <ClInclude Include="..\..\Include\EchoDestructibleComponent.h" />
+    <ClInclude Include="..\..\Include\EchoDistantBuildingComponent.h" />
+    <ClInclude Include="..\..\Include\EchoFractalComponent.h" />
+    <ClInclude Include="..\..\Include\EchoFunctionalBuildingComponent.h" />
+    <ClInclude Include="..\..\Include\EchoGeneratedTerrainPhysics.h" />
+    <ClInclude Include="..\..\Include\EchoHDRAdaptiveComponent.h" />
+    <ClInclude Include="..\..\Include\EchoHerdComponent.h" />
+    <ClInclude Include="..\..\Include\EchoHermiteMacro.h" />
+    <ClInclude Include="..\..\Include\EchoAnimationTimelineComponent.h" />
+    <ClInclude Include="..\..\Include\EchoAnimationTimelineInfo.h" />
+    <ClInclude Include="..\..\Include\EchoCameraBaseComponent.h" />
+    <ClInclude Include="..\..\Include\EchoCameraComponentManager.h" />
+    <ClInclude Include="..\..\Include\EchoComponentStableHeaders.h" />
+    <ClInclude Include="..\..\Include\EchoCSGComponent.h" />
+    <ClInclude Include="..\..\Include\EchoCSGUtil.h" />
+    <ClInclude Include="..\..\Include\EchoCurvedRoleComponent.h" />
+    <ClInclude Include="..\..\Include\EchoCurvedRoleUtil.h" />
+    <ClInclude Include="..\..\Include\EchoDriftComponent.h" />
+    <ClInclude Include="..\..\Include\EchoBendHorizonComponent.h" />
+    <ClInclude Include="..\..\Include\EchoCrossRoadComponent.h" />
+    <ClInclude Include="..\..\Include\EchoEmitterComponent.h" />
+    <ClInclude Include="..\..\Include\EchoEntityBatchComponent.h" />
+    <ClInclude Include="..\..\Include\EchoEnvironmentLightComponent.h" />
+    <ClInclude Include="..\..\Include\EchoEnvTriggerEventComponent.h" />
+    <ClInclude Include="..\..\Include\EchoFlyingController.h" />
+    <ClInclude Include="..\..\Include\EchoGlobalLightComponent.h" />
+    <ClInclude Include="..\..\Include\EchoHDRComponent.h" />
+    <ClInclude Include="..\..\Include\EchoIKAimControllerComponent.h" />
+    <ClInclude Include="..\..\Include\EchoIKBodyTiltComponent.h" />
+    <ClInclude Include="..\..\Include\EchoCloudMeshComponent.h" />
+    <ClInclude Include="..\..\Include\EchoCloudPlaneComponent.h" />
+    <ClInclude Include="..\..\Include\EchoCloudSphereComponent.h" />
+    <ClInclude Include="..\..\Include\EchoConfigurableJointComponent.h" />
+    <ClInclude Include="..\..\Include\EchoCurvedMeshComponent.h" />
+    <ClInclude Include="..\..\Include\EchoDirecLightComponent.h" />
+    <ClInclude Include="..\..\Include\EchoFogComponent.h" />
+    <ClInclude Include="..\..\Include\EchoHLODComponent.h" />
+    <ClInclude Include="..\..\Include\EchoIKCCDIKComponent.h" />
+    <ClInclude Include="..\..\Include\EchoIKEffectorOffsetComponent.h" />
+    <ClInclude Include="..\..\Include\EchoIKHitReactionComponent.h" />
+    <ClInclude Include="..\..\Include\EchoIKInertiaComponent.h" />
+    <ClInclude Include="..\..\Include\EchoIKLimbIKComponnet.h" />
+    <ClInclude Include="..\..\Include\EchoIKLookAtIKComponent.h" />
+    <ClInclude Include="..\..\Include\EchoIKPenetrationAvoidanceComponent.h" />
+    <ClInclude Include="..\..\Include\EchoIKPointComponent.h" />
+    <ClInclude Include="..\..\Include\EchoIKRecoilComponent.h" />
+    <ClInclude Include="..\..\Include\EchoIKRotationLimitAngleComponent.h" />
+    <ClInclude Include="..\..\Include\EchoIKRotationLimitHingeComponent.h" />
+    <ClInclude Include="..\..\Include\EchoIKSkeletonPostureComponent.h" />
+    <ClInclude Include="..\..\Include\EchoIKTargetPointComponent.h" />
+    <ClInclude Include="..\..\Include\EchoImposterComponent.h" />
+    <ClInclude Include="..\..\Include\EchoInstanceStaticBatchObject.h" />
+    <ClInclude Include="..\..\Include\EchoKarstCityRoadComponent.h" />
+    <ClInclude Include="..\..\Include\EchoKarstTerrainComponent.h" />
+    <ClInclude Include="..\..\Include\EchoKeyBoard.h" />
+    <ClInclude Include="..\..\Include\EchoLensFlareComponent.h" />
+    <ClInclude Include="..\..\Include\EchoLightFlareComponent.h" />
+    <ClInclude Include="..\..\Include\EchoLightFlareComponentManager.h" />
+    <ClInclude Include="..\..\Include\EchoLightningComponent.h" />
+    <ClInclude Include="..\..\Include\EchoLocalRadialBlurComponent.h" />
+    <ClInclude Include="..\..\Include\EchoMediaComponent.h" />
+    <ClInclude Include="..\..\Include\EchoNewDecalComponent.h" />
+    <ClInclude Include="..\..\Include\EchoOcclusionComponent.h" />
+    <ClInclude Include="..\..\Include\EchoBoneRenderComponent.h" />
+    <ClInclude Include="..\..\Include\EchoBoxColliderComponent.h" />
+    <ClInclude Include="..\..\Include\EchoBoxComponent.h" />
+    <ClInclude Include="..\..\Include\EchoCameraProFunctionImp.h" />
+    <ClInclude Include="..\..\Include\EchoCapsuleColliderComponent.h" />
+    <ClInclude Include="..\..\Include\EchoCharactorControllerComponent.h" />
+    <ClInclude Include="..\..\Include\EchoColliderComponent.h" />
+    <ClInclude Include="..\..\Include\EchoComDefineMacro.h" />
+    <ClInclude Include="..\..\Include\EchoComponentPrerequisites.h" />
+    <ClInclude Include="..\..\Include\EchoComponentSystem.h" />
+    <ClInclude Include="..\..\Include\EchoConstantForceComponent.h" />
+    <ClInclude Include="..\..\Include\EchoControllerComponent.h" />
+    <ClInclude Include="..\..\Include\EchoDebugScriptFunc.h" />
+    <ClInclude Include="..\..\Include\EchoDecalComponent.h" />
+    <ClInclude Include="..\..\Include\EchoFixedJointComponent.h" />
+    <ClInclude Include="..\..\Include\EchoHelperObjProFuncImp.h" />
+    <ClInclude Include="..\..\Include\EchoIKAimIKComponent.h" />
+    <ClInclude Include="..\..\Include\EchoIKBaseComponent.h" />
+    <ClInclude Include="..\..\Include\EchoIKComponentInclude.h" />
+    <ClInclude Include="..\..\Include\EchoIKFBBIKHeadEffectorComponent.h" />
+    <ClInclude Include="..\..\Include\EchoIKGrounderFBBIKComponent.h" />
+    <ClInclude Include="..\..\Include\EchoIKGrounderIKComponent.h" />
+    <ClInclude Include="..\..\Include\EchoIKGrounderQuadrupedComponent.h" />
+    <ClInclude Include="..\..\Include\EchoIKTargetFBBIKComponent.h" />
+    <ClInclude Include="..\..\Include\EchoJointComponent.h" />
+    <ClInclude Include="..\..\Include\EchoLightComponent.h" />
+    <ClInclude Include="..\..\Include\EchoMaterialComponent.h" />
+    <ClInclude Include="..\..\Include\EchoMeshColliderComponent.h" />
+    <ClInclude Include="..\..\Include\EchoMusicControllerComponent.h" />
+    <ClInclude Include="..\..\Include\EchoNodeProFuncImp.h" />
+    <ClInclude Include="..\..\Include\EchoOceanComponent.h" />
+    <ClInclude Include="..\..\Include\EchoParticleProFunctionImp.h" />
+    <ClInclude Include="..\..\Include\EchoParticleSystemComponent.h" />
+    <ClInclude Include="..\..\Include\EchoPavementComponent.h" />
+    <ClInclude Include="..\..\Include\EchoPavementObject.h" />
+    <ClInclude Include="..\..\Include\EchoPavementUtil.h" />
+    <ClInclude Include="..\..\Include\EchoPCGGraphComponent.h" />
+    <ClInclude Include="..\..\Include\EchoPCGGraphComponentManager.h" />
+    <ClInclude Include="..\..\Include\EchoPhysicsComponentInclude.h" />
+    <ClInclude Include="..\..\Include\EchoPhysicsManager.h" />
+    <ClInclude Include="..\..\Include\EchoPhysicsPage.h" />
+    <ClInclude Include="..\..\Include\EchoPhysicsPagedLayer.h" />
+    <ClInclude Include="..\..\Include\EchoPiecewiseBezierComponent.h" />
+    <ClInclude Include="..\..\Include\EchoPiecewiseBezierUtil.h" />
+    <ClInclude Include="..\..\Include\EchoPlanetConverterComponent.h" />
+    <ClInclude Include="..\..\Include\EchoPlanetEntryControlComponent.h" />
+    <ClInclude Include="..\..\Include\EchoPointlightManagerComponent.h" />
+    <ClInclude Include="..\..\Include\EchoPolylineComponent.h" />
+    <ClInclude Include="..\..\Include\EchoProtocolComponentImp.h" />
+    <ClInclude Include="..\..\Include\EchoRagdollBehaviorComponentBase.h" />
+    <ClInclude Include="..\..\Include\EchoRagdollBehaviorManagerComponent.h" />
+    <ClInclude Include="..\..\Include\EchoRagdollComponent.h" />
+    <ClInclude Include="..\..\Include\EchoRagdollControllerComponent.h" />
+    <ClInclude Include="..\..\Include\EchoRagdollData.h" />
+    <ClInclude Include="..\..\Include\EchoRagdollMuscle.h" />
+    <ClInclude Include="..\..\Include\EchoRagdollTools.h" />
+    <ClInclude Include="..\..\Include\EchoResBaseProFunctionImp.h" />
+    <ClInclude Include="..\..\Include\EchoRigidBodyComponent.h" />
+    <ClInclude Include="..\..\Include\EchoRigidBodyGroupComponent.h" />
+    <ClInclude Include="..\..\Include\EchoRoadManager.h" />
+    <ClInclude Include="..\..\Include\EchoRoleObjProFunctionImp.h" />
+    <ClInclude Include="..\..\Include\EchoRoleScriptComponent.h" />
+    <ClInclude Include="..\..\Include\EchoRoleTagPointPosComponent.h" />
+    <ClInclude Include="..\..\Include\EchoSceneComponentManager.h" />
+    <ClInclude Include="..\..\Include\EchoScriptComponent.h" />
+    <ClInclude Include="..\..\Include\EchoScriptManager.h" />
+    <ClInclude Include="..\..\Include\EchoScriptReg.h" />
+    <ClInclude Include="..\..\Include\EchoEntityObjProFunctionImp.h" />
+    <ClInclude Include="..\..\Include\EchoMaterialProFunctionImp.h" />
+    <ClInclude Include="..\..\Include\EchoSheetComponent.h" />
+    <ClInclude Include="..\..\Include\EchoShowTrajectoryComponent.h" />
+    <ClInclude Include="..\..\Include\EchoAtlasSphericalTerrainComponent.h" />
+    <ClInclude Include="..\..\Include\EchoSkyComponent.h" />
+    <ClInclude Include="..\..\Include\EchoSoundComponent.h" />
+    <ClInclude Include="..\..\Include\EchoSphereColliderComponent.h" />
+    <ClInclude Include="..\..\Include\EchoSphereFogComponent.h" />
+    <ClInclude Include="..\..\Include\EchoSphericalOceanComponent.h" />
+    <ClInclude Include="..\..\Include\EchoSphericalTerrainComponent.h" />
+    <ClInclude Include="..\..\Include\EchoSphericalTerrainPCGGenScheduler.h" />
+    <ClInclude Include="..\..\Include\EchoSpotLightComponent.h" />
+    <ClInclude Include="..\..\Include\EchoSSAOComponent.h" />
+    <ClInclude Include="..\..\Include\EchoStarfieldComponent.h" />
+    <ClInclude Include="..\..\Include\EchoStarsComponent.h" />
+    <ClInclude Include="..\..\Include\EchoSunComponent.h" />
+    <ClInclude Include="..\..\Include\EchoTerrainColliderComponent.h" />
+    <ClInclude Include="..\..\Include\EchoTimelineComponent.h" />
+    <ClInclude Include="..\..\Include\EchoTimeLineInfo.h" />
+    <ClInclude Include="..\..\Include\EchoControlTodChangeComponent.h" />
+    <ClInclude Include="..\..\Include\EchoTODComponentManager.h" />
+    <ClInclude Include="..\..\Include\EchoTODComponentSystem.h" />
+    <ClInclude Include="..\..\Include\EchoTODShadowComponent.h" />
+    <ClInclude Include="..\..\Include\EchoTODDataUtil.h" />
+    <ClInclude Include="..\..\Include\EchoTodTimelineComponent.h" />
+    <ClInclude Include="..\..\Include\EchoTrafficObject.h" />
+    <ClInclude Include="..\..\Include\EchoTrajectoryComponent.h" />
+    <ClInclude Include="..\..\Include\EchoUnderWaterCausticsComponent.h" />
+    <ClInclude Include="..\..\Include\EchoUnknownComponent.h" />
+    <ClInclude Include="..\..\Include\EchoRagdollCreatorComponent.h" />
+    <ClInclude Include="..\..\Include\EchoVegetationAreaComponent.h" />
+    <ClInclude Include="..\..\Include\EchoVegetationAreaComponentTestHelper.h" />
+    <ClInclude Include="..\..\Include\EchoVolumeLightComponent.h" />
+    <ClInclude Include="..\..\Include\EchoVoxelTerrainComponent.h" />
+    <ClInclude Include="..\..\Include\EchoWeatherCoverColorComponent.h" />
+    <ClInclude Include="..\..\Include\EchoWheelColliderComponent.h" />
+    <ClInclude Include="..\..\Include\EchoWindPowerComponent.h" />
+    <ClInclude Include="..\..\Include\PCG\Data\EchoPCGDataCommon.h" />
+    <ClInclude Include="..\..\Include\PCG\Data\EchoPCGDifferenceData.h" />
+    <ClInclude Include="..\..\Include\PCG\Data\EchoPCGLandscapeData.h" />
+    <ClInclude Include="..\..\Include\PCG\Data\EchoPCGPointData.h" />
+    <ClInclude Include="..\..\Include\PCG\Data\EchoPCGProjectionParams.h" />
+    <ClInclude Include="..\..\Include\PCG\Data\EchoPCGSpatialData.h" />
+    <ClInclude Include="..\..\Include\PCG\Data\EchoPCGSurfaceData.h" />
+    <ClInclude Include="..\..\Include\PCG\Data\EchoPCGUnionData.h" />
+    <ClInclude Include="..\..\Include\PCG\EchoInstancedStaticMeshComponent.h" />
+    <ClInclude Include="..\..\Include\PCG\EchoPCGCommon.h" />
+    <ClInclude Include="..\..\Include\PCG\EchoPCGComponent.h" />
+    <ClInclude Include="..\..\Include\PCG\EchoPCGContext.h" />
+    <ClInclude Include="..\..\Include\PCG\EchoPCGElement.h" />
+    <ClInclude Include="..\..\Include\PCG\EchoPCGGraph.h" />
+    <ClInclude Include="..\..\Include\PCG\EchoPCGHelper.h" />
+    <ClInclude Include="..\..\Include\PCG\EchoPCGManagedResource.h" />
+    <ClInclude Include="..\..\Include\PCG\EchoPCGPin.h" />
+    <ClInclude Include="..\..\Include\PCG\EchoPCGSettings.h" />
+    <ClInclude Include="..\..\Include\PCG\EchoPCGSystem.h" />
+    <ClInclude Include="..\..\Include\PCG\EchoPCGTests.h" />
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGBoundsModifier.h" />
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGDensityFilter.h" />
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGDifference.h" />
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGDistance.h" />
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGGather.h" />
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGInputOutputSettings.h" />
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGLandscapeGetter.h" />
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGStaticMeshSpawner.h" />
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGSubgraph.h" />
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGSurfaceSampler.h" />
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGTransformPoints.h" />
+    <ClInclude Include="..\..\Include\PCG\Graph\EchoPCGGraphCompiler.h" />
+    <ClInclude Include="..\..\Include\PCG\Graph\EchoPCGGraphExecutor.h" />
+    <ClInclude Include="..\..\Include\PCG\Graph\EchoPCGGraphTask.h" />
+    <ClInclude Include="..\..\Include\PCG\Reflection\EchoPCGClass.h" />
+    <ClInclude Include="..\..\Include\PCG\Reflection\EchoPCGEnum.h" />
+    <ClInclude Include="..\..\Include\PCG\Reflection\EchoPCGObjectV2.h" />
+    <ClInclude Include="..\..\Include\PCG\Reflection\EchoPCGProperty.h" />
+    <ClInclude Include="..\..\Include\PCG\Reflection\EchoPCGReflectionMacros.h" />
+    <ClInclude Include="..\..\Include\PCG\Reflection\EchoPCGSerializer.h" />
+    <ClInclude Include="..\..\Include\SUToEchoCom\SUActorFactoryComponent.h" />
+    <ClInclude Include="..\..\Include\SUToEchoCom\EchoExcelDataHelper.h" />
+    <ClInclude Include="..\..\Include\SUToEchoCom\SUDynamicFactorySwitcherComponent.h" />
+    <ClInclude Include="..\..\Include\SUToEchoCom\SUDynamicLoadComponent.h" />
+    <ClInclude Include="..\..\Include\SUToEchoCom\SUWrapEntityComponent.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIBaseComponent.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIButtonComponent.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIComboBoxComponent.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIComponent.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIComponentManager.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIGraphComponent.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIGroupComponent.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIImageComponent.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIInputTextComponent.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUILabelComponent.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIListComponent.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUILoaderComponent.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIMovieclipComponent.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUINodeComponent.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIObject.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIProgressBarComponent.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIRichTextComponent.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIScrollBarComponent.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUISliderComponent.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUISWFComponent.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUITextComponent.cpp" />
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUITreeViewComponent.cpp" />
+    <ClCompile Include="..\..\Source\ControlHelperRenderable.cpp" />
+    <ClCompile Include="..\..\Source\EchoActorEntityComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoActorProFuncImp.cpp" />
+    <ClCompile Include="..\..\Source\EchoActorRoleComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoActorScriptComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoAggregateComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoAnimationTimelineComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoAnimationTimelineInfo.cpp" />
+    <ClCompile Include="..\..\Source\EchoAtmosphereComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoBuildingComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoCameraBaseComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoCameraComponentManager.cpp" />
+    <ClCompile Include="..\..\Source\EchoColorFilterComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoComponentStableHeaders.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='EditorRelease|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='EditorDebug|x64'">Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCSGComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoCSGUtil.cpp" />
+    <ClCompile Include="..\..\Source\EchoCurvedRoleComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoCurvedRoleUtil.cpp" />
+    <ClCompile Include="..\..\Source\EchoDestructibleComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoDistantBuildingComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoDriftComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoBendHorizonComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoCrossRoadComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoEmitterComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoEntityBatchComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoEnvironmentLightComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoEnvTriggerEventComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoFlyingController.cpp" />
+    <ClCompile Include="..\..\Source\EchoFractalComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoFunctionalBuildingComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoGeneratedTerrainPhysics.cpp" />
+    <ClCompile Include="..\..\Source\EchoGlobalLightComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoHDRAdaptiveComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoHDRComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoHerdComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKAimControllerComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKBodyTiltComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoCloudMeshComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoCloudPlaneComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoCloudSphereComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoCurvedMeshComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoDirecLightComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoFogComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoHLODComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKCCDIKComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKEffectorOffsetComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKHitReactionComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKInertiaComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKLimbIKComponnet.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKLookAtIKComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKPenetrationAvoidanceComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKPointComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKRecoilComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKRotationLimitAngleComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKRotationLimitHingeComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKSkeletonPostureComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKTargetPointComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoImposterComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoInstanceStaticBatchObject.cpp" />
+    <ClCompile Include="..\..\Source\EchoKarstCityRoadComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoKarstTerrainComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoKeyBoard.cpp" />
+    <ClCompile Include="..\..\Source\EchoLensFlareComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoLightFlareComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoLightFlareComponentManager.cpp" />
+    <ClCompile Include="..\..\Source\EchoLightningComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoLocalRadialBlurComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoMediaComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoNewDecalComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoOcclusionComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoBoneRenderComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoBoxColliderComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoBoxComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoCameraProFunctionImp.cpp" />
+    <ClCompile Include="..\..\Source\EchoCapsuleColliderComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoCharactorControllerComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoColliderComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoComponentSystem.cpp" />
+    <ClCompile Include="..\..\Source\EchoConfigurableJointComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoConstantForceComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoControllerComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoDebugScriptFunc.cpp" />
+    <ClCompile Include="..\..\Source\EchoDecalComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoFixedJointComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoHelperObjProFuncImp.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKAimIKComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKBaseComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKFBBIKHeadEffectorComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKGrounderFBBIKComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKGrounderIKComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKGrounderQuadrupedComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoIKTargetFBBIKComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoJointComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoLightComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoMaterialComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoMeshColliderComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoMusicControllerComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoNodeProFuncImp.cpp" />
+    <ClCompile Include="..\..\Source\EchoOceanComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoParticleProFunctionImp.cpp" />
+    <ClCompile Include="..\..\Source\EchoParticleSystemComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoPavementComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoPavementObject.cpp" />
+    <ClCompile Include="..\..\Source\EchoPavementUtil.cpp" />
+    <ClCompile Include="..\..\Source\EchoPCGGraphComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoPCGGraphComponentManager.cpp" />
+    <ClCompile Include="..\..\Source\EchoPhysicsManager.cpp" />
+    <ClCompile Include="..\..\Source\EchoPhysicsPage.cpp" />
+    <ClCompile Include="..\..\Source\EchoPhysicsPagedLayer.cpp" />
+    <ClCompile Include="..\..\Source\EchoPiecewiseBezierComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoPiecewiseBezierUtil.cpp" />
+    <ClCompile Include="..\..\Source\EchoPlanetConverterComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoPlanetEntryControlComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoPointlightManagerComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoPolylineComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoProtocolComponentImp.cpp" />
+    <ClCompile Include="..\..\Source\EchoRagdollBehaviorComponentBase.cpp" />
+    <ClCompile Include="..\..\Source\EchoRagdollBehaviorManagerComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoRagdollComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoRagdollControllerComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoRagdollCreatorComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoRagdollData.cpp" />
+    <ClCompile Include="..\..\Source\EchoRagdollMuscle.cpp" />
+    <ClCompile Include="..\..\Source\EchoRagdollTools.cpp" />
+    <ClCompile Include="..\..\Source\EchoResBaseProFunctionImp.cpp" />
+    <ClCompile Include="..\..\Source\EchoRigidBodyComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoRigidBodyGroupComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoRoadManager.cpp" />
+    <ClCompile Include="..\..\Source\EchoRoleObjProFunctionImp.cpp" />
+    <ClCompile Include="..\..\Source\EchoRoleScriptComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoRoleTagPointPosComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoSceneComponentManager.cpp" />
+    <ClCompile Include="..\..\Source\EchoScriptComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoScriptManager.cpp" />
+    <ClCompile Include="..\..\Source\EchoScriptReg.cpp" />
+    <ClCompile Include="..\..\Source\EchoEntityObjProFunctionImp.cpp" />
+    <ClCompile Include="..\..\Source\EchoMaterialProFunctionImp.cpp" />
+    <ClCompile Include="..\..\Source\EchoSheetComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoShowTrajectoryComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoAtlasSphericalTerrainComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoSkyComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoSoundComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoSphereColliderComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoSphereFogComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoSphericalOceanComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoSphericalTerrainComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoSphericalTerrainPCGGenScheduler.cpp" />
+    <ClCompile Include="..\..\Source\EchoSpotLightComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoSSAOComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoStarfieldComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoStarsComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoSunComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoTerrainColliderComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoTimelineComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoTimeLineInfo.cpp" />
+    <ClCompile Include="..\..\Source\EchoControlTodChangeComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoTODComponentManager.cpp" />
+    <ClCompile Include="..\..\Source\EchoTODComponentSystem.cpp" />
+    <ClCompile Include="..\..\Source\EchoTODShadowComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoTODDataUtil.cpp" />
+    <ClCompile Include="..\..\Source\EchoTodTimelineComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoTrafficObject.cpp" />
+    <ClCompile Include="..\..\Source\EchoTrajectoryComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoUnderWaterCausticsComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoUnknownComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoVegetationAreaComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoVegetationAreaComponentTestHelper.cpp" />
+    <ClCompile Include="..\..\Source\EchoVolumeLightComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoVoxelTerrainComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoWeatherCoverColorComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoWheelColliderComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoWindPowerComponent.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Data\EchoPCGDataCommon.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Data\EchoPCGDifferenceData.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Data\EchoPCGLandscapeData.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Data\EchoPCGPointData.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Data\EchoPCGProjectionParams.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Data\EchoPCGSpatialData.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Data\EchoPCGSurfaceData.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Data\EchoPCGUnionData.cpp" />
+    <ClCompile Include="..\..\Source\PCG\EchoInstancedStaticMeshComponent.cpp" />
+    <ClCompile Include="..\..\Source\PCG\EchoPCGCommon.cpp" />
+    <ClCompile Include="..\..\Source\PCG\EchoPCGComponent.cpp" />
+    <ClCompile Include="..\..\Source\PCG\EchoPCGContext.cpp" />
+    <ClCompile Include="..\..\Source\PCG\EchoPCGElement.cpp" />
+    <ClCompile Include="..\..\Source\PCG\EchoPCGGraph.cpp" />
+    <ClCompile Include="..\..\Source\PCG\EchoPCGHelper.cpp" />
+    <ClCompile Include="..\..\Source\PCG\EchoPCGManagedResource.cpp" />
+    <ClCompile Include="..\..\Source\PCG\EchoPCGPin.cpp" />
+    <ClCompile Include="..\..\Source\PCG\EchoPCGSettings.cpp" />
+    <ClCompile Include="..\..\Source\PCG\EchoPCGSystem.cpp" />
+    <ClCompile Include="..\..\Source\PCG\EchoPCGTests.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGBoundsModifier.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGDensityFilter.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGDifference.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGDistance.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGGather.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGInputOutputSettings.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGLandscapeGetter.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGStaticMeshSpawner.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGSubgraph.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGSurfaceSampler.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGTransformPoints.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Graph\EchoPCGGraphCompiler.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Graph\EchoPCGGraphExecutor.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Graph\EchoPCGGraphTask.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Reflection\EchoPCGClass.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Reflection\EchoPCGEnum.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Reflection\EchoPCGObjectV2.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Reflection\EchoPCGProperty.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Reflection\EchoPCGSerializer.cpp" />
+    <ClCompile Include="..\..\Source\SUToEchoCom\SUActorFactoryComponent.cpp" />
+    <ClCompile Include="..\..\Source\SUToEchoCom\EchoExcelDataHelper.cpp" />
+    <ClCompile Include="..\..\Source\SUToEchoCom\SUDynamicFactorySwitcherComponent.cpp" />
+    <ClCompile Include="..\..\Source\SUToEchoCom\SUDynamicLoadComponent.cpp" />
+    <ClCompile Include="..\..\Source\SUToEchoCom\SUWrapEntityComponent.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\.editorconfig" />
+    <None Include="cpp.hint" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{5C45B693-ED89-43D1-9528-4FE5603A7F07}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>EchoComponent</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0.19041.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='EditorDebug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='EditorRelease|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <VCToolsVersion>14.34.31933</VCToolsVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='EditorDebug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <VCToolsVersion>14.34.31933</VCToolsVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+    <VCToolsVersion>14.34.31933</VCToolsVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='EditorRelease|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+    <VCToolsVersion>14.34.31933</VCToolsVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="EchoComponent.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='EditorDebug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="EchoComponent.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="EchoComponent.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='EditorRelease|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="EchoComponent.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="EchoComponent.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='EditorDebug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="EchoComponent.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="EchoComponent.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='EditorRelease|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="EchoComponent.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='EditorDebug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>..\..\Lib\$(TargetOS)\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>..\..\Intermediate\$(ProjectName)\$(TargetOS)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='EditorDebug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>..\..\Lib\$(TargetOS)\$(Platform)\Debug\</OutDir>
+    <IntDir>..\..\Intermediate\$(ProjectName)\$(TargetOS)\$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName)ED</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='EditorRelease|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>..\..\Lib\$(TargetOS)\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>..\..\Intermediate\$(ProjectName)\$(TargetOS)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='EditorRelease|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>..\..\Lib\$(TargetOS)\$(Platform)\Release\</OutDir>
+    <IntDir>..\..\Intermediate\$(ProjectName)\$(TargetOS)\$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName)ED</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;ECHOCOMPONENT_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>../../../ThirdParty/merge/Include;../../Include;../../IK/Include;../../Script/Include;$(EchoSDK)/Include/ThirdParty/cjson;$(EchoSDK)/Include/ThirdParty/tinythread;$(EchoSDK)/Include/EchoCommon;$(EchoSDK)/Include/EchoCore;$(EchoSDK)/Include/EchoPhysics;$(EchoSDK)/Include/EchoEngine;$(EchoSDK)/Include/ThirdParty/freetype;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='EditorDebug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;ECHOCOMPONENT_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>../../../ThirdParty/merge/Include;../../Include;../../IK/Include;../../Script/Include;$(EchoSDK)/Include/ThirdParty/cjson;$(EchoSDK)/Include/ThirdParty/tinythread;$(EchoSDK)/Include/EchoCommon;$(EchoSDK)/Include/EchoCore;$(EchoSDK)/Include/EchoPhysics;$(EchoSDK)/Include/EchoEngine;$(EchoSDK)/Include/ThirdParty/freetype;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;_USRDLL;ECHOCOMPONENT_EXPORTS;_CRT_SECURE_NO_WARNINGS;ELUA_BUILD_AS_DLL;_SILENCE_ALL_CXX20_DEPRECATION_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalIncludeDirectories>../../Include;../../IK/Include;../../../EchoEngine/Code/Core/Source/FGUIParser;../../../EchoEngine/Code/Core/Source/FGUIParser/entt/src;$(EchoSDK)/Include/ThirdParty/cjson;$(EchoSDK)/Include/ThirdParty/tinythread;$(EchoSDK)/Include/EchoCommon;$(EchoSDK)\Include\EchoCore/Role;$(EchoSDK)/Include/EchoCore;$(EchoSDK)/Include/EchoPhysics;$(EchoSDK)/Include/EchoEngine;$(EchoSDK)/Include/ThirdParty/freetype;$(EchoSDK)/PrivateInclude/EchoEngine;../../PrivateInclude</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4251;4275;5105</DisableSpecificWarnings>
+      <MinimalRebuild>false</MinimalRebuild>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <TreatSpecificWarningsAsErrors>4189;4715;5038;%(TreatSpecificWarningsAsErrors)</TreatSpecificWarningsAsErrors>
+      <AdditionalOptions>/bigobj /utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <PrecompiledHeaderFile>EchoComponentStableHeaders.h</PrecompiledHeaderFile>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(EchoSDK)\Lib\$(TargetOS)\$(Platform)\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>EchoJson.lib;EchoCommon.lib;EchoCore.lib;EchoEngine.lib;EchoPhysics.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>setlocal
+call ..\CopyInclude.bat $(EchoSDK)
+call $(ProjectName)_AfterBuildEvent.bat $(Platform) $(Configuration) $(ProjectName) $(TargetOS) $(EchoSDK)
+endlocal</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='EditorDebug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;_USRDLL;ECHOCOMPONENT_EXPORTS;_CRT_SECURE_NO_WARNINGS;ELUA_BUILD_AS_DLL;_SILENCE_ALL_CXX20_DEPRECATION_WARNINGS;ECHO_EDITOR;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalIncludeDirectories>../../Include;../../IK/Include;../../../EchoEngine/Code/Core/Source/FGUIParser;../../../EchoEngine/Code/Core/Source/FGUIParser/entt/src;$(EchoSDK)/Include/ThirdParty/cjson;$(EchoSDK)/Include/ThirdParty/tinythread;$(EchoSDK)/Include/EchoCommon;$(EchoSDK)\Include\EchoCore/Role;$(EchoSDK)/Include/EchoCore;$(EchoSDK)/Include/EchoPhysics;$(EchoSDK)/Include/EchoEngine;$(EchoSDK)/Include/ThirdParty/freetype;$(EchoSDK)/PrivateInclude/EchoEngine;../../PrivateInclude</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4251;4275;5105</DisableSpecificWarnings>
+      <MinimalRebuild>false</MinimalRebuild>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <TreatSpecificWarningsAsErrors>4189;4715;5038;%(TreatSpecificWarningsAsErrors)</TreatSpecificWarningsAsErrors>
+      <AdditionalOptions>/bigobj /utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <PrecompiledHeaderFile>EchoComponentStableHeaders.h</PrecompiledHeaderFile>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(EchoSDK)\Lib\$(TargetOS)\$(Platform)\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>EchoJson.lib;EchoCommon.lib;EchoCoreED.lib;EchoEngineED.lib;EchoPhysicsED.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>setlocal
+call ..\CopyInclude.bat $(EchoSDK)
+call $(ProjectName)_AfterBuildEvent.bat $(Platform) Debug $(ProjectName)ED $(TargetOS) $(EchoSDK)
+endlocal</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;ECHOCOMPONENT_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>../../../ThirdParty/merge/Include;../../Include;../../IK/Include;../../Script/Include;$(EchoSDK)/Include/ThirdParty/cjson;$(EchoSDK)/Include/ThirdParty/tinythread;$(EchoSDK)/Include/EchoCommon;$(EchoSDK)/Include/EchoCore;$(EchoSDK)/Include/EchoEngine;$(EchoSDK)/Include/ThirdParty/freetype;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='EditorRelease|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;ECHOCOMPONENT_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>../../../ThirdParty/merge/Include;../../Include;../../IK/Include;../../Script/Include;$(EchoSDK)/Include/ThirdParty/cjson;$(EchoSDK)/Include/ThirdParty/tinythread;$(EchoSDK)/Include/EchoCommon;$(EchoSDK)/Include/EchoCore;$(EchoSDK)/Include/EchoEngine;$(EchoSDK)/Include/ThirdParty/freetype;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <Profile>true</Profile>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;_USRDLL;ECHOCOMPONENT_EXPORTS;_CRT_SECURE_NO_WARNINGS;ELUA_BUILD_AS_DLL;_SILENCE_ALL_CXX20_DEPRECATION_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalIncludeDirectories>../../Include;../../IK/Include;../../../EchoEngine/Code/Core/Source/FGUIParser;../../../EchoEngine/Code/Core/Source/FGUIParser/entt/src;$(EchoSDK)/Include/ThirdParty/cjson;$(EchoSDK)/Include/ThirdParty/tinythread;$(EchoSDK)/Include/EchoCommon;$(EchoSDK)\Include\EchoCore/Role;$(EchoSDK)/Include/EchoCore;$(EchoSDK)/Include/EchoPhysics;$(EchoSDK)/Include/EchoEngine;$(EchoSDK)/Include/ThirdParty/freetype;$(EchoSDK)/PrivateInclude/EchoEngine;../../PrivateInclude</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4251;4275;5105</DisableSpecificWarnings>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <PreprocessToFile>false</PreprocessToFile>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <TreatSpecificWarningsAsErrors>4715;5038;%(TreatSpecificWarningsAsErrors)</TreatSpecificWarningsAsErrors>
+      <AdditionalOptions>/bigobj /utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PrecompiledHeaderFile>EchoComponentStableHeaders.h</PrecompiledHeaderFile>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(EchoSDK)\Lib\$(TargetOS)\$(Platform)\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>EchoJson.lib;EchoCommon.lib;EchoCore.lib;EchoEngine.lib;EchoPhysics.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>setlocal
+call ..\CopyInclude.bat $(EchoSDK)
+call $(ProjectName)_AfterBuildEvent.bat $(Platform) $(Configuration) $(ProjectName) $(TargetOS) $(EchoSDK)
+endlocal</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='EditorRelease|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;_USRDLL;ECHOCOMPONENT_EXPORTS;_CRT_SECURE_NO_WARNINGS;ELUA_BUILD_AS_DLL;_SILENCE_ALL_CXX20_DEPRECATION_WARNINGS;ECHO_EDITOR;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalIncludeDirectories>../../Include;../../IK/Include;../../../EchoEngine/Code/Core/Source/FGUIParser;../../../EchoEngine/Code/Core/Source/FGUIParser/entt/src;$(EchoSDK)/Include/ThirdParty/cjson;$(EchoSDK)/Include/ThirdParty/tinythread;$(EchoSDK)/Include/EchoCommon;$(EchoSDK)\Include\EchoCore/Role;$(EchoSDK)/Include/EchoCore;$(EchoSDK)/Include/EchoPhysics;$(EchoSDK)/Include/EchoEngine;$(EchoSDK)/Include/ThirdParty/freetype;$(EchoSDK)/PrivateInclude/EchoEngine;../../PrivateInclude</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4251;4275;5105</DisableSpecificWarnings>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <PreprocessToFile>false</PreprocessToFile>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <TreatSpecificWarningsAsErrors>4715;5038;%(TreatSpecificWarningsAsErrors)</TreatSpecificWarningsAsErrors>
+      <AdditionalOptions>/bigobj /utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PrecompiledHeaderFile>EchoComponentStableHeaders.h</PrecompiledHeaderFile>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(EchoSDK)\Lib\$(TargetOS)\$(Platform)\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>EchoJson.lib;EchoCommon.lib;EchoCoreED.lib;EchoEngineED.lib;EchoPhysicsED.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <Profile>true</Profile>
+    </Link>
+    <PostBuildEvent>
+      <Command>setlocal
+call ..\CopyInclude.bat $(EchoSDK)
+call $(ProjectName)_AfterBuildEvent.bat $(Platform) Release $(ProjectName)ED $(TargetOS) $(EchoSDK)
+endlocal</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

@@ -1,0 +1,58 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+float4  U_WorldMatrix[3];
+
+#ifndef VOXEL
+	 float4 U_VSCustom1;
+	#define matID_UV_Offset         U_VSCustom1.xy
+	#define matID_UV_Scale          U_VSCustom1.zw
+#endif
+
+struct VS_INPUT
+{
+	float3 i_Pos		    : POSITION0;
+	#ifdef VOXEL
+	  	uint2   i_Index       : TEXCOORD0;
+		float3  i_Blend      : TEXCOORD1;
+	#else
+		float2 i_texcoord		: TEXCOORD0;
+	#endif
+};
+
+struct VS_OUTPUT
+{
+	float4	o_PosInClip			: SV_POSITION;
+
+	#ifdef VOXEL
+		nointerpolation uint2 o_Index : TEXCOORD8;
+        float3  o_Blend          : TEXCOORD9;
+	#else
+    	float2 o_MatIDUV        : TEXCOORD2;    //用于采样MatID的UV
+	#endif
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	float4  pos =  float4(IN.i_Pos.xyz, 1.0f);
+
+	float3 worldPos;
+	worldPos.x = dot(U_WorldMatrix[0], pos);
+	worldPos.y = dot(U_WorldMatrix[1], pos);
+	worldPos.z = dot(U_WorldMatrix[2], pos);
+
+	vsOut.o_PosInClip.x = dot(U_ViewProjectMatrix[0], float4(worldPos,1.0f));
+	vsOut.o_PosInClip.y = dot(U_ViewProjectMatrix[1], float4(worldPos,1.0f));
+	vsOut.o_PosInClip.z = dot(U_ViewProjectMatrix[2], float4(worldPos,1.0f));
+	vsOut.o_PosInClip.w = dot(U_ViewProjectMatrix[3], float4(worldPos,1.0f));	
+
+	#ifdef VOXEL
+		vsOut.o_Index = IN.i_Index;
+		vsOut.o_Blend = IN.i_Blend;
+	#else
+		vsOut.o_MatIDUV = IN.i_texcoord * matID_UV_Scale + matID_UV_Offset; // (0, 1) on whole 
+	#endif
+
+ 	return vsOut;
+}

@@ -1,0 +1,96 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+float4 U_WorldViewProjectMatrix[4];
+
+uniform float4 U_VSCustom0;		//PatchInfo		xy: patch uv start, z: uv factor, w:Patch size
+uniform float4 U_VSCustom1;		//PatchPosition	xy: patch world position at XZ axis, y is 0; y: smooth start dist; w: smooth factor
+uniform float4 U_VSCustom3;
+
+
+struct VS_INPUT
+{
+	uint3	i_UV		: POSITION0;
+	float	i_Height	: POSITION1;
+};
+
+struct VS_OUTPUT
+{
+	float4	o_PosInClip	: SV_POSITION;
+	float4  o_WorldPos  : TEXCOORD0;
+	float2	o_UVBase	: TEXCOORD1;
+	float4	o_FogColor	: TEXCOORD2;
+	float3	o_ViewDir	: TEXCOORD3;
+#ifdef PARABOLOID_MAPPING
+	float	o_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	
+	float4 PatchInfo = U_VSCustom0;
+	float4 PatchPosition = U_VSCustom1;
+
+	float2 vUV = float2(IN.i_UV.xy) / (float)IN.i_UV.z;
+	float4 vObjPos = float4(
+		vUV.x * PatchInfo.w,
+		IN.i_Height,
+		vUV.y * PatchInfo.w,
+		1.0);
+		
+	vsOut.o_WorldPos.xyz = vObjPos.xyz + float3(PatchPosition.x, 0.f, PatchPosition.y);
+	vsOut.o_WorldPos.w = 1.0;
+
+	// // 把离摄像机远截面前500米之后的顶点按照一定的系数(0.0001)压低高度, 防止出现被远截面切掉的问题
+	// float2 vCamToPosXZ = vsOut.o_WorldPos.xz - U_VS_CameraPosition.xz;	// 在XZ平面上顶点到摄像机的向量
+	// float fSquareLenXZ = dot(vCamToPosXZ, vCamToPosXZ);		// 距离(平方)
+	// float fHeightLower = max(fSquareLenXZ - U_CameraParam.x * U_CameraParam.x + 250000.0, 0.0) * 0.0001;
+	// vObjPos.y -= fHeightLower;
+	// vsOut.o_WorldPos.y -= fHeightLower;
+
+	float2 vOffset = vsOut.o_WorldPos.xz - U_VS_CameraPosition.xz;
+	vOffset = abs(vOffset);
+	vOffset *= vOffset;
+	float fHeightLower = U_VSCustom3.x * (vOffset.x + vOffset.y) * 0.00001f;
+	vObjPos.y -= fHeightLower;
+	vsOut.o_WorldPos.y -= fHeightLower;
+
+	float4 	vWVPMatrixC0 = U_WorldViewProjectMatrix[0];
+	float4	vWVPMatrixC1 = U_WorldViewProjectMatrix[1];
+	float4	vWVPMatrixC2 = U_WorldViewProjectMatrix[2];
+	float4	vWVPMatrixC3 = U_WorldViewProjectMatrix[3];
+
+	vsOut.o_PosInClip.x = dot(vWVPMatrixC0, vObjPos);
+	vsOut.o_PosInClip.y = dot(vWVPMatrixC1, vObjPos);
+	vsOut.o_PosInClip.z = dot(vWVPMatrixC2, vObjPos);
+	vsOut.o_PosInClip.w = dot(vWVPMatrixC3, vObjPos);
+
+#ifdef PARABOLOID_MAPPING
+	vsOut.o_ClipDepth = vsOut.o_PosInClip.z;
+	ParaboloidMapping(vsOut.o_PosInClip, U_ShadowLightDepthMulAdd.x, U_ShadowLightDepthMulAdd.z, U_ShadowLightDepthMulAdd.w);
+#endif
+
+	vsOut.o_UVBase.xy = vUV.xy * PatchInfo.z + PatchInfo.xy;
+
+	vsOut.o_ViewDir = U_VS_CameraPosition.xyz - vsOut.o_WorldPos.xyz;
+
+	float3 camToWorld = vsOut.o_ViewDir;
+
+	float4x4 gravityRotatePosMatrix;	
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+	
+	vsOut.o_FogColor = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+	vsOut.o_ViewDir = normalize(vsOut.o_ViewDir);
+#ifdef EDITOR_MODE
+	#ifdef HierarchicalLOD
+		vsOut.o_PosInClip = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+	#endif
+#endif	
+	return vsOut;
+}

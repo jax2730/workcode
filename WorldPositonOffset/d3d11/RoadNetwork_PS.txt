@@ -1,0 +1,39 @@
+#include <Common_Uniform_PS.inl>
+
+float4 U_PSCustom1;
+float4 U_PSCustom2;
+float4 U_PSCustom3;
+float4 U_PSCustom4;
+
+uniform Texture2D	S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+struct PS_INPUT
+{
+	float4 o_Position	: SV_POSITION;
+	float4 o_WorldPos	: TEXCOORD0;
+	float4 o_UV			: TEXCOORD1;
+	float4 o_Offset 	: TEXCOORD2;
+};
+
+struct PS_OUTPUT
+{
+    float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{		
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+
+    float line_min = U_PSCustom4.x - U_PSCustom3.x/2.0;
+    float line_max = U_PSCustom4.x + U_PSCustom3.x/2.0;
+
+    if(IN.o_Offset.x >= line_min && IN.o_Offset.x <= line_max)
+        psOut.o_Color = U_PSCustom1;
+    else
+        psOut.o_Color = S_Diffuse.Sample(S_DiffuseSamplerState,IN.o_UV);
+    
+    psOut.o_Color.a = 1.0;
+
+    return psOut;
+}

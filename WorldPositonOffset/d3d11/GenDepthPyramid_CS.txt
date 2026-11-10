@@ -1,0 +1,32 @@
+#include <Common_GpuCull_CS.inl>
+#define thread_group_size_x 16u
+#define thread_group_size_y 16u
+
+
+cbuffer UniformBlock_Private_CS
+{
+    uint4 U_CSCustom0;//dstWidth. dstHeight, srcLevel, dstLevel
+    
+};
+
+Texture2D<float> S_2DExt0;
+RWTexture2D<float> S_2DExt1;
+
+					
+[numthreads(thread_group_size_x, thread_group_size_y, 1)]
+void main(uint3 threadIDInGroup : SV_GroupThreadID,
+			uint3 groupID : SV_GroupID,
+			uint groupIndex : SV_GroupIndex,
+			uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+	uint2 dstUV = dispatchThreadID.xy;
+	uint2 uv = dstUV << 1u;
+	if(dstUV.x < U_CSCustom0.x && dstUV.y < U_CSCustom0.y)
+	{
+		float depth = S_2DExt0.Load(uint3(uv, U_CSCustom0.z)).r;
+		depth = max(depth, S_2DExt0.Load(uint3(uv + uint2(0u, 1u), U_CSCustom0.z)).r);
+		depth = max(depth, S_2DExt0.Load(uint3(uv + uint2(1u, 0u), U_CSCustom0.z)).r);
+		depth = max(depth, S_2DExt0.Load(uint3(uv + uint2(1u, 1u), U_CSCustom0.z)).r);
+        S_2DExt1[dstUV] = depth;
+	}
+}

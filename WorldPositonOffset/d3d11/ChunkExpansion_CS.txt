@@ -1,0 +1,51 @@
+#include <Common_GpuCull_CS.inl>
+
+#define thread_group_size_x 64u
+#define thread_group_size_y 1u
+
+
+ByteAddressBuffer B_CSCustom0;					//m_chunkArgBufferHandle: chunkCount, 1, 1
+ByteAddressBuffer B_CSCustom1;					//m_chunkIDBufferHandle:  InstChunkID {instanceID, chunkID}
+StructuredBuffer<ChunkData> B_CSCustom2;
+RWByteAddressBuffer B_CSCustom3;					//m_clusterArgBufferHandle: clusterCount
+RWByteAddressBuffer B_CSCustom4;				//m_clusterIDBufferHandle InstClusterID {instanceID, clusterID}
+
+
+groupshared  ChunkData chunkData;
+groupshared  InstChunkID inst2Chunk;
+groupshared  uint offset;
+
+		
+[numthreads(thread_group_size_x, thread_group_size_y, 1)]
+void main(uint3 threadIDInGroup : SV_GroupThreadID,
+			uint3 groupID : SV_GroupID,
+			uint groupIndex : SV_GroupIndex,
+			uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+	uint chunkIdx = groupID.x;
+	if (chunkIdx >= RawBufferLoadUint(B_CSCustom0, 0))
+	{
+        	return;
+	}
+ 
+	
+	if(groupIndex == 0u)
+	{
+		inst2Chunk = InstChunkIDLoad(B_CSCustom1, chunkIdx); //B_CSCustom1[chunkIdx];
+		chunkData = B_CSCustom2[inst2Chunk.ChunkID];
+		RawInterlockedAdd(B_CSCustom3, 0, chunkData.ClusterCount, offset);//InterlockedAdd(B_CSCustom3[0], chunkData.ClusterCount, offset);
+	}
+	
+	GroupMemoryBarrierWithGroupSync();
+	
+	if (groupIndex < chunkData.ClusterCount)
+ 	{
+		uint _curOffset = groupIndex + offset;
+		InstClusterIDStore(B_CSCustom4, _curOffset, inst2Chunk.InstanceID, chunkData.ClusterID[groupIndex]);
+	}
+    
+    
+    
+
+}
+

@@ -1,0 +1,297 @@
+#include <Common_Uniform_PS.inl>
+
+
+
+float4 U_PSCustom0[4];
+
+uniform Texture2D S_Bump;				//normal tex
+SamplerState S_BumpSamplerState;
+uniform Texture2D S_BackbufferTex;		//backbuffer tex
+SamplerState S_BackbufferTexSamplerState;	
+uniform TextureCube S_ReflectCubeMap;	//reflect tex
+SamplerState S_ReflectCubeMapSamplerState;
+
+uniform Texture2D S_CausticTex;
+SamplerState S_CausticTexSamplerState;
+
+#ifdef SOFT_BORDER
+	uniform Texture2D S_Custom;				//foam tex
+	SamplerState S_CustomSamplerState;
+	uniform Texture2D S_Depth;
+	SamplerState S_DepthSamplerState;
+#endif
+
+#ifdef SSPR
+uniform Texture2D S_2DExt0; //reflected pixels tex
+SamplerState S_2DExt0SamplerState;
+#endif
+
+struct PS_INPUT
+{
+    float4 Position   : SV_POSITION;
+	float3 rotMatrix1 : TEXCOORD0; // first row of the 3x3 transform from tangent to obj space
+	float3 rotMatrix2 : TEXCOORD1; // second row of the 3x3 transform from tangent to obj space
+	float3 rotMatrix3 : TEXCOORD2; // third row of the 3x3 transform from tangent to obj space
+
+	float4 bumpCoord0 : TEXCOORD3;
+	float4 bumpCoord1 : TEXCOORD4;
+	
+	float3 eyeVector  : TEXCOORD5;
+	float4 viewPos    : TEXCOORD6;
+	float4 clipPos	  : TEXCOORD7;
+#ifdef SOFT_BORDER	
+	float4 customParam: TEXCOORD8;
+#endif
+	float4 fogColor	  : COLOR0;
+};
+
+
+#ifdef SOFT_BORDER	
+float getSceneDepth(in float4 clipPos, in float2 uv, out float dd)
+{
+	float4 tempPos = float4(uv, 0.0, 1.0);
+	tempPos.z = S_Depth.Sample(S_DepthSamplerState, uv).r;
+	
+	tempPos.x = clipPos.x;
+	tempPos.y = clipPos.y;
+	
+	float4 viewSpacePos;
+	viewSpacePos.x = dot(U_InvProjectMatrix[0], tempPos);
+	viewSpacePos.y = dot(U_InvProjectMatrix[1], tempPos);
+	viewSpacePos.z = dot(U_InvProjectMatrix[2], tempPos);
+	viewSpacePos.w = dot(U_InvProjectMatrix[3], tempPos);
+	float depth = viewSpacePos.z / viewSpacePos.w;
+	float3 vvv = viewSpacePos.xyz / viewSpacePos.w;
+	dd = length(vvv);
+	return depth;
+}
+
+//Dx only need to sample one times.
+float calcSceneDepth(in float4 clipPos, out float dd)
+{	
+	float2 screenTC = clipPos.xy / clipPos.w;
+	screenTC.x = (screenTC.x + 1.0) * 0.5;//+ U_ViewParam.z;
+	screenTC.y = 1.0 - (screenTC.y + 1.0) * 0.5;//+ U_ViewParam.w;
+	screenTC *= U_ViewParam.xy;	
+	float depth = getSceneDepth(clipPos / clipPos.w, screenTC, dd);
+	
+	return depth;
+}
+#endif
+
+#ifdef SSR
+float4 U_ProjectMatrix[4];	//ProjectMatrix
+float4x4 U_ViewMatrix;	//ViewMatrix
+float4 U_InvViewProjectMatrix[4]; //ViewMatrix
+#include "FidelityFX_SSSR_Intersect.inl"
+#ifdef REVERSE_DEPTH
+#define FFX_SSSR_INVERTED_DEPTH_RANGE
+#endif
+#include "ffx_sssr.h"
+#endif
+float3 mod289(float3 x)
+{
+    return x - floor(x / 289.0) * 289.0;
+}
+
+float2 mod289(float2 x)
+{
+    return x - floor(x / 289.0) * 289.0;
+}
+
+float3 permute(float3 x)
+{
+    return mod289((x * 34.0 + 1.0) * x);
+}
+
+float3 taylorInvSqrt(float3 r)
+{
+    return 1.79284291400159 - 0.85373472095314 * r;
+}
+
+float snoise(float2 v)
+{
+    const float4 C = float4( 0.211324865405187,  // (3.0-sqrt(3.0))/6.0
+                             0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
+                            -0.577350269189626,  // -1.0 + 2.0 * C.x
+                             0.024390243902439); // 1.0 / 41.0
+    // First corner
+    float2 i  = floor(v + dot(v, C.yy));
+    float2 x0 = v -   i + dot(i, C.xx);
+
+    // Other corners
+    float2 i1;
+    i1.x = step(x0.y, x0.x);
+    i1.y = 1.0 - i1.x;
+
+    // x1 = x0 - i1  + 1.0 * C.xx;
+    // x2 = x0 - 1.0 + 2.0 * C.xx;
+    float2 x1 = x0 + C.xx - i1;
+    float2 x2 = x0 + C.zz;
+
+    // Permutations
+    i = mod289(i); // Avoid truncation effects in permutation
+    float3 p =
+      permute(permute(i.y + float3(0.0, i1.y, 1.0))
+                    + i.x + float3(0.0, i1.x, 1.0));
+
+    float3 m = max(0.5 - float3(dot(x0, x0), dot(x1, x1), dot(x2, x2)), 0.0);
+    m = m * m;
+    m = m * m;
+
+    // Gradients: 41 points uniformly over a line, mapped onto a diamond.
+    // The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
+    float3 x = 2.0 * frac(p * C.www) - 1.0;
+    float3 h = abs(x) - 0.5;
+    float3 ox = floor(x + 0.5);
+    float3 a0 = x - ox;
+
+    // Normalise gradients implicitly by scaling m
+    m *= taylorInvSqrt(a0 * a0 + h * h);
+
+    // Compute final noise value at P
+    float3 g;
+    g.x = a0.x * x0.x + h.x * x0.y;
+    g.y = a0.y * x1.x + h.y * x1.y;
+    g.z = a0.z * x2.x + h.z * x2.y;
+    return 130.0 * dot(m, g);
+}
+
+float4 main(PS_INPUT IN, bool isFrontFace : SV_IsFrontFace) : SV_TARGET
+{		
+	float4 t0 = S_Bump.Sample(S_BumpSamplerState, IN.bumpCoord0.xy) * 2.0 - 1.0;
+	float4 t1 = S_Bump.Sample(S_BumpSamplerState, IN.bumpCoord0.zw) * 2.0 - 1.0;
+	float4 t2 = S_Bump.Sample(S_BumpSamplerState, IN.bumpCoord1.xy) * 2.0 - 1.0;
+	float3 N = t0.xyz + t1.xyz + t2.xyz;
+	
+	float3x3 m; // tangent to world matrix
+	m[0] = IN.rotMatrix1;
+	m[1] = IN.rotMatrix2;
+	m[2] = IN.rotMatrix3;
+
+	N = normalize( mul( N, m ) );
+	if (!isFrontFace)
+	{
+		N = -N;
+	}
+	
+	// reflection
+	float2 refl_tex		= N.xy * IN.viewPos.z;
+	float2 refr_tex		= N.xz * 0.1 * U_PSCustom0[3].w;
+	//float2 final 		= IN.screenProj.xz / IN.screenProj.w;
+	//float4 reflection 	= tex2Dlod(S_Environment, float4(saturate(final + refl_tex),0,0));
+	
+	float3 E = normalize(IN.eyeVector);
+	float4 R;
+	R.xyz = reflect(E, N);
+//#ifndef SSR
+	// conversion for cube map lookup
+	float4 R2 = R;
+	R2.z = -R2.z;
+	R2.w = U_PSCustom0[3].z;//reflectionBlur;
+	float4 reflection = S_ReflectCubeMap.SampleLevel(S_ReflectCubeMapSamplerState, R2.xyz,R2.w);
+	reflection.rgb = pow(reflection.rgb, 2.2);
+#ifdef SSR
+	float4 reflection_radiance = CastScreenSpaceRay(U_DepthRTParam.xy, (IN.Position.xy + 0.5) * U_DepthRTParam.zw,
+		N, IN.Position.z);
+	reflection.xyz = lerp(reflection.xyz, reflection_radiance.xyz, reflection_radiance.w);
+#endif	
+	float2 depthlerp = float2(1.0,1.0);
+	float alpha = 1.0;
+	float4 foamColor = float4(0,0,0,0);
+	float causticAlpha=0.0f;
+	
+	float sceneDD = 10.0;
+	#ifdef SOFT_BORDER		
+		// foam		
+		float sceneDepth = calcSceneDepth(IN.clipPos, sceneDD);
+		//sceneDD = sceneDepth;
+		float4 vp;
+		vp.x = dot(U_InvProjectMatrix[0], IN.clipPos);
+		vp.y = dot(U_InvProjectMatrix[1], IN.clipPos);
+		vp.z = dot(U_InvProjectMatrix[2], IN.clipPos);
+		vp.w = dot(U_InvProjectMatrix[3], IN.clipPos);
+		
+		float pixelDepth = vp.z / vp.w;			
+		
+		float soft = (pixelDepth - sceneDepth);
+		alpha = saturate( soft / U_PSCustom0[2].w);
+		
+		causticAlpha=alpha;
+		
+		depthlerp.y = saturate(soft * U_PSCustom0[2].w);
+		
+		foamColor = pow(S_Custom.Sample(S_CustomSamplerState,(IN.customParam.xy * U_PSCustom0[2].z + U_PSCustom0[0].zw + refl_tex * 0.8f)).rgbr, 2.2);
+		float foamsoft = saturate(soft * U_PSCustom0[2].y) * saturate((U_PSCustom0[2].x - soft) * U_PSCustom0[2].y);
+		foamColor.a *= foamsoft;
+		foamColor.rgb *= pow(U_WaterFoamColor.rgb, 2.2);
+		alpha = saturate(alpha + foamColor.a);
+	#endif
+    
+	float3 wwpos = U_PS_CameraPosition.xyz + E * sceneDD;
+	
+    //caustic
+	float  dist             = length(IN.eyeVector);
+	float  distFactor       = clamp(1.0f-dist/50.0f,0.0f,1.0f);
+	float3 caustic          = float3(0,0,0);
+	float  NdotV            = dot(N,-E);
+	float  belowSurface     = step(0,NdotV);
+	float  fadeFactor       = 1.0f - abs(2.0f * causticAlpha -1.0f);
+	float  distortStrength  = 0.5;
+	float Time = fmod(U_PS_Time.x,100.0f);
+	float noise = snoise(wwpos.xz * 0.025f + float2(Time * 0.1, -Time * 0.1));
+	//float2 causticUV        = refl_tex.xy * distortStrength + wwpos.xz * 0.025f;
+   	float2 causticUV        = wwpos.xz * 0.025f + noise * distortStrength * 0.2;	
+    caustic = pow(S_CausticTex.Sample(S_CausticTexSamplerState,causticUV).rgb, 2.2) * fadeFactor * fadeFactor * distFactor;
+ 
+	float2 uv = float2(IN.clipPos.x, -IN.clipPos.y) / IN.clipPos.w * 0.5 + 0.5;
+	uv = (uv.xy + refr_tex.xy * alpha) * U_ViewParam.xy + U_ViewParam.zw * 4.0;
+	
+#ifdef SSPR
+	float4 ssprReflection = S_2DExt0.SampleLevel(S_2DExt0SamplerState, uv, 0);
+	ssprReflection.rgb = pow(ssprReflection.rgb, 2.2);
+	reflection = lerp(reflection, ssprReflection, ssprReflection.w);
+#endif
+	
+	// fresnel
+	float facing = 1.0 - saturate(NdotV);
+	float fresnel = saturate(U_PSCustom0[1].x + U_PSCustom0[1].z * pow(facing, U_PSCustom0[1].y));
+	fresnel = saturate(fresnel * depthlerp.y);
+	float3 ldir = normalize(-U_MainLightDirection.xyz);
+	float4 litk = lit(dot(ldir,N),dot(normalize(ldir-E.xyz),N),U_PSCustom0[3].x);
+
+	float4 waterShallowColor = U_WaterShallowColor;
+	float4 waterDeepColor = U_WaterDeepColor;
+	float4 waterReflectColor = U_WaterReflectColor;
+	waterShallowColor.rgb = pow(waterShallowColor.rgb, 2.2);
+	waterDeepColor.rgb = pow(waterDeepColor.rgb, 2.2);
+	waterReflectColor.rgb = pow(waterReflectColor.rgb, 2.2);
+	float4 waterColor = lerp(waterShallowColor, waterDeepColor, facing) * U_PSCustom0[0].y;
+	
+	//reflection.rgb = reflection.rgb + U_SkyLightColor.rgb * N.y;
+	
+	reflection = lerp(waterColor, reflection * waterReflectColor, fresnel) * U_PSCustom0[0].x;
+	
+	float4 color = waterColor + reflection;
+	
+	color.rgb += U_SunColor.xyz * litk.z * litk.y * fresnel * U_PSCustom0[3].y * U_MainLightColor.a;
+		
+	color.rgb = lerp(color.xyz, foamColor.rgb, foamColor.a);
+	
+	color.rgb = color.rgb * pow(U_UnderWaterColor.rgb, 2.2);
+				
+	float4 refr_color = S_BackbufferTex.Sample(S_BackbufferTexSamplerState, uv);
+	refr_color.rgb = pow(refr_color.rgb, 2.2);
+	refr_color.rgb += caustic * belowSurface;
+	color.rgb = refr_color.rgb * (1.0 - alpha) + color.rgb * alpha;
+
+	color.rgb = color.rgb * IN.fogColor.a + IN.fogColor.rgb;
+	
+	color.rgb = pow(color.rgb, 1.0 / 2.2);
+	color.a = clamp(alpha * 10.0, 0.0, 1.0);
+	
+	float overdrawlerp = ceil(U_PS_Time.w);
+	color = color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+
+	return color;
+}

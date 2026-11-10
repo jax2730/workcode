@@ -1,0 +1,66 @@
+#define NUM_THREADS_X 8
+#define NUM_THREADS_Y 8
+
+uniform float4 U_CSCustom0;
+#define TargetPixelSize U_CSCustom0.xy
+
+uniform RWTexture2D<uint> S_2DExt0;
+uniform RWTexture2D<float4> S_2DExt1;
+uniform Texture2D S_2DExt2;
+uniform SamplerState S_2DExt2SamplerState;
+#define HashRT S_2DExt0
+#define ColorRT S_2DExt1
+#define CameraOpaqueTexture S_2DExt2
+#define LinearClamp S_2DExt2SamplerState
+
+static const uint MAX_UINT = 0xFFFFFFFF;
+
+[numthreads(NUM_THREADS_X, NUM_THREADS_Y, 1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+	uint w, h;
+	ColorRT.GetDimensions(w, h);
+	if (id.x >= w || id.y >= h)
+		return;
+
+	/*
+	//ref code
+	float4 PS_ResolveHash(float2 ScreenUV) : SV_Target0
+	{
+		uint Hash = ProjectionHashTex[ScreenUV * FrameSize].x;
+		uint x = Hash & 0xFFFF; uint y = Hash >> 16;
+
+		if(Hash != 0)
+		{
+			float4 SrcColor = MainColorTex[uint2(x, y)];
+			return SrcColor;
+		}
+		else
+			return 0;
+	}
+	*/
+	const uint packedData = HashRT[id.xy];
+	if (packedData == MAX_UINT) //MAX_UINT == max uint
+	{
+		//if this location is not having any reflection data (still containing clear value, still 0 reflection write), early exit to prevent wrong RT write
+		ColorRT[id.xy] = 0;
+		return;
+	}
+
+	//ghost-recon-wildlands method use 16bit y, 16bit x encode
+	//but in our implementation, 16bit is overkill because we don't need a RT that is 65536*65536
+	//instead we save 8 bits for fadeout alpha info, result in:
+	//-first 12 bits for id.y (0~4095)
+	//-then  12 bits for id.x (0~4095)
+	//-last  8  bits for alpha (0~255)
+	uint2 sampleID = uint2(packedData >> 8 & 0xFFF, packedData >> 20); //decode from single 32bit uint, to 3 separated uint (12bit y & 12bit x & 8bit alpha)
+	const uint alphaAsInt = packedData & 0xFF;
+	float alphaAsFloatingPoint = alphaAsInt / 255.0;
+
+	const float2 sampleUV = (sampleID.xy + 0.5) * TargetPixelSize;
+	float3 sampledColor = CameraOpaqueTexture.SampleLevel(LinearClamp, sampleUV, 0).rgb;
+
+	float4 finalColor = float4(sampledColor, alphaAsFloatingPoint);
+	finalColor.a = saturate(finalColor.a);
+	ColorRT[id.xy] = finalColor;
+}

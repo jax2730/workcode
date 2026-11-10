@@ -1,0 +1,361 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+#include <Common_Function_PS.inl>
+#include <Light_Function_PS.inl>
+#include <LandformPBRLighting.inl>
+#include <EnvironmentLight_Function.inl>
+#ifdef CLUSTER_POINT_LIGHT
+		#include "Shadow_Light_Function_PS.inl"
+#endif
+#include <LightingExp.inl>
+
+
+#ifndef BUMP_MAP
+	#undef RIPPLE
+#endif
+
+#define DEBUG_DISPLAY
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4	U_MaterialDiffuse;
+		Texture2D	S_Diffuse;
+		SamplerState S_DiffuseSamplerState;
+		
+		float4 texDiffuse(float2 vUV) 
+		{ 
+			return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+		}
+	#endif
+#else
+	float4	U_MaterialDiffuse;
+	float4	U_MaterialSpecular;
+	float4  U_MaterialFresnel;
+	float4	U_MaterialCustomParam;
+	float4	U_MaterialCustomParam1;
+
+	float4	U_LightPower;	//x for lightpower, y for specular offset
+
+
+	float4	U_PSGeneralRegister0;
+	float4	U_PSGeneralRegister1;
+	float4	U_PSGeneralRegister2;
+	float4	U_PSGeneralRegister3;
+	float4	U_PSGeneralRegister4;
+	float4	U_PSGeneralRegister5;
+	float4	U_PSGeneralRegister6;
+	float4	U_PSGeneralRegister7;
+	float4	U_PSGeneralRegister8;
+	float4  U_PSGeneralRegister9;
+	float4  U_PSGeneralRegister10;
+	float4  U_PSGeneralRegister11;
+	float4  U_PSGeneralRegister17;
+	float4  U_PSGeneralRegister30;
+	float4	U_PSGeneralRegister29; 	//x ---current mask percentage
+									//y --- if 1 on Lattice Cull Mask
+									//z ---alpha range
+									//w ---direction if w >= 0 Positive elseif w < 0 Reverse
+
+	
+	Texture2D	S_Diffuse;
+	SamplerState S_DiffuseSamplerState;
+	
+	#ifndef SIMPLE
+		Texture2D	S_Specular;
+		SamplerState S_SpecularSamplerState;
+	#endif
+	
+	#ifdef RIPPLE
+		Texture2D	S_Ripple;
+		SamplerState S_RippleSamplerState;
+		
+		float4 ComputeRipple(float2 uv, float t)
+		{
+			//波纹贴图采样，并把采样的高度值扩展到-1到1。
+			float4 ripple = S_Ripple.Sample(S_RippleSamplerState, uv);
+			float gloss = ripple.y;
+			ripple.yz = ripple.yz * 2.0 - 1.0;
+			//获取波纹的时间,从A通道获取不同的波纹时间,
+			float dropFrac = frac(ripple.a + t);
+			//把时间限制在R通道内	
+			float timeFrac = dropFrac - 1.0 + ripple.x;
+			//做淡出处理
+			float dropFactor = 1.0f-saturate( dropFrac);
+			//计算最终的高度，用一个sin计算出随时间的振幅	 
+			float final = dropFactor* sin(clamp(timeFrac * 9.0, 0.0, 4.0) * 3.1415926);
+			return float4(ripple.yz * final, 1.0, (final ) * 0.2);
+		}
+	#endif
+	
+	#ifdef DISSOLVE
+			Texture2D S_Custom7;
+			SamplerState S_Custom7SamplerState;
+	#endif
+	
+	Texture2D	S_Bump;
+	SamplerState S_BumpSamplerState;
+	
+	TextureCube	S_EnvironmentCubeMap;
+	SamplerState S_EnvironmentCubeMapSamplerState;
+	
+	float4 texDiffuse(float2 vUV) 
+	{ 
+		return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+	}
+	
+	//note: 染色的Mask图，rgba四个通道为4个部分的染色mask，应美术要求，细节法线的mask使用此贴图的红色通道，与染色的第一张mask重合
+    #if (defined(TEXTURE_MASK) || defined(DETAIL_BUMP))
+        Texture2D S_Custom4;
+        SamplerState S_Custom4SamplerState;
+    #endif
+#endif
+
+struct PS_INPUT
+{
+    float4	i_PosInClip			: SV_POSITION;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 	i_UV				: TEXCOORD0;
+	#endif
+#else
+	float4 	i_UV				: TEXCOORD0;
+	float4 	i_Fog				: TEXCOORD1;
+	float4	i_Normal			: TEXCOORD2;
+	float4	i_WPos				: TEXCOORD3;
+	
+	float4	i_Tangent			: TEXCOORD4;
+	float4	i_Binormal			: TEXCOORD5;
+	float4	i_EyeDir			: TEXCOORD6;
+	#ifdef USESHADOWMAP
+		float	i_ViewSpaceZ					: TEXCOORD7;
+	#endif
+	
+
+#endif
+
+#ifdef PARABOLOID_MAPPING
+	float	i_ClipDepth			: TEXCOORD12;
+#endif
+	float4  i_PosInModel		: TEXCOORD13;
+	float4  i_BoundBoxRange 	: TEXCOORD14;
+	float4 	i_worldMat0 		: TEXCOORD15;
+	float4 	i_worldMat1 		: TEXCOORD16;
+	float4 	i_worldMat2 		: TEXCOORD17;
+};
+
+#if !(defined(EDITOR_MODE) && defined(HierarchicalLOD))
+
+struct PS_OUTPUT
+{
+#ifndef SHADOWPASS
+	float4 color : SV_TARGET;
+#endif
+};
+#define NEW_GLASS
+#ifndef NEW_GLASS
+// TODO
+#else
+PS_OUTPUT main(PS_INPUT IN, bool isFrontFacing : SV_IsFrontFace)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+	#ifdef PARABOLOID_MAPPING
+		clip(IN.i_ClipDepth);
+	#endif
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+			float4 color = texDiffuse(IN.i_UV.xy);
+			clip(color.a - U_MaterialDiffuse.a);
+	#endif
+#else
+	float2 uv = IN.i_UV.xy;
+	uv *= U_PSGeneralRegister2.x;
+	#ifdef DISTORT
+		uv += (U_PS_Time.z * float2(U_PSGeneralRegister1.z, U_PSGeneralRegister1.w));
+	#else // DISTORT
+		uv += frac(U_PS_Time.z * float2(U_PSGeneralRegister1.z, U_PSGeneralRegister1.w));			
+	#endif //  DISTORT
+		
+	half4 diffuseColor = S_Diffuse.Sample(S_DiffuseSamplerState, uv);
+				
+	#ifdef ALPHA_TEST
+			clip(diffuseColor.a - U_MaterialDiffuse.a);
+	#endif
+
+	{
+		//dither discard
+		if(ComputeDitherCullMask(IN.i_PosInClip.xy,U_MaterialCustomParam1.y,U_MaterialCustomParam1.z))
+			discard;
+		
+		bool needDiscard = ComputeBitmapCullMask(U_PSGeneralRegister29, IN.i_BoundBoxRange, 
+		U_MaterialCustomParam1.z, IN.i_PosInModel.xyz, IN.i_PosInClip.xyz);
+		if(needDiscard)
+			discard;
+	}
+
+	#ifdef DISSOLVE
+		if(S_Custom7.Sample(S_Custom7SamplerState, uv).a < U_MaterialFresnel.y)
+		discard;	
+	#endif
+
+	half3 baseMap = pow(diffuseColor.rgb, 2.2);
+    baseMap * U_MaterialDiffuse.rgb;
+    float3 baseColor = 1.0;
+    float alpha = 1.0;
+    float roughness = U_PSGeneralRegister6.w;
+    float metallic = U_PSGeneralRegister8.y;;
+    float3 emission = 0.0;
+    float ao = 0.0;
+    float3 normal = float3(0.0, 0.0, 1.0);
+	
+#ifdef TEXTURE_MASK
+	half4 mask = S_Custom4.Sample(S_Custom4SamplerState, uv);
+	mask.w *= U_PSGeneralRegister7.w;
+	baseMap = dye(baseMap, U_PSGeneralRegister4.xyz, U_PSGeneralRegister5.xyz,
+				U_PSGeneralRegister6.xyz, U_PSGeneralRegister7.xyz, mask);
+#else 
+	baseMap *= U_PSGeneralRegister4.xyz;
+#endif
+
+	float3 sceneColor = 0.5;
+    baseColor = sceneColor * baseMap;
+	alpha = diffuseColor.a;
+	
+    half3 N = normalize(IN.i_Normal.xyz);
+	
+#ifdef TWO_SIDES
+		float frontValue = isFrontFacing ? 1.0f : -1.0f;
+		N *= frontValue;
+#endif
+	
+#ifdef USESHADOWMAP
+	float4 shadowSpacePos[SHADOWSPLITE];
+	ProjectToLightSpace(shadowSpacePos, IN.i_WPos.xyz, N, IN.i_ViewSpaceZ);
+#endif
+
+    half3 V = normalize(IN.i_EyeDir.xyz);
+	
+#ifdef BUMP_MAP
+	half3 nn = N; // normalize(IN.i_Normal.xyz);
+	half3 tn = normalize(IN.i_Tangent.xyz);
+	half3 bn = normalize(IN.i_Binormal.xyz);
+
+	tn = normalize(tn - nn * dot(tn, nn));
+	bn = normalize(bn - nn * dot(bn, nn));	
+
+    half3x3 tbn = 
+	{
+		tn.x, bn.x, nn.x,
+		tn.y, bn.y, nn.y,
+		tn.z, bn.z, nn.z 
+	};
+    
+    half4 bumpColor = S_Bump.Sample(S_BumpSamplerState, uv);
+
+    half3 bump = bumpColor.rgb * 2.0 - 1.0;
+    bump.xy *= U_PSGeneralRegister2.w;
+    bump.z = 1.h;
+
+    bump = normalize(bump);
+    N = mul(tbn, bump);
+#endif // BUMP_MAP
+	normal = N;
+
+	float coverLerp = dot(N, U_PS_GravityDirection.xyz);	
+	coverLerp += U_PSGeneralRegister11.z;
+	coverLerp = clamp(coverLerp, 0.0, 1.0);
+
+	coverLerp = coverLerp * U_PSGeneralRegister11.w;
+
+	half3 coverMap = U_WeatherParam0.xyz;
+	coverLerp *= U_WeatherParam0.w * (1.0 - U_PSGeneralRegister30.x);
+	baseMap = lerp(baseMap, coverMap, coverLerp);
+	
+	InputData inputData = (InputData)0;
+	inputData.positionWS = IN.i_WPos;
+	inputData.positionCS = IN.i_PosInClip;
+	inputData.normalWS = normal;
+	inputData.viewDirectionWS = normalize(IN.i_EyeDir.xyz);
+	inputData.visiableValue = U_PS_ViewLightPercent.x;
+#ifdef USESHADOWMAP
+	inputData.viewZ = IN.i_ViewSpaceZ;
+	inputData.positionLS = shadowSpacePos;
+	
+#endif
+
+	half4 specularColor = S_Specular.Sample(S_SpecularSamplerState, uv);
+
+	SurfaceData surfaceData = (SurfaceData)0;
+	surfaceData.albedo = baseMap;
+	surfaceData.specular = 0.0;
+	surfaceData.metallic = specularColor.r;
+	surfaceData.roughness = specularColor.g + U_PSGeneralRegister8.w;
+	surfaceData.alpha = alpha;
+	surfaceData.occlusion = specularColor.b;
+
+	Light mainLight = GetMainLight(inputData, surfaceData.occlusion);
+	// psOut.color = float4(mainLight.light_color.xyz, 1.0);
+	// return psOut;
+
+#ifdef ENVIRONMENT_MAP
+	surfaceData.emission = CalculateGlossyEnvColor(inputData.normalWS, inputData.viewDirectionWS, 1.0, metallic, roughness, 1.0, 0.0,
+	0.0, U_GlobalEnvironmentCubeMipMapLevels.x, S_GlobalEnvironmentCubeMap,
+	S_GlobalEnvironmentCubeMapSamplerState);
+	surfaceData.emission *= U_PSGeneralRegister8.z;
+#endif
+
+	// pbr lighting
+    float4 finalColor1 = Fragment_PBR_Lighting(inputData, surfaceData);
+	finalColor1 = min(finalColor1, 5.0);
+    psOut.color = float4(finalColor1);
+	psOut.color.rgb = psOut.color.rgb * IN.i_Fog.a + IN.i_Fog.rgb;
+	psOut.color.xyz = pow(psOut.color.xyz, 1.0 / 2.2);
+#endif // not SHADOWPASS
+    return psOut;
+}
+#endif
+
+#else // EDITOR_MODE && HierarchicalLOD
+//TODO:: integrate this shit into main
+
+struct PS_OUTPUT{
+	float4 albedo			: SV_TARGET0;
+	float4 roughnessMetal	: SV_TARGET1;
+	float4 normal			: SV_TARGET2;
+};
+
+PS_OUTPUT main(PS_INPUT IN, bool isFrontFacing : SV_IsFrontFace)
+{
+	PS_OUTPUT psOut;
+	float2 uv = IN.i_UV.xy;
+	half4 diffuseColor = S_Diffuse.Sample(S_DiffuseSamplerState, uv);
+	
+	half3 baseMap = pow(diffuseColor.rgb, 2.2);
+    baseMap * U_MaterialDiffuse.rgb;
+
+    float3 bump = float3(0.0, 0.0, 1.0);
+#ifdef BUMP_MAP
+    half4 bumpColor = S_Bump.Sample(S_BumpSamplerState, uv);
+    bump = bumpColor.rgb * 2.0 - 1.0;
+    bump.xy *= U_PSGeneralRegister2.w;
+    bump.z = sqrt(saturate(1.h - bump.x * bump.x - bump.y * bump.y));
+#endif // BUMP_MAP
+
+#ifdef TEXTURE_MASK
+	half4 mask = S_Custom4.Sample(S_Custom4SamplerState, uv);
+	mask.w *= U_PSGeneralRegister7.w;
+	baseMap = dye(baseMap, U_PSGeneralRegister4.xyz, U_PSGeneralRegister5.xyz,
+				U_PSGeneralRegister6.xyz, U_PSGeneralRegister7.xyz, mask);
+#endif // TEXTURE_MASK
+	half4 specularColor = S_Specular.Sample(S_SpecularSamplerState, uv);
+	half metallic = specularColor.r;
+	half roughness = specularColor.g + U_PSGeneralRegister8.w;
+	psOut.albedo = float4(pow(baseMap.xyz, 1.0 / 2.2h), 1.f);
+	psOut.roughnessMetal = float4(metallic, roughness, 1.f, 1.f);
+	psOut.normal = float4(normalize(bump) * 0.5h + 0.5h, 1.f);
+	return psOut;
+}
+#endif // EDITOR_MODE && HierarchicalLOD

@@ -1,0 +1,124 @@
+float4 U_PSCustom0;     //1/RTWight,1/RTHeight,InvR2,aoRange
+float4 U_PSCustom1;     //bias,radius,intensity,AOMultiplier
+float4 U_PSCustom2[4];	//InvProjectMatrix
+float4 U_PSCustom3;		//viewSpace cameraPosi
+Texture2D S_2DExt0;//Depth
+SamplerState S_2DExt0SamplerState;
+#define M_PI 3.14159265f
+#define AO_RADIUS_STEP 5.0f
+#define AO_DIRECTION_STEP 3.0f
+
+struct PS_INPUT
+{
+  float4 i_Position	: SV_POSITION; 
+  float4 i_UV	: TEXCOORD0;
+};
+struct PS_OUTPUT
+{
+	float4 color : SV_TARGET;
+};
+
+float3 FetchViewPos(float2 uv)
+{
+  	float4 tempPos = float4(uv, 0.0, 1.0);
+	tempPos.z= S_2DExt0.Sample(S_2DExt0SamplerState,uv).r;
+	tempPos.x = uv.x * 2.0 - 1.0;
+	tempPos.y = (1.0 - uv.y) * 2.0 - 1.0;
+	float4 viewSpacePos;
+	viewSpacePos.x = dot(U_PSCustom2[0], tempPos);
+	viewSpacePos.y = dot(U_PSCustom2[1], tempPos);
+	viewSpacePos.z = dot(U_PSCustom2[2], tempPos);
+	viewSpacePos.w = dot(U_PSCustom2[3], tempPos);
+	float3 pixelViewPosi=viewSpacePos.xyz / viewSpacePos.w+ U_PSCustom3.xyz;
+	return pixelViewPosi;
+}
+
+float3 MinDiff(float3 P, float3 Pr, float3 Pl)
+{
+  float3 V1 = Pr - P;
+  float3 V2 = P - Pl;
+  return (dot(V1,V1) < dot(V2,V2)) ? V1 : V2;
+}
+
+float3 ReconstructNormal(float2 UV, float3 P)
+{
+  float3 Pr = FetchViewPos(UV + float2(U_PSCustom0.x, 0));
+  float3 Pl = FetchViewPos(UV + float2(-U_PSCustom0.x, 0));
+  float3 Pt = FetchViewPos(UV + float2(0, U_PSCustom0.y));
+  float3 Pb = FetchViewPos(UV + float2(0, -U_PSCustom0.y));
+  return normalize(cross(MinDiff(P, Pt, Pb),MinDiff(P, Pr, Pl)));
+}
+
+
+float Falloff(float DistanceSquare)
+{
+  return 1.f-clamp(DistanceSquare * U_PSCustom0.z,0,1);
+}
+
+float ComputeAO(float3 P, float3 N, float3 S)
+{
+  float3 V = S - P;
+  float NdotV = dot(N, V); 
+  float VdotV = dot(V, V);
+  float VprojN=NdotV* 1.0/sqrt(VdotV);
+  return clamp(VprojN - U_PSCustom1.x,0,1.f)*Falloff(VdotV);
+}
+
+//----------------------------------------------------------------------------------
+float2 RotateDirection(float2 Dir, float2 CosSin)
+{
+  return float2(Dir.x*CosSin.x - Dir.y*CosSin.y,
+              Dir.x*CosSin.y + Dir.y*CosSin.x);
+}
+
+//----------------------------------------------------------------------------------
+float ComputeCoarseAO(float2 FullResUV, float RadiusPixels, float2 Rand, float3 ViewPosition, float3 ViewNormal)
+{
+ const float Alpha = 2.0 * M_PI / AO_DIRECTION_STEP;
+  float AO = 0;
+  float step=RadiusPixels/AO_RADIUS_STEP;
+  float Radius=0.f;
+  float WigthCut=0.f;
+  for(float Index = 0; Index < AO_RADIUS_STEP; ++Index)
+  {
+    Radius += step;
+	float Angle=0.f;
+	float wigth=5.f-Index;
+	WigthCut+=wigth;
+    for (float DirectionIndex = 0; DirectionIndex < AO_DIRECTION_STEP; ++DirectionIndex)
+    {
+       Angle += Alpha;
+       float2 Direction = RotateDirection(float2(cos(Angle), sin(Angle)),Rand.xy);
+	   float2 SnappedUV = round(Radius * Direction) * U_PSCustom0.xy + FullResUV;
+       float3 S = FetchViewPos(SnappedUV).xyz;
+       AO += (ComputeAO(ViewPosition, ViewNormal, S)*wigth); 
+    }
+  }
+  AO *= U_PSCustom1.w / (AO_DIRECTION_STEP*AO_RADIUS_STEP+WigthCut);
+  return clamp(1.0 - AO * 2.0,0,1);
+}
+
+float VSZToG(float z)
+{
+  float depth = z+10000.f;
+  float pick=depth/65536.f;
+  return pick;
+}
+	
+PS_OUTPUT main(PS_INPUT IN){
+    PS_OUTPUT psOut = (PS_OUTPUT)0;
+    float2 uv = IN.i_UV.xy;
+	float3 ViewPosition = FetchViewPos(uv);
+	float res_ao=1.f;
+	float distCamera=distance(ViewPosition,U_PSCustom3.xyz);
+	if(distCamera<=U_PSCustom0.w)
+	{
+	    float3 ViewNormal = ReconstructNormal(uv,ViewPosition);
+        float RadiusPixels =U_PSCustom1.y / ViewPosition.z;
+		float2  Rand=float2(0.917647, 0.564706);
+        res_ao = ComputeCoarseAO(uv, RadiusPixels, Rand, ViewPosition, ViewNormal);
+	    res_ao = pow(res_ao, U_PSCustom1.z);
+	}
+	psOut.color=float4(res_ao, VSZToG(ViewPosition.z), 0.f, 1.0f);
+	return psOut;
+}

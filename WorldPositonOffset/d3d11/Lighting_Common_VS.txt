@@ -1,0 +1,22 @@
+
+struct VS_INPUT
+{
+	float4 position	: POSITION0;
+	float4 uv	    : TEXCOORD0;
+};
+
+struct VS_OUTPUT
+{
+	float4 position	: SV_POSITION;
+	float4 uv		: TEXCOORD0;
+	float4 pos 		: TEXCOORD1;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	vsOut.position = float4(IN.position.xy, 1.0, 1.0);
+	vsOut.uv.xy = IN.uv.xy;	
+	vsOut.pos = vsOut.position;
+	return vsOut;
+}

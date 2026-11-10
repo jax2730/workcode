@@ -1,0 +1,21 @@
+#include <Common_GpuCull_CS.inl>
+
+#define thread_group_size_x 1u
+#define thread_group_size_y 1u
+
+
+RWByteAddressBuffer B_CSCustom0;		
+
+[numthreads(thread_group_size_x, thread_group_size_y, 1)]
+void main(uint3 threadIDInGroup : SV_GroupThreadID,
+			uint3 groupID : SV_GroupID,
+			uint groupIndex : SV_GroupIndex,
+			uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+	uint sum = 0u;
+	for(uint idx = 0u; idx < LOOPCOUNT; ++idx)
+	{
+		RawBufferStoreUint(B_CSCustom0, idx * DISPATCH_OFFSET + 2, sum); //B_CSCustom0[idx * DISPATCH_OFFSET + 2] = sum;
+		sum += RawBufferLoadUint(B_CSCustom0, idx * DISPATCH_OFFSET + 0); //B_CSCustom0[idx * DISPATCH_OFFSET + 0];
+	}
+}

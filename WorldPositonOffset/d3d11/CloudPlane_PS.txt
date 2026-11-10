@@ -1,0 +1,61 @@
+
+#include <Common_Uniform_PS.inl>
+
+
+float4	U_PSCustom0[4];
+
+Texture2D	S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+float4 texDiffuse(float2 vUV) 
+{ 
+    return S_Diffuse.Sample(S_DiffuseSamplerState, vUV);
+}
+
+
+struct PS_INPUT
+{
+    float4 i_Position	: SV_POSITION;
+	float4 i_UV				: TEXCOORD0;
+	float4 i_CustomParam	: TEXCOORD1;
+	//float4 i_FogColor		: TEXCOORD2;
+};
+
+struct PS_OUTPUT
+{
+    float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+	
+	float len = min(0.5f, abs(length(IN.i_UV.xy - float2(0.5f,0.5f))));
+	
+	float2 uv = IN.i_UV.xy;	
+	uv += U_PSCustom0[2].xy;	
+	uv *= U_PSCustom0[2].z;
+	float4 diffuseColor = texDiffuse(uv);
+	
+	psOut.o_Color = diffuseColor;
+	
+	float3 cloudDir = normalize(IN.i_CustomParam.xyz); 
+	
+	float factor = max(dot(cloudDir,-U_MainLightDirection.xyz), 0.0f);
+	factor = factor * factor * factor;
+		
+	float emendation = (1.0f - factor) * U_PSCustom0[3].y;
+	
+	psOut.o_Color.rgb = U_PSCustom0[0].rgb * emendation + U_PSCustom0[1].rgb * diffuseColor.rgb * factor;
+	
+	//psOut.o_Color.rgb = psOut.o_Color.rgb * IN.i_FogColor.a + IN.i_FogColor.rgb;
+	
+	float alphaFactor = max(len,0.4f) - 0.4f;
+	alphaFactor = alphaFactor / 0.1f;
+	alphaFactor = 1.0f - alphaFactor;
+	
+	psOut.o_Color.a *= U_PSCustom0[3].x * alphaFactor;
+	float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.o_Color = psOut.o_Color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp); 
+	return psOut;
+}

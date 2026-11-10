@@ -1,0 +1,116 @@
+
+#include <Common_Uniform_PS.inl> 
+
+float4	U_MaterialDiffuse;
+float4	U_MaterialSpecular;
+
+Texture2D	S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+Texture2D	S_Specular;
+SamplerState S_SpecularSamplerState;
+Texture2D 	S_Custom;
+SamplerState S_CustomSamplerState;
+
+float4	U_MaterialCustomParam;
+
+float4	U_PSGeneralRegister0;
+float4	U_PSGeneralRegister1;
+float4	U_PSGeneralRegister2;
+float4	U_PSGeneralRegister3;
+float4	U_PSGeneralRegister4;
+float4	U_PSGeneralRegister5;
+float4	U_PSGeneralRegister6;
+
+
+struct PS_INPUT
+{
+    float4  i_Position	: SV_POSITION;
+	float4 	i_UV				: TEXCOORD0;
+	float4 	i_Fog				: TEXCOORD1;
+	float4	i_Normal			: TEXCOORD2;
+	float4	i_WPos				: TEXCOORD3;
+	
+	float4	i_Tangent			: TEXCOORD4;
+	float4	i_Binormal			: TEXCOORD5;
+	float4	i_EyeDir			: TEXCOORD6;
+};
+
+struct PS_OUTPUT
+{
+	float4 color          : SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+	float2 uv = IN.i_UV.xy;
+	float4 diffuse = S_Diffuse.Sample(S_DiffuseSamplerState, uv);
+	float faceA = diffuse.r;
+	float2 center = float2(U_PSGeneralRegister1.r,U_PSGeneralRegister1.g);
+	float4 cc = 0.0;
+	cc.rgb = U_PSGeneralRegister5.rgb;
+	
+	float runTime = U_PS_Time.x - U_PSGeneralRegister4.z;
+	float runTime2 = runTime;
+	//runTime = fmod(runTime, U_PSGeneralRegister1.z);
+	float curRunRadiu = runTime * U_PSGeneralRegister2.a;
+	
+	runTime = runTime / U_PSGeneralRegister1.z;
+	
+	float flowWidth = runTime * U_PSGeneralRegister1.w;
+	
+	float isInFlow = 0.0f;
+	float2 offsetuv = uv - center;
+	float rr = offsetuv.x * offsetuv.x + offsetuv.y * offsetuv.y;
+	
+	float alphaD = rr - curRunRadiu;
+	alphaD = abs(alphaD);
+	alphaD = alphaD / flowWidth;
+	alphaD = min(alphaD, 1.0);
+	alphaD = 1.0 - alphaD;
+	alphaD *= alphaD;
+	alphaD *= alphaD;
+	
+	float aaaaa = rr - curRunRadiu - 0.02;
+	aaaaa = abs(aaaaa);
+	aaaaa = aaaaa / 0.04;
+	aaaaa = min(aaaaa, 1.0);
+	aaaaa = 1.0 - aaaaa;
+	aaaaa *= aaaaa;
+	aaaaa *= aaaaa;
+	
+	float outOutRange = step(curRunRadiu + 0.04, rr);
+	float outInnerRanger = step(curRunRadiu, rr);
+	isInFlow = outInnerRanger - outOutRange;
+	
+	cc.rgb = U_PSGeneralRegister6.xyz;
+	cc.a = alphaD * U_PSGeneralRegister6.w;
+	
+	cc.rgb = lerp(cc.rgb, U_PSGeneralRegister3.xyz * U_PSGeneralRegister4.x, isInFlow * aaaaa);
+	
+	cc.a *= faceA;
+	float4 mask_tex = S_Specular.Sample(S_SpecularSamplerState, uv);
+	float mask = 0.0f;
+	mask += mask_tex.r * U_PSGeneralRegister0.r;
+	mask += mask_tex.g * U_PSGeneralRegister0.g;
+	mask += mask_tex.b * U_PSGeneralRegister0.b;
+	
+	float3 maskColor = U_PSGeneralRegister5.rgb;
+	
+	float bb = fmod(runTime2, U_PSGeneralRegister4.y * 2.0);
+	float dd = bb - U_PSGeneralRegister4.y;
+	dd = abs(dd);
+	dd = dd / U_PSGeneralRegister4.y;
+	mask *= dd;
+	
+	psOut.color.rgb = lerp(cc.rgb, maskColor, mask);
+	psOut.color.rgb *= U_PSGeneralRegister2.rgb * 1.5f * U_PSGeneralRegister3.w;
+    psOut.color.a = lerp(cc.a, faceA * U_PSGeneralRegister5.w, mask);
+	
+	#ifdef EDITOR_MODE
+	if(U_MaterialCustomParam.w > 0)
+		psOut.color.rgb = U_MaterialCustomParam.xyz;			
+	#endif
+	
+	return psOut;
+}

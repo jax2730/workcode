@@ -1,0 +1,192 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Light_Function_PS.inl>
+#include <KarstRiver.inl>
+
+Texture2DArray<float3> S_2DExt2; //tex_NormalMap
+Texture2DArray<float4> S_2DExt3; //tex_GISTextureMap
+
+Texture2DArray<float> S_2DExt6; //tex_MaskMap
+Texture2DArray<float> S_2DExt7; //tex_RoadMaskMap
+Texture2D<float3> S_2DExt8; //tex_Road
+Texture2DArray<float> S_2DExt9; //tex_ID
+Texture2DArray<float4> S_2DExt10; //tex_CustomTexture
+Texture2DArray<float3> S_2DExt11; //tex_CustomNormal
+Texture2D<float4> S_2DExt12; //tex_CustomNormal
+
+SamplerState S_2DExt2SamplerState;
+SamplerState S_2DExt3SamplerState;
+
+SamplerState S_2DExt6SamplerState;
+SamplerState S_2DExt7SamplerState;
+SamplerState S_2DExt8SamplerState;
+SamplerState S_2DExt9SamplerState;
+SamplerState S_2DExt10SamplerState;
+SamplerState S_2DExt11SamplerState;
+SamplerState S_2DExt12SamplerState;
+
+#ifdef CLUSTER_POINT_LIGHT
+	#include "Shadow_Light_Function_PS.inl"
+#endif
+
+struct PS_INPUT
+{
+    float4	i_PosInClip	: SV_POSITION;
+	float4  i_WorldPos  : TEXCOORD0;
+	float2	i_UVBase	: TEXCOORD1;
+	float4	i_FogColor	: TEXCOORD2;
+	float	i_Blend		: TEXCOORD3;
+	float3	i_ViewDir	: TEXCOORD4;
+	float2	i_TexUV		: TEXCOORD5;
+	float2	i_GISTexUV	: TEXCOORD6;
+	uint	i_level		: BLENDINDICES;
+	uint	i_index		: BLENDINDICES1;
+	uint    i_texLevel	: BLENDINDICES2;
+	//float3	i_Normal	: TEXCOORD4;
+#ifdef PARABOLOID_MAPPING
+	float	i_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+int convertMaterialID(float value)
+{
+	int id = round(value * 255);
+	if(id == 11) return 0;
+	else if(id == 12) return 1;
+	else if(id == 21) return 2;
+	else if(id == 22) return 3;
+	else if(id == 23) return 4;
+	else if(id == 24) return 5;
+	else if(id == 25) return 6;
+	else if(id == 31) return 7;
+	else if(id == 32) return 8;
+	else if(id == 33) return 9;
+	else if(id == 41) return 10;
+	else if(id == 42) return 11;
+	else if(id == 43) return 12;
+	else if(id == 44) return 13;
+	else if(id == 45) return 14;
+	else if(id == 46) return 15;
+	else if(id == 51) return 16;
+	else if(id == 52) return 17;
+	else if(id == 53) return 18;
+	else if(id == 54) return 19;
+	else if(id == 61) return 20;
+	else if(id == 62) return 21;
+	else if(id == 63) return 22;
+	else if(id == 64) return 23;
+	else if(id == 65) return 24;
+	else if(id == 66) return 25;
+	else if(id == 67) return 26;
+	else if(id == 99) return 27;
+	else return 7;
+}
+
+float3 UnpackNormal(in float3 sampledNormal, float strength){
+	float3 n = 2.f * sampledNormal - 1.f;
+	return normalize(float3(n.x * strength, n.y * strength, 1.0f));
+}
+    
+float4 main(PS_INPUT IN) : SV_TARGET
+{
+#ifdef SHADOWPASS
+	return 1.0f;
+#else
+#ifdef PARABOLOID_MAPPING
+	clip(IN.i_ClipDepth);
+#endif
+
+	float3 N = S_2DExt2.SampleLevel(S_2DExt2SamplerState, float3(IN.i_UVBase, IN.i_level), 0);
+	N = normalize(N.xyz - 0.5);
+
+	float4 oColor = 0.435294f;
+
+	float2 vTexUV = IN.i_TexUV * 512.0;
+	float4 random = S_2DExt12.Sample(S_2DExt12SamplerState, vTexUV);
+
+	float2 i_TexUV = IN.i_TexUV * 8192.0 + random.xy;
+
+	float3 roadColor = S_2DExt8.Sample(S_2DExt8SamplerState, i_TexUV);
+	//float3 roadColor = float3(0.38, 0.35, 0.29);
+
+	int2 indexSize = 1024;
+	float2 continuousCoord = IN.i_TexUV * indexSize;
+	int2 coordBase = floor(continuousCoord);
+	float2 uv = continuousCoord - coordBase;
+
+	int aroundID[4];
+	aroundID[0] = convertMaterialID(S_2DExt9.Load(int4(coordBase.x, coordBase.y, IN.i_index, 0)));
+	aroundID[1] = convertMaterialID(S_2DExt9.Load(int4(coordBase.x + 1, coordBase.y, IN.i_index, 0)));
+	aroundID[2] = convertMaterialID(S_2DExt9.Load(int4(coordBase.x, coordBase.y + 1, IN.i_index, 0)));
+	aroundID[3] = convertMaterialID(S_2DExt9.Load(int4(coordBase.x + 1, coordBase.y + 1, IN.i_index, 0)));     
+
+	float4 c0 = S_2DExt10.Sample(S_2DExt10SamplerState, float3(i_TexUV, aroundID[0]));
+	float4 c1 = S_2DExt10.Sample(S_2DExt10SamplerState, float3(i_TexUV, aroundID[1]));
+	float4 c2 = S_2DExt10.Sample(S_2DExt10SamplerState, float3(i_TexUV, aroundID[2]));
+	float4 c3 = S_2DExt10.Sample(S_2DExt10SamplerState, float3(i_TexUV, aroundID[3]));
+
+	float4 c4 = lerp(c0,c1,uv.x);
+	float4 c5 = lerp(c2,c3,uv.x);
+
+	float4 gisColor = lerp(lerp(c4,c5,uv.y) , S_2DExt3.Sample(S_2DExt3SamplerState, float3(IN.i_GISTexUV, IN.i_texLevel)), 0.5);
+
+	float3 n0 = S_2DExt11.Sample(S_2DExt11SamplerState, float3(i_TexUV, aroundID[0]));
+	float3 n1 = S_2DExt11.Sample(S_2DExt11SamplerState, float3(i_TexUV, aroundID[1]));
+	float3 n2 = S_2DExt11.Sample(S_2DExt11SamplerState, float3(i_TexUV, aroundID[2]));
+	float3 n3 = S_2DExt11.Sample(S_2DExt11SamplerState, float3(i_TexUV, aroundID[3]));
+
+	float3 n4 = lerp(n0, n1, uv.x);
+	float3 n5 = lerp(n2, n3, uv.x);
+	float3 nor = lerp(n4, n5, uv.y);
+	nor = UnpackNormal(nor.xyz, 1.0);
+	float3 T = float3(1.0,0.0,0.0);
+	float3 B = cross(T,N);
+	T = cross(N, B);
+	column_major float3x3 TBN = float3x3(T.x, T.y, T.z,
+										 B.x, B.y, B.z,
+										 N.x, N.y, N.z);
+
+ 	float4 cBaseNormal =float4(mul(nor, TBN), 0.0);
+
+	float roadMask = S_2DExt7.SampleLevel(S_2DExt7SamplerState, float3(float2(IN.i_TexUV.x, IN.i_TexUV.y), IN.i_index), 0);
+	float4 albedo = float4(lerp(gisColor.rgb, roadColor, roadMask), 1.0);
+
+	float4 cBaseDiffuse = float4(albedo.rgb, 1.0);
+	
+	float fNdotL = clamp(dot(cBaseNormal.xyz, -U_MainLightDirection.xyz), 0.0f, 1.0f);
+	
+	float3 cLight = fNdotL * U_MainLightColor.rgb;
+	//cLight += lerp(U_GroundLightColor.rgb, U_SkyLightColor.rgb, cBaseNormal.y * 0.5f + 0.5f);
+	
+	float3 vViewDir = normalize(IN.i_ViewDir);
+	float4 vLit = lit(1.f, dot(normalize(vViewDir - U_MainLightDirection.xyz), cBaseNormal.xyz), cBaseNormal.w);
+	float3 cLightSpecular = vLit.z * U_MainLightColor.rgb * cBaseDiffuse.w * U_MainLightColor.a;
+
+	float3 cPointLightDiffAcc = 0.0f;
+	float3 cPointLightSpecAcc = 0.0f;
+
+	oColor.rgb = cBaseDiffuse.rgb * fNdotL * U_MainLightColor.rgb + cBaseDiffuse.rgb * (U_GroundLightColor.rgb + U_SkyLightColor.rgb);
+
+	if(U_PS_CameraPosition.y >= 35000.0) {
+		float riverMask = S_2DExt6.SampleLevel(S_2DExt6SamplerState, float3(float2(IN.i_TexUV.x, IN.i_TexUV.y), IN.i_index), 0);			
+		if(riverMask > 0.1){
+			float3 N = float3(0.0, 1.0, 0.0);
+			float3 E = normalize(IN.i_WorldPos.xyz - U_PS_CameraPosition.xyz);
+			float3 H = normalize(-E - U_MainLightDirection.xyz);
+    		// float NdotH = dot(N, H);
+			// float fresnel = (0.04 + (1.0 - 0.04) * (pow(1.0 - max(0.0, dot(-N, E)), 5.0)));
+			// float3 waterColor = float3(0.2f, 0.26f, 0.23f);
+			// float3 scattering = float3(0.1117, 0.1217, 0.1317) * 0.2;
+			// float3 reflectColor = U_SkyLightColor.rgb;
+			// float fNDotL = dot(N, -U_MainLightDirection.xyz);
+			// oColor.rgb = (waterColor * (1.0 - fresnel) * dot(N, -U_MainLightDirection.xyz) + pow(NdotH, 25.0)) * U_MainLightColor  + fresnel * reflectColor + scattering;
+			oColor.rgb = riverShade(N,E,H,U_MainLightColor.rgb,U_SkyLightColor.rgb,fNDotL);
+		}
+	}
+
+	oColor.a = 1.f;
+	float overdrawlerp = ceil(U_PS_Time.w);
+	oColor = oColor * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+	return oColor;
+#endif
+}

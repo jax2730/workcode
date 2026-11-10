@@ -1,0 +1,53 @@
+#include <Common_Uniform_VS.inl>
+float4	U_WorldViewProjectMatrix[4];
+  
+float4	U_VSCustom0[6];
+
+struct VS_INPUT
+{
+	float4 i_Offset		: POSITION0;
+	float4 i_UV			: TEXCOORD0;
+};
+
+struct VS_OUTPUT
+{
+	float4 o_Position	: SV_POSITION;
+	float4 o_UV			: TEXCOORD0;
+	float4 o_SunPosClip : TEXCOORD1;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+   	
+	float3 lensFlarePos = U_VSCustom0[2].xyz;
+	lensFlarePos += U_VSCustom0[1].xyz * U_VSCustom0[0].x * U_VSCustom0[1].w;
+	float2 offset = float2(U_VSCustom0[0].y * IN.i_Offset.x , U_VSCustom0[0].z * IN.i_Offset.y);
+	lensFlarePos = lensFlarePos + offset.x * U_VSCustom0[3].xyz + offset.y * U_VSCustom0[4].xyz;
+	
+	float4 vPos;
+	vPos.xyz = lensFlarePos;
+	vPos.w = 1.0f;
+
+	vsOut.o_Position.x = dot(U_WorldViewProjectMatrix[0], vPos);
+	vsOut.o_Position.y = dot(U_WorldViewProjectMatrix[1], vPos);
+	vsOut.o_Position.z = dot(U_WorldViewProjectMatrix[2], vPos);
+	vsOut.o_Position.w = dot(U_WorldViewProjectMatrix[3], vPos);
+
+	vsOut.o_UV.xy = IN.i_UV.xy;
+
+	float4 sunRealPos = U_VSCustom0[5];
+	sunRealPos.w = 1.0f;
+	vsOut.o_SunPosClip.x = dot(U_WorldViewProjectMatrix[0], sunRealPos);
+	vsOut.o_SunPosClip.y = dot(U_WorldViewProjectMatrix[1], sunRealPos);
+	vsOut.o_SunPosClip.z = dot(U_WorldViewProjectMatrix[2], sunRealPos);
+	vsOut.o_SunPosClip.w = dot(U_WorldViewProjectMatrix[3], sunRealPos);
+	vsOut.o_SunPosClip.xyz = vsOut.o_SunPosClip.xyz / vsOut.o_SunPosClip.w;
+	vsOut.o_SunPosClip.w = 1.0f;
+#ifdef EDITOR_MODE
+	#ifdef HierarchicalLOD
+		vsOut.o_Position = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+	#endif
+#endif	
+	return vsOut;
+}

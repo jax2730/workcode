@@ -1,0 +1,179 @@
+
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+#ifdef SHADOWPASS
+	#ifdef USEINSTANCE
+		uniform float4 U_VSCustom0[InstanceCount * 3]; // U_WorldMatrixInstanced
+	#else
+		uniform float4 U_WorldViewProjectMatrix[4];
+	#endif
+	
+	struct VS_INPUT
+	{
+		float4 i_Pos :	POSITION0;
+	};
+
+	struct VS_OUTPUT
+	{
+		float4 o_PosInClip :	SV_POSITION;
+	#ifdef PARABOLOID_MAPPING
+		float	o_ClipDepth			: TEXCOORD12;
+	#endif
+	};
+
+
+	VS_OUTPUT main(VS_INPUT IN,uint i_InstanceID :	SV_InstanceID)
+	{
+	    VS_OUTPUT vsOut = (VS_OUTPUT)0;
+		
+		float4 i_Pos = IN.i_Pos;
+		i_Pos.w = 1.0f;
+		
+	#ifdef USEINSTANCE
+		int idxWorld = i_InstanceID * 3;
+		float4 ptWPos = float4(1.f,1.f,1.f,1.f);
+		ptWPos[0] = dot(U_VSCustom0[idxWorld + 0], i_Pos);
+		ptWPos[1] = dot(U_VSCustom0[idxWorld + 1], i_Pos);
+		ptWPos[2] = dot(U_VSCustom0[idxWorld + 2], i_Pos);
+
+		vsOut.o_PosInClip.x = dot(U_ViewProjectMatrix[0], ptWPos);	
+		vsOut.o_PosInClip.y = dot(U_ViewProjectMatrix[1], ptWPos);
+		vsOut.o_PosInClip.z = dot(U_ViewProjectMatrix[2], ptWPos);
+		vsOut.o_PosInClip.w = dot(U_ViewProjectMatrix[3], ptWPos);
+	#else
+		vsOut.o_PosInClip.x = dot(U_WorldViewProjectMatrix[0], i_Pos);
+		vsOut.o_PosInClip.y = dot(U_WorldViewProjectMatrix[1], i_Pos);
+		vsOut.o_PosInClip.z = dot(U_WorldViewProjectMatrix[2], i_Pos);
+		vsOut.o_PosInClip.w = dot(U_WorldViewProjectMatrix[3], i_Pos);
+	#endif
+	
+	#ifdef PARABOLOID_MAPPING
+		vsOut.o_ClipDepth = vsOut.o_PosInClip.z;
+		ParaboloidMapping(vsOut.o_PosInClip, U_ShadowLightDepthMulAdd.x, U_ShadowLightDepthMulAdd.z, U_ShadowLightDepthMulAdd.w);
+	#endif
+
+		vsOut.o_PosInClip.w = clamp(vsOut.o_PosInClip.w, 0, 1.f);
+		
+		return vsOut;
+	}
+
+#else
+	// normal pass
+
+	#ifdef USEINSTANCE
+		uniform float4 U_VSCustom0[InstanceCount * 3]; // U_WorldMatrixInstanced
+	#else
+		uniform float4 U_WorldMatrix[3];
+		uniform float4 U_InvTransposeWorldMatrix[3];
+		uniform float4 U_WorldViewProjectMatrix[4];
+		uniform float4 U_ObjectMirrored;
+	#endif
+
+	uniform float4 U_VSGeneralRegister0;
+
+
+	struct VS_INPUT
+	{
+		float4 i_Pos		: POSITION0;
+		float4 i_Normal		: NORMAL0;
+		float4 i_UV			: TEXCOORD0;	
+		float4 i_Tangent	: TANGENT0;
+	};
+
+	struct VS_OUTPUT
+	{
+		float4	o_PosInClip			: SV_POSITION;
+		float4 	o_UV				: TEXCOORD0;	// z: aging factor, w: View Space Z for USESHADOWMAP
+		float4	o_Fog				: TEXCOORD1;
+		float4	o_WNormal			: TEXCOORD2;
+		float4	o_WPos				: TEXCOORD3;
+		float4	o_Tangent			: TEXCOORD4;
+		float4	o_Binormal			: TEXCOORD5;
+		float4	o_ViewDir			: TEXCOORD6;
+	#ifdef PARABOLOID_MAPPING
+		float	o_ClipDepth			: TEXCOORD12;
+	#endif
+	};
+
+
+
+	VS_OUTPUT main(VS_INPUT IN,uint i_InstanceID: SV_InstanceID)
+	{
+	    VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	
+		IN.i_Pos.w = 1.0f;
+
+		float4 matWorld[3];
+		float fHandedness = 1.f;
+	#ifdef USEINSTANCE
+		int idxWorldMatrix = i_InstanceID * 3;
+		matWorld[0] = U_VSCustom0[idxWorldMatrix + 0];
+		matWorld[1] = U_VSCustom0[idxWorldMatrix + 1];
+		matWorld[2] = U_VSCustom0[idxWorldMatrix + 2];	
+		fHandedness = determinant(float3x3(matWorld[0].xyz, matWorld[1].xyz, matWorld[2].xyz));
+		fHandedness = fHandedness >= 0.f ? 1.f : -1.f;
+	#else
+		matWorld[0] = U_WorldMatrix[0];
+		matWorld[1] = U_WorldMatrix[1];
+		matWorld[2] = U_WorldMatrix[2];	
+	#endif
+
+		vsOut.o_UV.xy = IN.i_UV.xy * U_VSGeneralRegister0.xx;
+
+		vsOut.o_WPos.x = dot(matWorld[0], IN.i_Pos);
+		vsOut.o_WPos.y = dot(matWorld[1], IN.i_Pos);
+		vsOut.o_WPos.z = dot(matWorld[2], IN.i_Pos);	
+		vsOut.o_WPos.w = 1.0f;
+
+		vsOut.o_ViewDir.xyz = U_VS_CameraPosition.xyz - vsOut.o_WPos.xyz;
+
+	#ifdef USEINSTANCE
+		vsOut.o_PosInClip.x = dot(U_ViewProjectMatrix[0], vsOut.o_WPos);
+		vsOut.o_PosInClip.y = dot(U_ViewProjectMatrix[1], vsOut.o_WPos);
+		vsOut.o_PosInClip.z = dot(U_ViewProjectMatrix[2], vsOut.o_WPos);
+		vsOut.o_PosInClip.w = dot(U_ViewProjectMatrix[3], vsOut.o_WPos);
+	#else
+		vsOut.o_PosInClip.x = dot(U_WorldViewProjectMatrix[0], IN.i_Pos);
+		vsOut.o_PosInClip.y = dot(U_WorldViewProjectMatrix[1], IN.i_Pos);
+		vsOut.o_PosInClip.z = dot(U_WorldViewProjectMatrix[2], IN.i_Pos);
+		vsOut.o_PosInClip.w = dot(U_WorldViewProjectMatrix[3], IN.i_Pos);
+	#endif
+	
+	#ifdef PARABOLOID_MAPPING
+		vsOut.o_ClipDepth = vsOut.o_PosInClip.z;
+		ParaboloidMapping(vsOut.o_PosInClip, U_ShadowLightDepthMulAdd.x, U_ShadowLightDepthMulAdd.z, U_ShadowLightDepthMulAdd.w);
+	#endif
+
+		vsOut.o_WNormal.x = dot(matWorld[0].xyz, IN.i_Normal.xyz);	
+		vsOut.o_WNormal.y = dot(matWorld[1].xyz, IN.i_Normal.xyz);
+		vsOut.o_WNormal.z = dot(matWorld[2].xyz, IN.i_Normal.xyz);
+		vsOut.o_Tangent.x = dot(matWorld[0].xyz, IN.i_Tangent.xyz);
+		vsOut.o_Tangent.y = dot(matWorld[1].xyz, IN.i_Tangent.xyz);
+		vsOut.o_Tangent.z = dot(matWorld[2].xyz, IN.i_Tangent.xyz);
+		vsOut.o_Binormal.xyz = cross(vsOut.o_Tangent.xyz, vsOut.o_WNormal.xyz) * IN.i_Tangent.w;
+		vsOut.o_Binormal.xyz *= fHandedness;
+
+		float3 camToWorld = vsOut.o_ViewDir.xyz;
+
+		float4x4 gravityRotatePosMatrix;	
+		gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+		gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+		gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+		gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+		camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+
+		vsOut.o_Fog = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+		vsOut.o_ViewDir = normalize(vsOut.o_ViewDir);
+
+	#ifdef USESHADOWMAP
+		vsOut.o_ViewSpaceZ = viewZ;
+	#endif
+	#ifdef EDITOR_MODE
+		#ifdef HierarchicalLOD
+			vsOut.o_PosInClip = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+		#endif
+	#endif
+		return vsOut;
+	}
+#endif

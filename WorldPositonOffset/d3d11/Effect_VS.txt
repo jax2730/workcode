@@ -1,0 +1,109 @@
+#include <Common_Uniform_VS.inl>
+
+
+uniform float4 U_VSCustom0; //VSCBTileParam;
+uniform float4 U_VSCustom1; //VSCBTileParam2;
+uniform float4 U_VSCustom2; //VSCBMoveMax;
+uniform float4 U_VSCustom3; //VSCBMoveMin;
+uniform float4 U_VSCustom4; //VSCBScaleMax;
+uniform float4 U_VSCustom5; //VSCBScaleMin;
+uniform float4 U_VSCustom6; //VSCBRotateMinMax;
+uniform float4 U_VSCustom7; //VSCBTCSelect;
+
+
+struct VS_INPUT
+{
+	float4 i_Position	: POSITION0;
+	float4 i_Diffuse	: COLOR0;
+	float2 i_UV			: TEXCOORD0;
+	float4 i_Rand0		: TEXCOORD1;//溶解强度保存在w里
+};
+
+struct VS_OUTPUT
+{
+	float4 o_PosInClip	: SV_POSITION;
+	float4 o_Diffuse	: COLOR0;
+	float4 o_UV			: TEXCOORD0;
+	float4 o_Rand0		: TEXCOORD1;
+#ifdef DOUBLETEX
+	float2 o_UV2		: TEXCOORD2;
+#endif
+#if defined(SCREENDISTORT) || defined(DEPTH_FADE)
+	float4 o_PosInClipOut: TEXCOORD3;
+#endif
+};
+
+void CalTexcoord(in float  _Time, in float2 _TC, in float4 _Rand0, out float4 TC_)
+{
+ 
+	float 	Tile = frac(_Time * U_VSCustom0.x + _Rand0.x / 255.0 * U_VSCustom0.y);	
+	
+	Tile = lerp(U_VSCustom1.x, U_VSCustom1.y, Tile);
+ 
+ 
+	float 	Row = U_VSCustom0.w;																	
+	float 	Col = U_VSCustom0.z;																	
+	float	nIdx = floor(Tile*Row*Col);																
+	float 	nRow = floor(nIdx / Col);																
+	float 	nCol = nIdx - nRow*Col;																	
+	float 	fRow = nRow / Row;																	
+	float 	fCol = nCol / Col;																									
+	float2 TcTile = float2(fCol, fRow) + _TC*float2(1.0 / Col, 1.0 / Row);	
+
+	float4 TcMove = lerp(U_VSCustom2, U_VSCustom3, _Rand0.x / 255.0);
+	float4 TcScale = lerp(U_VSCustom4, U_VSCustom5, _Rand0.y / 255.0);
+	float2 TcRotate = lerp(U_VSCustom6.xy, U_VSCustom6.zw, _Rand0.z / 255.0);
+	
+	float2 TcTran = _TC - float2(0.5, 0.5);
+	TcTran *= TcScale.zw + TcScale.xy * _Time;
+	TcTran += TcMove.zw + TcMove.xy * _Time;
+	float RotDeg = TcRotate.x * _Time + TcRotate.y;
+	float2 RotMatR0 = float2(+cos(RotDeg), -sin(RotDeg));
+	float2 RotMatR1 = float2(+sin(RotDeg), +cos(RotDeg));
+	TcTran = float2(dot(TcTran, RotMatR0), dot(TcTran, RotMatR1));
+	TcTran += float2(0.5, 0.5);
+	
+	TC_.xy = lerp(TcTile, TcTran, U_VSCustom7.x);
+#ifdef DOUBLETEX
+	TC_.zw = lerp(TcTran, TcTile, U_VSCustom7.x);
+#else
+	TC_.zw = 0.0;
+#endif
+}
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+
+	float4 pos = IN.i_Position;
+	pos.w = 1.0;
+	
+#ifdef SCREENEFFECT
+	vsOut.o_PosInClip = pos;
+#else
+	vsOut.o_PosInClip.x = dot( pos , U_ViewProjectMatrix[0] );
+	vsOut.o_PosInClip.y = dot( pos , U_ViewProjectMatrix[1] );
+	vsOut.o_PosInClip.z = dot( pos , U_ViewProjectMatrix[2] );
+	vsOut.o_PosInClip.w = dot( pos , U_ViewProjectMatrix[3] );
+#endif
+
+	CalTexcoord(IN.i_Position.w, IN.i_UV, IN.i_Rand0, vsOut.o_UV);
+#ifdef DOUBLETEX
+	vsOut.o_UV2 = vsOut.o_UV.zw;
+#endif
+	vsOut.o_UV.zw = IN.i_UV;
+
+	vsOut.o_Diffuse = IN.i_Diffuse;
+	vsOut.o_Rand0 = IN.i_Rand0;
+	
+#if defined(SCREENDISTORT) || defined(DEPTH_FADE)
+	vsOut.o_PosInClipOut = vsOut.o_PosInClip;
+#endif
+
+	#ifdef EDITOR_MODE
+		#ifdef HierarchicalLOD
+			vsOut.o_PosInClip = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+		#endif
+	#endif
+	return vsOut;
+}

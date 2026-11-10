@@ -1,0 +1,26 @@
+#include <PreComputeAtmosphere.inl>
+
+struct PS_INPUT{
+    float4 Position : SV_POSITION;
+    float4 TexCoord : TEXCOORD0;
+};
+
+uniform float4 U_PSCustom0;
+
+#define atmosphereRadius    U_PSCustom0.x
+#define earthRadius         U_PSCustom0.y
+#define fogExpScale         U_PSCustom0.z
+#define fogExpTerm          U_PSCustom0.w
+
+float4 main(PS_INPUT IN): SV_TARGET0
+{
+    AtmosphereParams atmosphere = initExponentialHeightFog(
+        atmosphereRadius,
+        earthRadius,
+        fogExpScale,
+        fogExpTerm);
+
+    float2 uv = IN.TexCoord.xy;
+
+    return float4(ComputeTransmittanceToTopAtmosphereBoundaryTexture(atmosphere, uv), 1.f);
+}

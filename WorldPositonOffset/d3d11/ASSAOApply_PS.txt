@@ -1,0 +1,150 @@
+#define AoQuad0			S_2DExt1
+#define LinearClamp		S_2DExt1SamplerState
+#define AoQuad1			S_2DExt2
+#define AoQuad2			S_2DExt3
+#define AoQuad3			S_2DExt4
+
+Texture2D<float2> 	AoQuad0;
+SamplerState		LinearClamp;
+Texture2D<float2> 	AoQuad3;
+Texture2D<float2> 	AoQuad1;
+Texture2D<float2> 	AoQuad2;
+
+uniform float4 U_PSCustom0;
+#define HalfViewportPixelSize U_PSCustom0.xy
+#define NoneSmartHalfApply U_PSCustom0.z
+#define InvSharpness		(0.02)
+
+struct PS_INPUT
+{
+    float4 Position : SV_POSITION;
+    float4 TexCoord : TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+    float AoTerm : SV_TARGET;
+};
+
+float2 SampleQuad(int quad, float2 uv)
+{
+	float2 result = 0.0;
+	switch (quad)
+	{
+		case 0:
+			result = AoQuad0.SampleLevel(LinearClamp, uv, 0).xy;
+			break;
+		case 1:
+			result = AoQuad1.SampleLevel(LinearClamp, uv, 0).xy;
+			break;
+		case 2:
+			result = AoQuad2.SampleLevel(LinearClamp, uv, 0).xy;
+			break;
+		case 3:
+			result = AoQuad3.SampleLevel(LinearClamp, uv, 0).xy;
+			break;
+	}
+	return result;
+
+}
+
+float2 LoadQuad(int quad, int2 pos)
+{
+	float2 result = 0.0;
+	switch (quad)
+	{
+		case 0:
+			result = AoQuad0.Load(int3(pos, 0)).xy;
+			break;
+		case 1:
+			result = AoQuad1.Load(int3(pos, 0)).xy;
+			break;
+		case 2:
+			result = AoQuad2.Load(int3(pos, 0)).xy;
+			break;
+		case 3:
+			result = AoQuad3.Load(int3(pos, 0)).xy;
+			break;
+	}
+	return result;
+}
+
+float4 UnpackEdges(float _packedVal)
+{
+	uint packedVal = (uint) (_packedVal * 255.5);
+	float4 edgesLRTB;
+	edgesLRTB.x = float((packedVal >> 6) & 0x03) / 3.0; // there's really no need for mask (as it's an 8 bit input) but I'll leave it in so it doesn't cause any trouble in the future
+	edgesLRTB.y = float((packedVal >> 4) & 0x03) / 3.0;
+	edgesLRTB.z = float((packedVal >> 2) & 0x03) / 3.0;
+	edgesLRTB.w = float((packedVal >> 0) & 0x03) / 3.0;
+
+	return saturate(edgesLRTB + InvSharpness);
+}
+
+// edge-ignorant blur & apply, skipping half pixels in checkerboard pattern
+// (for the Lowest quality level)
+PS_OUTPUT main(PS_INPUT pIn)
+{
+    PS_OUTPUT pOut;
+	
+	if (NoneSmartHalfApply > 0)
+	{
+		float ao = SampleQuad(0, pIn.TexCoord.xy);
+		float aoD = SampleQuad(3, pIn.TexCoord.xy);
+		pOut.AoTerm = (ao + aoD) * 0.5;
+		return pOut;
+	}
+
+	float ao;
+	float4 inPos = pIn.Position;
+	uint2 pixPos = (uint2) inPos.xy;
+	uint2 pixPosHalf = pixPos / uint2(2, 2);
+
+    // calculate index in the four deinterleaved source array texture
+	int mx = (pixPos.x % 2);
+	int my = (pixPos.y % 2);
+	int ic = mx + my * 2; // center index
+	int ih = (1 - mx) + my * 2; // neighbouring, horizontal
+	int iv = mx + (1 - my) * 2; // neighbouring, vertical
+	int id = (1 - mx) + (1 - my) * 2; // diagonal
+    
+	float2 centerVal = LoadQuad(ic, int2(pixPosHalf)).xy;
+    
+	ao = centerVal.x;
+
+#if 1   // change to 0 if you want to disable last pass high-res blur (for debugging purposes, etc.)
+	float4 edgesLRTB = UnpackEdges(centerVal.y);
+
+    // return 1.0 - float4( edgesLRTB.x, edgesLRTB.y * 0.5 + edgesLRTB.w * 0.5, edgesLRTB.z, 0.0 ); // debug show edges
+
+    // convert index shifts to sampling offsets
+	float fmx = (float) mx;
+	float fmy = (float) my;
+    
+    // in case of an edge, push sampling offsets away from the edge (towards pixel center)
+	float fmxe = (edgesLRTB.y - edgesLRTB.x);
+	float fmye = (edgesLRTB.w - edgesLRTB.z);
+
+    // calculate final sampling offsets and sample using bilinear filter
+	float2 uvH = (inPos.xy + float2(fmx + fmxe - 0.5, 0.5 - fmy)) * 0.5 * HalfViewportPixelSize;
+	float aoH = SampleQuad(ih, uvH);
+	float2 uvV = (inPos.xy + float2(0.5 - fmx, fmy - 0.5 + fmye)) * 0.5 * HalfViewportPixelSize;
+	float aoV = SampleQuad(iv, uvV);
+	float2 uvD = (inPos.xy + float2(fmx - 0.5 + fmxe, fmy - 0.5 + fmye)) * 0.5 * HalfViewportPixelSize;
+	float aoD = SampleQuad(id, uvD);
+    // reduce weight for samples near edge - if the edge is on both sides, weight goes to 0
+	float4 blendWeights;
+	blendWeights.x = 1.0;
+	blendWeights.y = (edgesLRTB.x + edgesLRTB.y) * 0.5;
+	blendWeights.z = (edgesLRTB.z + edgesLRTB.w) * 0.5;
+	blendWeights.w = (blendWeights.y + blendWeights.z) * 0.5;
+
+    // calculate weighted average
+	float blendWeightsSum = dot(blendWeights, float4(1.0, 1.0, 1.0, 1.0));
+	ao = dot(float4(ao, aoH, aoV, aoD), blendWeights) / blendWeightsSum;
+#endif
+	
+	pOut.AoTerm = ao;
+
+	return pOut;
+}

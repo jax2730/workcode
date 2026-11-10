@@ -1,0 +1,99 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_ShadowFiltering.inl>
+
+struct PS_INPUT
+{
+
+    float4	i_Pos    			: SV_POSITION;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 	i_UV			: TEXCOORD0;
+	#endif
+#else
+	float4 	i_UV				: TEXCOORD0;
+	float4	i_Normal			: TEXCOORD1;
+	float4	i_WPos				: TEXCOORD2;
+	float4	i_PosInClip			: TEXCOORD3;
+
+	#ifdef VERTEX_COLOR
+		float4 i_Diffuse		: TEXCOORD7;
+	#endif
+#endif
+#ifdef PARABOLOID_MAPPING
+	float	i_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+struct PS_OUTPUT
+{
+#ifndef SHADOWPASS
+	float4 color : SV_TARGET;
+#endif
+};
+
+
+float4	U_MaterialDiffuse;
+float4  U_MaterialFresnel;
+						 
+float4  U_PSGeneralRegister0;//xyz: scalineColor 扫描线底色
+  							 //w: alpha 扫描线底色alpha
+float4  U_PSGeneralRegister1;//x: Line1_Speed 扫描线速度
+							 //y: Line1_Frequency 扫描线频率
+							 //z: Line1_Alpha 扫描线alpha
+							 //w: FresnelScale 菲涅尔缩放
+float4  U_PSGeneralRegister2;//x: FresnelPower 菲涅尔强度
+
+Texture2D	S_Custom;
+SamplerState S_CustomSamplerState;
+
+Texture2D	S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+
+PS_OUTPUT main(PS_INPUT IN,bool isFrontFacing : SV_IsFrontFace)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+
+#ifdef PARABOLOID_MAPPING
+	clip(IN.i_ClipDepth);
+#endif
+
+#ifndef SHADOWPASS
+	float2 uv = IN.i_UV.xy;	
+	float4 diffuseColor = S_Diffuse.Sample(S_DiffuseSamplerState, uv);
+	float3 baseMap = pow(diffuseColor.rgb, 2.2);
+	
+	float4 color = U_PSGeneralRegister0;
+
+	// 使用主帖图的r通道进行mask值计算
+    float mask_alpha = lerp(1, baseMap.r, color);
+
+	float2 screenTC = IN.i_PosInClip.xy / IN.i_PosInClip.w;
+	screenTC.y = 1.0 - (1.0 + screenTC.y) * 0.5;
+
+	float2 line1_uv = (screenTC.y * U_PSGeneralRegister1.y + U_PS_Time * U_PSGeneralRegister1.x).xx;
+	float  line1 = clamp(pow(S_Custom.Sample(S_CustomSamplerState, line1_uv).r, 2.2), 0.0, 1.0);
+    float4 line1_color = float4((color * line1).rgb, line1) * U_PSGeneralRegister1.z;
+    float  line1_alpha = clamp(((color).a + (line1_color).w), 0.0 , 1.0);
+
+	// 菲涅尔反射
+    float3 w_viewDir = normalize(U_PS_CameraPosition.xyz - IN.i_WPos.xyz);
+    float3 w_normal = normalize(IN.i_Normal.xyz);
+    float nDotV = dot(w_normal, w_viewDir);
+    float rim_nDotV = 1.0 - nDotV;
+    float4 fresnel = U_PSGeneralRegister1.w * pow(rim_nDotV, U_PSGeneralRegister2.x);
+    fresnel.a = clamp(fresnel.a, 0.0, 50.0);
+    float4 fresnel_color = (float4(fresnel.rgb, 1.0) * float4(color.rgb, 1.0)) * fresnel.a;
+
+	color.rgb = color.rgb + line1_color.rgb * line1_alpha + fresnel_color.rgb;
+	psOut.color.rgb = pow(color, 1.0 / 2.2);
+	psOut.color.a = U_PSGeneralRegister0.w * mask_alpha;
+    	
+
+	#ifdef VERTEX_COLOR
+		psOut.color.a *= (IN.i_Diffuse.g * IN.i_Diffuse.g);
+	#endif
+#endif
+
+	return psOut;
+}

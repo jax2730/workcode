@@ -1,0 +1,86 @@
+
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+
+uniform float4	U_VSCustom0; //x: height  y: sphereSize; z:x方向旋转角度 w:z方向旋转角度 //现在需要x,z方向旋转(旋转Y轴)theta
+uniform float4	U_VSCustom1;
+uniform float4	U_VSCustom2;
+uniform float4	U_VSCustom3;
+
+struct VS_INPUT
+{
+	float4 i_Position	: POSITION0;
+	float4 i_UV	        : TEXCOORD0;
+};
+
+struct VS_OUTPUT
+{
+	float4 o_Position	: SV_POSITION;
+	float4 o_UV			: TEXCOORD0;
+	float4 o_CustomParam: TEXCOORD1;
+	//float4 o_FogColor	: TEXCOORD2;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	
+	float4 vPos = IN.i_Position;
+
+	vPos.y = U_VSCustom0.x;
+	vPos.xyz = normalize(vPos.xyz);
+	vPos.w = 0.0f;
+
+	float4x4 rotatePosMatrix;
+	rotatePosMatrix[0] = float4(U_VSCustom1.xyz,0.f);
+	rotatePosMatrix[1] = float4(U_VSCustom2.xyz,0.f);
+	rotatePosMatrix[2] = float4(U_VSCustom3.xyz,0.f);
+	rotatePosMatrix[3] = float4(0.f,0.f,0.f,1.f);
+	vPos = mul(rotatePosMatrix,vPos);
+	
+	float4 rotatedPos = vPos;
+		
+	float4 vVMatrixC0 = U_ViewMatrix[0];
+	float4 vVMatrixC1 = U_ViewMatrix[1];
+	float4 vVMatrixC2 = U_ViewMatrix[2];
+	
+	vsOut.o_Position.x = dot(vVMatrixC0, vPos);
+	vsOut.o_Position.y = dot(vVMatrixC1, vPos);
+	vsOut.o_Position.z = dot(vVMatrixC2, vPos);
+	
+	vPos = vsOut.o_Position;
+	
+	vPos.w = 1.0f;	
+
+	
+	float4 vPMatrixC0 = U_ProjectMatrix[0];
+	float4 vPMatrixC1 = U_ProjectMatrix[1];
+	float4 vPMatrixC2 = U_ProjectMatrix[2];
+	float4 vPMatrixC3 = U_ProjectMatrix[3];
+	
+	vsOut.o_Position.x = dot(vPMatrixC0, vPos);
+	vsOut.o_Position.y = dot(vPMatrixC1, vPos);
+	vsOut.o_Position.z = dot(vPMatrixC2, vPos);
+	vsOut.o_Position.w = dot(vPMatrixC3, vPos);
+	
+#ifdef REVERSE_DEPTH
+	vsOut.o_Position.z = 0.0f;
+#else
+	vsOut.o_Position.z = vsOut.o_Position.w;
+#endif
+	
+	vsOut.o_UV = IN.i_UV;
+	//float3 vWPos = cloudPos * U_VSCustom0.y + U_VS_CameraPosition.xyz;
+		
+	//float3 camToWorld =  U_VS_CameraPosition.xyz - vWPos.xyz;
+	
+	vsOut.o_CustomParam.xyz = rotatedPos.xyz;	
+	//vsOut.o_FogColor = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+#ifdef EDITOR_MODE
+	#ifdef HierarchicalLOD
+		vsOut.o_Position = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+	#endif
+#endif
+	return vsOut;
+}

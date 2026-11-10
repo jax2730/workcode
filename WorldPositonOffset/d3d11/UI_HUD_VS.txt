@@ -1,0 +1,55 @@
+#include<Common_Uniform_VS.inl>
+
+uniform	float4 	U_VSCustom0[192];	
+uniform float4  U_VSCustom1;
+struct VS_INPUT							
+{										
+	float pos : BLENDWEIGHT0;
+};											
+
+struct VS_OUTPUT						
+{		
+float4 pos : SV_POSITION;									
+	float2 tc0 :  TEXCOORD0;
+	float4 col :  COLOR0;
+	
+};										
+
+VS_OUTPUT main(	in VS_INPUT inVtx )						
+{		
+	VS_OUTPUT oVtx;				
+	float4 TexParam[6];
+	TexParam[0]=float4(1.f,0.f,0.f,1.f);
+	TexParam[1]=float4(0.f,1.f,0.f,1.f);
+	TexParam[2]=float4(0.f,1.f,1.f,0.f);
+	TexParam[3]=float4(1.f,0.f,0.f,1.f);
+	TexParam[4]=float4(0.f,1.f,1.f,0.f);
+	TexParam[5]=float4(1.f,0.f,1.f,0.f);
+    float2 PosParam[6];
+	PosParam[0]=float2(0.f,0.f);
+	PosParam[1]=float2(1.f,0.f);
+	PosParam[2]=float2(1.f,1.f);
+	PosParam[3]=float2(0.f,0.f);
+	PosParam[4]=float2(1.f,1.f);
+	PosParam[5]=float2(0.f,1.f);
+	int index = floor(inVtx.pos/6)*3;
+	int indexmod = inVtx.pos % 6;
+	float4 pos=float4(U_VSCustom0[index].x,U_VSCustom0[index].y,U_VSCustom0[index+2].x,1.f);
+	
+	float4 worldPos = float4(0.f,0.f,0.f,0.f);
+	worldPos.x      = dot(pos,U_ViewProjectMatrix[0]);
+	worldPos.y      = dot(pos,U_ViewProjectMatrix[1]);
+	worldPos.z      = dot(pos,U_ViewProjectMatrix[2]);
+	worldPos.w      = dot(pos,U_ViewProjectMatrix[3]);
+	
+	worldPos.x      += U_VSCustom0[index].z*PosParam[indexmod].x*U_VSCustom1.x;
+	worldPos.y      += U_VSCustom0[index].w*PosParam[indexmod].y*U_VSCustom1.y;
+	
+	float2 texcoords=float2(0.0f,0.0f);
+	texcoords.x     = TexParam[indexmod].x*U_VSCustom0[index+1].x+TexParam[indexmod].y*U_VSCustom0[index+1].y;
+	texcoords.y     = TexParam[indexmod].z*U_VSCustom0[index+1].z+TexParam[indexmod].w*U_VSCustom0[index+1].w;
+	oVtx.tc0		= float2(texcoords.x,1.0f-texcoords.y);
+	oVtx.pos		= worldPos;
+	oVtx.col      = float4(U_VSCustom0[index+2].y / 255.f,0.f,0.f,0.f);
+	return oVtx;	
+}

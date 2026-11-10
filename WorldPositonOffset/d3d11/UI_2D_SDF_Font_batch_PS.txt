@@ -1,0 +1,173 @@
+// Author: yanghang
+// Date:  2021-03-14
+#include <Common_Uniform_PS.inl>
+
+struct PSInstanceData
+{
+    float4 outlineColor;// Only use RGB. Alpha as HDR factor.
+    float4 glowColor;
+
+    float2 glowUVRealOffset;// Texture UV coordinate unit.
+    float alpha;
+    float grayed;
+    
+    float hdr_factor;
+    float outlineEnable;
+    float outlineDistanceMin;
+    float outlineAntiAliasWidth;
+
+    float outlineDistanceMax;
+    float glowEnable;
+    float glowDistanceMin;
+    float glowDistanceMax;
+
+    float glowHDRFactor;
+
+    float3 padding_0;
+};
+
+StructuredBuffer<PSInstanceData> B_CSCustom1;
+#define PS_INSTANCE_BATCH_DATA B_CSCustom1
+
+#define gray      psInstanceData.grayed // NOTE: 1.0f == gray, 0 == normal.
+#define total_alpha psInstanceData.alpha
+#define outer_glow_HDR psInstanceData.glowHDRFactor
+#define text_HDR psInstanceData.hdr_factor
+
+#define outline_enable psInstanceData.outlineEnable
+#define outline_max_0  psInstanceData.outlineDistanceMin
+#define outline_max_1  psInstanceData.outlineDistanceMax
+#define outline_color_rgb psInstanceData.outlineColor.rgb
+#define outline_HDR psInstanceData.outlineColor.a
+
+#define outer_glow_enable psInstanceData.glowEnable
+#define outer_glow_uv_offset psInstanceData.glowUVRealOffset
+#define outer_glow_min_dvalue psInstanceData.glowDistanceMin
+#define outer_glow_max_dvalue psInstanceData.glowDistanceMax
+#define outer_glow_color psInstanceData.glowColor
+
+
+// NOTE(yanghang): SDF Font Atlas texture
+Texture2D	S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+float4 texPseudoSDF(float2 vUV) 
+{ 
+    return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+}
+
+struct PS_INPUT
+{
+    float4 i_pos	: SV_POSITION;
+	float2 	i_atlas_uv				: TEXCOORD0;
+    float2 i_clipPos            : COLOR0;
+    float3 i_color : COLOR1;
+    uint i_instanceID : COLOR2;
+};
+
+struct PS_OUTPUT
+{
+	float4 color : SV_TARGET;
+};
+
+float median(float3 c)
+{
+    return max(min(c.x, c.y), min(max(c.x, c.y), c.z));
+}
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+    PSInstanceData psInstanceData = PS_INSTANCE_BATCH_DATA[IN.i_instanceID];
+    
+    float4 sdf_texel = texPseudoSDF(IN.i_atlas_uv);
+    float pseudo_d = sdf_texel.r;//(changziheng): single channel
+    float sdf_alpha = clamp((pseudo_d - 0.5f)/fwidth(pseudo_d) + 0.5f, 0, 1.0f);
+    
+    float4 color = float4(IN.i_color,1.0f);
+
+    color.rgb *= text_HDR;
+    color.a *= sdf_alpha;
+    color.a *= total_alpha;
+    if(gray == 1.0f)
+    {
+        float color_gray = (color.r + color.g + color.b) * 0.33333333333333f;
+        color.rgb = lerp(color.rgb, float3(color_gray, color_gray, color_gray), gray);
+    }
+    
+    if(outline_enable == 1.0f)
+    {
+        float oFactor = 1.0f;
+        if(pseudo_d >= outline_max_0)
+        {
+            oFactor = smoothstep(outline_max_1,
+                                 outline_max_0,
+                                 pseudo_d);
+        }
+
+        float3 outline_HDR_color = outline_color_rgb * outline_HDR;
+        color.rgb = lerp(color.rgb, outline_HDR_color, oFactor);
+    }
+    
+    if(outer_glow_enable == 1.0f)
+    {
+        float4 outer_glow_sdf = texPseudoSDF(IN.i_atlas_uv + outer_glow_uv_offset);
+		
+		float4 glow_c = outer_glow_color * smoothstep(outer_glow_min_dvalue,
+                                                      outer_glow_max_dvalue,
+                                                      outer_glow_sdf.r);
+        glow_c *= outer_glow_HDR;
+		color = lerp(glow_c, color, sdf_alpha);
+    }
+    
+    // NOTE: Clip start.
+    // TODO(yanghang): Optimize, blend_verge relative calculate can be constant.
+    float2 factor = IN.i_clipPos;
+
+    float right_bottom_clip_alpha;
+    float max_factor = max(factor.x, factor.y);
+    float blend_verge = 0.005f;
+    float blend_verge_inv = 1.0f / blend_verge; 
+    if(max_factor > 1.0f)
+    {
+        // Edge blend
+        float verge_value = clamp(max_factor, 1.0f, (1.0f + blend_verge));
+        verge_value -= 1.0f;
+        verge_value = blend_verge - verge_value;
+        
+        right_bottom_clip_alpha = verge_value * blend_verge_inv; 
+    }
+    else
+    {
+        // Pass test.
+        right_bottom_clip_alpha = 1.0f;
+    }
+    
+    float left_top_clip_alpha;
+    float min_factor = min(factor.x, factor.y);
+    if(min_factor < 0)
+    {
+        // Edge blend
+        float verge_value = clamp(min_factor, -blend_verge, 0);
+        verge_value = blend_verge + verge_value;
+        left_top_clip_alpha = verge_value * blend_verge_inv;
+    }
+    else
+        left_top_clip_alpha = 1.0f;
+    
+    color.a *= right_bottom_clip_alpha * left_top_clip_alpha;
+    //Clip end.
+    psOut.color = color;
+
+    //NOTE: Clip Debug
+#if 0
+    psOut.color = float4(IN.i_clipPos.x, IN.i_clipPos.y, 0, 1.0f);
+#endif
+
+    //TODO(yanghang):Overdraw debug effect,maybe need remove.
+    float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.color = psOut.color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+    
+    return psOut;
+}

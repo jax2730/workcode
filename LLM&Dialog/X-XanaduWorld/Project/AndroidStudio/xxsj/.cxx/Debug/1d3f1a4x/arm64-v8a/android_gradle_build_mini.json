@@ -1,0 +1,80 @@
+{
+  "buildFiles": [
+    "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\.cxx\\Debug\\1d3f1a4x\\prefab\\arm64-v8a\\prefab\\lib\\aarch64-linux-android\\cmake\\game-activity\\game-activityConfig.cmake",
+    "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\CMakeLists.txt",
+    "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\EchoCommon\\CMakeLists.txt",
+    "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\EchoComponent\\CMakeLists.txt",
+    "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\EchoCore\\CMakeLists.txt",
+    "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\EchoEngine\\CMakeLists.txt",
+    "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\EchoGame\\CMakeLists.txt",
+    "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\EchoPhysics\\CMakeLists.txt",
+    "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\PrecompiledHeader.cmake"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "D:\\AndroidSDk\\cmake\\3.22.1\\bin\\ninja.exe",
+      "-C",
+      "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\.cxx\\Debug\\1d3f1a4x\\arm64-v8a",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "D:\\AndroidSDk\\cmake\\3.22.1\\bin\\ninja.exe",
+    "-C",
+    "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\.cxx\\Debug\\1d3f1a4x\\arm64-v8a",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "EchoGame::@3090557f1f3a773c08b4": {
+      "artifactName": "EchoGame",
+      "abi": "arm64-v8a",
+      "output": "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Debug\\libEchoGame.a",
+      "runtimeFiles": []
+    },
+    "EchoComponent::@b0218a90516a3ba88262": {
+      "artifactName": "EchoComponent",
+      "abi": "arm64-v8a",
+      "output": "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Debug\\libEchoComponent.a",
+      "runtimeFiles": []
+    },
+    "EchoEngine::@0e49147075b65a8e5843": {
+      "artifactName": "EchoEngine",
+      "abi": "arm64-v8a",
+      "output": "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Debug\\libEchoEngine.a",
+      "runtimeFiles": []
+    },
+    "PadBO2::@6890427a1f51a3e7e1df": {
+      "artifactName": "PadBO2",
+      "abi": "arm64-v8a",
+      "output": "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\build\\intermediates\\cxx\\Debug\\1d3f1a4x\\obj\\arm64-v8a\\libPadBO2.so",
+      "runtimeFiles": [
+        "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Debug\\libfmod.so",
+        "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Debug\\libfmodstudio.so",
+        "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\sysroot\\usr\\lib\\aarch64-linux-android\\24\\libEGL.so",
+        "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\sysroot\\usr\\lib\\aarch64-linux-android\\24\\libGLESv3.so",
+        "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\sysroot\\usr\\lib\\aarch64-linux-android\\24\\libm.so",
+        "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\sysroot\\usr\\lib\\aarch64-linux-android\\24\\libz.so",
+        "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\sysroot\\usr\\lib\\aarch64-linux-android\\24\\liblog.so",
+        "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\sysroot\\usr\\lib\\aarch64-linux-android\\24\\libandroid.so"
+      ]
+    },
+    "EchoPhysics::@af15fd6f819d87d4c0c4": {
+      "artifactName": "EchoPhysics",
+      "abi": "arm64-v8a",
+      "output": "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Debug\\libEchoPhysics.a",
+      "runtimeFiles": []
+    },
+    "EchoCore::@678582e5671f465d3ded": {
+      "artifactName": "EchoCore",
+      "abi": "arm64-v8a",
+      "output": "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Debug\\libEchoCore.a",
+      "runtimeFiles": []
+    },
+    "EchoCommon::@d4f1c738e2a6146cc808": {
+      "artifactName": "EchoCommon",
+      "abi": "arm64-v8a",
+      "output": "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Debug\\libEchoCommon.a",
+      "runtimeFiles": []
+    }
+  }
+}

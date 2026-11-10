@@ -1,0 +1,133 @@
+
+#include <Common_Uniform_PS.inl> 
+
+float4	U_MaterialDiffuse;
+float4	U_MaterialSpecular;
+
+Texture2D	S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+Texture2D	S_Specular;
+SamplerState S_SpecularSamplerState;
+Texture2D 	S_Custom;
+SamplerState S_CustomSamplerState;
+
+float4	U_MaterialCustomParam;
+
+float4	U_PSGeneralRegister0;
+float4	U_PSGeneralRegister1;
+float4	U_PSGeneralRegister2;
+float4	U_PSGeneralRegister3;
+float4	U_PSGeneralRegister4;
+
+float4	U_LightPower;	//x for lightpower, y for specular offset
+
+struct PS_INPUT
+{
+    float4  i_Position	: SV_POSITION;
+	float4 	i_UV				: TEXCOORD0;
+	float4 	i_Fog				: TEXCOORD1;
+	float4	i_Normal			: TEXCOORD2;
+	float4	i_WPos				: TEXCOORD3;
+	
+	float4	i_Tangent			: TEXCOORD4;
+	float4	i_Binormal			: TEXCOORD5;
+	float4	i_EyeDir			: TEXCOORD6;
+};
+
+struct PS_OUTPUT
+{
+	float4 color          : SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+	float2 uv = IN.i_UV.xy;
+	float4 diffuse = S_Diffuse.Sample(S_DiffuseSamplerState, uv,0);
+	diffuse.a = diffuse.r;
+	diffuse.rgb = U_MaterialDiffuse.rgb;
+	
+	float2 pos0 = float2(U_PSGeneralRegister1.r, U_PSGeneralRegister1.g);
+	float2 pos1 = float2(U_PSGeneralRegister1.b, U_PSGeneralRegister1.a);
+	
+	half4 missive = half4(1.0f, 1.0f, 1.0f, 1.0f);
+	missive.rgb = pow(diffuse.rgb, 2.2);
+	#ifdef EMISSIVE
+		half missiveAlpha = 1.0;
+		half minMissiveAlpha = missiveAlpha * 0.0f; // missiveAlpha * U_PSGeneralRegister1.w
+			#ifdef DYNAMIC_EMISSIVE
+				half maxMissiveAlpha = missiveAlpha * 1.0f; //missiveAlpha * U_PSGeneralRegister0.w
+				half factor = U_MaterialSpecular.w;	
+				missive.a = lerp(maxMissiveAlpha, minMissiveAlpha, factor);
+			#else
+				missive.a = minMissiveAlpha;
+			#endif
+	#endif
+	
+	float flashAlpha = 0.0f;
+	float allTime = U_PSGeneralRegister4.x + 1;
+	
+	float runTime = U_PS_Time.x - U_PSGeneralRegister4.z;
+	runTime *= 4;
+	float isInFlow = 1.0f;
+	
+	half4 mask_tex = S_Specular.Sample(S_SpecularSamplerState, IN.i_UV.xy);
+	float mask = 0.0f;
+	mask += mask_tex.r * U_PSGeneralRegister0.r;
+	mask += mask_tex.g * U_PSGeneralRegister0.g;
+	mask += mask_tex.b * U_PSGeneralRegister0.b;
+	
+	float3 piaodaiColor = float3(0.0, 0.0, 0.0);
+	float adda = 1.0;
+	if(runTime < U_PSGeneralRegister4.x)
+	{
+		flashAlpha = 1.0;
+		
+		float offsetU = runTime / U_PSGeneralRegister4.x;
+
+		offsetU = clamp(offsetU, 0.0, 1.0);
+		
+		float xxx = 0.5 - offsetU;
+		xxx *= xxx;
+		xxx = 0.25 - xxx;
+		xxx *= 16.0;
+		adda += xxx;
+
+		float flowTexU = 0.0;
+		float2 p1p0 = pos1 - pos0;
+		float2 uvp0 = uv - pos0;
+		float t = dot(p1p0, uvp0) / (p1p0.x * p1p0.x + p1p0.y * p1p0.y);
+		t = clamp(t, 0.0, 1.0);
+		float tempT = t;
+		
+		flowTexU = t - offsetU;
+		piaodaiColor.rgb = S_Custom.Sample(S_CustomSamplerState, float2(flowTexU, 0.5)).rgb;
+
+		isInFlow = step(tempT, offsetU - floor(offsetU));
+		
+		float isInRect = step(1.0f, tempT) + step(tempT, 0.0f);
+		isInFlow = isInFlow * (1.0f - isInRect);
+		
+	}
+	else if( runTime < allTime)
+	{
+		float time = runTime - U_PSGeneralRegister4.x;
+		flashAlpha = time;
+		flashAlpha = 1.0 - flashAlpha;
+	}
+	float temp = ceil(diffuse.a);
+	float alpha = diffuse.a * mask + piaodaiColor.r * mask * temp;
+	psOut.color.a = alpha * isInFlow * flashAlpha;
+	psOut.color.rgb = diffuse.rgb + piaodaiColor.rgb;
+	psOut.color.rgb *= adda;
+	psOut.color.rgb *= U_PSGeneralRegister2.rgb * 1.5f * U_PSGeneralRegister3.w;
+	
+	psOut.color.rgb = pow(psOut.color.rgb, 0.454545);
+	
+	#ifdef EDITOR_MODE
+	if(U_MaterialCustomParam.w > 0)
+		psOut.color.rgb = U_MaterialCustomParam.xyz;			
+	#endif
+
+	return psOut;
+}

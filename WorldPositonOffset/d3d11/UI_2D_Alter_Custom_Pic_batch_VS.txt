@@ -1,0 +1,192 @@
+// Author: yanghang
+// Date:  2021-03-14
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+struct VSInstanceData
+{
+    float4 screenMat[4];
+    float lineWidthFactor;
+    float lineWidthDistAffect;
+    float2 padding_0;
+};
+
+// NOTE: UI Item MVP or MP transform matrix.
+StructuredBuffer<VSInstanceData> B_CSCustom0;
+
+//NOTE: UI item clip rectangle in 2D screen-coordinate.
+uniform float4 U_VSCustom2;
+
+uniform float4 U_VSCustom3;
+
+uniform float2 U_VSCustom4;
+
+uniform float4 U_VSCustom5[4];
+uniform float4 U_VSCustom6[4];
+uniform float4 U_VSCustom7[4];
+
+uniform float4 U_WorldMatrix[3];
+uniform float4 U_VS_InvProjectMatrix[4];
+#define InstanceID_Offset (uint)U_VSCustom3.x
+
+// TODO(yanghang): MVP for world scence UI, MP for screen UI that always follow camera.
+#define VS_INSTANCE_BATCH_DATA B_CSCustom0
+#define localToScreenMatrix instanceData.screenMat
+#define line_factor instanceData.lineWidthFactor
+#define line_width_dist_affect instanceData.lineWidthDistAffect
+
+//IMPORTANT: Optimize. width and height is inverse from CPU side to elimate divide op.
+#define Screen2DClipRect U_VSCustom2
+#define Screen2DClipSoftnessEnable U_VSCustom3.y
+#define Screen2DClipSoftness U_VSCustom3.zw
+#define ScreenParams U_VSCustom4
+
+#define WorldMatrix U_WorldMatrix
+#define WorldViewMatrix U_VSCustom5
+
+#ifdef UI3D_STYLE_CUSTOM_PROJECT_MATRIX
+    #define ProjectMatrix U_VSCustom6
+    #define InvProjectMatrix U_VSCustom7
+#else
+    #define ProjectMatrix U_ProjectMatrix
+    #define InvProjectMatrix U_VS_InvProjectMatrix
+#endif
+
+struct VS_INPUT
+{
+    // NOTE(yanghang): w-component used to blend of color for anti-aliasing,
+    // need interpolation
+	float2 i_pos		    : POSITION0;
+    float4 i_vertexColor    : TEXCOORD0;
+    float4 i_tangent_length_percent    : TEXCOORD1;
+    uint i_instanceID : COLOR0;
+};
+
+struct VS_OUTPUT
+{
+	float4	o_posInClip			    : SV_POSITION;
+    float4	o_worldPos			    : TEXCOORD0;
+    // NOTE: Use to multiply alpha value of color.
+    float4 o_vertexColor            : TEXCOORD1;
+#ifdef UI3D_STYLE_COVER_WEATHER
+    float4	o_fogColor				: TEXCOORD2;
+#endif
+    float o_percent                 : TEXCOORD3;
+    float2 o_clipPos                : COLOR1;
+    float3 o_softness               : COLOR2;
+    uint o_instanceID               : COLOR3;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+    float4 screen_pos;
+    // NOTE: Local to logic 2D UI screen transfrom.
+    // Don't affect z.
+    int instanceDataIndex = IN.i_instanceID + InstanceID_Offset;
+    VSInstanceData instanceData = VS_INSTANCE_BATCH_DATA[instanceDataIndex];
+    vsOut.o_instanceID = instanceDataIndex;
+    
+    float4 pos = float4(IN.i_pos.xy, 0.0f, 1.0f);
+
+    float screen_scale = 0.0f;
+
+#ifdef UI3D_STYLE_SCENE
+    float4 temp_screen_pos;
+    temp_screen_pos.x = dot(localToScreenMatrix[0].xyzw, pos);
+    temp_screen_pos.y = dot(localToScreenMatrix[1].xyzw, pos);
+    temp_screen_pos.z = dot(localToScreenMatrix[2].xyzw, pos);
+    temp_screen_pos.w = 1.0f;
+
+    float4 temp_world_pos;
+    temp_world_pos.x = dot(WorldViewMatrix[0], temp_screen_pos);
+    temp_world_pos.y = dot(WorldViewMatrix[1], temp_screen_pos);
+    temp_world_pos.z = dot(WorldViewMatrix[2], temp_screen_pos);
+    temp_world_pos.w = dot(WorldViewMatrix[3], temp_screen_pos);
+
+    float4 temp_project_pos;
+    temp_project_pos.z = dot(ProjectMatrix[2], temp_world_pos);
+    temp_project_pos.w = dot(ProjectMatrix[3], temp_world_pos);
+    temp_project_pos.x = temp_project_pos.w;
+    temp_project_pos.y = temp_project_pos.w;
+    screen_scale = dot(InvProjectMatrix[0], temp_project_pos) * 4.0f * U_VS_RenderWindowParam.z - 1.0f;
+#endif
+
+    float line_width_scale = line_factor - 1.0f;
+    pos.x +=  IN.i_tangent_length_percent.x * IN.i_tangent_length_percent.z * (line_width_scale + line_width_dist_affect * screen_scale);
+    pos.y +=  IN.i_tangent_length_percent.y * IN.i_tangent_length_percent.z * (line_width_scale + line_width_dist_affect * screen_scale);
+
+    screen_pos.x = dot(localToScreenMatrix[0].xyzw, pos);
+    screen_pos.y = dot(localToScreenMatrix[1].xyzw, pos);
+    screen_pos.z = dot(localToScreenMatrix[2].xyzw, pos);
+    screen_pos.w = 1.0f;
+
+#ifdef UI3D_STYLE_CURVE
+    float half_screen_width = ScreenParams.x;
+    float radius = half_screen_width / sin(ScreenParams.y);
+
+    float2 circle = radius * float2(sin(ScreenParams.y), cos(ScreenParams.y));
+    float t = screen_pos.x / (2.0f * half_screen_width);
+    float2 oa = -circle;
+    float2 ob = float2(2.0f * half_screen_width, 0.0f) - circle;
+    float2 offset =  (sin((1 - t) * 2.0f * ScreenParams.y)* oa + sin(t * 2.0f * ScreenParams.y) * ob) / sin(2.0f * ScreenParams.y);
+    screen_pos.x = offset.x + circle.x;
+    screen_pos.z += offset.y + circle.y;
+#endif
+
+    float4 world_pos;
+	world_pos.x = dot(WorldViewMatrix[0], screen_pos);
+	world_pos.y = dot(WorldViewMatrix[1], screen_pos);
+	world_pos.z = dot(WorldViewMatrix[2], screen_pos);
+	world_pos.w = dot(WorldViewMatrix[3], screen_pos);
+
+    vsOut.o_worldPos.x = dot(WorldMatrix[0], screen_pos);
+    vsOut.o_worldPos.y = dot(WorldMatrix[1], screen_pos);
+	vsOut.o_worldPos.z = dot(WorldMatrix[2], screen_pos);
+	vsOut.o_worldPos.w = 1.0f;
+
+#ifndef UI3D_STYLE_SCENE
+    float4 project_pos = float4(1.0f, 1.0f, 0.1f, 1.0f);
+
+    float clip_w = dot(InvProjectMatrix[3], project_pos);
+    float half_width_of_ui_screen = dot(InvProjectMatrix[0], project_pos) / clip_w;
+	float half_height_of_ui_screen = dot(InvProjectMatrix[1], project_pos) / clip_w;
+    float camera_space_screen_z = dot(InvProjectMatrix[2], project_pos) / clip_w;
+    
+    world_pos *= float4(half_width_of_ui_screen * 4.0f * U_VS_RenderWindowParam.z, half_height_of_ui_screen * 4.0f * U_VS_RenderWindowParam.w, half_height_of_ui_screen * 4.0f * U_VS_RenderWindowParam.w,1.0f);
+    world_pos += float4(-half_width_of_ui_screen, half_height_of_ui_screen, camera_space_screen_z, 0.0f);
+#endif
+
+    vsOut.o_posInClip.x = dot(ProjectMatrix[0], world_pos);
+	vsOut.o_posInClip.y = dot(ProjectMatrix[1], world_pos);
+	vsOut.o_posInClip.z = dot(ProjectMatrix[2], world_pos);
+	vsOut.o_posInClip.w = dot(ProjectMatrix[3], world_pos);
+
+#ifdef UI3D_STYLE_COVER_WEATHER
+    float4 vCamPos = U_VS_CameraPosition;
+    float3 camToWorld = vCamPos.xyz - vsOut.o_worldPos.xyz;
+	
+	//vsOut.o_EyeDir.xyz = camToWorld;
+
+	float4x4 gravityRotatePosMatrix;	
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+	vsOut.o_fogColor = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+#endif
+
+    vsOut.o_vertexColor = IN.i_vertexColor;
+    vsOut.o_percent = IN.i_tangent_length_percent.w;
+
+    //IMPORTANT: Clip rect
+    // x = real_x/real_w, z = 1.0f/real_w,
+    // y = real_y/real_h, w = 1.0f/-real_h
+
+    vsOut.o_clipPos =2.0f * ((screen_pos.xy * Screen2DClipRect.zw) - (Screen2DClipRect.xy)) - float2(1.0f, 1.0f);
+    vsOut.o_softness.xy = Screen2DClipSoftness;
+    vsOut.o_softness.z = Screen2DClipSoftnessEnable;
+
+    return vsOut;
+}

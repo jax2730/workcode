@@ -1,0 +1,56 @@
+float4 U_PSCustom0;    //SunShafts_SunPos
+float4 U_PSCustom1;   //PS_ScreenSize
+float4 U_PSCustom2;  //SunShafts_Params
+
+Texture2D	 S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+struct PS_INPUT
+{
+	float4 i_Position	: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+    PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+    float2 sunPosProj = U_PSCustom0.xy;
+	float fSign = U_PSCustom0.w;
+    float2 sunDir = sunPosProj.xy - IN.i_UV.xy;
+	float fAspectRatio = 1.333*U_PSCustom1.y / U_PSCustom1.x;
+	float sunDist = saturate(fSign)*saturate(1-saturate(length(sunDir*float2(1,fAspectRatio))*U_PSCustom2.y));
+	
+	half4 accum=0;
+	sunDir.xy*=U_PSCustom2.x*(fSign);
+	half2 jitter=0;
+	half4 depth=S_2DExt0.Sample(S_2DExt0SamplerState, IN.i_UV.xy);
+	accum+=depth;
+	depth=S_2DExt0.Sample(S_2DExt0SamplerState, IN.i_UV.xy+sunDir.xy*(1.0+jitter));
+    accum+=depth*(1.0-1.0/8.0);
+    depth=S_2DExt0.Sample(S_2DExt0SamplerState, IN.i_UV.xy+sunDir.xy*(2.0+jitter));
+    accum+=depth*(1.0-2.0/8.0);
+    depth=S_2DExt0.Sample(S_2DExt0SamplerState, IN.i_UV.xy+sunDir.xy*(3.0+jitter));
+    accum+=depth*(1.0-3.0/8.0);
+    depth=S_2DExt0.Sample(S_2DExt0SamplerState, IN.i_UV.xy+sunDir.xy*(4.0+jitter));
+    accum+=depth*(1.0-4.0/8.0);
+    depth=S_2DExt0.Sample(S_2DExt0SamplerState, IN.i_UV.xy+sunDir.xy*(5.0+jitter));
+    accum+=depth*(1.0-5.0/8.0);
+    depth=S_2DExt0.Sample(S_2DExt0SamplerState, IN.i_UV.xy+sunDir.xy*(6.0+jitter));
+    accum+=depth*(1.0-6.0/8.0);
+    depth=S_2DExt0.Sample(S_2DExt0SamplerState, IN.i_UV.xy+sunDir.xy*(7.0+jitter));
+    accum+=depth*(1.0-7.0/8.0);
+    accum/=8.0;
+	
+	psOut.o_Color = accum*float4(sunDist.xxx,1);
+	psOut.o_Color.w+=1.0-saturate(fSign*0.1+0.9);
+	
+    return psOut;
+   
+	
+	
+}

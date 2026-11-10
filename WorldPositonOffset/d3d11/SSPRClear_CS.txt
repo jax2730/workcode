@@ -1,0 +1,19 @@
+#define NUM_THREADS_X 8u
+#define NUM_THREADS_Y 8u
+
+uniform RWTexture2D<float4> S_2DExt0;
+uniform RWTexture2D<uint> S_2DExt1;
+#define ColorRT S_2DExt0
+#define HashRT S_2DExt1
+
+[numthreads(NUM_THREADS_X, NUM_THREADS_Y, 1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    uint w, h;
+    ColorRT.GetDimensions(w, h);
+    if (id.x >= w || id.y >= h)
+        return;
+
+    ColorRT[id.xy] = float4(0, 0, 0, 0);
+    HashRT[id.xy] = 0u;
+}

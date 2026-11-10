@@ -1,0 +1,92 @@
+{
+  "buildFiles": [
+    "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\.cxx\\RelWithDebInfo\\i624a1c3\\prefab\\arm64-v8a\\prefab\\lib\\aarch64-linux-android\\cmake\\game-activity\\game-activityConfig.cmake",
+    "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\CMakeLists.txt",
+    "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\EchoCommon\\CMakeLists.txt",
+    "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\EchoComponent\\CMakeLists.txt",
+    "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\EchoCore\\CMakeLists.txt",
+    "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\EchoEngine\\CMakeLists.txt",
+    "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\EchoGame\\CMakeLists.txt",
+    "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\EchoPhysics\\CMakeLists.txt",
+    "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\PrecompiledHeader.cmake"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "D:\\AndroidSDk\\cmake\\3.22.1\\bin\\ninja.exe",
+      "-C",
+      "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\.cxx\\RelWithDebInfo\\i624a1c3\\arm64-v8a",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "D:\\AndroidSDk\\cmake\\3.22.1\\bin\\ninja.exe",
+    "-C",
+    "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\.cxx\\RelWithDebInfo\\i624a1c3\\arm64-v8a",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "EchoCommon::@d4f1c738e2a6146cc808": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "EchoCommon",
+      "output": "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libEchoCommon.a"
+    },
+    "EchoComponent::@b0218a90516a3ba88262": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "EchoComponent",
+      "output": "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libEchoComponent.a"
+    },
+    "EchoCore::@678582e5671f465d3ded": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "EchoCore",
+      "output": "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libEchoCore.a"
+    },
+    "EchoEngine::@0e49147075b65a8e5843": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "EchoEngine",
+      "output": "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libEchoEngine.a"
+    },
+    "EchoGame::@3090557f1f3a773c08b4": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "EchoGame",
+      "output": "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libEchoGame.a"
+    },
+    "EchoPhysics::@af15fd6f819d87d4c0c4": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "EchoPhysics",
+      "output": "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libEchoPhysics.a"
+    },
+    "PadBO2::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "PadBO2",
+      "output": "G:\\Echo_SU_Develop\\Samples\\X-XanaduWorld\\Project\\AndroidStudio\\xxsj\\build\\intermediates\\cxx\\RelWithDebInfo\\i624a1c3\\obj\\arm64-v8a\\libPadBO2.so",
+      "runtimeFiles": [
+        "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libfmod.so",
+        "G:\\Echo_SU_Develop\\EchoSDK\\Lib\\Android\\ARM64\\Release\\libfmodstudio.so",
+        "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\sysroot\\usr\\lib\\aarch64-linux-android\\24\\libEGL.so",
+        "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\sysroot\\usr\\lib\\aarch64-linux-android\\24\\libGLESv3.so",
+        "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\sysroot\\usr\\lib\\aarch64-linux-android\\24\\libm.so",
+        "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\sysroot\\usr\\lib\\aarch64-linux-android\\24\\libz.so",
+        "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\sysroot\\usr\\lib\\aarch64-linux-android\\24\\liblog.so",
+        "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\sysroot\\usr\\lib\\aarch64-linux-android\\24\\libandroid.so",
+        "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\sysroot\\usr\\lib\\aarch64-linux-android\\24\\libmediandk.so"
+      ]
+    }
+  },
+  "toolchains": {
+    "toolchain": {
+      "cCompilerExecutable": "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe",
+      "cppCompilerExecutable": "D:\\AndroidSDk\\NDK\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang++.exe"
+    }
+  },
+  "cFileExtensions": [],
+  "cppFileExtensions": [
+    "cpp"
+  ]
+}

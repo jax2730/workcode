@@ -1,0 +1,168 @@
+// Author: yanghang
+// Date:  2021-03-14
+#include <Common_Uniform_PS.inl>
+
+Texture2D	S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+float4 texDiffuse(float2 vUV)
+{
+    return S_Diffuse.Sample(S_DiffuseSamplerState, vUV);
+}
+
+Texture2D	S_Custom;
+SamplerState S_CustomSamplerState;
+
+Texture2DArray	S_Custom3;
+SamplerState S_Custom3SamplerState;
+
+//NOTE(changziheng): Fill mask texture
+float texFillMask(float3 vUV)
+{
+    return S_Custom3.Sample(S_Custom3SamplerState, vUV);
+}
+
+struct PS_INPUT
+{
+    float4 i_Position	 : SV_POSITION;
+    float2 i_atlas_uv    : TEXCOORD0;
+	float2 i_UV	     : TEXCOORD1;
+
+    // NOTE: Use to multiply alpha value of color for blend with background.
+    float  i_alphaFactor : COLOR0;
+    float2 i_clipPos     : COLOR1;
+    uint i_instanceID : COLOR2;
+};
+
+struct PS_OUTPUT
+{
+	float4 color : SV_TARGET;
+};
+
+struct PSInstanceData
+{
+    float3 color;
+    float alpha;
+    float grayed;
+    float hdr_factor;
+    float fillAmount;
+    float fillMaskTexLayer;
+};
+
+StructuredBuffer<PSInstanceData> B_CSCustom1;
+#define PS_INSTANCE_BATCH_DATA B_CSCustom1
+
+#define HDRFactor psInstanceData.hdr_factor
+#define Alpha     psInstanceData.alpha
+#define gray      psInstanceData.grayed // NOTE: 1.0f == gray, 0 == normal.   
+#define image_color psInstanceData.color
+#define FillAmount  psInstanceData.fillAmount
+#define FillMaskTexLayer psInstanceData.fillMaskTexLayer
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+    PSInstanceData psInstanceData = PS_INSTANCE_BATCH_DATA[IN.i_instanceID];
+    
+    float2 atlas_uv = IN.i_atlas_uv;
+    float4 diffuseColor = texDiffuse(atlas_uv);
+    psOut.color.rgb = pow(diffuseColor.rgb, 2.2);
+    psOut.color.a = diffuseColor.a;
+
+    //NOTE: Clip.
+    // TODO(yanghang): Optimize, blend_verge relative calculate can be constant.
+    float2 factor = IN.i_clipPos;
+
+    float right_bottom_clip_alpha;
+    float max_factor = max(factor.x, factor.y);
+    float blend_verge = 0.005f;
+    float blend_verge_inv = 1.0f / blend_verge; 
+    if(max_factor > 1.0f)
+    {
+        // Edge blend
+    
+        float verge_value = clamp(max_factor, 1.0f, (1.0f + blend_verge));
+        verge_value -= 1.0f;
+        verge_value = blend_verge - verge_value;
+        
+        right_bottom_clip_alpha = verge_value * blend_verge_inv; 
+    }
+    else
+    {
+        // Pass test.
+        right_bottom_clip_alpha = 1.0f;
+    }
+    
+    float left_top_clip_alpha;
+    float min_factor = min(factor.x, factor.y);
+    if(min_factor < 0)
+    {
+        // Edge blend
+        float verge_value = clamp(min_factor, -blend_verge, 0);
+        verge_value = blend_verge + verge_value;
+        left_top_clip_alpha = verge_value * blend_verge_inv;
+    }
+    else
+        left_top_clip_alpha = 1.0f;
+    
+    psOut.color.a *= right_bottom_clip_alpha * left_top_clip_alpha;
+
+    if(FillAmount != 1.0f)
+    {
+        float3 fillMaskUV;
+        fillMaskUV.xy = IN.i_UV;
+        fillMaskUV.z = FillMaskTexLayer;
+        float mask_value = texFillMask(fillMaskUV);
+        psOut.color.a *= mask_value < FillAmount ? 1.0f : 0.0f;
+    }
+
+    float anti_aliasing_alpha = IN.i_alphaFactor;
+    psOut.color.a *= anti_aliasing_alpha;
+	
+    psOut.color.rgb *= HDRFactor;
+    psOut.color.rgb *= image_color;
+    psOut.color.a *= Alpha;
+    if(gray == 1.0f)
+	{
+    	float color_gray = (psOut.color.r + psOut.color.g + psOut.color.b) * 0.33333333333333f;
+    	psOut.color.rgb = lerp(psOut.color.rgb, float3(color_gray, color_gray, color_gray), gray);
+    }
+
+    //psOut.color = float4(factor.x, factor.y, 0,1.0f);
+    //psOut.color = float4(clip_alpha_0, clip_alpha_0, clip_alpha_0, 1.0f);
+    //psOut.color = float4(clip_alpha_1, clip_alpha_1, clip_alpha_1, 1.0f);
+
+    //NOTE: Clip Debug
+#if 0
+    float2 d_color;
+    if(factor.x > 1.0f)
+        d_color.r = factor.x - 1.0f;
+    else if(factor.x < 0)
+        d_color.r = -factor.x;
+    else
+        d_color.r = 0;
+
+    if(factor.y > 1.0f)
+        d_color.g = factor.y - 1.0f;
+    else if(factor.y < 0)
+        d_color.g = -factor.y;
+    else
+        d_color.g = 0;
+            
+    psOut.color = float4(d_color.r, d_color.g, 0, 1.0f);
+#endif
+
+    //NOTE: Noise sample debug
+#if 0
+    psOut.color = float4(dissolve_value, dissolve_value, dissolve_value, 1.0f);
+#endif
+
+    psOut.color.rgb = pow(psOut.color.rgb, 1.0 / 2.2);
+
+    //TODO(yanghang):Overdraw debug effect,maybe need remove.
+    float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.color = psOut.color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+    
+    return psOut;
+}

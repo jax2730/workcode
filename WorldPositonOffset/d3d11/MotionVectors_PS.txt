@@ -1,0 +1,57 @@
+#define DepthSource S_2DExt0
+#define PointClamp S_2DExt0SamplerState
+
+Texture2D       DepthSource;
+SamplerState    PointClamp;
+
+struct PS_INPUT
+{
+    float4 i_Position	: SV_POSITION; 
+	float4 i_UV	        : TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+float4 U_PSCustom0;		// viewPortRange
+float4 U_PSCustom1;		// previousViewSize
+float4 U_PSCustom2;		// previousViewOrigin
+float4 U_PSCustom3[4];	// reprojectionMatrix
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+    PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+    float4 i_pos = IN.i_Position;
+	float2 i_uv = IN.i_UV.xy;
+
+	float4 viewPortRange = U_PSCustom0;
+	float2 previousViewSize = U_PSCustom1.xy;
+	float2 previousViewOrigin = U_PSCustom2.xy;
+	float4x4 reprojectionMatrix;
+	reprojectionMatrix[0] = U_PSCustom3[0];
+	reprojectionMatrix[1] = U_PSCustom3[1];
+	reprojectionMatrix[2] = U_PSCustom3[2];
+	reprojectionMatrix[3] = U_PSCustom3[3];
+
+	float depth = DepthSource.Sample(PointClamp, i_uv.xy * viewPortRange.xy).r;
+
+    float2 prevUV = i_uv.xy;
+
+	prevUV = float2(prevUV.x * 2.0 - 1.0, 1.0 - prevUV.y * 2.0);
+	float4 q = mul(reprojectionMatrix, float4(prevUV.xy, depth, 1.0));
+	if (q.w == 0.0)
+    {
+		return psOut;
+	}
+	q.xyz /= q.w;
+	prevUV = float2(0.5 + q.x * 0.5, 0.5 - q.y * 0.5);
+
+    float2 prevWindowPos = prevUV * previousViewSize + previousViewOrigin;
+
+    psOut.o_Color.xy = prevWindowPos.xy - i_pos.xy;
+
+    return psOut;
+}

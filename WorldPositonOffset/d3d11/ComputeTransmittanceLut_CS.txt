@@ -1,0 +1,56 @@
+#define WHITE_TRANSMITTANCE
+
+#include <AtmosphereDataStructures.inl>
+#include <FastMathThirdParty.inl>
+#include <AtmosphereCommon.inl>
+#include <AtmosphereScattering.inl>
+
+RWTexture2D<float4> S_2DExt0;
+#define TransmittanceLut S_2DExt0
+
+[numthreads(THREADGROUP_SIZE, THREADGROUP_SIZE, 1)]
+void main(uint3 threadId : SV_DISPATCHTHREADID)
+{
+    float2 pixelPos = float2(threadId.xy) + 0.5f;
+
+    float2 uv = (pixelPos) * SkyAtmosphere.transmittanceLutSizeAndInvSize.zw;
+    float viewHeight;
+    float viewZenithCosAngle;
+    FromTransmittanceLutUvs(
+        viewHeight,
+        viewZenithCosAngle,
+        Atmosphere.bottomRadius,
+        Atmosphere.topRadius,
+        uv);
+
+    float3 worldPos = float3(0.f, 0.f, viewHeight);
+    float3 worldDir = float3(0.f, sqrt(1.f - viewZenithCosAngle * viewZenithCosAngle), viewZenithCosAngle);
+
+    SamplingSetup sampling = (SamplingSetup)0;
+    {
+        sampling.variableSampleCount = false;
+        sampling.sampleCountIni = SkyAtmosphere.transmittanceSampleCount;
+    }
+    const bool ground = false;
+    const float deviceZ = FAR_DEPTH_VALUE;
+    const bool mieRayPhase = false;
+    const float aerialPerspectiveViewDistanceScale = 1.f;
+    const float3 nullLightDirection = float3(0.f, 0.f, 1.f);
+    const float3 nullLightIlluminance = float3(0.f, 0.f, 0.f);
+    
+    SingleScatteringResult ss = IntegrateSingleScatteredLuminance(
+        float4(pixelPos, 0.f, 1.f), 
+        worldPos, 
+        worldDir,
+        ground,
+        sampling, 
+        deviceZ, 
+        mieRayPhase,
+        nullLightDirection,
+        nullLightIlluminance,
+        aerialPerspectiveViewDistanceScale);
+    
+    float3 transmittance = exp(-ss.opticalDepth);
+
+    TransmittanceLut[int2(pixelPos)] = float4(transmittance, 1.f);
+}

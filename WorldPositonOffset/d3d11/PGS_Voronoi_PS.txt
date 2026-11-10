@@ -1,0 +1,109 @@
+#include <Common_Uniform_PS.inl>
+// cbuffer UniformBlock_Common_PS : register(b5)
+// {
+//    float3 U_MainLightDirection;
+//    float3 U_MainLightColor; //linear
+//    float3 U_AuxiliaryLightDirection;
+//    float3 U_AuxiliaryLightColor; //linear
+//    float3 U_SkyLightColor; //linear
+//    float3 U_GroundLightColor; //linear
+//    float3 U_PBR_MainLightColor; //linear
+//    float3 U_PBR_SkyLightColor; //linear
+//    float3 U_PBR_GroundLightColor; //linear
+//    float3 U_RoleMainLightColor; //linear
+//    float3 U_RoleSkyLightColor; //linear
+//    float3 U_RoleGroundLightColor; //linear
+//    float3 U_SunColor; //linear
+//    float3 U_WaterShallowColor; //gamma
+//    float3 U_WaterDeepColor; //gamma
+//    float3 U_WaterFoamColor; //gamma
+//    float3 U_WaterFoamParams;
+//    float3 U_WaterReflectColor; //gamma
+//    float3 U_UnderWaterColor; //gamma
+//    float3 U_ViewParam;
+//    float3 U_EnvironmentCubeMapMipLevels;
+//    float3 U_DepthRTParam;
+//    float3 U_InvProjectMatrix[4];
+//    float3 U_PS_CameraPosition;
+//    float3 U_PS_ViewDirection;
+//    float3 U_PS_Time;
+//    float3 U_PS_WindParams;
+//    float3 U_WeatherParam0; //linear
+//    float3 U_WeatherParam1;
+//    float3 U_WeatherParam2;
+//    float3 U_CoverColorParams;
+//    float3 U_CoverColorRotation;
+//    float3 U_GlobalAgingColour; //gamma
+//    float3 U_ShadowSplit; //xyz for distance of each split, w for shadowfadeout distance;
+//    float3 U_ShadowTexOffset; //xyz for texture sample offset, w for shadow strenth
+//    float3 U_ShadowEdgeFactor; //x:shadow edge
+//    float3 U_PS_CloudCollision;
+//    float3 U_PS_GravityDirection;
+//    float3 U_PS_GravityRotationMatrix[4];
+//    float3 U_PS_AmbientBlendThreshold; // .y->pbr_light .z->role_light
+//    float3 U_ForwardSSREnable;
+//    float3 U_PS_ViewLightPercent;
+// }
+
+float4 U_WorldViewProjectMatrix[4];
+
+Texture3D	 S_Custom;
+SamplerState S_CustomSamplerState;
+
+float U_PSCustom1;
+float3 U_PSCustom2;
+float3 U_PSCustom3;
+
+#define AnimeSpeed U_PSCustom1
+#define Color1 U_PSCustom2
+#define Color2 U_PSCustom3
+
+float3 hash3(float3 uvw)
+{
+    return frac(sin(float3(dot(uvw, float3(127.1, 311.7, 74.7)), dot(uvw, float3(269.5, 183.3, 246.1)), dot(uvw, float3(113.5, 271.9, 124.6)))) * 43758.5453);
+}
+
+struct PS_INPUT
+{
+    float4 i_PosInClip		: SV_POSITION;
+    float4 i_UV				: TEXCOORD0;
+    float4 i_ViewDir        : TEXCOORD1;
+    float4 i_PositionHCS    : TEXCOORD2;
+};
+
+float4 main(PS_INPUT IN): SV_TARGET
+{
+    float scale = 7.;
+    float rescale = 1.3;
+    float scalebright = 0.4;
+    float m, s, h, t, cn = 0.0;
+    // float vo1 = 0.0;
+    // float vo2 = 0.0;
+    float3 uvw = normalize(IN.i_ViewDir.xyz) * 0.5 + 0.5;
+    float vo1 = (S_Custom.Sample(S_CustomSamplerState, uvw - U_PS_Time.x * AnimeSpeed).r);
+    float vo2 = (S_Custom.Sample(S_CustomSamplerState, uvw + float3(U_PS_Time.x, -U_PS_Time.x, U_PS_Time.x) * AnimeSpeed).r);
+    
+    // for (int i = 0; i < Iterations; i++) 
+	// {
+    //     m = i / rescale + 1;
+    //     s = i * 2.231 + 1.31354;
+    //     h = 1 / (i / scalebright + 1.0);
+    //     t = U_PS_Time.x * (i / 8 + 0.25);
+
+	// 	float3 uvw = (normalize(IN.i_ViewDir.xyz) * m) / scale + hash3(i + 0.4443);
+    //     float3 tmp = (1 - S_Custom.Sample(S_CustomSamplerState, uvw + U_PS_Time.x * AnimeSpeed).r) * h;
+    //     tmp *= tmp;
+    //     vo1 += tmp;
+    //     tmp = (1 - S_Custom.Sample(S_CustomSamplerState, uvw - U_PS_Time.x * AnimeSpeed).r) * h;
+    //     tmp *= tmp;
+    //     vo2 += tmp;
+
+    //     cn += h;
+    // }
+    
+    float3 col = vo1 * Color1;
+    col += vo2 * Color2;
+    col = saturate(col * col * col * 3);
+
+    return float4(pow(col, 1.0 / 2.2).rgb, 1.0);
+}

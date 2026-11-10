@@ -1,0 +1,63 @@
+
+#include <Common_Uniform_VS.inl>
+
+uniform float4 U_VSCustom0;
+uniform float4 U_VSCustom1;
+uniform float4 U_VSCustom2;
+uniform float4 U_VSCustom3;
+
+struct VS_INPUT
+{
+    float4 i_Pos		: POSITION0;
+	float4 i_UV			: TEXCOORD0;	
+};
+
+struct VS_OUTPUT
+{
+    float4 o_PosInClip		: SV_POSITION;
+    float4 o_UV				: TEXCOORD0;
+    float4 o_ViewDir        : TEXCOORD1;
+    float4 o_PositionHCS    : TEXCOORD2;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+    VS_OUTPUT vsOut = (VS_OUTPUT)0;
+    float4 pos = float4(IN.i_Pos.xyz, 1.0f);
+    
+    float4 vPos = pos;
+    float4x4 rotatePosMatrix;
+    rotatePosMatrix[0] = float4(U_VSCustom1.xyz, 0.f);
+    rotatePosMatrix[1] = float4(U_VSCustom2.xyz, 0.f);
+    rotatePosMatrix[2] = float4(U_VSCustom3.xyz, 0.f);
+    rotatePosMatrix[3] = float4(0.f, 0.f, 0.f, 1.f);
+    vPos = mul(rotatePosMatrix, vPos);
+    vsOut.o_ViewDir.xyz = normalize(pos.xyz);
+
+    vPos.w = 0.f;
+    float4 rotatedPos = vPos;
+
+    vsOut.o_PosInClip.x = dot(U_ViewMatrix[0], vPos);
+    vsOut.o_PosInClip.y = dot(U_ViewMatrix[1], vPos);
+    vsOut.o_PosInClip.z = dot(U_ViewMatrix[2], vPos);
+
+    vPos = vsOut.o_PosInClip;
+    vPos.w = 1.f;
+
+    float4 positionHCS;
+    positionHCS.x = dot(U_ProjectMatrix[0], vPos);
+    positionHCS.y = dot(U_ProjectMatrix[1], vPos);
+    positionHCS.z = dot(U_ProjectMatrix[2], vPos);
+    positionHCS.w = dot(U_ProjectMatrix[3], vPos);
+
+    #ifdef REVERSE_DEPTH
+        positionHCS.z = 0.0f;
+    #else
+        positionHCS.z = positionHCS.w;
+    #endif
+
+    vsOut.o_PosInClip = positionHCS;
+    vsOut.o_PositionHCS = float4(positionHCS.xyz / positionHCS.w, 1.0);
+    vsOut.o_UV = IN.i_UV;
+    return vsOut;
+}

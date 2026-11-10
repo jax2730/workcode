@@ -1,0 +1,43 @@
+#include <Common_Function.inl>
+
+float4 U_WorldViewProjectMatrix[4];
+float4 U_WorldMatrix[3];
+float4 U_ViewMatrix[3];
+
+struct VS_INPUT
+{
+    float3 i_Pos		: POSITION0;
+	float4 i_Normal		: NORMAL0;
+	float4 i_UV			: TEXCOORD0;	
+	float4 i_Tangent	: TANGENT0;
+};
+
+struct VS_OUTPUT
+{
+    float4 o_PosInClip		: SV_POSITION;
+    float4 o_UV				: TEXCOORD0;	
+    float3 o_PositionWS     : TEXCOORD1;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+    VS_OUTPUT vsOut = (VS_OUTPUT)0;
+    float4 pos = float4(IN.i_Pos, 1.0f);
+    
+    // use vector array instead of matrix to avoid row/column-Major order of matrix in different api 
+    float4 positionWS = 1;
+    positionWS.x = dot(U_WorldMatrix[0], pos);
+    positionWS.y = dot(U_WorldMatrix[1], pos);
+    positionWS.z = dot(U_WorldMatrix[2], pos);
+
+    float4 clipPos;
+    clipPos.x = dot(U_WorldViewProjectMatrix[0], pos);
+    clipPos.y = dot(U_WorldViewProjectMatrix[1], pos);
+    clipPos.z = dot(U_WorldViewProjectMatrix[2], pos);
+    clipPos.w = dot(U_WorldViewProjectMatrix[3], pos);
+
+    vsOut.o_PosInClip = clipPos;
+    vsOut.o_UV = IN.i_UV;
+    vsOut.o_PositionWS = positionWS.xyz;
+    return vsOut;
+}

@@ -1,0 +1,106 @@
+
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+
+
+float4	U_VSCustom0; //xyz: starSize   w: starSphereSize
+
+struct VS_INPUT
+{
+	float4 i_Position	: POSITION0;
+	float4 i_UV	        : TEXCOORD0;
+	float4 i_Color		: COLOR0;
+};
+
+struct VS_OUTPUT
+{
+	float4 o_Position	: SV_POSITION;
+	float4 o_UV			: TEXCOORD0;
+	float4 o_Color		: TEXCOORD1;
+	float4 o_CustomParam: TEXCOORD2;
+};
+
+float GetFlickerAmount(in float3 pos,in float t)
+{
+	const float2 StarShimmerTab[8] = 
+	{
+		float2(0.897907815,-0.347608525),	float2(0.550299290, 0.273586675), float2(0.823885965, 0.098853070), float2(0.922739035,-0.122108860),
+		float2(0.800630175,-0.088956800), float2(0.711673375, 0.158864420), float2(0.870537795, 0.085484560), float2(0.956022355,-0.058114540)
+	};
+
+	float2 hash = frac(pos.xy * 256);  
+	float index = frac(hash.x + (hash.y + 1) * t);
+	index *= 8;
+  
+	float f = frac(index);
+	int i = (int) index;
+	return StarShimmerTab[i].x + f * StarShimmerTab[i].y;
+}
+
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	
+	//half3x3 rot = 
+	//{
+	//	U_VSCustom0[1].x, U_VSCustom0[2].x, U_VSCustom0[3].x,
+	//	U_VSCustom0[1].y, U_VSCustom0[2].y, U_VSCustom0[3].y,
+	//	U_VSCustom0[1].z, U_VSCustom0[2].z, U_VSCustom0[3].z 
+	//};
+	
+	//float4 vPos = float4(mul(rot,IN.i_Position.xyz),1);
+	
+	float4 tempPos = IN.i_Position;//vPos;
+	tempPos.w = 0.0f;
+		
+	float4 vVMatrixC0 = U_ViewMatrix[0];
+	float4 vVMatrixC1 = U_ViewMatrix[1];
+	float4 vVMatrixC2 = U_ViewMatrix[2];
+	
+	vsOut.o_Position.x = dot(vVMatrixC0, tempPos);
+	vsOut.o_Position.y = dot(vVMatrixC1, tempPos);
+	vsOut.o_Position.z = dot(vVMatrixC2, tempPos);
+	
+	vsOut.o_Position.xy += (IN.i_UV.xy-0.5)*U_VSCustom0.xy;
+		
+	tempPos = vsOut.o_Position;
+	
+	tempPos.w = 1.0f;
+	
+	float4 vPMatrixC0 = U_ProjectMatrix[0];
+	float4 vPMatrixC1 = U_ProjectMatrix[1];
+	float4 vPMatrixC2 = U_ProjectMatrix[2];
+	float4 vPMatrixC3 = U_ProjectMatrix[3];
+	
+	vsOut.o_Position.x = dot(vPMatrixC0, tempPos);
+	vsOut.o_Position.y = dot(vPMatrixC1, tempPos);
+	vsOut.o_Position.z = dot(vPMatrixC2, tempPos);
+	vsOut.o_Position.w = dot(vPMatrixC3, tempPos);
+	
+#ifdef REVERSE_DEPTH
+	vsOut.o_Position.z = 0.0f;
+#else
+	vsOut.o_Position.z = vsOut.o_Position.w;
+#endif
+	
+	vsOut.o_UV = IN.i_UV;
+	
+	vsOut.o_CustomParam.xyz = IN.i_Position.xyz;
+	
+	//float3 vWPos = IN.i_Position.xyz * U_VSCustom0.w + U_VS_CameraPosition.xyz;		
+	//float3 camToWorld =  U_VS_CameraPosition.xyz - vWPos.xyz;				
+	//vsOut.o_CustomParam.w = fogExp3(camToWorld,U_FogParam.xy,U_FogParam.zw,U_FogRampParam.x,U_FogRampParam.z);
+	
+	float4 ColAndMag = IN.i_Color;
+	float appMag = 2.5 + ColAndMag.w * (-1.44 - 2.5);
+	float brightness = GetFlickerAmount(IN.i_Position.xyz,U_VS_Time.x) * pow(5.0, (-appMag - 1.44) / 2.5);
+	vsOut.o_Color = float4(brightness * ColAndMag.xyz, brightness);
+#ifdef EDITOR_MODE
+	#ifdef HierarchicalLOD
+		vsOut.o_Position = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+	#endif
+#endif
+	return vsOut;
+}

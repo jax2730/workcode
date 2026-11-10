@@ -1,0 +1,47 @@
+Texture2D S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+float4 U_PSCustom0;
+float4 U_PSCustom1; //ViewPortRange
+
+struct PS_INPUT
+{
+    float4 o_PosInClip	: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+	
+	float2 uv = IN.i_UV.xy;
+	
+	//clip(U_PSCustom1.xy - uv);
+	
+	const float weights[15] = { 153, 816, 3060, 8568, 18564, 31824, 43758, 48620, 43758, 31824, 18564, 8568, 3060, 816, 153 };
+	const float weightSum = 262106.0f;
+	
+	float2 coords = uv.xy - U_PSCustom0.xy * 6.0f;
+	float3 color = 0.0f;
+	
+	float2 offset0;
+	S_2DExt0.GetDimensions(offset0.x,offset0.y);	
+	offset0=0.5f/offset0;
+	
+	[unroll]
+	for (int i = 0; i < 15; ++i)
+	{
+		color.rgb += S_2DExt0.Sample(S_2DExt0SamplerState, (coords-offset0) * U_PSCustom1.xy).rgb * (weights[i] / weightSum);
+		coords += U_PSCustom0.xy;
+	}
+	
+	psOut.o_Color.rgb = color.rgb;
+	psOut.o_Color.a = 1.0f;
+	
+	return psOut;
+}

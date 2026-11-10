@@ -1,0 +1,267 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+uniform float4 U_WorldMatrix[3];
+uniform float4 U_WorldViewProjectMatrix[4];
+
+struct VS_INUPT
+{
+	float4 position		: POSITION0;
+	float3 normal		: NORMAL0;
+	float2 uv			: TEXCOORD0;
+#ifdef USEINSTANCE
+	float4 transform	: TEXCOORD7;
+	float3 impFrontDir	: TEXCOORD6;
+	float3 impUpDir		: TEXCOORD5;
+	float3 visible		: TEXCOORD3;
+#endif
+};
+
+struct VS_OUTPUT
+{
+	float4 position		: SV_POSITION;
+	float3 normal		: TEXCOORD0;
+	float2 uv			: TEXCOORD1;
+	float4 fog			: TEXCOORD2;
+	float3 dir			: TEXCOORD3;
+	float3 visible		: TEXCOORD4;
+	float4 uvsFrame1	: TEXCOORD5;
+	float4 uvsFrame2 	: TEXCOORD6;
+	float4 uvsFrame3 	: TEXCOORD7;
+	float4 octaFrame 	: TEXCOORD8;
+	float4 viewPos 		: TEXCOORD9;
+	float4 worldPos		: TEXCOORD10;
+};
+
+float2 VectorToOctahedron(float3 N)
+{
+	N /= dot(1.0, abs(N));
+	if(N.z <= 0)
+	{
+		N.xy = (1 - abs(N.yx)) * (N.xy >=0 ? 1.0 : -1.0);
+	}
+	return N.xy;
+}
+
+float2 VectortoHemiOctahedron( float3 N )
+{
+	N.xy /= dot( 1.0, abs(N) );
+	return float2( N.x + N.y, N.x - N.y );
+}
+
+float3 OctahedronToVector(float2 oct)
+{
+	float3 N = float3(oct, 1.0 - dot(1.0, abs(oct)));
+	if(N.z < 0)
+	{
+		N.xy = (1 - abs(N.yx)) * (N.xy >= 0 ? 1.0 :-1.0);
+	}
+	return normalize(N);
+}
+
+float3 HemiOctahedronToVector( float2 Oct )
+{
+	Oct = float2( Oct.x + Oct.y, Oct.x - Oct.y ) *0.5;
+	float3 N = float3( Oct, 1 - dot( 1.0, abs(Oct) ) );
+	return normalize(N);
+}
+
+
+#define PI 			3.1415926
+#define pitch_num 	8.0
+#define yaw_num 	16.0
+
+//uniform float _Frames = 16.0;
+//uniform float _FramesX = 16.0;
+//uniform float _FramesY = 16.0;
+
+//octa
+#ifdef USEINSTANCE
+inline void OctaImpostorVertex(inout VS_INUPT v,  inout float4 uvsFrame1, inout float4 uvsFrame2, inout float4 uvsFrame3, inout float4 octaFrame, inout float4 viewPos )
+{
+	float 	framesXY 		= 16.0f; 
+	float 	prevFrame 		= framesXY - 1;
+	float2 	fractions 		= 1.0 / float2(framesXY, prevFrame);
+	float 	fractionsFrame 	= fractions.x;
+	float 	fractionsPrevFrame = fractions.y;
+	float 	UVscale 		= 1.0f;
+	float 	parallax 		= 0.0f; 
+
+	float3 worldOrigin = v.transform.xyz;
+	float3 worldCameraPos = U_VS_CameraPosition.xyz;
+	float3 upVector = float3(0, 1, 0);
+	// float3 worldForward = v.impFrontDir;
+	// float3 worldRight = normalize(cross(worldForward, upVector));
+	// float3 worldUp = normalize(cross(worldRight, worldForward));
+	// float3 invTrans = mul(float3x3(worldRight.xyz, worldUp.xyz, worldForward.xyz), -worldOrigin);
+	// float4x4 invWorldMat = float4x4(worldRight.x,   worldRight.y,   worldRight.z,   invTrans.x,
+	// 							    worldUp.x,      worldUp.y,      worldUp.z,      invTrans.y,
+	// 							    worldForward.x, worldForward.y, worldForward.z, invTrans.z,
+	// 								0,0,0,1);
+
+	float3 objectCameraDirection = normalize(worldCameraPos - worldOrigin);
+	float3 objectCameraPosition = worldCameraPos - worldOrigin;
+
+	float3 rotZ = normalize(v.impFrontDir);
+	float3 rotY = normalize(v.impUpDir);
+ 	float3 rotX = cross(rotY, rotZ);
+
+	float3x3 rotMatTr = float3x3(
+		rotX.x, rotX.y, rotX.z,
+		rotY.x, rotY.y, rotY.z, 
+		rotZ.x, rotZ.y, rotZ.z
+	);
+
+	objectCameraDirection = mul(rotMatTr, objectCameraDirection);
+	objectCameraPosition = mul(rotMatTr, objectCameraPosition);
+
+	float3 objectHorizontalVector = normalize(cross(objectCameraDirection, upVector));
+	float3 objectVerticalVector = normalize(cross(objectHorizontalVector, objectCameraDirection));
+
+	float4x4 tmpMat = float4x4(objectHorizontalVector.x, objectVerticalVector.x, objectCameraDirection.x, 0,
+							   objectHorizontalVector.y, objectVerticalVector.y, objectCameraDirection.y, 0,
+							   objectHorizontalVector.z, objectVerticalVector.z, objectCameraDirection.z, 0,
+						 	   0,0,0,1);
+
+	float2 uvExpansion = ( v.uv.xy - 0.5f ) * framesXY * fractionsFrame;
+	float3 billboard = objectHorizontalVector * uvExpansion.x + objectVerticalVector * uvExpansion.y; //mul(tmpMat, v.position).xyz; //
+	float3 localDir = - billboard - objectCameraPosition;
+
+	#ifdef USE_HEMI
+		objectCameraDirection.y = max(0.001, objectCameraDirection.y);
+		float2 frameOcta = VectortoHemiOctahedron( objectCameraDirection.xzy ) * 0.5 + 0.5;
+	#else
+		float2 frameOcta = VectorToOctahedron( objectCameraDirection.xzy ) * 0.5 + 0.5;
+	#endif
+
+	float2 prevOctaFrame = frameOcta * prevFrame;
+	float2 baseOctaFrame = floor( prevOctaFrame );
+	float2 fractionOctaFrame = ( baseOctaFrame * fractionsFrame );
+	float2 octaFrame1 = ( baseOctaFrame * fractionsPrevFrame ) * 2.0 - 1.0;
+
+	float3 octa1WorldY = OctahedronToVector( octaFrame1 ).xzy;
+	float3 octa1WorldX = normalize( cross( upVector , octa1WorldY ) + float3(-0.001,0,0));
+	float3 octa1WorldZ = cross( octa1WorldX , octa1WorldY );
+	float dotY1 = dot( octa1WorldY , localDir );
+	float3 octa1LocalY = normalize( float3( dot( octa1WorldX , localDir ), dotY1, dot( octa1WorldZ , localDir ) ) );
+	float lineInter1 = dot( octa1WorldY , -objectCameraPosition ) / dotY1;
+	float3 intersectPos1 = ( lineInter1 * localDir + objectCameraPosition ); 
+
+	float dotframeX1 = dot( octa1WorldX , -intersectPos1 );
+	float dotframeZ1 = dot( octa1WorldZ , -intersectPos1 );
+
+	float2 uvFrame1 = float2( dotframeX1 , dotframeZ1 );
+	if( lineInter1 <= 0.0 )
+		uvFrame1 = 0;
+
+	float2 uvParallax1 = octa1LocalY.xz * fractionsFrame * parallax;
+	uvFrame1 = ( ( uvFrame1 / UVscale ) + 0.5) * fractionsFrame + fractionOctaFrame;
+	uvsFrame1 = float4( uvParallax1, uvFrame1);
+
+	float2 fractPrevOctaFrame = frac( prevOctaFrame );
+	float2 cornerDifference = lerp( float2( 0,1 ) , float2( 1,0 ) , saturate( ceil( ( fractPrevOctaFrame.x - fractPrevOctaFrame.y ) ) ));
+	float2 octaFrame2 = ( ( baseOctaFrame + cornerDifference ) * fractionsPrevFrame ) * 2.0 - 1.0;
+	float3 octa2WorldY = OctahedronToVector( octaFrame2 ).xzy;
+	float3 octa2WorldX = normalize( cross( upVector , octa2WorldY ) + float3(-0.001,0,0));
+	float3 octa2WorldZ = cross( octa2WorldX , octa2WorldY );
+
+	float dotY2 = dot( octa2WorldY , localDir );
+	float3 octa2LocalY = normalize( float3( dot( octa2WorldX , localDir ), dotY2, dot( octa2WorldZ , localDir ) ) );
+
+	float lineInter2 = dot( octa2WorldY , -objectCameraPosition ) / dotY2;
+	float3 intersectPos2 = ( lineInter2 * localDir + objectCameraPosition );
+
+	float dotframeX2 = dot( octa2WorldX , -intersectPos2 );
+	float dotframeZ2 = dot( octa2WorldZ , -intersectPos2 );
+
+	float2 uvFrame2 = float2( dotframeX2 , dotframeZ2 );
+
+	if( lineInter2 <= 0.0 )
+		uvFrame2 = 0;
+
+	float2 uvParallax2 = octa2LocalY.xz * fractionsFrame * parallax;
+	uvFrame2 = ( ( uvFrame2 / UVscale ) + 0.5 ) * fractionsFrame + ( ( cornerDifference * fractionsFrame ) + fractionOctaFrame );
+	uvsFrame2 = float4( uvParallax2, uvFrame2);
+
+	float2 octaFrame3 = ( ( baseOctaFrame + 1 ) * fractionsPrevFrame  ) * 2.0 - 1.0;
+	float3 octa3WorldY = OctahedronToVector( octaFrame3 ).xzy;
+	float3 octa3WorldX = normalize( cross( upVector , octa3WorldY ) + float3(-0.001,0,0));
+	float3 octa3WorldZ = cross( octa3WorldX , octa3WorldY );
+
+	float dotY3 = dot( octa3WorldY , localDir );
+	float3 octa3LocalY = normalize( float3( dot( octa3WorldX , localDir ), dotY3, dot( octa3WorldZ , localDir ) ) );
+
+	float lineInter3 = dot( octa3WorldY , -objectCameraPosition ) / dotY3; 
+	float3 intersectPos3 = ( lineInter3 * localDir + objectCameraPosition );
+
+	float dotframeX3 = dot( octa3WorldX , -intersectPos3 );
+	float dotframeZ3 = dot( octa3WorldZ , -intersectPos3 );
+
+	float2 uvFrame3 = float2( dotframeX3 , dotframeZ3 );
+
+	if( lineInter3 <= 0.0 )
+		uvFrame3 = 0;
+
+	float2 uvParallax3 = octa3LocalY.xz * fractionsFrame * parallax;
+	uvFrame3 = ( ( uvFrame3 / UVscale ) + 0.5 ) * fractionsFrame + ( fractionOctaFrame + fractionsFrame );
+	uvsFrame3 = float4( uvParallax3, uvFrame3);
+
+	octaFrame = 0;
+	octaFrame.xy = prevOctaFrame;
+	viewPos = 0;
+	viewPos.xyz = mul((float4x4)U_ViewMatrix, float4(billboard, 1.0f)).xyz;
+
+	v.position.xyz = billboard;
+	v.normal.xyz = objectCameraDirection;
+}
+#endif
+
+
+VS_OUTPUT main(VS_INUPT v, uint i_InstanceID: SV_InstanceID)
+{
+	VS_OUTPUT o = (VS_OUTPUT)1;
+
+	o.uv = v.uv;
+#ifdef USEINSTANCE
+	OctaImpostorVertex( v, o.uvsFrame1, o.uvsFrame2, o.uvsFrame3, o.octaFrame, o.viewPos );
+	o.visible = v.visible;
+
+
+	float3 rotZ = normalize(v.impFrontDir);
+	float3 rotY = normalize(v.impUpDir);
+ 	float3 rotX = cross(rotY, rotZ);
+
+	float3x3 rotMatTr = float3x3(
+		rotX.x, rotY.x, rotZ.x,
+		rotX.y, rotY.y, rotZ.y, 
+		rotX.z, rotY.z, rotZ.z
+	);
+	v.position.xyz = mul(rotMatTr, v.position.xyz);
+	
+	v.position.xyz *= v.transform.www;
+	v.position.xyz += v.transform.xyz;
+	v.position.w = 1.f;
+
+	o.position = mul((float4x4)U_WorldViewProjectMatrix, v.position);
+
+	//	雾
+	float3 camToWorld =  U_VS_CameraPosition.xyz - v.transform.xyz;
+
+	float4x4 gravityRotatePosMatrix;	
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+	
+	o.fog = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+	o.dir = normalize(-camToWorld);
+
+#else
+	o.position = mul((float4x4)U_WorldViewProjectMatrix, float4(v.position.xyz, 1.f));
+	o.normal = mul((float3x4)U_WorldMatrix, float4(v.normal, 0.f));
+	o.fog = float4(0.f,0.f,0.f,1.f);
+	o.visible = float3(0.0f, 0.0f, 0.0f);
+#endif
+	return o;
+}

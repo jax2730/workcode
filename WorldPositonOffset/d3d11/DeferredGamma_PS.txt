@@ -1,0 +1,29 @@
+Texture2D S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+float4 U_PSCustom0;		// viewPortRange
+#define ViewPortRange	U_PSCustom0.xy
+
+struct PS_INPUT
+{
+    float4 position	: SV_POSITION;
+	float4 uv		: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 color : SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+	float2 uv = IN.uv.xy * ViewPortRange;
+
+	float4 color = S_2DExt0.Sample(S_2DExt0SamplerState, uv);
+
+	psOut.color.rgb = pow(color.rgb, 1.0 / 2.2);
+	psOut.color.a = 1.0f;
+	return psOut;
+}

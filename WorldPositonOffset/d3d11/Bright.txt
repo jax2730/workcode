@@ -1,0 +1,44 @@
+Texture2D	S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+float4 U_PSCustom0;
+float4 U_PSCustom1;//ViewPortRange;
+
+
+struct PS_INPUT
+{
+    float4	i_PosInClip			: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+	
+	float2 uv = IN.i_UV.xy;
+	
+	//clip(U_PSCustom1.xy - uv);
+	
+	float4 vSample = S_2DExt0.Sample(S_2DExt0SamplerState, uv * U_PSCustom1.xy);
+	
+	vSample *= U_PSCustom0.z;
+	
+	vSample.rgb = (vSample.r > 10000.0f) ? float3(1.0f, 1.0f, 1.0f) : vSample.rgb;
+	
+	vSample.rgb *= float3(U_PSCustom0.xxx);
+	vSample.rgb -= float3(U_PSCustom0.yyy);
+	vSample.rgb  = max(vSample.rgb, float3(0.0f,0.0f,0.0f));  
+	vSample.rgb /= (float3(U_PSCustom0.www) + vSample.rgb);
+	
+	vSample *= 8.0f;
+	
+	psOut.o_Color.rgb = vSample.rgb;
+	psOut.o_Color.a = 1.0f;
+
+	return psOut;
+}

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>世界城市分布</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#fff;color:#183e40;font-family:"Microsoft YaHei",system-ui,sans-serif}
+header{padding:24px 32px 18px;border-bottom:1px solid #dce6e5;display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+h1{font-size:25px;margin:0}header p{margin:6px 0 0;color:#708482;font-size:13px}.controls{margin-left:auto;display:flex;gap:12px}
+input,select{font:inherit;font-size:14px;border:1px solid #cadbd8;border-radius:4px;padding:10px 12px;background:white;color:#183e40;max-width:100%}
+input{width:230px}main{display:grid;grid-template-columns:minmax(0,1fr) 280px;height:calc(100vh - 103px);min-height:550px}
+.map-wrap{position:relative;background:#eaf4f7;overflow:hidden;display:flex;align-items:center}
+svg{display:block;width:100%;height:100%;touch-action:none;cursor:grab}svg.dragging{cursor:grabbing}.land path{fill:#f4f6f2;stroke:#b9c6c8;stroke-width:.55;vector-effect:non-scaling-stroke}
+.point{fill:#d45241;stroke:white;stroke-width:1;vector-effect:non-scaling-stroke;cursor:pointer}.point:focus,.point:hover{fill:#154f51;outline:none}.point.selected{fill:#154f51}
+.map-tools{position:absolute;left:20px;top:20px;display:flex;gap:6px}.map-tools button{width:36px;height:36px;border:1px solid #c6d9d8;background:white;border-radius:4px;color:#183e40;cursor:pointer;font-size:21px;display:grid;place-items:center}
+aside{background:white;border-left:1px solid #dce6e5;overflow:auto}.details{padding:22px 20px;border-bottom:1px solid #e0e9e7}.details h2{font-size:22px;margin:0 0 6px;overflow-wrap:anywhere}.english{font-size:12px;color:#7a8e8c;margin:0 0 20px}.details dl{margin:0;display:grid;grid-template-columns:58px 1fr;gap:12px;font-size:13px}.details dt{color:#748a87}.details dd{margin:0;overflow-wrap:anywhere}
+.list-header{padding:18px 20px 8px;color:#7a8e8c;font-size:12px}.city-list{padding:0 10px 16px}.city-list button{width:100%;background:transparent;border:0;border-radius:4px;text-align:left;padding:11px 10px;cursor:pointer;color:#183e40;display:flex;justify-content:space-between;gap:10px;font:inherit;font-size:13px}.city-list button small{color:#82928f}.city-list button:hover,.city-list button.active{background:#e6f0ed}
+.source{position:absolute;left:20px;bottom:16px;color:#6a8584;font-size:11px}.empty{padding:20px;color:#82928f;font-size:13px}
+.country-group{border-bottom:1px solid #e0e9e7;padding:5px 0}.city-list summary{cursor:pointer;padding:10px 6px;font-size:14px;overflow-wrap:anywhere}.city-list summary small{color:#748a87;font-size:11px;margin-left:8px;font-weight:400}.country-group>summary{font-weight:600}.state-group{margin-left:12px}.state-group>summary{font-size:13px}.state-group button{padding-left:20px;overflow-wrap:anywhere}
+@media(max-width:720px){header{padding:18px 16px;gap:14px}h1{font-size:21px}.controls{width:100%;margin:0}input{flex:1;min-width:0}select{width:135px}main{height:auto;min-height:0;grid-template-columns:1fr}.map-wrap{height:52vh;min-height:330px}aside{border-left:0;border-top:1px solid #dce6e5;max-height:360px}.details{padding:16px}.details dl{grid-template-columns:55px 1fr 55px 1fr}.city-list{max-height:220px;overflow:auto}.source{font-size:10px}}
+</style>
+</head>
+<body>
+<header><div><h1>世界城市分布</h1><p id="summary">__SUMMARY__</p></div><div class="controls"><input id="search" type="search" placeholder="城市 / 省区" aria-label="搜索城市或省区"><select id="country" aria-label="国家"><option value="">全部国家</option>__COUNTRIES__</select></div></header>
+<p id="startup-status" role="status" style="margin:0;padding:10px 20px;background:#fff3cd;color:#684d0a">交互尚未启动。若此提示持续显示，请将完整 HTML 下载到电脑后用浏览器打开，并确认浏览器允许 JavaScript。</p>
+<main>
+<section class="map-wrap" aria-label="世界地图">
+<svg id="map" viewBox="0 0 1200 483.333" role="group" aria-label="城市分布地图"><g id="world"><g class="land">__WORLD_PATHS__</g><g id="static-points">__STATIC_POINTS__</g><g id="points"></g></g></svg>
+<div class="map-tools"><button id="zoom-in" title="放大" aria-label="放大">+</button><button id="zoom-out" title="缩小" aria-label="缩小">−</button><button id="reset" title="世界视图" aria-label="世界视图">⌂</button></div>
+<span class="source">GeoNames / Natural Earth · 近似城市中心</span>
+</section>
+<aside>
+<section class="details" id="details"><h2 id="city-name">北京</h2><p class="english" id="city-en">Beijing</p><dl><dt>省 / 区</dt><dd id="state-name">北京市</dd><dt>国家</dt><dd id="country-name">中国</dd></dl></section>
+<div class="list-header" id="list-header"></div><div class="city-list" id="city-list"></div>
+</aside>
+</main>
+<script>
+"use strict";
+const cities=__CITY_DATA__;
+const map=document.getElementById("map"),world=document.getElementById("world"),points=document.getElementById("points");
+let selected=0,zoom=1,offsetX=0,offsetY=0,drag=null,visible=cities.map((_,i)=>i);
+const circles=[],buttons=new Map(),NS="http://www.w3.org/2000/svg";
+const cityGroups=new Map(),expandedCountries=new Set(),expandedStates=new Set();
+const projected=cities.map(c=>({x:(c.lon+180)*1200/360,y:(85-c.lat)*1200/360}));
+document.getElementById("summary").textContent=cities.length+" 个城市 · "+new Set(cities.map(c=>c.country)).size+" 个国家";
+function transform(){world.setAttribute("transform",`translate(${offsetX},${offsetY}) scale(${zoom})`);circles.forEach((p,i)=>p.setAttribute("r",(i===selected?4.8:3.1)/zoom));}
+function selectCity(i,focus=false){
+selected=i;const c=cities[i];
+document.getElementById("city-name").textContent=c.name;
+document.getElementById("city-en").textContent=c.name_en;
+document.getElementById("state-name").textContent=c.state;
+document.getElementById("country-name").textContent=c.country;
+circles.forEach((circle,j)=>{circle.classList.toggle("selected",j===i);circle.setAttribute("aria-pressed",String(j===i));});
+buttons.forEach((button,j)=>button.classList.toggle("active",j===i));
+const group=cityGroups.get(i);
+if(group){group.country.open=true;group.state.open=true;expandedCountries.add(c.country);expandedStates.add(JSON.stringify([c.country,c.state]));}
+points.appendChild(circles[i]);
+if(focus){zoom=5;offsetX=600-projected[i].x*zoom;offsetY=241.666-projected[i].y*zoom;}
+transform();
+}
+cities.forEach((c,i)=>{
+const circle=document.createElementNS(NS,"circle");circle.classList.add("point");circle.setAttribute("cx",projected[i].x);circle.setAttribute("cy",projected[i].y);circle.setAttribute("tabindex","0");circle.setAttribute("role","button");circle.setAttribute("aria-label",c.name+"，"+c.state+"，"+c.country);
+const title=document.createElementNS(NS,"title");title.textContent=c.name+" · "+c.state+" · "+c.country;circle.appendChild(title);
+circle.addEventListener("click",()=>selectCity(i));circle.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();selectCity(i);}});
+points.appendChild(circle);circles.push(circle);
+});
+function filter(){
+const term=document.getElementById("search").value.trim().toLowerCase(),country=document.getElementById("country").value;
+visible=cities.map((_,i)=>i).filter(i=>(!country||cities[i].country===country)&&[cities[i].name,cities[i].name_en,cities[i].state].some(t=>t.toLowerCase().includes(term)));
+circles.forEach((circle,i)=>{const show=visible.includes(i);circle.style.display=show?"":"none";circle.setAttribute("tabindex",show?"0":"-1");});
+const list=document.getElementById("city-list");list.replaceChildren();buttons.clear();cityGroups.clear();
+const grouped=new Map();
+visible.forEach(i=>{const c=cities[i];if(!grouped.has(c.country))grouped.set(c.country,new Map());const states=grouped.get(c.country);if(!states.has(c.state))states.set(c.state,[]);states.get(c.state).push(i);});
+document.getElementById("list-header").textContent=grouped.size+" 个国家 · "+visible.length+" 个城市";
+function makeGroup(label,count,className,open,key,expanded){
+const group=document.createElement("details"),summary=document.createElement("summary"),name=document.createElement("span"),total=document.createElement("small");
+group.className=className;group.open=open;name.textContent=label;total.textContent=count+" 城市";summary.append(name,total);group.appendChild(summary);
+group.addEventListener("toggle",()=>{if(group.open)expanded.add(key);else expanded.delete(key);});return group;
+}
+const compare=(a,b)=>a.localeCompare(b,"zh-CN");
+[...grouped.keys()].sort(compare).forEach(countryName=>{
+const states=grouped.get(countryName),count=[...states.values()].reduce((sum,items)=>sum+items.length,0);
+const countryGroup=makeGroup(countryName,count,"country-group",Boolean(term||country)||expandedCountries.has(countryName),countryName,expandedCountries);list.appendChild(countryGroup);
+[...states.keys()].sort(compare).forEach(stateName=>{
+const indices=states.get(stateName),key=JSON.stringify([countryName,stateName]);
+const stateGroup=makeGroup(stateName,indices.length,"state-group",Boolean(term)||expandedStates.has(key),key,expandedStates);countryGroup.appendChild(stateGroup);
+indices.sort((a,b)=>compare(cities[a].name,cities[b].name)).forEach(i=>{
+const button=document.createElement("button");button.textContent=cities[i].name;button.addEventListener("click",()=>selectCity(i,true));stateGroup.appendChild(button);buttons.set(i,button);cityGroups.set(i,{country:countryGroup,state:stateGroup});
+});
+});
+});
+document.getElementById("details").hidden=!visible.length;
+if(visible.length)selectCity(visible.includes(selected)?selected:visible[0]);
+else{const empty=document.createElement("p");empty.className="empty";empty.textContent="无匹配城市";list.appendChild(empty);}
+}
+function svgPoint(e){const point=map.createSVGPoint();point.x=e.clientX;point.y=e.clientY;return point.matrixTransform(map.getScreenCTM().inverse());}
+function zoomAt(factor,p={x:600,y:241.666}){const next=Math.max(1,Math.min(30,zoom*factor));offsetX=p.x-(p.x-offsetX)*next/zoom;offsetY=p.y-(p.y-offsetY)*next/zoom;zoom=next;if(zoom===1){offsetX=0;offsetY=0;}transform();}
+map.addEventListener("wheel",e=>{e.preventDefault();zoomAt(e.deltaY<0?1.2:1/1.2,svgPoint(e));},{passive:false});
+map.addEventListener("pointerdown",e=>{if(e.target.closest(".point"))return;drag={point:svgPoint(e),x:offsetX,y:offsetY};map.setPointerCapture(e.pointerId);map.classList.add("dragging");});
+map.addEventListener("pointermove",e=>{if(!drag)return;const p=svgPoint(e);offsetX=drag.x+p.x-drag.point.x;offsetY=drag.y+p.y-drag.point.y;transform();});
+function endDrag(){drag=null;map.classList.remove("dragging");}map.addEventListener("pointerup",endDrag);map.addEventListener("pointercancel",endDrag);
+document.getElementById("zoom-in").addEventListener("click",()=>zoomAt(1.5));document.getElementById("zoom-out").addEventListener("click",()=>zoomAt(1/1.5));document.getElementById("reset").addEventListener("click",()=>{zoom=1;offsetX=0;offsetY=0;transform();});
+document.getElementById("search").addEventListener("input",filter);document.getElementById("country").addEventListener("change",filter);filter();
+document.getElementById("static-points").style.display="none";
+document.getElementById("startup-status").hidden=true;
+</script>
+</body>
+</html>

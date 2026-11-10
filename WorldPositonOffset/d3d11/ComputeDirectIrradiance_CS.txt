@@ -1,0 +1,29 @@
+#include "PrecomputeAtmosphereFuncs.inl"
+
+StructuredBuffer<AtmosphereParameters> B_CSCustom0 : register(t0);
+SamplerState S_2DExt2SamplerState : register(s0);
+
+RWTexture2D<float4> S_2DExt0 : register(u0);
+RWTexture2D<float4> S_2DExt1 : register(u1);
+
+Texture2D<float4> S_2DExt2 : register(t1);
+
+#define linear_sampler S_2DExt2SamplerState
+#define atmosphere_params B_CSCustom0
+
+#define irradiance_texture S_2DExt0
+#define delta_irradiance_texture S_2DExt1
+
+#define transmittance_texture S_2DExt2
+
+[numthreads(COMPUTE_GROUP_SIZE_X, COMPUTE_GROUP_SIZE_Y, 1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    delta_irradiance_texture[id.xy] = float4(ComputeDirectIrradianceTexture(
+        atmosphere_params[0],
+        transmittance_texture,
+        linear_sampler,
+        float2(id.xy) + 0.5f
+    ), 1.f);
+    irradiance_texture[id.xy] = 0.0f;
+}

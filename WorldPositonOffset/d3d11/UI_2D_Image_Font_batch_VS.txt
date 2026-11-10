@@ -1,0 +1,81 @@
+// Author: yanghang
+// Date:  2021-03-14
+                
+#include <Common_Uniform_VS.inl>
+
+struct VSInstanceData
+{
+    float4 worldMat[4];
+    float4 screenMat[4];
+};
+
+// NOTE: UI Item MVP or MP transform matrix.
+StructuredBuffer<VSInstanceData> B_CSCustom0;
+
+//NOTE: UI item clip rectangle in 2D screen-coordinate.
+uniform float4 U_VSCustom2;
+
+uniform float4 U_VSCustom3;
+#define InstanceID_Offset (uint)U_VSCustom3.x
+
+// TODO(yanghang): MVP for world scence UI, MP for screen UI that always follow camera.
+#define VS_INSTANCE_BATCH_DATA B_CSCustom0
+#define WorldMatrix instanceData.worldMat
+#define localToScreenMatrix instanceData.screenMat
+
+//IMPORTANT: Optimize. width and height is inverse from CPU side to elimate divide op.
+#define Screen2DClipRect U_VSCustom2
+
+#define ProjectMatrix U_ProjectMatrix
+
+struct VS_INPUT
+{
+	float2 i_pos		: POSITION0;
+	float2 i_atlas_uv			: TEXCOORD0;
+    uint i_instanceID : COLOR0;
+};
+
+struct VS_OUTPUT
+{
+	float4	o_posInClip			: SV_POSITION;
+	float2 	o_atlas_uv				: TEXCOORD0;
+    uint o_instanceID : COLOR0;
+    float2 o_clipPos            : COLOR1;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+    float4 screen_pos;
+    // NOTE: Local to logic 2D UI screen transfrom.
+    // Don't affect z.
+    uint instanceDataIndex = IN.i_instanceID + InstanceID_Offset;
+    VSInstanceData instanceData = VS_INSTANCE_BATCH_DATA[instanceDataIndex];
+    vsOut.o_instanceID = instanceDataIndex;
+    
+    float4 pos = float4(IN.i_pos.xy, 0, 1.0f);
+    screen_pos.x = dot(localToScreenMatrix[0].xyzw, pos);
+    screen_pos.y = dot(localToScreenMatrix[1].xyzw, pos);
+    screen_pos.z = 0.0f;//dot(localToScreenMatrix[2].xyzw, pos);
+    screen_pos.w = 1.0f;
+
+    float4 world_pos;
+	world_pos.x = dot(WorldMatrix[0], screen_pos);
+	world_pos.y = dot(WorldMatrix[1], screen_pos);
+	world_pos.z = dot(WorldMatrix[2], screen_pos);
+	world_pos.w = dot(WorldMatrix[3], screen_pos);
+
+    vsOut.o_posInClip.x = dot(ProjectMatrix[0], world_pos);
+	vsOut.o_posInClip.y = dot(ProjectMatrix[1], world_pos);
+	vsOut.o_posInClip.z = dot(ProjectMatrix[2], world_pos);
+	vsOut.o_posInClip.w = dot(ProjectMatrix[3], world_pos);
+
+    //IMPORTANT: Clip rect
+    // x = real_x/real_w, z = 1.0f/real_w,
+    // y = real_y/real_h, w = 1.0f/-real_h
+    vsOut.o_clipPos = (screen_pos.xy * Screen2DClipRect.zw) - (Screen2DClipRect.xy);
+
+    vsOut.o_atlas_uv = IN.i_atlas_uv;
+
+    return vsOut;
+}

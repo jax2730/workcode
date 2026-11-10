@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "total_modules": 5,
+  "completed_modules": [
+    "index",
+    "architecture",
+    "getting-started",
+    "doc-map",
+    "城市聚类系统"
+  ],
+  "pending_modules": [
+    "道路与街区处理",
+    "行政区处理",
+    "数据抓取与导出"
+  ],
+  "current_batch": 1,
+  "last_updated": "2026-04-28T00:00:00Z"
+}

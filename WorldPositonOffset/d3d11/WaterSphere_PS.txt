@@ -1,0 +1,139 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Light_Function_PS.inl>
+#include <Common_ShadowFiltering.inl>
+
+float4 U_PSGeneralRegister0;
+float4 U_PSGeneralRegister1; //deep color
+float4 U_PSGeneralRegister2; 
+float4 U_PSGeneralRegister3; //x:mFresnelBias y:mFresnelIntensity z:mFresnelRatio
+float4 U_PSGeneralRegister4;
+float4 U_PSGeneralRegister5;
+float4 U_MaterialCustomParam1; //HDR��
+float4  U_MaterialFresnel;
+
+
+uniform Texture2D S_Bump;
+SamplerState S_BumpSamplerState;
+#ifdef DISSOLVE
+    Texture2D S_Custom7;
+    SamplerState S_Custom7SamplerState;
+#endif
+
+struct PS_INPUT
+{
+    float4 i_PosInClip  : SV_POSITION;
+    float3 i_WNormal    : TEXCOORD0;
+    float4 i_WorldPos   : TEXCOORD1;
+    float4 i_EyeDir     : TEXCOORD2;
+    float4 i_UV         : TEXCOORD3;
+    float4 i_Tangent    : TEXCOORD4;
+    float4 i_Binormal   : TEXCOORD5;
+    float4 o_Fog        : TEXCOORD6;
+#ifdef PARABOLOID_MAPPING
+	float	i_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+struct PS_OUTPUT
+{
+    float4 color : SV_TARGET;
+};
+
+half4 TriplanarMapping(uniform Texture2D tex, SamplerState texState, float3 pos, float3 normal, float tile, half blend)
+{
+    float3 uv = pos * tile;
+    half3 weight = pow(abs(normal), blend);
+
+    weight /= dot(weight, 1.0);
+    float time = U_PS_Time.x;
+    float waterSpeed = U_PSGeneralRegister2.y;
+    uv.xy -= frac(time * 0.01) * waterSpeed;
+    uv.z -= frac(time * 0.02) * waterSpeed;
+    half4 x = texSample2D(tex, uv.zy, texState);
+    half4 y = texSample2D(tex, uv.xz, texState);
+    half4 z = texSample2D(tex, uv.xy, texState);
+    return x * weight.x + y * weight.y + z * weight.z;
+}
+
+PS_OUTPUT main(PS_INPUT IN, bool isFrontFacing : SV_IsFrontFace)
+{
+#ifdef PARABOLOID_MAPPING
+	clip(IN.i_ClipDepth);
+#endif
+
+    PS_OUTPUT psOut = (PS_OUTPUT) 1.f;
+    float2 uv = IN.i_UV.xy;
+#ifdef DISSOLVE
+    if(U_MaterialCustomParam1.y > 0)
+    {
+        float4x4 thresholdMatrix =
+        {  1.0 / 17.0,  9.0 / 17.0,  3.0 / 17.0, 11.0 / 17.0,
+            13.0 / 17.0,  5.0 / 17.0, 15.0 / 17.0,  7.0 / 17.0,
+            4.0 / 17.0, 12.0 / 17.0,  2.0 / 17.0, 10.0 / 17.0,
+            16.0 / 17.0,  8.0 / 17.0, 14.0 / 17.0,  6.0 / 17.0
+        };
+        float2 pos = IN.i_PosInClip.xy;
+        
+        
+        pos.xy = pos.xy/U_MaterialCustomParam1.z;
+        
+        int xindex = fmod(pos.x, 4);
+        int yindex =fmod(pos.y, 4);
+        
+        float alphaDissolve = thresholdMatrix[xindex][yindex];//* _RowAccess[yindex];
+        
+        if(alphaDissolve < U_MaterialCustomParam1.y)
+            discard;
+    }
+    else
+    {
+        if(S_Custom7.Sample(S_Custom7SamplerState, uv).a < U_MaterialFresnel.y)
+        discard;	
+    }
+#endif
+    
+    float3 normal = float3(1.0, 1.0, 1.0);
+    
+    normal = TriplanarMapping(S_Bump, S_BumpSamplerState, IN.i_WorldPos.xyz, IN.i_WNormal.xyz, U_PSGeneralRegister2.x, 2).xyz;
+    //ת���ռ����
+    float3 nn = normalize(IN.i_WNormal.xyz);
+    float3 tn = normalize(IN.i_Tangent.xyz);
+    float3 bn = normalize(IN.i_Binormal.xyz);
+
+    tn = normalize(tn - nn * dot(tn, nn));
+    bn = normalize(bn - nn * dot(bn, nn));
+
+    float3x3 tbn =
+    {
+        tn.x, bn.x, nn.x,
+		tn.y, bn.y, nn.y,
+		tn.z, bn.z, nn.z 
+    };
+    normal = normal.xyz * 2.0 - 1.0;
+    normal.z = sqrt(1.0 - (normal.x * normal.x + normal.y * normal.y));
+    normal = normalize(mul(tbn, normal));
+    
+    float3 eyeDir = IN.i_EyeDir.xyz;
+    eyeDir.xyz = normalize(eyeDir.xyz);
+    
+    float facing = dot(eyeDir, normal);
+    
+    // fresnel
+    float fresnel = saturate(U_PSGeneralRegister3.x + U_PSGeneralRegister3.z * pow(facing, U_PSGeneralRegister3.y));
+		
+    float3 waterColor;
+    waterColor = lerp(U_PSGeneralRegister0.rgb, U_PSGeneralRegister1.rgb, facing);
+    
+    half nl = dot(normal, -U_MainLightDirection.xyz);
+    half value = nl * 0.5 + 0.5;
+    value = pow(abs(value), U_PSGeneralRegister4.x);
+    waterColor.rgb = lerp(waterColor, U_PSGeneralRegister5.xyz, pow(1 - value, U_PSGeneralRegister4.y)); //�����ɫ
+    
+    psOut.color.rgb = waterColor.rgb;
+    psOut.color.rgb += fresnel;
+    psOut.color.rgb *= U_MaterialCustomParam1.x;
+    psOut.color.rgb = psOut.color.rgb * IN.o_Fog.a + IN.o_Fog.rgb;
+    
+    return psOut;
+}

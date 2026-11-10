@@ -1,0 +1,197 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+
+#ifdef USEINSTANCE
+	float4 	U_VSCustom0[InstanceCount * UniformCount];
+#else
+	float4	U_WorldViewProjectMatrix[4];
+	float4	U_WorldMatrix[3];
+#endif
+
+#ifdef HWSKINNED
+	float4	U_BoneMatrix[3 * Bone_Matrix_Max_Cnt];
+#endif
+
+#ifdef MOTIONBLUR
+	float4	U_LastWorldViewProjectMatrix[4];
+	#ifdef HWSKINNED	
+		float4	U_LastBoneMatrix[3 * Bone_Matrix_Max_Cnt];
+	#endif	
+#endif
+
+struct VS_INPUT
+{
+	float4 i_Pos		: POSITION0;
+#ifndef SHADOWPASS
+	float4 i_Normal		: NORMAL0;
+	float4 i_UV			: TEXCOORD0;	
+	float4 i_Tangent	: TANGENT0;
+#endif
+
+#ifdef HWSKINNED
+	float4	blend	: BLENDWEIGHT0;
+	uint4	index	: BLENDINDICES0;
+#endif
+};
+
+struct VS_OUTPUT
+{
+	float4	o_PosInClip			: SV_POSITION;
+#ifndef SHADOWPASS	
+	float4	o_Fog				: TEXCOORD1;
+	#ifdef MOTIONBLUR
+		float4 o_VelUV		: TEXCOORD15;		
+	#endif
+#endif
+#ifdef PARABOLOID_MAPPING
+	float	o_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID : SV_InstanceID)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	float4  pos =  float4(IN.i_Pos.xyz, 1.0f);
+
+	#ifdef HWSKINNED
+		float4	Weight		= IN.blend;
+		uint4  Index		= IN.index;
+
+		float4 BoneMatC0	= float4(0.0,0.0,0.0,0.0);		
+		float4 BoneMatC1	= float4(0.0,0.0,0.0,0.0);
+		float4 BoneMatC2	= float4(0.0,0.0,0.0,0.0);
+
+				
+		#ifdef USEINSTANCE
+			int idxBoneInst = i_InstanceID * BoneCount;
+			
+			for(int i=0;i<4;++i)
+			{
+				int idx = Index[i]*3+idxBoneInst*3;
+				BoneMatC0	+=	U_BoneMatrix[idx+0]*Weight[i];	
+				BoneMatC1	+=	U_BoneMatrix[idx+1]*Weight[i];	
+				BoneMatC2	+=	U_BoneMatrix[idx+2]*Weight[i];	
+			}
+
+		#else
+
+			for(int i=0;i<4;++i)
+			{
+				int idx = Index[i];
+				BoneMatC0	+=	U_BoneMatrix[idx*3+0]*Weight[i];	
+				BoneMatC1	+=	U_BoneMatrix[idx*3+1]*Weight[i];	
+				BoneMatC2	+=	U_BoneMatrix[idx*3+2]*Weight[i];	
+			}
+
+		#endif
+
+
+	#endif	
+	
+    #ifdef  HWSKINNED
+		pos = float4(dot(BoneMatC0,pos),dot(BoneMatC1,pos),dot(BoneMatC2,pos),1.0f);		
+	#endif
+	
+	float3x4 matWorld = (float3x4)0;
+	float4x4 matWVP = (float4x4)0;
+	
+#ifdef USEINSTANCE
+	int idxInst = i_InstanceID * UniformCount;
+	float4 vPosScale = U_VSCustom0[idxInst + 0];
+	float4 vOrientation = U_VSCustom0[idxInst + 1];
+
+	float4x4 _matWorld = MakeTransform(
+			vPosScale.xyz, vPosScale.w, vOrientation);
+	
+	matWorld[0] = _matWorld[0];
+	matWorld[1] = _matWorld[1];
+	matWorld[2] = _matWorld[2];
+
+	// translate to camera space
+	_matWorld[0][3] -= U_VS_CameraPosition.x;
+	_matWorld[1][3] -= U_VS_CameraPosition.y;
+	_matWorld[2][3] -= U_VS_CameraPosition.z;
+
+	matWVP = mul((float4x4)U_ZeroViewProjectMatrix, _matWorld);
+#else
+
+	matWorld[0] = U_WorldMatrix[0];
+	matWorld[1] = U_WorldMatrix[1];
+	matWorld[2] = U_WorldMatrix[2];
+
+	matWVP[0] = U_WorldViewProjectMatrix[0];
+	matWVP[1] = U_WorldViewProjectMatrix[1];
+	matWVP[2] = U_WorldViewProjectMatrix[2];
+	matWVP[3] = U_WorldViewProjectMatrix[3];
+
+#endif
+
+	vsOut.o_PosInClip.x = dot(matWVP[0], pos);
+	vsOut.o_PosInClip.y = dot(matWVP[1], pos);
+	vsOut.o_PosInClip.z = dot(matWVP[2], pos);
+	vsOut.o_PosInClip.w = dot(matWVP[3], pos);	
+
+#ifdef PARABOLOID_MAPPING
+	vsOut.o_ClipDepth = vsOut.o_PosInClip.z;
+	ParaboloidMapping(vsOut.o_PosInClip, U_ShadowLightDepthMulAdd.x, U_ShadowLightDepthMulAdd.z, U_ShadowLightDepthMulAdd.w);
+#endif
+
+#ifdef SHADOWPASS
+	#ifndef PARABOLOID_MAPPING
+		//depthclamp
+		vsOut.o_PosInClip.z = ClampToNearPlane(vsOut.o_PosInClip.z);
+	#endif
+#else
+	#ifdef MOTIONBLUR
+		float4  lastPos =  float4(IN.i_Pos.xyz, 1.0f);
+		#ifdef HWSKINNED
+
+			float4 lastBoneMatC0	= float4(0.0,0.0,0.0,0.0);		
+			float4 lastBoneMatC1	= float4(0.0,0.0,0.0,0.0);
+			float4 lastBoneMatC2	= float4(0.0,0.0,0.0,0.0);
+
+			for(int i=0;i<4;++i)
+			{
+				int idx = Index[i];
+				lastBoneMatC0	+=	U_LastBoneMatrix[idx*3+0]*Weight[i];	
+				lastBoneMatC1	+=	U_LastBoneMatrix[idx*3+1]*Weight[i];	
+				lastBoneMatC2	+=	U_LastBoneMatrix[idx*3+2]*Weight[i];	
+			}
+			lastPos = float4(dot(lastBoneMatC0,lastPos),dot(lastBoneMatC1,lastPos),dot(lastBoneMatC2,lastPos),1.0f);	
+		#endif
+	
+		float4 lastPosInClip;
+		lastPosInClip.x = dot(U_LastWorldViewProjectMatrix[0], lastPos);
+		lastPosInClip.y = dot(U_LastWorldViewProjectMatrix[1], lastPos);
+		lastPosInClip.z = dot(U_LastWorldViewProjectMatrix[2], lastPos);
+		lastPosInClip.w = dot(U_LastWorldViewProjectMatrix[3], lastPos);
+		
+		float2 vel = vsOut.o_PosInClip.xy/vsOut.o_PosInClip.w-lastPosInClip.xy/lastPosInClip.w;
+		vel *=float2(0.5f,-0.5f);
+		vel = vel* U_VS_FPS.x*U_VS_FPS.y;
+		vel =vel/ U_VS_ViewParam.zw * 0.5;
+		vsOut.o_VelUV.xy = vel;
+	#endif
+	float3 o_WPos = mul((float3x4)matWorld, pos);
+	float4	vCamPos	=	U_VS_CameraPosition;
+	float3 camToWorld =  vCamPos.xyz - o_WPos.xyz;
+
+	float4x4 gravityRotatePosMatrix;	
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+	
+	vsOut.o_Fog = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);	
+	
+	#ifdef EDITOR_MODE
+		#ifdef HierarchicalLOD
+			vsOut.o_PosInClip = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+		#endif
+	#endif	
+#endif
+
+	return vsOut;
+}

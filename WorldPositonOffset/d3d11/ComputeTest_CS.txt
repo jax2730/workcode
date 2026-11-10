@@ -1,0 +1,16 @@
+#define thread_group_size_x 32
+#define thread_group_size_y 32
+
+Texture2D<float4> S_2DExt0;
+RWTexture2D<float4> S_2DExt1;
+
+[numthreads(thread_group_size_x, thread_group_size_y, 1)]
+void main(uint3 threadIDInGroup : SV_GroupThreadID,
+			uint3 groupID : SV_GroupID,
+			uint groupIndex : SV_GroupIndex,
+			uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+	float4 color = S_2DExt0[dispatchThreadID.xy];
+	S_2DExt1[dispatchThreadID.xy] = float4(color.x, 0.0, color.y, color.w);
+
+}

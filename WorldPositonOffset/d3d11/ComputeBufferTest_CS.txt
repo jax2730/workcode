@@ -1,0 +1,38 @@
+#define thread_group_size_x 32
+#define thread_group_size_y 32
+
+Buffer<float4> B_CSCustom0;
+struct MyStruct
+{
+    //float4 Color;
+    //float4 Normal;
+    bool isAwesome;
+};
+StructuredBuffer<MyStruct> B_CSCustom1;
+
+Texture2D<float4> S_2DExt0;
+RWTexture2D<float4> S_2DExt1;
+RWBuffer<float4> B_CSCustom2;
+RWStructuredBuffer<MyStruct> B_CSCustom3;
+
+[numthreads(thread_group_size_x, thread_group_size_y, 1)]
+void main(uint3 threadIDInGroup : SV_GroupThreadID,
+			uint3 groupID : SV_GroupID,
+			uint groupIndex : SV_GroupIndex,
+			uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+	float4 color = S_2DExt0[dispatchThreadID.xy];
+	//color += B_CSCustom0[groupIndex];
+	if(B_CSCustom1[groupIndex].isAwesome)
+	{
+		color += float4(1.0, 1.0, 1.0, 1.0);
+	}
+	else
+	{
+		color = float4(0.5, 0.5, 0.5, 0.5);
+	}
+	//color = color + B_CSCustom1[groupIndex].Color;
+	S_2DExt1[dispatchThreadID.xy] = float4(color.x, 0.0, color.y, color.w);
+	//B_CSCustom2[groupIndex] = color;
+	B_CSCustom3[groupIndex] = B_CSCustom1[groupIndex];
+}

@@ -1,0 +1,46 @@
+#define NUM_THREADS_X 8
+#define NUM_THREADS_Y 8
+
+uniform Texture2D S_2DExt0;
+uniform RWTexture2D<uint> S_2DExt1;
+
+groupshared uint sharedHistogram[256];
+
+[numthreads(NUM_THREADS_X, NUM_THREADS_Y, 1)]
+void main(uint3 id : SV_DispatchThreadID, uint  dt  : SV_GroupIndex, uint3 groupID : SV_GroupID)
+{
+    uint2 srcCoord = id.xy;
+    
+    if(groupID.x == 0 && groupID.y == 0) {
+        for (uint i = dt; i < 256; i += NUM_THREADS_X * NUM_THREADS_Y) {
+            S_2DExt1[uint2(i, 0)] = 0;
+        }
+    }
+
+    // 线程组初始化共享内存区域
+    for (uint i = dt; i < 256; i += NUM_THREADS_X * NUM_THREADS_Y) {
+        sharedHistogram[i] = 0;
+    }
+
+    GroupMemoryBarrierWithGroupSync();   
+
+    uint2 dim;
+    S_2DExt0.GetDimensions(dim.x, dim.y);
+    bool inBounds = (id.x < dim.x) && (id.y < dim.y);
+
+    if(inBounds){
+        // 读取像素并计算灰度
+        float4 color = S_2DExt0.Load(uint3(srcCoord, 0));
+        //uint grayLevel = min(uint((color.r + 0.333 * color.g + 0.333 * color.b) * 255.0), 255);
+        uint grayLevel = min(uint(color.r * 255.0), 255);
+        InterlockedAdd(sharedHistogram[grayLevel], 1);
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+
+    for(uint i = dt; i < 256; i += NUM_THREADS_X * NUM_THREADS_Y) {
+        InterlockedAdd(S_2DExt1[uint2(i, 0)], sharedHistogram[i]);
+    }
+}
+
+

@@ -1,0 +1,64 @@
+#include <Common_Uniform_PS.inl>
+
+Texture2D	 S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+#ifdef ALPHA_TEST
+float AlphaRef;
+#endif
+
+float4 U_MaterialDiffuse;
+
+struct PS_INPUT
+{
+	float4 o_PosInClip	  : SV_POSITION;
+	float4 o_worldPos     : TEXCOORD1;
+	float4 o_worldCenter  : TEXCOORD2;
+#ifdef DIFFUSE_TEX
+	float4 i_UV			  : TEXCOORD0;
+#endif
+#ifdef VERTEX_COLOR
+	float4 i_Diffuse	  : COLOR0;
+#endif
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color		: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+	psOut.o_Color = U_MaterialDiffuse;
+	
+#ifdef DIFFUSE_TEX
+	psOut.o_Color *= S_Diffuse.Sample(S_DiffuseSamplerState, IN.i_UV.xy);
+	#ifdef ALPHA_TEST
+		clip(psOut.o_Color.a - AlphaRef);
+	#endif
+#endif
+
+#ifdef VERTEX_COLOR
+	psOut.o_Color *= IN.i_Diffuse;
+#endif
+
+	float3 v1 = normalize(-U_PS_ViewDirection.xyz);
+	float3 v2 = normalize(IN.o_worldPos.xyz - IN.o_worldCenter.xyz);  
+	float f = dot(v1,v2);
+	if(f>=0)
+		psOut.o_Color*=1;
+	else
+	{
+		if(psOut.o_Color.x==1.0f && psOut.o_Color.y==1.0f)
+		{
+			psOut.o_Color.x=0.8f;
+			psOut.o_Color.y=0.8f;
+			psOut.o_Color.z=0.8f;
+		}
+		else
+			psOut.o_Color*=0;
+	}
+        
+	return psOut;
+}

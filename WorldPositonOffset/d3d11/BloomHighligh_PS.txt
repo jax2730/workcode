@@ -1,0 +1,29 @@
+													    
+Texture2D S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+
+float4 U_PSCustom0;
+
+struct PS_INPUT
+{
+    float4 o_PosInClip	: SV_POSITION;
+	float4 v_texCoord : TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 FragColor	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)															   
+{		
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+	float2 uv = IN.v_texCoord.xy;
+	float4 sceneColor = float4(S_2DExt0.Sample(S_2DExt0SamplerState, uv).rgb, 1.0);			     
+	float brightness = dot(sceneColor.rgb, float3(0.299, 0.587, 0.114)); 
+	if (brightness > U_PSCustom0.x)
+		psOut.FragColor = float4(sceneColor.rgb, 1.0);
+	else
+		discard;
+	return psOut;
+}

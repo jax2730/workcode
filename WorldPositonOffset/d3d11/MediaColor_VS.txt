@@ -1,0 +1,29 @@
+
+float4 U_VSCustom0;
+
+struct VS_INPUT
+{
+	float4 i_Position	: POSITION0;
+	float4 i_UV	        : TEXCOORD0;
+};
+
+struct VS_OUTPUT
+{
+	float4 o_Position	: SV_POSITION;
+	float4 o_UV		: TEXCOORD0;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+   		
+	float2 pos = IN.i_Position.xy + U_VSCustom0.xy;
+	vsOut.o_Position = float4(pos.xy, 1.0, 1.0);	
+	vsOut.o_UV.xy = IN.i_UV.xy;	
+#ifdef EDITOR_MODE
+	#ifdef HierarchicalLOD
+		vsOut.o_Position = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+	#endif
+#endif	
+	return vsOut;
+}

@@ -1,0 +1,345 @@
+Texture2D 	            S_2DExt0;
+SamplerState            S_2DExt0SamplerState;
+
+float4 U_PSCustom0; //U_ViewPortRange
+float4 U_PSCustom1;
+
+struct PS_INPUT
+{
+    float4 i_PosInClip	: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color	: SV_TARGET;
+};
+
+static float _fov = 1.0f;							//相机fov
+static float _cameraSpeed = 0.5f;					//相机速度
+static float3 _sunDir = float3(0.2, 1.0, 0.1);		//太阳方向
+static float3 _arcColor = float3(0.9, 0.7, 0.7);	//闪电颜色
+static float _cameraRot = 0.25f;					//相机旋转幅度
+static float _cloudSpeed = 0.5f;					//云彩速度
+#ifndef STP
+	#define STP 3									//云迭代次数
+#endif
+ 									
+#define LIGHTNINGFREQ 3								//闪电频率
+
+struct ITSC
+{
+	float3 p;
+	float dist;
+	float3 n;
+    float2 uv;
+};
+
+ITSC raycylh(float3 ro, float3 rd, float3 c, float r)
+{
+	ITSC i;
+	i.dist = 1e38;
+	float3 e = ro - c;
+	float a = dot(rd.xy, rd.xy);
+	float b = 2.0 * dot(e.xy, rd.xy);
+	float cc = dot(e.xy, e.xy) - r;
+	float f = b * b - 4.0 * a * cc;
+	if(f > 0.0)
+	{
+		f = sqrt(f);
+		float t = (-b + f) / (2.0 * a);
+		
+		if(t > 0.001)
+		{
+			i.dist = t;
+			i.p = e + rd * t;
+			i.n = -float3(normalize(i.p.xy), 0.0);
+		}
+	}
+	return i;
+}
+
+void tPlane(inout ITSC hit, float3 ro, float3 rd, float3 o, float3 n, float3 tg, float2 si)
+{
+    float2 uv;
+    ro -= o;
+    float t = -dot(ro, n) / dot(rd, n);
+    if(t < 0.0)
+        return;
+    float3 its = ro + rd * t;
+    uv.x = dot(its, tg);
+    uv.y = dot(its, cross(tg, n));
+    if(abs(uv.x) > si.x || abs(uv.y) > si.y)
+        return;
+    
+    //if(t < hit.dist)
+    {
+        hit.dist = t;
+        hit.uv = uv;
+    }
+    return;
+}
+
+float hsh(float x)
+{
+    return frac(sin(x * 297.9712) * 90872.2961);
+}
+
+float2 rotate(float2 p, float a)
+{
+	return float2(p.x * cos(a) - p.y * sin(a), p.x * sin(a) + p.y * cos(a));
+}
+
+float nse3d(float3 x)
+{
+    float3 p = floor(x);
+    float3 f = frac(x);
+	f = f * f * (3.0 - 2.0 * f);
+	float2 uv = (p.xy + float2(37.0, 17.0) * p.z) + f.xy;
+	float4 uvlod = float4((uv+.5)/256.,0.0,0.0);
+	//float2 rg = tex2D(S_2DExt0, uv).yx;
+	float2 rg = S_2DExt0.SampleLevel(S_2DExt0SamplerState, uvlod.xy, 0.).yx;
+	
+	return lerp(rg.x, rg.y, f.z);
+}
+
+static float densA = 1.0, densB = 2.0;
+
+float fbm(float3 p)
+{
+    //float3 q = p;
+    //q.xy = rotate(p.xy, U_PSCustom0.x);
+    
+    p += (nse3d(p * 3.0) - 0.5) * 0.3;
+    
+    //float v = nse3d(p) * 0.5 + nse3d(p * 2.0) * 0.25 + nse3d(p * 4.0) * 0.125 + nse3d(p * 8.0) * 0.0625;
+    
+    //p.y += U_PSCustom0.x * 0.2;
+    
+    float mtn = U_PSCustom0.x * _cloudSpeed;
+    
+    float v = 0.0;
+    float fq = 1.0, am = 0.5;
+	[unroll(10)]
+    for(int i = 0; i < STP; i++)
+    {
+        v += nse3d(p * fq + mtn * fq) * am;
+        fq *= 2.0;
+        am *= 0.5;
+    }
+    return v;
+}
+
+float density(float3 p)
+{
+    float2 pol = float2(atan2(p.x, p.y), length(p.yx));
+    
+    float v = fbm(p);
+    
+    float fo = (pol.y - 1.5);//(densA + densB) * 0.5);
+    //fo *= (densB - densA);
+    v *= exp(fo * fo * -5.0);
+    
+    float edg = 0.3;
+    return smoothstep(edg, edg + 0.1, v);
+}
+
+float hash1(float p)
+{
+	return frac(sin(p * 172.435) * 29572.683) - 0.5;
+}
+
+float ns(float p)
+{
+	float fr = frac(p);
+	float fl = floor(p);
+	return lerp(hash1(fl), hash1(fl + 1.0), fr);
+}
+
+float fbm(float p)
+{
+	return (ns(p) * 0.4 + ns(p * 2.0 - 10.0) * 0.125 + ns(p * 8.0 + 10.0) * 0.025);
+}
+
+float fbmd(float p)
+{
+	float h = 0.01;
+	return atan2(h, fbm(p + h) - fbm(p - h));
+}
+
+/*float arcsmp(float x, float seed)
+{
+	return fbm(x * 3.0 + seed * 1111.111) * (1.0 - exp(-x * 5.0));
+}
+
+float arc(float2 p, float seed, float len)
+{
+	p *= len;
+	//p = rotate(p, U_PSCustom0.x);
+	float v = abs(p.y - arcsmp(p.x, seed));
+	v += exp((2.0 - p.x) * -4.0);
+	v = exp(v * -60.0) + exp(v * -10.0) * 0.6;
+	//v += exp(p.x * -2.0);
+	v *= smoothstep(0.0, 0.05, p.x);
+	return v;
+}
+
+float arcc(float2 p, float sd)
+{
+	float v = 0.0;
+	float rnd = frac(sd);
+	float sp = 0.0;
+	v += arc(p, sd, 1.0);
+
+	sp = rnd + 0.01;
+	float2 mrk = float2(sp, arcsmp(sp, sd));
+	v += arc(rotate(p - mrk, fbmd(sp)), mrk.x, mrk.x * 0.4 + 1.5);
+	rnd = frac(sin(rnd * 195.2837) * 1720.938);
+
+	return v;
+}*/
+
+float3 HSVConvertToRGB(float3 hsv)
+{
+	float R,G,B;
+	//float3 rgb;
+	if( hsv.y == 0 )
+	{
+		R=G=B=hsv.z;
+	}
+	else
+	{
+		hsv.x = hsv.x/60.0; 
+		int i = (int)hsv.x;
+		float f = hsv.x - (float)i;
+		float a = hsv.z * ( 1 - hsv.y );
+		float b = hsv.z * ( 1 - hsv.y * f );
+		float c = hsv.z * ( 1 - hsv.y * (1 - f ) );
+		switch(i)
+		{
+			case 0: R = hsv.z; G = c; B = a;
+				break;
+			case 1: R = b; G = hsv.z; B = a; 
+				break;
+			case 2: R = a; G = hsv.z; B = c; 
+				break;
+			case 3: R = a; G = b; B = hsv.z; 
+				break;
+			case 4: R = c; G = a; B = hsv.z; 
+				break;
+			default: R = hsv.z; G = a; B = b; 
+				break;
+		}
+	}
+
+	return float3(R,G,B);
+} 
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+	
+	float2 uv = IN.i_UV.xy;
+	uv.y = 1.0 - uv.y;
+	float2 iResolution = U_PSCustom1.xy;
+ 
+	float2 fragCoord = iResolution.xy * uv;
+    
+    uv = 2.0 * uv - 1.0;
+    uv.x *= iResolution.x / iResolution.y;
+    
+    float camtm = U_PSCustom0.x * _cameraSpeed;
+    float3 ro = float3(cos(camtm) * 0.3f, 0.0, camtm);
+    float3 rd = normalize(float3(uv, _fov));
+    rd.xz = rotate(rd.xz, sin(camtm) * _cameraRot);
+    rd.yz = rotate(rd.yz, cos(camtm * 1.3) * _cameraRot);
+ 
+ 
+	float3 sun = normalize(_sunDir);
+    
+    float sd = sin(fragCoord.x * 0.01 + fragCoord.y * 3.333333333 + U_PSCustom0.x) * 1298729.146861;
+    
+    float3 col;
+    float dacc = 0.0, lacc = 0.0;
+    
+    float3 light = float3(cos(U_PSCustom0.x * 8.0) * 0.5, sin(U_PSCustom0.x * 4.0) * 0.5, ro.z + 4.0 + sin(U_PSCustom0.x));
+    
+    ITSC tunRef;
+ 
+    [unroll(10)]
+    for(int i = 0; i < STP; i++)
+    {
+        ITSC itsc = raycylh(ro, rd, float3(0.0,0.0,0.0), densB + float(i) * (densA - densB) / float(STP) + frac(sd) * 0.07);
+        float d = density(itsc.p);
+        float3 tol = light - itsc.p;
+        float dtol = length(tol);
+        tol = tol * 0.1 / dtol;
+        
+        float dl = density(itsc.p + tol);
+        lacc += max(d - dl, 0.0) * exp(dtol * -0.2);
+        dacc += d;
+        tunRef = itsc;
+    }
+    dacc /= float(STP);
+    ITSC itsc = raycylh(ro, rd, float3(0.0,0.0,0.0), 4.0);
+	
+	float _Hue = 1.0, _Saturation = 1.0, _Value = 1.0;
+	_Hue = (sin(U_PSCustom0.x / 2.0 + itsc.dist / 50.0) * 0.5 + 0.5) * 359;
+	float3 HSV = float3(_Hue, _Saturation, _Value);
+	float3 _cloudColor = HSVConvertToRGB(HSV);
+	_cloudColor *= 1.0 - normalize(itsc.n);
+	_cloudColor.x = min(_cloudColor.x, 1.0);
+	_cloudColor.y = min(_cloudColor.y, 1.0);
+	_cloudColor.z = min(_cloudColor.z, 1.0);
+	float3 sky = float3(1.0,1.0,1.0) - _cloudColor;
+    sky *= 0.9 * pow(fbm(itsc.p), 2.0);
+	
+    lacc = max(lacc * 0.3 + 0.3, 0.0);
+ 
+    float3 cloud = pow(float3(lacc,lacc,lacc), _cloudColor * 1.0);
+    col = lerp(sky, cloud, dacc);
+	float dist = tunRef.dist;
+	dist = clamp(tunRef.dist, 0.0001f, 50.0f);
+    col *= exp(dist * 0.05) * 0.5f;
+    
+   /* float4 rnd = float4(0.1, 0.2, 0.3, 0.4);
+    float arcv = 0.0, arclight = 0.0;
+	 [unroll(10)]
+    for(int i = 0; i < LIGHTNINGFREQ; i++)
+    {
+        float v = 0.0;
+        rnd = frac(sin(rnd * 1.111111) * 298729.258972);
+        float ts = rnd.z * 4.0 * 1.61803398875 + 1.0;
+        float arcfl = floor(U_PSCustom0.x / ts + rnd.y) * ts;
+        float arcfr = frac(U_PSCustom0.x / ts + rnd.y) * ts;
+        
+        ITSC arcits;
+        arcits.dist = 1e38;
+		arcits.p = 1e38;
+		arcits.n = 1e38;
+		arcits.uv = 1e38;
+        float arca = rnd.x + arcfl * 2.39996;
+        float arcz = ro.z + 1.0 + rnd.x * 12.0;
+        tPlane(arcits, ro, rd, float3(0.0, 0.0, arcz), float3(0.0, 0.0, -1.0), float3(cos(arca), sin(arca), 0.0), float2(2.0,2.0));
+
+        float arcseed = floor(U_PSCustom0.x * 17.0 + rnd.y);
+        if(arcits.dist < 20.0)
+        {
+            arcits.uv *= 0.8;
+            v = arcc(float2(1.0 - abs(arcits.uv.x), arcits.uv.y * sign(arcits.uv.x)) * 1.4, arcseed * 0.033333);
+        }
+		float arcdur = rnd.x * 0.2 + 0.05;
+        float arcint = smoothstep(0.1 + arcdur, arcdur, arcfr);
+        v *= arcint;
+        arcv += v;
+        arclight += exp(abs(arcz - tunRef.p.z) * -0.3) * frac(sin(arcseed) * 198721.6231) * arcint;
+    }
+    float3 arccol = _arcColor;
+    col += arclight * arccol * 0.5;
+    col = lerp(col, arccol, clamp(arcv, 0.0, 1.0));*/
+    col = pow(col, float3(1.0, 0.8, 0.5) * 1.5) * 1.5;
+    col = pow(col, 1.0 / 2.2);
+	psOut.o_Color = float4(col, 1.0);
+	
+	return psOut;
+}

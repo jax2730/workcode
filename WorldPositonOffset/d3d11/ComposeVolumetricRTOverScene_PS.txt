@@ -1,0 +1,229 @@
+
+Texture2D S_2DExt0;//depth 
+Texture2D S_2DExt1;//VolumetricTexture 
+Texture2D S_2DExt2;//VolumetricDepthTexture 
+SamplerState S_2DExt0SamplerState;
+
+#define SceneDepthTexture					S_2DExt0 							
+#define VolumetricTexture					S_2DExt1 							
+#define VolumetricDepthTexture				S_2DExt2 		
+#define LinearTextureSampler				S_2DExt0SamplerState 					
+
+float4 		U_PSCustom0;
+float4 		U_PSCustom1;
+float4 		U_PSCustom2;
+float4 		U_PSCustom3;
+float4 		U_PSCustom4;
+float4 		U_PSCustom5;
+float4x4 	U_PSCustom6;
+
+#define WorldCameraOrigin 								U_PSCustom0.xyz
+#define FrameIndexMod8									U_PSCustom0.w
+#define BufferSizeAndInvSize							U_PSCustom1
+#define VolumetricTextureValidUvRect 					U_PSCustom2
+#define VolumetricTextureValidCoordRect 				U_PSCustom3
+
+#define VolumetricTextureSizeAndInvSize					U_PSCustom4
+
+#define FullResolutionToVolumetricBufferResolutionScale U_PSCustom5.xy
+#define UvOffsetScale									U_PSCustom5.z
+
+#define InvViewProj 								U_PSCustom6
+
+#define METER_TO_CENTIMETER		1.0f  // m
+#define KILOMETER_TO_METER  	1000.0f //km
+#define METER_TO_KILOMETER	(1.0f / KILOMETER_TO_METER)
+
+float4 SafeLoadVolumetricTexture(uint2 Coord)
+{
+	return VolumetricTexture.Load(uint3(clamp(Coord, VolumetricTextureValidCoordRect.xy, VolumetricTextureValidCoordRect.zw), 0));
+}
+float4 SafeSampleVolumetricTexture(float2 UV)
+{
+	return VolumetricTexture.SampleLevel(LinearTextureSampler, clamp(UV, VolumetricTextureValidUvRect.xy, VolumetricTextureValidUvRect.zw), 0);
+}
+float2 SafeLoadVolumetricDepthTexture(uint2 Coord)
+{
+	return VolumetricDepthTexture.Load(uint3(clamp(Coord, VolumetricTextureValidCoordRect.xy, VolumetricTextureValidCoordRect.zw), 0)).rg;
+}
+float2 SafeSampleVolumetricDepthTexture(float2 UV)
+{
+	return VolumetricDepthTexture.SampleLevel(LinearTextureSampler, clamp(UV, VolumetricTextureValidUvRect.xy, VolumetricTextureValidUvRect.zw), 0).rg;
+}
+
+uint3 Rand3DPCG16(int3 p)
+{
+	uint3 v = uint3(p);
+	v = v * 1664525u + 1013904223u;
+	v.x += v.y*v.z;
+	v.y += v.z*v.x;
+	v.z += v.x*v.y;
+	v.x += v.y*v.z;
+	v.y += v.z*v.x;
+	v.z += v.x*v.y;
+	return v >> 16u;
+}
+
+
+struct PS_INPUT
+{
+    float4 o_Position	: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+    float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+    float2 SVPos = IN.o_Position.xy;
+	float2 ScreenUV = IN.i_UV.xy;
+	float4 RGBA = float4(0.0f, 0.0f, 0.0f, 1.0f);
+
+	float PixelDeviceZ = S_2DExt0.Load(uint3(SVPos, 0)).r;
+	float2 ndcPos = float2(ScreenUV.x * 2.0f - 1.0f, 1.0f - ScreenUV.y * 2.0f);
+	float4 clipPos = float4(ndcPos, PixelDeviceZ, 1.0);
+	float4 posHWS = mul(clipPos, InvViewProj); 
+    float3 posWS = posHWS.xyz / posHWS.w;
+
+	float3 ScreenTranslatedWorldPosition = posWS;
+	float PixelDistanceFromView   = length(WorldCameraOrigin - ScreenTranslatedWorldPosition);
+	float PixelDistanceFromViewKm = PixelDistanceFromView * METER_TO_KILOMETER;
+
+	#ifdef PERMUTATION_UPSAMPLINGMODE
+		float4 VolumeRGBT = SafeSampleVolumetricTexture(ScreenUV);
+		float VolumeFrontDepth = SafeSampleVolumetricDepthTexture(ScreenUV).r;
+
+		if (PixelDistanceFromViewKm > VolumeFrontDepth)
+		{
+			psOut.o_Color = VolumeRGBT;
+		}
+		else
+		{
+			psOut.o_Color = float4(0.0f, 0.0f, 0.0f, 1.0f);
+			clip(-1.0f);
+		}
+	#else
+		float2 CurResPixelCoord = SVPos.xy;
+		float2 ScreenUVNoOffset = CurResPixelCoord * BufferSizeAndInvSize.zw;
+		float2 VolumeUV = FullResolutionToVolumetricBufferResolutionScale.x * (ScreenUVNoOffset * BufferSizeAndInvSize.xy * VolumetricTextureSizeAndInvSize.zw);
+
+		const float2 FullResOffsetUVScale = float2(1.0f, BufferSizeAndInvSize.x * BufferSizeAndInvSize.w)
+											* BufferSizeAndInvSize.zw
+											* FullResolutionToVolumetricBufferResolutionScale.y;
+
+		float2 Offset0Sample = (float2(Rand3DPCG16(int3(CurResPixelCoord, FrameIndexMod8 )).xy) * rcp(65536.0)) * 2.0f - 1.0f;
+		float2 Offset1Sample = (float2(Rand3DPCG16(int3(CurResPixelCoord, FrameIndexMod8 + 8 )).xy) * rcp(65536.0)) * 2.0f - 1.0f;
+		float2 Offset2Sample = (float2(Rand3DPCG16(int3(CurResPixelCoord, FrameIndexMod8 + 16)).xy) * rcp(65536.0)) * 2.0f - 1.0f;
+		float2 Offset3Sample = (float2(Rand3DPCG16(int3(CurResPixelCoord, FrameIndexMod8 + 32)).xy) * rcp(65536.0)) * 2.0f - 1.0f;
+		Offset0Sample = normalize(Offset0Sample);
+		Offset1Sample = normalize(Offset1Sample);
+		Offset2Sample = normalize(Offset2Sample);
+		Offset3Sample = normalize(Offset3Sample);
+
+		float2 Offset0 = Offset0Sample * FullResOffsetUVScale * UvOffsetScale;
+		float2 Offset1 = Offset1Sample * FullResOffsetUVScale * UvOffsetScale;
+		float2 Offset2 = Offset2Sample * FullResOffsetUVScale * UvOffsetScale;
+		float2 Offset3 = Offset3Sample * FullResOffsetUVScale * UvOffsetScale;
+
+		int2 PixelPos = SVPos.xy;
+		int2 VolumeCoordUInt = PixelPos / int(FullResolutionToVolumetricBufferResolutionScale.y);
+		int OffsetX = (VolumeCoordUInt.x * int(FullResolutionToVolumetricBufferResolutionScale.y)) == PixelPos.x ? -1 : 1;
+		int OffsetY = (VolumeCoordUInt.y * int(FullResolutionToVolumetricBufferResolutionScale.y)) == PixelPos.y ? -1 : 1;
+
+		uint2 VolumeCoord0 = max(0, int2(VolumeCoordUInt) + int2(0, 0));
+		uint2 VolumeCoord1 = max(0, int2(VolumeCoordUInt) + int2(OffsetX, 0));
+		uint2 VolumeCoord2 = max(0, int2(VolumeCoordUInt) + int2(OffsetX, OffsetY));
+		uint2 VolumeCoord3 = max(0, int2(VolumeCoordUInt) + int2(0, OffsetY));
+
+		float2 VolumeFrontDepth0 = SafeLoadVolumetricDepthTexture(VolumeCoord0);
+		float2 VolumeFrontDepth1 = SafeLoadVolumetricDepthTexture(VolumeCoord1);
+		float2 VolumeFrontDepth2 = SafeLoadVolumetricDepthTexture(VolumeCoord2);
+		float2 VolumeFrontDepth3 = SafeLoadVolumetricDepthTexture(VolumeCoord3);
+
+		PixelDistanceFromViewKm = min(PixelDistanceFromViewKm, max(max(VolumeFrontDepth0.y, VolumeFrontDepth1.y),max(VolumeFrontDepth2.y, VolumeFrontDepth3.y)));
+
+		float4 Depth4 = float4(VolumeFrontDepth0.y, VolumeFrontDepth1.y, VolumeFrontDepth2.y, VolumeFrontDepth3.y);
+		float4 depth4Diff = PixelDistanceFromViewKm - Depth4;
+		depth4Diff = abs(depth4Diff);
+		float MaxDepth4Diff = max(max(depth4Diff.x, depth4Diff.y), max(depth4Diff.z, depth4Diff.w));
+
+		float ValidSampleCount = 0;
+		float4 DataAcc = 0;
+
+		const float weightMultiplier = 10000.0f;
+		const float ThresholdToBilinear = PixelDistanceFromViewKm * 0.1;
+
+		if (MaxDepth4Diff > ThresholdToBilinear)
+		{
+			float4 VolumeRGBT0 = SafeLoadVolumetricTexture(VolumeCoord0);
+			float4 VolumeRGBT1 = SafeLoadVolumetricTexture(VolumeCoord1);
+			float4 VolumeRGBT2 = SafeLoadVolumetricTexture(VolumeCoord2);
+			float4 VolumeRGBT3 = SafeLoadVolumetricTexture(VolumeCoord3);
+
+			float4 weights = 1.0f / (depth4Diff * weightMultiplier + 1.0f);
+			const float weightsSum = dot(weights, float4(1.0f, 1.0f, 1.0f, 1.0f));
+			weights /= weightsSum;
+
+			ValidSampleCount = weightsSum > 0.0f ? 1.0 : 0.0f;
+			DataAcc = weights.x * VolumeRGBT0 + weights.y * VolumeRGBT1 + weights.z * VolumeRGBT2 + weights.w * VolumeRGBT3;
+		}
+		else
+		{
+			ValidSampleCount = 1.0;
+			DataAcc = SafeSampleVolumetricTexture((float2(VolumeCoord0) + 0.25 + (float2(OffsetX, OffsetY) * 0.5 + 0.5) * 0.5) * VolumetricTextureSizeAndInvSize.zw);
+		}
+
+		if (UvOffsetScale > 0.0)
+		{
+			float4 VolumeRGBT0 = SafeSampleVolumetricTexture(VolumeUV + Offset0);
+			float4 VolumeRGBT1 = SafeSampleVolumetricTexture(VolumeUV - Offset0);
+			float4 VolumeRGBT2 = SafeSampleVolumetricTexture(VolumeUV + float2(Offset0.y, -Offset0.x));
+			float4 VolumeRGBT3 = SafeSampleVolumetricTexture(VolumeUV - float2(Offset0.y, -Offset0.x));
+
+			psOut.o_Color = float4(0.0f, 0.0f, 0.0f, 1.0f);
+			if (ValidSampleCount > 0.0f)
+			{
+				psOut.o_Color = DataAcc / ValidSampleCount;
+			}
+			const float Extinction = 5.0;
+			{
+				const float weight = exp(-Extinction * abs(VolumeRGBT0.a - psOut.o_Color.a));
+				ValidSampleCount += weight;
+				DataAcc += VolumeRGBT0 * weight;
+			}
+			{
+				const float weight = exp(-Extinction * abs(VolumeRGBT1.a - psOut.o_Color.a));
+				ValidSampleCount += weight;
+				DataAcc += VolumeRGBT1 * weight;
+			}
+			{
+				const float weight = exp(-Extinction * abs(VolumeRGBT2.a - psOut.o_Color.a));
+				ValidSampleCount += weight;
+				DataAcc += VolumeRGBT2 * weight;
+			}
+			{
+				const float weight = exp(-Extinction * abs(VolumeRGBT3.a - psOut.o_Color.a));
+				ValidSampleCount += weight;
+				DataAcc += VolumeRGBT3 * weight;
+			}
+		}
+		
+		psOut.o_Color = float4(0, 0, 0, 1);
+		if (ValidSampleCount > 0.0f)
+		{
+			psOut.o_Color = DataAcc / ValidSampleCount;
+		}
+		else
+		{
+			psOut.o_Color = float4(0.0f, 0.0f, 0.0f, 1.0f);
+			clip(-1.0f);
+		}
+	#endif
+
+	return psOut;
+}
+

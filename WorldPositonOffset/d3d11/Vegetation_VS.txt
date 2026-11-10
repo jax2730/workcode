@@ -1,0 +1,359 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl> 
+
+float4	U_WorldViewProjectMatrix[4];
+
+float4	U_VSGeneralRegister0;	// x: sway frequency, y: sway amplitude, z: shake frequency, w: shake amplitude
+#ifndef BUMP_MAP
+	float4	U_VSGeneralRegister1;	// Light ratio, x: main light, y: sky light, z: ground light
+#endif
+
+/*
+* x: world position in x axis
+* y: world position in y axis
+*/
+uniform float4 U_VSCustom0;	// VegWorldPos;
+uniform float4 U_VSCustom1; // RolePushPos;	// The position of role in object space which push against the vegetaion
+uniform float4 U_VSCustom2; // xy: block x/z, zw: scale base/scale range
+uniform float4 U_VSCustom3;	// xyz: scene camera position
+
+uniform float4 U_VSCustom11[3]; //	hitSpace x-y-z
+
+#ifdef EMISSION
+	#ifdef OBJECT_DIFFUSE_EMISSION
+		float4 U_MaterialEmission;		// xy: emission min/max ratio in day, zw: emission min/max ratio in night
+		float4 U_VSGeneralRegister2;	// emission adjust color
+		float4 U_VSGeneralRegister3;	// x: emission frequency in day, y: emission frequency in night
+	#endif
+#endif
+
+#if defined(DAY_NIGHT_SWITCH) || defined(TOD_EMISSION)
+	float4	U_LightPower;
+#endif
+
+float4	U_VSGeneralRegister4;	// x: fade start, y: 1 / fadedist, z: fade end; w: role push ratio
+float4	U_VSGeneralRegister5;	// x: weather bottom base
+
+#ifdef SIZE_AFFECTOR
+	#ifndef AFFECTOR_NUM
+		#error "You must define AFFECTOR_NUM use #define preprocessing directive";
+	#endif
+	
+	bool PointInCircle(in float3 vPos, in float4 vCircle, in float fHeight)
+	{
+		float2 vCenterToPos = vPos.xz - vCircle.xz;
+		float fSquareLen = dot(vCenterToPos, vCenterToPos);
+		bool bIn = fSquareLen < vCircle.w ? true : false;
+		bIn = vPos.y < vCircle.y ? false : bIn;
+		bIn = vPos.y > vCircle.y + fHeight ? false : bIn;		
+		return bIn;
+	}
+	
+	#ifdef CIRCLE_SIZE_AFFECTOR
+		float4 U_VSCustom6[AFFECTOR_NUM];	// CircleParam0	// xyz: the center of circle, w, squared radius
+		float4 U_VSCustom7[AFFECTOR_NUM];	// CircleParam1	// x: height, y: size_affector;
+		
+		float CircleSizeAffect(in float3 vWorldPos)
+		{
+			float fSizeFactor = 1.f;
+			[loop]
+			for (int i=0; i<AFFECTOR_NUM; ++i)
+			{
+				float fFactor = PointInCircle(vWorldPos, U_VSCustom7[i], U_VSCustom8[i].x) ? U_VSCustom8[i].y : 1.f;
+				fSizeFactor = min(fSizeFactor, fFactor);
+			}			
+			return fSizeFactor;
+		}
+	#endif
+	#ifdef FAN_SIZE_AFFECTOR
+		float4 U_VSCustom8[AFFECTOR_NUM];		// FanParam0 // xyz: the center of fan, w, squared radius
+		float4 U_VSCustom9[AFFECTOR_NUM];		// FanParam1 // x: height, y: size_affector;
+		float4 U_VSCustom10[AFFECTOR_NUM];		// FanParam2 // xy: dir, z: cos(theta)
+		
+		float FanSizeAffect(in float3 vWorldPos)
+		{
+			float fSizeFactor = 1.f;
+			[loop]
+			for (int i=0; i<AFFECTOR_NUM; ++i)
+			{
+				float fFactor = PointInCircle(vWorldPos, U_VSCustom8[i], U_VSCustom9[i].x) ? U_VSCustom9[i].y : 1.f;
+				float2 vDistXZ = vWorldPos.xz - U_VSCustom8[i].xz;
+				float fSquareLen = dot(vDistXZ, vDistXZ);
+				fFactor = dot(vDistXZ, U_VSCustom10[i].xy) > sqrt(fSquareLen) * U_VSCustom10[i].z ? fFactor : 1.f;
+				fSizeFactor = min(fSizeFactor, fFactor);
+			}			
+			return fSizeFactor;
+		}
+	#endif
+#endif
+
+
+// generate a triangle wave from a linear wave, range: 0~1
+float TriangleWave(float fValue)
+{
+	return abs(frac(fValue) * 2.0 - 1.0);
+}
+
+#ifdef NORMAL_QUATERNION
+	// Rotate a vector with quaternion
+	float3 quaternion_mul(in float4 quat, in float3 v)
+	{
+		float3 uv = cross(quat.xyz, v);
+		float3 uuv = cross(quat.xyz, uv);
+		uv *= 2.f * quat.w;
+		uuv *= 2.f;
+		return v + uv + uuv;
+	}
+#endif
+
+struct VS_INPUT
+{
+#ifdef OBJECT_DIFFUSE_EMISSION
+	float4	i_Root		: POSITION0;	// xy: root position x & y; z: reserve; w: shake ratio, control by alpha channel of vertex diffuse
+#else
+	float4	i_Root		: POSITION0;	// xy: root position x & y; z: root scale; w: shake ratio, control by alpha channel of vertex diffuse
+#endif
+	float	i_Root_y	: POSITION1;
+	float4	i_Pos		: POSITION2;	// xyz: position, w: height_factor
+	float4	i_Normal	: NORMAL0;
+#ifdef SHADOWPASS
+	float2	i_UV		: TEXCOORD0;
+#ifdef NORMAL_QUATERNION
+	float4  i_NormalQua	: TEXCOORD1;
+#endif
+#else
+#ifdef BUMP_MAP
+	float4	i_Tangent	: TANGENT0;
+#endif
+	float2	i_UV		: TEXCOORD0;
+#ifdef NORMAL_QUATERNION
+	float4  i_NormalQua	: TEXCOORD1;
+#endif
+	float4	i_Diffuse	: COLOR0;
+#ifdef OBJECT_DIFFUSE_EMISSION
+	float4	i_Emission	: COLOR1;
+#endif
+#endif
+};
+
+struct VS_OUTPUT
+{
+	float4	o_PosInClip	: SV_POSITION;
+	float4	o_UV		: TEXCOORD0;	//z for camera spec pos; w: alpha test fade ratio
+#ifndef SHADOWPASS
+	float4	o_Fog		: TEXCOORD1;
+	float4	o_WPos		: TEXCOORD2;
+#ifdef BUMP_MAP
+	float3	o_Normal	: TEXCOORD3;
+	float3	o_Tangent	: TEXCOORD4;
+	float3 o_ViewDir	: TEXCOORD5;
+#else
+	float4	o_LightDiffuse	: TEXCOORD3;
+	float3	o_LightAmbient	: TEXCOORD4;
+#endif
+	float4	o_Diffuse	: COLOR0;		// a: height ratio
+	float4	o_Emission	: COLOR1;
+#endif
+#ifdef PARABOLOID_MAPPING
+	float	o_ClipDepth			: TEXCOORD12;
+#endif
+};
+
+
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	float4 VegWorldPos = U_VSCustom0;
+	float4 RolePushPos = U_VSCustom1;
+
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	float3 vRoot = float3(IN.i_Root.x, IN.i_Root_y, IN.i_Root.y);
+#ifndef OBJECT_DIFFUSE_EMISSION
+	vRoot.xz *= U_VSCustom2.xy;
+	vRoot = vRoot.x * U_VSCustom11[0].xyz + vRoot.y * U_VSCustom11[1].xyz + vRoot.z * U_VSCustom11[2].xyz;
+	IN.i_Pos.xyz *= U_VSCustom2.z + U_VSCustom2.w * IN.i_Root.z;
+#endif
+
+	float fLen = length(IN.i_Pos.xyz);
+	
+#ifdef VERTEX_COMPRESS
+	IN.i_Normal.xyz = IN.i_Normal.xyz * 2.f - 1.f;
+	#ifndef SHADOWPASS
+	#ifdef BUMP_MAP
+		IN.i_Tangent.xyz = IN.i_Tangent.xyz * 2.f - 1.f;
+	#endif
+	#endif
+#endif
+	
+#ifdef NORMAL_QUATERNION
+	float4 vQua = IN.i_NormalQua * 2.f - 1.f;
+	IN.i_Pos.xyz = quaternion_mul(vQua, IN.i_Pos.xyz);
+	IN.i_Normal.xyz = quaternion_mul(vQua, IN.i_Normal.xyz);
+	#ifndef SHADOWPASS
+	#ifdef BUMP_MAP
+		IN.i_Tangent.xyz = quaternion_mul(vQua, IN.i_Tangent.xyz);
+	#endif
+	#endif
+#endif
+
+	float3 vWorldRoot = vRoot + VegWorldPos.xyz;
+	
+	float4 vWave = (float4)0;
+
+#ifdef WIND_ANIMATION
+	float4 vAnimParam = U_VSGeneralRegister0 * U_GlobalAnimationParams.yxwz;
+	float2 vWaveBase = vAnimParam.x * U_VS_Time.x;
+	vWaveBase += vWorldRoot.xz * float2(0.1f, 0.2f);	// phase
+	vWave.xyz = vWaveBase.xyy * float3(1.125f, 0.975f, 0.397f);
+#endif
+
+#ifndef SHADOWPASS
+#ifdef EMISSION
+	#ifdef OBJECT_DIFFUSE_EMISSION
+		float fEmissionFreq = U_VSGeneralRegister3.y;
+		#if defined(DAY_NIGHT_SWITCH) || defined(TOD_EMISSION)
+			float fLightPowerClamped = saturate(U_LightPower.x);
+		#endif
+		#ifdef DAY_NIGHT_SWITCH
+			fEmissionFreq = lerp(U_VSGeneralRegister3.x, U_VSGeneralRegister3.y, floor(fLightPowerClamped + 0.5));
+		#endif
+		vWave.w = fEmissionFreq * IN.i_Diffuse.a * (U_VS_Time.x + IN.i_Emission.a * 3.1415926);
+	#endif
+#endif
+#endif
+	
+#if defined(WIND_ANIMATION) || defined(EMISSION)
+	vWave = sin(vWave);
+#endif
+
+	float3 vOff = float3(0.f, 0.f, 0.f);
+
+#ifdef WIND_ANIMATION
+	// swaying
+	float fSwayAmp = vAnimParam.y * IN.i_Pos.w * IN.i_Pos.w;
+	vOff.xz += U_WindParamsGravitySpace.xz * vWave.x * fSwayAmp;		// wind direction
+	vOff.xz += (float2(-U_WindParamsGravitySpace.z, U_WindParamsGravitySpace.x)) * vWave.y * vWave.z * fSwayAmp;	// perpendicular wind direction
+	
+	// shaking
+	float fShakeFreq = vAnimParam.z * U_VS_Time.x;
+	fShakeFreq += dot(IN.i_Pos.xyz, 2);	// phase
+	float fShakeAmp = vAnimParam.w * IN.i_Pos.w * IN.i_Root.w;
+	vOff.xyz += normalize(IN.i_Normal.xyz + U_WindParamsGravitySpace.xyz) * TriangleWave(fShakeFreq) * fShakeAmp;
+
+	// push by role
+	float3 vRolePos = RolePushPos.xyz - vRoot;
+	float2 vTread = -vRolePos.xz;	// push direction
+	float fTread  = length(vTread);	// length in push direction
+	vTread /= fTread;				// normalize
+	float fPushLen = clamp(U_VSGeneralRegister4.w - fTread, 0.0f, U_VSGeneralRegister4.w);
+	// ������Զ��������һ��ϵ��, ����Զ���ƶ�����Сһ��, ��ֹ����������������һ����
+	// Push�ķ�Χ��һ�����ڵ��µ������α��ε�����.
+	float fLenFactor = 1.0f - clamp(length(vRolePos) / U_VSGeneralRegister4.w, 0.0f, 1.0f);
+	fLenFactor = min(fLenFactor * 5.0f, 1.0f);
+	vOff.xz += vTread * IN.i_Pos.y * fPushLen * fLenFactor;
+#endif
+	
+	IN.i_Pos.xyz += vOff;
+	IN.i_Pos.xyz = normalize(IN.i_Pos.xyz) * fLen;
+
+	// Vegetation fade
+	float3 vCamToVeg = vWorldRoot - U_VSCustom3.xyz;
+	float fSquareLenCV = dot(vCamToVeg, vCamToVeg);	// square length
+#ifdef ALPHA_TEST
+	float fFadeFactor = saturate((fSquareLenCV - U_VSGeneralRegister4.x) * U_VSGeneralRegister4.y);
+	vsOut.o_UV.w = fFadeFactor;
+#endif
+
+	float fSizeFactor = fSquareLenCV > U_VSGeneralRegister4.z ? 0.f : 1.f;
+#ifdef SIZE_AFFECTOR
+	#ifdef CIRCLE_SIZE_AFFECTOR
+		fSizeFactor = min(CircleSizeAffect(vWorldRoot), fSizeFactor);
+	#endif
+	#ifdef FAN_SIZE_AFFECTOR
+		fSizeFactor = min(FanSizeAffect(vWorldRoot), fSizeFactor);
+	#endif
+#endif
+
+#ifndef OBJECT_DIFFUSE_EMISSION
+	IN.i_Pos.xyz *= IN.i_Diffuse.a;
+#endif
+
+	float4 vPosObj = float4(vRoot + IN.i_Pos.xyz * fSizeFactor, 1.f);
+	vPosObj.y -= fSizeFactor < 0.001f ? 1.f : 0.f;
+
+	vsOut.o_PosInClip.x = dot(U_WorldViewProjectMatrix[0], vPosObj);
+	vsOut.o_PosInClip.y = dot(U_WorldViewProjectMatrix[1], vPosObj);
+	vsOut.o_PosInClip.z = dot(U_WorldViewProjectMatrix[2], vPosObj);
+	vsOut.o_PosInClip.w = dot(U_WorldViewProjectMatrix[3], vPosObj);
+	
+#ifdef PARABOLOID_MAPPING
+	vsOut.o_ClipDepth = vsOut.o_PosInClip.z;
+	ParaboloidMapping(vsOut.o_PosInClip, U_ShadowLightDepthMulAdd.x, U_ShadowLightDepthMulAdd.z, U_ShadowLightDepthMulAdd.w);
+#endif
+
+	vsOut.o_UV.xy = IN.i_UV.xy;
+
+#ifndef SHADOWPASS
+
+	vsOut.o_Diffuse = IN.i_Diffuse;
+
+	vsOut.o_Diffuse.a = IN.i_Pos.w;
+
+#ifdef EMISSION
+	#ifdef OBJECT_DIFFUSE_EMISSION
+		float2 vRatio = U_MaterialEmission.zw;
+		float3 cEmissionColor = IN.i_Emission.rgb;
+		#ifdef DAY_NIGHT_SWITCH
+			vRatio = lerp(U_MaterialEmission.xy, U_MaterialEmission.zw, fLightPowerClamped);
+			cEmissionColor = lerp(IN.i_Diffuse.rgb, IN.i_Emission.rgb, fLightPowerClamped);
+		#endif
+		float3 cEmissionColor1 = cEmissionColor.rgb * vRatio.xxx;
+		float3 cEmissionColor2 = cEmissionColor.rgb * vRatio.yyy;
+		vsOut.o_Emission.rgb = lerp(cEmissionColor1, cEmissionColor2, vWave.w * 0.5 + 0.5);
+		vsOut.o_Emission.rgb *= U_VSGeneralRegister2.rgb;
+		#ifdef TOD_EMISSION
+			vsOut.o_Emission.rgb *= fLightPowerClamped;
+		#endif
+	#endif
+#endif
+
+#ifdef BUMP_MAP
+	vsOut.o_Normal = IN.i_Normal.xyz;
+	vsOut.o_Tangent = IN.i_Tangent.xyz;
+#else
+	float3 cMainLightColor = U_VS_PBR_MainLightColor.rgb * U_VSGeneralRegister1.xxx;
+	float3 cSkyLightColor = U_VS_PBR_SkyLightColor.rgb * U_VSGeneralRegister1.yyy;
+	float3 cGroundLightColor = U_VS_PBR_GroundLightColor.rgb * U_VSGeneralRegister1.zzz;
+	float fNDotL = saturate(dot(IN.i_Normal.xyz, -U_VS_MainLightDirection.xyz));
+	vsOut.o_LightDiffuse.rgb = cMainLightColor * fNDotL;
+	vsOut.o_LightDiffuse.a = fNDotL;
+	vsOut.o_LightAmbient.rgb = lerp(cGroundLightColor, cSkyLightColor, IN.i_Normal.y * 0.5f + 0.5f);
+#endif
+
+	vsOut.o_WPos.xyz = vPosObj.xyz + VegWorldPos.xyz;
+	vsOut.o_WPos.w = 1.0f;
+	float3 vCamToWorld = U_VS_CameraPosition.xyz - vsOut.o_WPos.xyz;
+
+	float4x4 gravityRotatePosMatrix;	
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+	vCamToWorld = mul(gravityRotatePosMatrix,float4(vCamToWorld.xyz,0.0f)).xyz;
+
+	vsOut.o_Fog = ComputeFogColor(vCamToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+
+#ifdef USESHADOWMAP
+	vsOut.o_UV.z = -dot(U_MainCamViewMatrix, vsOut.o_WPos);
+#endif
+	
+	vsOut.o_WPos.w = lerp(U_VSGeneralRegister5.x, 1.f, IN.i_Pos.w);
+	#ifdef EDITOR_MODE
+		#ifdef HierarchicalLOD
+			vsOut.o_PosInClip = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+		#endif
+	#endif
+#endif
+	
+	return vsOut;
+}

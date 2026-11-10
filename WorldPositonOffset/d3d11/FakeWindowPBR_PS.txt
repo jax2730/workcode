@@ -1,0 +1,241 @@
+#include <Common_Uniform_PS.inl>
+#include <Light_Function_PS.inl>
+#include <EnvironmentLight_Function.inl>
+
+Texture2D S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+TextureCube	S_ReflectCubeMap;
+SamplerState S_ReflectCubeMapSamplerState;
+
+float4 U_MaterialDiffuse;
+float4 U_MaterialCustomParam;
+float4 U_MaterialCustomParam1;
+
+float4 U_PSGeneralRegister0;//x:roomDepth 房间深度[0.001,0.999]
+							//yzw:cube uv offset 房间cubemap偏移量[-1.0,1.0]
+float4 U_PSGeneralRegister1;//xy:cube uv scale 房间cubemap缩放[0.001,10]
+							//zw:UMin, UMax
+float4 U_PSGeneralRegister2;//xy:VMin, VMax
+							//zw:CoverRange, CoverScale
+struct PS_INPUT
+{
+	float4 i_PosInClip	: SV_POSITION;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float2	i_UV	: TEXCOORD0;
+	#endif
+#else
+	float3 i_UVW		: TEXCOORD0;
+	float3 i_ViewDir	: TEXCOORD1;
+	float2 i_UV			: TEXCOORD2;
+	float4 i_FogColor	: TEXCOORD3;
+	float4 i_Normal		: TEXCOORD4;
+	float4 i_WPos		: TEXCOORD5;
+#endif
+};
+
+#if defined(HierarchicalLOD) && defined(EDITOR_MODE)
+	struct PS_OUTPUT{
+		float4 albedo			: SV_TARGET0;
+		float4 roughnessMetal	: SV_TARGET1;
+		float4 normal			: SV_TARGET2;
+	};
+#else // HierarchicalLOD
+	struct PS_OUTPUT
+	{
+	#ifndef SHADOWPASS
+		float4 oColor		: SV_Target;
+	#endif
+	};
+#endif // HierarchicalLOD
+
+float3 envBRDFApprox(float3 specularColor, float roughness, float NoV)
+{
+	float4 c0 = float4(-1.0,	-0.0275,	-0.572,		0.022);
+	float4 c1 = float4(1.0,		0.0425,		1.04,		-0.04);
+	
+	float4 r = roughness * c0 + c1;
+	float a004 = min(r.x * r.x, exp2(-9.28 * NoV)) * r.x + r.y;
+	float2 AB = float2(-1.04, 1.04) * a004 + r.zw;
+    //此处将下限clamp到1e-6防止因浮点数计算误差导致BRDF积分出现负值
+	return max(specularColor * AB.x + AB.y, 1e-6f);
+}
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0.f;
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 oColor = S_Diffuse.Sample(S_DiffuseSamplerState, IN.i_UV);
+		clip(oColor.a - U_MaterialDiffuse.a);
+	#endif
+#else
+
+	float3 vDir = IN.i_ViewDir;
+	float roomDepth = U_PSGeneralRegister0.x;
+	#ifndef MULTIWINDOW
+		#ifdef USEOBJECTSPACE
+			float3 roomUVOffset = U_PSGeneralRegister0.yzw;
+		#else
+			float2 roomUVOffset = U_PSGeneralRegister0.yz;
+		#endif
+		float2 roomUVScale = U_PSGeneralRegister1.xy;
+	#else
+		float2 UVMin = float2(U_PSGeneralRegister1.z, U_PSGeneralRegister2.x);
+		float2 UVMax = float2(U_PSGeneralRegister1.w, U_PSGeneralRegister2.y);
+		float2 roomUVScale = (UVMax - UVMin)/1.0;
+	#endif
+
+	float depthScale = 1.0/(roomDepth) - 1.0;
+	
+	// adjust for tiling
+	vDir *= roomUVScale.xyx;
+
+	vDir.z *= depthScale;
+#ifndef MULTIWINDOW
+	#ifdef USEOBJECTSPACE
+		float3 roomUVW = frac(IN.i_UVW * roomUVScale.xyx + roomUVOffset);
+		float3 pos = roomUVW * 2.0 -1.0;
+		float3 id = 1.0 / vDir;
+		// k means normalized box space depth hit per x/y/z plane seperated
+    	// (we dont care about near hit result here, we only want far hit result)
+		float3 k = abs(id) - pos * id;
+		// kmin = normalized box space real hit ray length
+		float kMin = min(min(k.x, k.y), k.z);
+		// normalized box Space real hit pos = rayOrigin + kmin * rayDir.
+		pos += kMin * vDir;
+
+		pos.x = -pos.x;//matching the uv
+	#else
+		float2 roomUV = frac(IN.i_UV * roomUVScale + roomUVOffset);
+
+		// raytrace box from tangent view dir
+		float3 pos = float3(roomUV * 2.0 - 1.0, 1.0);
+    	float3 id = 1.0 / vDir;
+    	float3 k = abs(id) - pos * id;
+		float kMin = min(min(k.x, k.y), k.z);
+    	pos += kMin * vDir;
+
+		pos.xy = -pos.xy; // matching the uv
+	#endif
+#else
+    float2 roomUV = frac(lerp(UVMin, UVMax, IN.i_UV));
+	
+	// raytrace box from tangent view dir
+	float3 pos = float3(roomUV * 2.0 - 1.0, 1.0);
+    float3 id = 1.0 / vDir;
+    float3 k = abs(id) - pos * id;
+	float kMin = min(min(k.x, k.y), k.z);
+    pos += kMin * vDir;
+
+	pos.xy = -pos.xy; // matching the uv
+#endif
+	#if(defined(EDITOR_MODE) && defined(HierarchicalLOD))
+		// baking hlod
+		pos.z = -1.f;
+		pos.xy = IN.i_UV * 2.0 - 1.f;
+		pos.xy *= -1.f;
+		pos = normalize(pos);
+	#endif // EDITOR_MODE && HierarchicalLOD
+
+	float3 cube_dir = pos;
+	float3 cCube = pow(S_ReflectCubeMap.Sample(S_ReflectCubeMapSamplerState, cube_dir).rgb, 2.2);
+	float3 baseMap;
+#ifdef USEDIFFUSE
+	float4 cDiffuse = S_Diffuse.Sample(S_DiffuseSamplerState, IN.i_UV.xy);
+	cDiffuse.rgb = pow(cDiffuse.rgb, 2.2);
+	baseMap.rgb = lerp(cCube.rgb, cDiffuse.rgb, cDiffuse.a);
+#else
+	baseMap.rgb = cCube.rgb;
+#endif
+
+	float3 N = normalize(IN.i_Normal.xyz);
+	float3 V = normalize(U_PS_CameraPosition.xyz - IN.i_WPos.xyz);
+	float3 L = normalize(-U_MainLightDirection.xyz);
+
+    float coverLerp = dot(N, U_PS_GravityDirection.xyz);
+	coverLerp += U_PSGeneralRegister2.z;
+	coverLerp = clamp(coverLerp, 0.0, 1.0);
+	coverLerp = coverLerp * U_PSGeneralRegister2.w;
+
+	float3 coverMap = U_WeatherParam0.xyz;
+	coverLerp *= U_WeatherParam0.w;
+
+	float maskRes = 1.0;
+#ifndef CUBE_RANGE
+    float4 tsPos = U_CoverColorParams;
+    float dist = length(IN.i_WPos.xz - tsPos.xz);
+    maskRes = smoothstep(tsPos.w - 1.0f, tsPos.w, dist);
+    // maskRes = 1.0 - maskRes;
+#else
+    float rectSize = 20.0f;
+    float2 halfSize = rectSize * 0.5;
+    float4 tsPos = U_CoverColorParams;
+    // Calculate the distance to the nearest edge of the rectangle
+    float2 distToEdge = abs(IN.i_WPos.xz - tsPos.xz) - halfSize;
+
+    // Use length function to determine if the point is within the rectangle boundaries
+    maskRes = length(max(distToEdge, 0.0));
+    maskRes = clamp(maskRes, 0.0, 1.0);
+    // maskRes = 1.0 - maskRes;
+#endif
+	coverLerp *= maskRes;	
+	baseMap.xyz = lerp(baseMap.xyz, coverMap, coverLerp);
+
+	float metallic = 0.f;
+	float roughness = 1.f;
+	float ao = 1.0;
+
+	#if (defined(HierarchicalLOD) && defined(EDITOR_MODE))
+		psOut.albedo = float4(baseMap, 1.f);
+		psOut.roughnessMetal = float4(roughness, metallic, 1.0, 0);
+		psOut.normal = float4(N, 0);
+		return psOut;
+	#else // else of HierarchicalLOD && EDITOR_MODE
+		float r = U_WeatherParam1.x;
+		roughness = lerp(roughness, r, coverLerp);
+		roughness = max(roughness , 1e-6);
+
+		float m = U_WeatherParam1.y;
+		metallic = lerp(metallic, m, coverLerp);
+
+		float4 mainLightColor = U_PBR_MainLightColor;
+		float4 skyLightColor = U_PBR_SkyLightColor;
+		float4 groundLightColor = U_PBR_GroundLightColor;
+		float blendThreshold = U_PS_AmbientBlendThreshold.y;
+
+		float3 grayColor = baseMap.rgb * float3(0.333, 0.333, 0.333);
+		float gray = grayColor.r + grayColor.g + grayColor.b;
+		grayColor.rgb =  float3(gray,gray,gray);
+
+		baseMap.rgb = lerp(baseMap.rgb, grayColor, U_MaterialCustomParam.x);
+		float3 albedo = baseMap.rgb * (1.0 - metallic);
+		float3 specularColor = lerp(float3(0.04h, 0.04h, 0.04h), baseMap.rgb, metallic);
+
+		float3 color = 0.0;
+		color += calculateLightPower(N, V, L, mainLightColor.xyz * (1.0 - U_PS_ViewLightPercent.x), baseMap.rgb, roughness, metallic);
+		color = color * U_MaterialDiffuse.rgb;
+		color += calculateLightPower(N, V, -U_PS_ViewDirection.xyz, mainLightColor.xyz * U_PS_ViewLightPercent.x, baseMap, roughness, metallic);
+	
+		float3 envBRDF = envBRDFApprox(specularColor, roughness, max(dot(N, V), 0.0));
+
+		float3 ambientColor = ComputeAmbientLight(skyLightColor.xyz, groundLightColor.xyz, N, blendThreshold, U_PS_GravityDirection.xyz);
+
+		envBRDF *= ambientColor;
+
+		color += albedo * ambientColor + envBRDF;
+		color *= ao;
+
+		color *= U_MaterialCustomParam1.x;
+		color = color * IN.i_FogColor.a + IN.i_FogColor.rgb;
+		psOut.oColor.rgb = pow(color, 1.0 / 2.2);
+		psOut.oColor.a = 1.0f;
+
+		if(U_MaterialCustomParam.w > 0)
+			psOut.oColor.rgb = (1 - U_MaterialCustomParam.w) * psOut.oColor.rgb + U_MaterialCustomParam.w * U_MaterialCustomParam.xyz;			
+	#endif // HierarchicalLOD && EDITOR_MODE
+#endif
+
+	return psOut;
+}

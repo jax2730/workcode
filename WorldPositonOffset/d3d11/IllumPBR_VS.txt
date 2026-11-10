@@ -1,6 +1,9 @@
 
 #include <Common_Uniform_VS.inl>
 #include <Common_Function.inl>
+#ifdef USESHADOWMAP
+float4 U_WorldMatrixBaseView[4];
+#endif
 
 #ifdef USEINSTANCE
     #ifndef SKINNEDINSTANCE
@@ -110,7 +113,6 @@ struct VS_OUTPUT
 	#endif
 	#ifdef USESHADOWMAP
 		float   o_ViewSpaceZ		: TEXCOORD8;
-		float4  O_LightSpacePos[SHADOWSPLITE] : TEXCOORD9; 
 	#endif
 	#ifdef SOFTBOARD
 		float4 o_ClipPos    : TEXCOORD6;
@@ -127,6 +129,9 @@ struct VS_OUTPUT
 	float4  o_BoundBoxRange		: TEXCOORD14;
 
 };
+
+
+
 #ifdef EDITOR_MODE
 	#ifdef HierarchicalLOD
 		uniform float4 U_VSGeneralRegister6;
@@ -154,6 +159,9 @@ VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID : SV_InstanceID)
 	float4 WorldMatrix[3];
 	float4 InvTransposeWorldMatrix[3];
 	float fHandedness = 1.f;
+#ifdef USESHADOWMAP
+	float4 wposView = float4(0.0f, 0.0f, 0.0f, 1.0f);
+#endif
 
 	#ifdef HWSKINNED
 		float4	Weight		= IN.blend;
@@ -211,6 +219,9 @@ VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID : SV_InstanceID)
 		float4 vObjPosInCam ;
 		vObjPosInCam.xyz  = mul((float3x4)WorldMatrix, pos);
 		vObjPosInCam.w    = 1.f;
+#ifdef USESHADOWMAP
+		wposView = vObjPosInCam;
+#endif
 		vsOut.o_PosInClip = mul((float4x4)U_ZeroViewProjectMatrix, vObjPosInCam);
 
 		WorldMatrix[0][3] += U_VS_CameraPosition[0];
@@ -228,14 +239,16 @@ VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID : SV_InstanceID)
 		InvTransposeWorldMatrix[1] = U_VSCustom0[idxInst + 4];
 		InvTransposeWorldMatrix[2] = U_VSCustom0[idxInst + 5];
 		
-		float4 Wpos;
-		Wpos.xyz = mul((float3x4)WorldMatrix, pos);
-		Wpos.w = 1.0;
-
-		// translate to camera space
-		float4 vObjPosInCam = Wpos - U_VS_CameraPosition;
-		vObjPosInCam.w = 1.f;
+		// instance data is camera-relative; use it directly for clip-space transform
+		float4 vObjPosInCam;
+		vObjPosInCam.xyz = mul((float3x4)WorldMatrix, pos);
+		vObjPosInCam.w = 1.0f;
+#ifdef USESHADOWMAP
+		wposView = vObjPosInCam;
+#endif
 		vsOut.o_PosInClip = mul((float4x4)U_ZeroViewProjectMatrix, vObjPosInCam);
+
+		float4 Wpos = float4(vObjPosInCam.xyz + U_VS_CameraPosition.xyz, 1.0f);
 	#endif
 	
 	fHandedness = determinant(float3x3(WorldMatrix[0].xyz, WorldMatrix[1].xyz, WorldMatrix[2].xyz));
@@ -258,6 +271,12 @@ VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID : SV_InstanceID)
 	vsOut.o_PosInClip.y = dot(U_WorldViewProjectMatrix[1], pos);
 	vsOut.o_PosInClip.z = dot(U_WorldViewProjectMatrix[2], pos);
 	vsOut.o_PosInClip.w = dot(U_WorldViewProjectMatrix[3], pos);	
+#ifdef USESHADOWMAP
+	wposView.x = dot(U_WorldMatrixBaseView[0], pos);
+	wposView.y = dot(U_WorldMatrixBaseView[1], pos);
+	wposView.z = dot(U_WorldMatrixBaseView[2], pos);
+	wposView.w = dot(U_WorldMatrixBaseView[3], pos);
+#endif
 #endif
 
 #ifdef PARABOLOID_MAPPING
@@ -343,6 +362,9 @@ VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID : SV_InstanceID)
 		vsOut.o_PosInClip.y = dot(U_WorldViewProjectMatrix[1], tempLocalPosi);
 		vsOut.o_PosInClip.z = dot(U_WorldViewProjectMatrix[2], tempLocalPosi);
 		vsOut.o_PosInClip.w = dot(U_WorldViewProjectMatrix[3], tempLocalPosi);
+#ifdef USESHADOWMAP
+		wposView.xyz = vsOut.o_WPos.xyz - vCamPos.xyz;
+#endif
 	#endif
 	
 	float4  tangent =  float4(IN.i_Tangent.xyz, 0.0f);
@@ -376,68 +398,7 @@ VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID : SV_InstanceID)
 	vsOut.o_Fog = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
 	
 	#ifdef USESHADOWMAP
-		float viewZ = -dot(U_MainCamViewMatrix, float4(vsOut.o_WPos.xyz, 1.0f));
-	
-	    float4 wpos = vsOut.o_WPos;
-		float3 wNormal = normalize(vsOut.o_WNormal.xyz);
-		float3 wLight = -U_VS_MainLightDirection.xyz;
-
-		float shadowCos = dot(wNormal, wLight);
-		float shadowSine = sqrt(1-shadowCos*shadowCos);
-		
-		float4 normalBias = ShadowNormalOffset * shadowSine * U_ShadowBiasMul;
-		float4 wposOffset = wpos;
-		const float BlendThreshold = 1;
-	
-		#if SHADOWSPLITE > 0
-		{
-		#if SHADOWSPLITE > 1
-			float lerpAmt = smoothstep(1.0 - BlendThreshold, 1.0, viewZ / U_VS_ShadowSplit[0].x);
-			wposOffset.xyz  = wpos.xyz + wNormal * lerp(normalBias[0], normalBias[1], lerpAmt);
-		#else
-			wposOffset.xyz  = wpos.xyz + wNormal * normalBias[0];
-		#endif
-		}
-		vsOut.O_LightSpacePos[0].x = dot(U_LightVPMatrix0[0], wposOffset);
-		vsOut.O_LightSpacePos[0].y = dot(U_LightVPMatrix0[1], wposOffset);
-		vsOut.O_LightSpacePos[0].z = dot(U_LightVPMatrix0[2], wposOffset);
-		vsOut.O_LightSpacePos[0].w = dot(U_LightVPMatrix0[3], wposOffset);
-		#endif
-		#if SHADOWSPLITE > 1	
-		{
-		#if SHADOWSPLITE > 2
-			float lerpAmt = smoothstep(1.0 - BlendThreshold, 1.0, (viewZ - U_VS_ShadowSplit[0].x) / (U_VS_ShadowSplit[0].y - U_VS_ShadowSplit[0].x));
-			wposOffset.xyz  = wpos.xyz + wNormal * lerp(normalBias[1], normalBias[2], lerpAmt);
-		#else
-			wposOffset.xyz  = wpos.xyz + wNormal * normalBias[1];
-		#endif
-		}
-		vsOut.O_LightSpacePos[1].x = dot(U_LightVPMatrix1[0], wposOffset);
-		vsOut.O_LightSpacePos[1].y = dot(U_LightVPMatrix1[1], wposOffset);
-		vsOut.O_LightSpacePos[1].z = dot(U_LightVPMatrix1[2], wposOffset);
-		vsOut.O_LightSpacePos[1].w = dot(U_LightVPMatrix1[3], wposOffset);
-		#endif
-		#if SHADOWSPLITE > 2	
-	   	{
-		#if SHADOWSPLITE > 3
-			float lerpAmt = smoothstep(1.0 - BlendThreshold, 1.0, (viewZ - U_VS_ShadowSplit[0].y) / (U_VS_ShadowSplit[0].z - U_VS_ShadowSplit[0].y));
-			wposOffset.xyz  = wpos.xyz + wNormal * lerp(normalBias[2], normalBias[3], lerpAmt);
-		#else
-			wposOffset.xyz  = wpos.xyz + wNormal * normalBias[2];
-		#endif
-		}
-		vsOut.O_LightSpacePos[2].x = dot(U_LightVPMatrix2[0], wposOffset);
-		vsOut.O_LightSpacePos[2].y = dot(U_LightVPMatrix2[1], wposOffset);
-		vsOut.O_LightSpacePos[2].z = dot(U_LightVPMatrix2[2], wposOffset);
-		vsOut.O_LightSpacePos[2].w = dot(U_LightVPMatrix2[3], wposOffset);
-		#endif	
-		#if SHADOWSPLITE > 3	
-		wposOffset.xyz = wpos.xyz + wNormal * normalBias[3];
-		vsOut.O_LightSpacePos[3].x = dot(U_LightVPMatrix3[0], wposOffset);
-		vsOut.O_LightSpacePos[3].y = dot(U_LightVPMatrix3[1], wposOffset);
-		vsOut.O_LightSpacePos[3].z = dot(U_LightVPMatrix3[2], wposOffset);
-		vsOut.O_LightSpacePos[3].w = dot(U_LightVPMatrix3[3], wposOffset);
-		#endif			
+		float viewZ = -dot(U_ViewMatrix[2].xyz, wposView.xyz);
 		vsOut.o_ViewSpaceZ = viewZ;
 	#endif
 	

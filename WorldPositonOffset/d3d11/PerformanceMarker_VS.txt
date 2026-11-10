@@ -1,0 +1,32 @@
+
+#include <Common_Uniform_VS.inl>
+
+struct VS_INPUT
+{
+    float3 i_Pos    : POSITION0;
+    float2 i_UV		: TEXCOORD0;
+};
+
+struct VS_OUTPUT
+{
+    float4 o_PosInClip  : SV_POSITION;
+    float2 o_UV		    : TEXCOORD0;
+};
+
+VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID : SV_InstanceID)
+{
+    VS_OUTPUT vsOut = (VS_OUTPUT)0;
+
+    float4 pos = float4(IN.i_Pos, 1.0f);
+    pos.z = pos.z - 120.0f;
+    pos.x = pos.x + fmod(float(i_InstanceID), 100.0f) - 50.0f;
+    pos.y = pos.y + fmod(float(i_InstanceID / 100), 100.0f) - 50.0f;
+    vsOut.o_PosInClip.x = dot(pos, U_ProjectMatrix[0]);
+    vsOut.o_PosInClip.y = dot(pos, U_ProjectMatrix[1]);
+    vsOut.o_PosInClip.z = dot(pos, U_ProjectMatrix[2]);
+    vsOut.o_PosInClip.w = dot(pos, U_ProjectMatrix[3]);
+
+    vsOut.o_UV = IN.i_UV;
+
+    return vsOut;
+}

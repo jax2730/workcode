@@ -1,0 +1,66 @@
+#include <Common_Uniform_PS.inl>
+
+#ifdef DIFFUSE_TEX
+Texture2D S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+#endif
+
+#ifdef MATERIAL_DIFFUSE
+float4 U_MaterialDiffuse;
+#endif
+
+#ifdef ALPHA_TEST
+float AlphaRef;
+#endif
+
+struct PS_INPUT
+{
+    float4	i_PosInClip			: SV_POSITION;
+#ifdef ILLUM_BLINN
+	float3 i_Normal		: NORMAL0;
+#endif
+#ifdef DIFFUSE_TEX
+	float4 i_UV		: TEXCOORD0;
+#endif
+#ifdef VERTEX_COLOR
+	float4 i_Diffuse	: COLOR0;
+#endif
+};
+
+struct PS_OUTPUT
+{
+	float4 o_Color		: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1;
+
+#ifdef DIFFUSE_TEX
+	psOut.o_Color *= S_Diffuse.Sample(S_DiffuseSamplerState, IN.i_UV.xy);
+	#ifdef ALPHA_TEST
+		clip(psOut.o_Color.a - AlphaRef);
+	#endif
+#endif
+
+#ifdef VERTEX_COLOR
+	psOut.o_Color *= IN.i_Diffuse;
+#endif
+
+#ifdef MATERIAL_DIFFUSE
+	psOut.o_Color *= U_MaterialDiffuse;
+#endif
+
+#ifdef ILLUM_BLINN
+	IN.i_Normal = normalize(IN.i_Normal);
+	float fNdotL = clamp(dot(IN.i_Normal, -U_MainLightDirection.xyz), 0.f, 1.f);
+	float3 cLight = fNdotL * U_PBR_MainLightColor.rgb;
+	cLight += lerp(U_PBR_GroundLightColor.rgb, U_PBR_SkyLightColor.rgb, IN.i_Normal.y * 0.5f + 0.5f);
+	psOut.o_Color.rgb *= cLight;
+#endif
+
+	float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.o_Color = psOut.o_Color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+	
+	return psOut;
+}

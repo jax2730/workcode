@@ -1,0 +1,147 @@
+//Mobile implementation of "Screen Space Planar Reflections in Ghost Recon Wildlands"
+
+#define NUM_THREADS_X 8
+#define NUM_THREADS_Y 8
+
+#define UV_STARTS_AT_TOP
+#define FLOAT_MAX 3.402823466e+38
+
+uniform float4 U_CSCustom0;
+uniform float4 U_CSCustom1;
+uniform float4 U_CSCustom2;
+uniform float4x4 U_CSCustom3;
+uniform float4x4 U_CSCustom4;
+
+uniform Texture2D<float> S_2DExt0;
+uniform Texture2D S_2DExt1;
+uniform RWTexture2D<float4> S_2DExt2;
+uniform RWTexture2D<float> S_2DExt3;
+uniform SamplerState S_2DExt0SamplerState;
+uniform SamplerState S_2DExt1SamplerState;
+
+#define TargetPixelSize U_CSCustom0.xy
+#define TargetSize U_CSCustom0.zw
+#define CameraDirection U_CSCustom1.xyz
+#define HorizontalPlaneHeightWS U_CSCustom1.w
+#define FadeoutMul U_CSCustom2.x
+#define FadeoutAdd U_CSCustom2.y
+#define ViewProj U_CSCustom3
+#define InvViewProj U_CSCustom4
+
+#define CameraDepthTexture S_2DExt0
+#define CameraOpaqueTexture S_2DExt1
+#define ColorRT S_2DExt2
+#define PosWSyRT S_2DExt3
+#define PointClamp S_2DExt0SamplerState
+#define LinearClamp S_2DExt1SamplerState
+
+float3 ConvertScreenIDToPosWS(uint2 id, out float2 uv)
+{
+    //input id is compute function's input SV_DispatchThreadID
+    uv = (float2(id) + 0.5) * TargetPixelSize; //[0,RTSize-1] -> screen [0,1] uv
+    //get rawDepth(posCS.z) in _CameraDepthTexture
+    float inputPixelRawDepth = CameraDepthTexture.SampleLevel(PointClamp, uv, 0).r;
+    //convert screenUV & _CameraDepthTexture's rawDepth(posCS.z) to posWS
+    //https://github.com/Steven-Cannavan/URP_ScreenSpacePlanarReflections/blob/master/Assets/Shaders/ReflectionShader.compute#L75
+    //reconstruct posCS using screen [0,1] uv & rawDepth
+    float4 posCS = float4(uv * 2.0 - 1.0, inputPixelRawDepth, 1.0);
+#ifdef UV_STARTS_AT_TOP
+    posCS.y = -posCS.y;
+#endif
+
+    float4 posHWS = mul(posCS, InvViewProj); //posCS -> posHWS
+    float3 posWS = posHWS.xyz / posHWS.w; //posHWS -> posWS
+    
+    //posWS.y = inputPixelRawDepth > 0.99999 ? HorizontalPlaneHeightWS : posWS.y; // clip skybox
+
+    return posWS;
+}
+
+float2 ConvertReflectedPosWSToScreenUV(float3 reflectedPosWS)
+{
+    //find reflected posWS's new screenUV
+    //https://github.com/Steven-Cannavan/URP_ScreenSpacePlanarReflections/blob/master/Assets/Shaders/ReflectionShader.compute#L87
+    float4 reflectedPosCS = mul(float4(reflectedPosWS, 1), ViewProj); //posWS -> posCS
+    const float2 reflectedPosNDCxy = reflectedPosCS.xy / reflectedPosCS.w; //posCS -> posNDC
+
+    //posNDC -> screen [0,1] uv, don't saturate() to allow  out of bound access early exit
+    float2 reflectedScreenUV = reflectedPosNDCxy * 0.5 + 0.5;
+
+    //fix left right missing geometry 
+    /*
+    float HeightStretch = (PosWS.z - WaterHeight);
+    float AngleStretch = saturate(- CameraDirection.z);
+    float ScreenStretch = saturate(abs(ReflPosUV.x * 2 - 1) - Threshold);
+    
+    ReflPosUV.x *= 1 + HeightStretch * AngleStretch * ScreenStretch * Intensity;
+    */
+
+    //flip UV according to platform 
+    //ref: https://github.com/Steven-Cannavan/URP_ScreenSpacePlanarReflections/blob/master/Assets/Shaders/ReflectionShader.compute#L95
+#ifdef UV_STARTS_AT_TOP
+    reflectedScreenUV.y = 1.0 - reflectedScreenUV.y;
+#endif
+
+    return reflectedScreenUV;
+}
+
+float3 MirrorPosWS(const float3 inputPosWS)
+{
+    float3 reflectedPosWS = inputPosWS;
+    reflectedPosWS.y -= HorizontalPlaneHeightWS;
+    reflectedPosWS.y *= -1; //actual reflect action
+    reflectedPosWS.y += HorizontalPlaneHeightWS;
+
+    return reflectedPosWS;
+}
+
+float ConvertOpaqueColorRTScreenUVToFadeAlphaParam(float2 screenUV)
+{
+    const float2 v = saturate(abs(screenUV * 2 - 1) * FadeoutMul + FadeoutAdd);
+    const float fadeoutAlpha = saturate(1.0 - dot(v, v));
+    return fadeoutAlpha;
+}
+
+[numthreads(NUM_THREADS_X, NUM_THREADS_Y, 1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    //Clear
+    ColorRT[id.xy] = float4(0, 0, 0, 1);
+    PosWSyRT[id.xy] = 0.0;
+
+	float2 screenUV;
+	float3 posWS = ConvertScreenIDToPosWS(id.xy, screenUV);
+
+    //if posWS is already under reflection plane (e.g. under water plane), 
+    //it will never be a correct color to reflect anyway, early exit to prevent wrong result write to Color RT
+    if (posWS.y <= HorizontalPlaneHeightWS)
+        return;
+
+    //mirror posWS according to horizontal reflection plane (e.g. water plane)
+    float3 reflectedPosWS = MirrorPosWS(posWS);
+
+    const float2 reflectedScreenUV = ConvertReflectedPosWSToScreenUV(reflectedPosWS);
+    //early exit if not valid uv anymore, to avoid out of bound access
+    float2 earlyExitTest = abs(reflectedScreenUV - 0.5);
+    if (earlyExitTest.x >= 0.5 || earlyExitTest.y >= 0.5)
+        return;
+
+    const uint2 reflectedScreenID = reflectedScreenUV * TargetSize; //from screen uv[0,1] to [0,RTSize-1]
+    //because writes to ColorRT are in an unknown random order(there can be >1 candidates writing to the same slot in the same dispatch call!),
+    //here we only allow "closer to horizontal reflection plane's candidate" to write to ColorRT & PosWSyRT.
+    //At the end, only the "closest to horizontal reflection plane candidate" will remain in ColorRT & PosWSyRT, which is the correct reflection data
+    if (posWS.y < PosWSyRT[reflectedScreenID])
+    {
+        float3 inputPixelSceneColor = CameraOpaqueTexture.SampleLevel(LinearClamp, screenUV, 0).xyz;
+
+        float fadeoutAlpha = ConvertOpaqueColorRTScreenUVToFadeAlphaParam(screenUV);
+
+        //we write the following data to 2 RTs:
+        //-ColorRT.rgba = current best reflection color and alpha(alpha means SSPR usage %)
+        //-PosWSyRT.r = current lowest PosyWS (concept similar to a regular depth buffer ZTest->ZWrite)
+		float4 color = float4(inputPixelSceneColor, fadeoutAlpha);
+        color.a = saturate(color.a);
+        ColorRT[reflectedScreenID] = color;
+        PosWSyRT[reflectedScreenID] = posWS.y;
+    }
+}

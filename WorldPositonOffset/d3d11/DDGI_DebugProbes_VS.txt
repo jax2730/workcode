@@ -1,0 +1,35 @@
+float4 U_VSCustom0[InstanceCount * UniformSize];
+
+
+struct VS_INPUT
+{
+    float4 i_Pos : POSITION0;
+};
+
+struct VS_OUTPUT
+{
+    float4 o_PosInClip : SV_POSITION;
+    float4 o_Pos : TEXCOORD0;
+    uint o_InstanceID : SV_InstanceID;
+};
+
+VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID : SV_InstanceID)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+    float4 pos = float4(IN.i_Pos.xyz, 1.0f);
+    float4 worldViewProjectMatrix[4];
+
+	worldViewProjectMatrix[0] = U_VSCustom0[i_InstanceID * UniformSize];
+	worldViewProjectMatrix[1] = U_VSCustom0[i_InstanceID * UniformSize + 1];
+	worldViewProjectMatrix[2] = U_VSCustom0[i_InstanceID * UniformSize + 2];
+	worldViewProjectMatrix[3] = U_VSCustom0[i_InstanceID * UniformSize + 3];
+
+	vsOut.o_PosInClip.x = dot(worldViewProjectMatrix[0], pos);
+	vsOut.o_PosInClip.y = dot(worldViewProjectMatrix[1], pos);
+	vsOut.o_PosInClip.z = dot(worldViewProjectMatrix[2], pos);
+	vsOut.o_PosInClip.w = dot(worldViewProjectMatrix[3], pos);
+
+    vsOut.o_Pos = vsOut.o_PosInClip;
+    vsOut.o_InstanceID = i_InstanceID;
+	return vsOut;
+}

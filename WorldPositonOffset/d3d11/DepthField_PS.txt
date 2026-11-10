@@ -1,0 +1,73 @@
+
+Texture2D	S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+Texture2D	S_2DExt1;
+SamplerState S_2DExt1SamplerState;
+Texture2D	S_2DExt2;
+SamplerState S_2DExt2SamplerState;
+
+float4 U_PSCustom0; 	//ViewPortRange
+float4 U_PSCustom1[4];	//InvViewProjectMatrix
+float4 U_PSCustom2;		//focusposi,radiu
+float4 U_PSCustom3;		//cameraPosi
+
+float3 getSceneDepth(in float2 olduv, in float2 uv)
+{
+	float4 tempPos = float4(uv, 0.0, 1.0);
+	tempPos.z = S_2DExt0.Sample(S_2DExt0SamplerState, uv).r;
+	if (tempPos.z == 0) {
+		tempPos.z = 0.0001;
+	}
+
+	tempPos.x = olduv.x * 2.0 - 1.0;
+	tempPos.y = (1.0 - olduv.y) * 2.0 - 1.0;
+
+	tempPos /= tempPos.z;
+	
+	float4 worldSpacePos;
+	worldSpacePos.x = dot(U_PSCustom1[0], tempPos);
+	worldSpacePos.y = dot(U_PSCustom1[1], tempPos);
+	worldSpacePos.z = dot(U_PSCustom1[2], tempPos);
+	worldSpacePos.w = dot(U_PSCustom1[3], tempPos);
+	float3 depth = worldSpacePos.xyz / worldSpacePos.w;
+	return depth;
+}
+
+struct PS_INPUT
+{
+    float4	i_PosInClip			: SV_POSITION;
+	float4 i_UV			: TEXCOORD0;
+};
+
+struct PS_OUTPUT
+{
+ 
+	float4 o_Color	: SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+	
+	float2 uv = IN.i_UV.xy;
+	uv *= U_PSCustom0.xy;
+	
+    float4 colorClearness = S_2DExt1.Sample( S_2DExt1SamplerState, uv);
+    float4 colorFuzzy = S_2DExt2.Sample( S_2DExt2SamplerState, uv);
+	
+	float3 pixelWorldPosi = getSceneDepth(IN.i_UV.xy, uv);
+	pixelWorldPosi -= U_PSCustom2.xyz;
+	
+	float dis = pixelWorldPosi.x *  pixelWorldPosi.x + pixelWorldPosi.y *  pixelWorldPosi.y + pixelWorldPosi.z *  pixelWorldPosi.z;
+	dis -= U_PSCustom2.w * U_PSCustom2.w;
+	dis = max(dis, 0.0f);
+	float finalValue = dis / U_PSCustom3.w;
+	finalValue /= U_PSCustom3.w;
+	
+	finalValue = saturate(finalValue);
+	
+	psOut.o_Color.rgb = lerp(colorFuzzy.xyz, colorClearness.xyz, 1.0 - finalValue);
+	psOut.o_Color.a = 1.0;
+
+	return psOut;
+}

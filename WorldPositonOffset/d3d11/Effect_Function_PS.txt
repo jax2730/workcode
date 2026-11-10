@@ -1,0 +1,120 @@
+// Calculate UV Function
+// ----------------------------------------------------------------------------------------------------
+struct CalculateUVFunctionParam 
+{
+    float2 mSourceUV;
+    float2 mTillingUV;
+    float2 mOffsetUV;
+    float mAngle;
+};
+
+struct CalculateUVFunctionResult
+{
+    float2 mResUV;
+};
+
+
+// 可以保证给了一个初始角度后，平移不是按照旋转之后的来实现。
+// 计划为先缩放后旋转，之后整体做位移。 (RS)T(RS)^-1RS ==> RST
+// 但是为了能使用到之前，tilling影响到offset的功能上，使得这个函数更具普遍性，改为：RTR^-1RS ==> RTS
+CalculateUVFunctionResult CalculateUVFunction(CalculateUVFunctionParam param)
+{
+	CalculateUVFunctionResult res;
+    
+    float2 uv = param.mSourceUV;
+
+    // 缩放
+	uv = uv * param.mTillingUV;
+
+    // 位移
+    uv = uv + param.mOffsetUV;
+ 
+    // 将原点挪到中心
+    uv = uv - 0.5f * param.mTillingUV;
+
+    // 旋转
+    float2 temp_uv = uv;
+	uv.x = temp_uv.x * cos(param.mAngle) - temp_uv.y * sin(param.mAngle);
+	uv.y = temp_uv.x * sin(param.mAngle) + temp_uv.y * cos(param.mAngle);
+
+    // 再挪回去
+    uv = uv + 0.5f * param.mTillingUV;
+
+    res.mResUV = uv;
+
+	return res;
+}
+
+
+float2 PolarCoordinates_float(float2 UV, float2 Center, float RadialScale, float LengthScale)
+{
+    float2 delta = UV - Center;
+    float  radius = length(delta) * 2 * RadialScale;
+    float  angle = atan2(delta.x, delta.y) * 1.0/6.28 * LengthScale;
+	angle = frac(angle);
+#ifdef SWIZZLE_POLAR_COORDINATES_XY
+	float2 Out = float2(angle, radius);
+#else
+    float2 Out = float2(radius, angle);
+#endif
+	return Out;
+}
+
+//这个会把uv限制在(0-1)
+float2 cal_uv(float2 uv, float tilling_u, float tilling_v, float offset_u, float offset_v, float angle)
+{
+	float2 new_uv;
+
+	new_uv.x = uv.x * tilling_u;
+	new_uv.y = uv.y * tilling_v;
+
+	new_uv.x += offset_u;
+	new_uv.y += offset_v;
+
+	new_uv.x = fmod(new_uv.x, tilling_u) / tilling_u;
+	new_uv.y = fmod(new_uv.y, tilling_v) / tilling_v;
+
+	float2 temp_uv = new_uv;
+	temp_uv.x = new_uv.x - 0.5;
+	temp_uv.y = new_uv.y - 0.5;
+
+	float temp_u = temp_uv.x * cos(angle) - temp_uv.y * sin(angle);
+	float temp_v = temp_uv.x * sin(angle) + temp_uv.y * cos(angle);
+
+	new_uv.x = temp_u + 0.5;
+	new_uv.y = temp_v + 0.5;
+
+	new_uv.x *= tilling_u;
+	new_uv.y *= tilling_v;
+
+	return new_uv;
+}
+
+//这个不限制
+float2 cal_uvNoWrap(float2 uv, float tilling_u, float tilling_v, float offset_u, float offset_v, float angle)
+{
+	float2 new_uv = uv;
+
+    // 缩放
+	new_uv.x = new_uv.x * tilling_u;
+	new_uv.y = new_uv.y * tilling_v;
+
+    // 位移
+    new_uv.x += offset_u;
+	new_uv.y += offset_v;
+ 
+    // 将原点挪到中心
+    new_uv.x = new_uv.x - 0.5f * tilling_u;
+	new_uv.y = new_uv.y - 0.5f * tilling_v;
+
+    // 旋转
+    float2 temp_uv = new_uv;
+	new_uv.x = temp_uv.x * cos(angle) - temp_uv.y * sin(angle);
+	new_uv.y = temp_uv.x * sin(angle) + temp_uv.y * cos(angle);
+
+    // 再挪回去
+    new_uv.x = new_uv.x + 0.5f * tilling_u;
+	new_uv.y = new_uv.y + 0.5f * tilling_v;
+
+	return new_uv;
+}

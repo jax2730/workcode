@@ -1,0 +1,231 @@
+#include <Common_Uniform_PS.inl> 
+																									
+Texture2D	S_2DExt0; //samBase	
+SamplerState S_2DExt0SamplerState;
+
+#ifdef DOUBLETEX
+	Texture2D	S_2DExt1; //samMask
+    SamplerState S_2DExt1SamplerState;	
+	
+	uniform float4 	U_PSCustom1[4];	 //PSCBPreMaterial
+#else
+	uniform float4 	U_PSCustom1[2];	 //PSCBPreMaterial
+#endif
+
+#ifdef DISTORT
+	uniform float4	U_PSCustom0; //PSCBPreDistort
+#endif														
+																										
+struct PS_INPUT																							
+{							
+    float4	o_PosInClip			: SV_POSITION;																			
+	float4	col	: TEXCOORD0;																			
+	float4	tc0	: TEXCOORD1;	
+#ifdef DOUBLETEX
+	float2	tc1  : TEXCOORD2;
+#endif
+	float4 	i_Fog : TEXCOORD3;
+};																										
+																										
+struct PS_OUTPUT																						
+{																									
+	float4 color : SV_TARGET;																									
+};																										
+				
+
+#ifdef DISTORT
+ 
+float3 mod289(float3 x)
+{
+    return x - floor(x / 289.0) * 289.0;
+}
+
+float2 mod289(float2 x)
+{
+    return x - floor(x / 289.0) * 289.0;
+}
+
+float3 permute(float3 x)
+{
+    return mod289((x * 34.0 + 1.0) * x);
+}
+
+float3 taylorInvSqrt(float3 r)
+{
+    return 1.79284291400159 - 0.85373472095314 * r;
+}
+
+float snoise(float2 v)
+{
+    const float4 C = float4( 0.211324865405187,  // (3.0-sqrt(3.0))/6.0
+                             0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
+                            -0.577350269189626,  // -1.0 + 2.0 * C.x
+                             0.024390243902439); // 1.0 / 41.0
+    // First corner
+    float2 i  = floor(v + dot(v, C.yy));
+    float2 x0 = v -   i + dot(i, C.xx);
+
+    // Other corners
+    float2 i1;
+    i1.x = step(x0.y, x0.x);
+    i1.y = 1.0 - i1.x;
+
+    // x1 = x0 - i1  + 1.0 * C.xx;
+    // x2 = x0 - 1.0 + 2.0 * C.xx;
+    float2 x1 = x0 + C.xx - i1;
+    float2 x2 = x0 + C.zz;
+
+    // Permutations
+    i = mod289(i); // Avoid truncation effects in permutation
+    float3 p =
+      permute(permute(i.y + float3(0.0, i1.y, 1.0))
+                    + i.x + float3(0.0, i1.x, 1.0));
+
+    float3 m = max(0.5 - float3(dot(x0, x0), dot(x1, x1), dot(x2, x2)), 0.0);
+    m = m * m;
+    m = m * m;
+
+    // Gradients: 41 points uniformly over a line, mapped onto a diamond.
+    // The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
+    float3 x = 2.0 * frac(p * C.www) - 1.0;
+    float3 h = abs(x) - 0.5;
+    float3 ox = floor(x + 0.5);
+    float3 a0 = x - ox;
+
+    // Normalise gradients implicitly by scaling m
+    m *= taylorInvSqrt(a0 * a0 + h * h);
+
+    // Compute final noise value at P
+    float3 g;
+    g.x = a0.x * x0.x + h.x * x0.y;
+    g.y = a0.y * x1.x + h.y * x1.y;
+    g.z = a0.z * x2.x + h.z * x2.y;
+    return 130.0 * dot(m, g);
+}
+
+float3 snoise_grad(float2 v)
+{
+    const float4 C = float4( 0.211324865405187,  // (3.0-sqrt(3.0))/6.0
+                             0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
+                            -0.577350269189626,  // -1.0 + 2.0 * C.x
+                             0.024390243902439); // 1.0 / 41.0
+    // First corner
+    float2 i  = floor(v + dot(v, C.yy));
+    float2 x0 = v -   i + dot(i, C.xx);
+
+    // Other corners
+    float2 i1;
+    i1.x = step(x0.y, x0.x);
+    i1.y = 1.0 - i1.x;
+
+    // x1 = x0 - i1  + 1.0 * C.xx;
+    // x2 = x0 - 1.0 + 2.0 * C.xx;
+    float2 x1 = x0 + C.xx - i1;
+    float2 x2 = x0 + C.zz;
+
+    // Permutations
+    i = mod289(i); // Avoid truncation effects in permutation
+    float3 p =
+      permute(permute(i.y + float3(0.0, i1.y, 1.0))
+                    + i.x + float3(0.0, i1.x, 1.0));
+
+    float3 m = max(0.5 - float3(dot(x0, x0), dot(x1, x1), dot(x2, x2)), 0.0);
+    float3 m2 = m * m;
+    float3 m3 = m2 * m;
+    float3 m4 = m2 * m2;
+
+    // Gradients: 41 points uniformly over a line, mapped onto a diamond.
+    // The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
+    float3 x = 2.0 * frac(p * C.www) - 1.0;
+    float3 h = abs(x) - 0.5;
+    float3 ox = floor(x + 0.5);
+    float3 a0 = x - ox;
+
+    // Normalise gradients
+    float3 norm = taylorInvSqrt(a0 * a0 + h * h);
+    float2 g0 = float2(a0.x, h.x) * norm.x;
+    float2 g1 = float2(a0.y, h.y) * norm.y;
+    float2 g2 = float2(a0.z, h.z) * norm.z;
+
+    // Compute noise and gradient at P
+    float2 grad =
+      -6.0 * m3.x * x0 * dot(x0, g0) + m4.x * g0 +
+      -6.0 * m3.y * x1 * dot(x1, g1) + m4.y * g1 +
+      -6.0 * m3.z * x2 * dot(x2, g2) + m4.z * g2;
+    float3 px = float3(dot(x0, g0), dot(x1, g1), dot(x2, g2));
+    return 130.0 * float3(grad, dot(m4, px));
+}
+#endif		
+				
+PS_OUTPUT main( PS_INPUT inPix )																		
+{													
+
+#ifdef DISTORT
+	float _distortAmt = U_PSCustom0.w;
+	float _distortScale = U_PSCustom0.y;
+	float _distortSpeed = U_PSCustom0.z;
+	float Time = U_PSCustom0.x;
+ 
+	float noise = snoise(inPix.tc0.zw * _distortScale + float2(Time *_distortSpeed, - Time *_distortSpeed));
+	
+	inPix.tc0.xy   += noise * _distortAmt;
+			
+#endif				
+	PS_OUTPUT o;																								
+	
+	float4 cola = inPix.col;
+	
+	float4 colb = S_2DExt0.Sample(S_2DExt0SamplerState, inPix.tc0.xy);	
+	
+	cola.rgb *= U_PSCustom1[0].x;
+	cola.a *= U_PSCustom1[0].y;
+	
+	colb.rgb *= U_PSCustom1[0].z;
+	colb.a *= U_PSCustom1[0].w;
+	
+	float alphaAMutilB = cola.a * colb.a;
+	float alphaAAddB = cola.a + colb.a;
+	
+	float3 colorAMutilB = cola.rgb * colb.rgb;
+	float3 colorAAddB = cola.rgb + colb.rgb;
+	
+	float3 colorFinal = lerp(colorAMutilB, colorAAddB, U_PSCustom1[1].z);
+	float alphaFinal = lerp(alphaAMutilB, alphaAAddB, U_PSCustom1[1].w);
+	
+	colorFinal += U_PSCustom1[1].x;
+	alphaFinal += U_PSCustom1[1].y;
+	
+	
+#ifdef DOUBLETEX
+	float4 colc;
+	colc.rgb = colorFinal;
+	colc.a = alphaFinal;
+	
+	float4 cold = S_2DExt1.Sample(S_2DExt1SamplerState, inPix.tc1);	
+	
+	colc.rgb *= U_PSCustom1[2].x;
+	colc.a *= U_PSCustom1[2].y;
+	
+	cold.rgb *= U_PSCustom1[2].z;
+	cold.a *= U_PSCustom1[2].w;
+	
+	float alphaCMutilD = colc.a * cold.a;
+	float alphaCAddD = colc.a + cold.a;
+	
+	float3 colorCMutilD = colc.rgb * cold.rgb;
+	float3 colorCAddD = colc.rgb + cold.rgb;
+	
+	colorFinal = lerp(colorCMutilD, colorCAddD, U_PSCustom1[3].z);
+	alphaFinal = lerp(alphaCMutilD, alphaCAddD, U_PSCustom1[3].w);
+	
+	colorFinal += U_PSCustom1[3].x;
+	alphaFinal += U_PSCustom1[3].y;
+#endif
+
+	colorFinal = colorFinal * inPix.i_Fog.a + inPix.i_Fog.rgb;
+	
+	o.color = float4(colorFinal, alphaFinal);
+	float overdrawlerp = ceil(U_PS_Time.w);	
+	o.color = o.color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+	return o;																							
+}																										

@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en-US">
+
+<head>
+    <meta charset="UTF-8">
+    <title>City Template</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+        }
+
+        .block {
+            border: 1px solid #ccc;
+            padding: 16px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+
+        label {
+            display: block;
+            margin-top: 8px;
+        }
+
+        input {
+            padding: 4px 8px;
+            margin-top: 4px;
+        }
+
+        button {
+            margin-top: 12px;
+            padding: 6px 12px;
+        }
+
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .jsonText {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            /* CSS3 */
+            white-space: -moz-pre-wrap;
+            /* Mozilla, since 1999 */
+            white-space: -pre-wrap;
+            /* Opera 4-6 */
+            white-space: -o-pre-wrap;
+            /* Opera 7 */
+            word-wrap: break-word;
+            /* Internet Explorer 5.5+ */
+            max-height: 300px;
+            overflow-y: auto;
+            width: 80%;
+            height: 200px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>City Template</h1>
+    <a href="/help" target="_blank"> Help </a>
+    <div class="block">
+        <h2>Query Tasks</h2>
+        <!-- Create a new query task: city + radius -->
+        <div class="block">
+            <h3>Create a new query task</h3>
+            <label>
+                City name:
+                <input type="text" id="city" placeholder="e.g. Beijing">
+            </label>
+            <label>
+                Radius (meters):
+                <input type="number" id="radius" value="25000">
+            </label>
+            <button onclick="createTask()">Submit query</button>
+
+            <h4>Result:</h4>
+            <pre id="createResult"></pre>
+        </div>
+
+        <!-- Check task status by task_id -->
+        <div class="block">
+            <h3>Check task status by task_id</h3>
+            <label>
+                Task ID:
+                <input type="text" id="taskId" placeholder="e.g. 1 or 42">
+            </label>
+            <button onclick="checkStatus()">Check status</button>
+
+            <h4>Task status:</h4>
+            <pre id="statusResult"></pre>
+            <button id="downloadBtn" style="display:none;" onclick="downloadResult()">Download result</button>
+        </div>
+    </div>
+    <div class="block">
+        <!-- Create a new query task: city + radius -->
+        <h2>Query POI</h2>
+        <label>
+            City name:
+            <input type="text" id="city_poi" placeholder="e.g. Beijing">
+        </label>
+        <label>
+            Radius (meters):
+            <input type="number" id="radius_poi" value="25000">
+        </label>
+        <button onclick="querypoi()">Submit query</button>
+        <h4>Query status:</h4>
+        <pre id="poiResult"></pre>
+    </div>
+    <div class="block">
+        <!-- Create a new query task: city + landmark list -->
+        <h2>Query Landmarks</h2>
+        <label>
+            City name:
+            <input type="text" id="city_landmark" placeholder="e.g. Beijing">
+        </label>
+        <label>
+            Landmarks:
+            <textarea class="jsonText" name="landmark_list" id="landmarks" placeholder='e.g. { "CCTV Headquarters/": {
+                        "name": "CCTV Headquarters",
+                        "id": "199206"
+                        }}'></textarea>
+        </label>
+        <button onclick="queryLandmark()">Submit query</button>
+        <h4>Query status:</h4>
+        <pre id="landmarkResult"></pre>
+    </div>
+    <div class="block">
+        <h2>Simplify Tasks</h2>
+        <!-- Create a new simplify task: city + tolerance -->
+        <div class="block">
+            <h3>Create a new simplify task</h3>
+            <label>
+                City name:
+                <input type="text" id="city2" placeholder="e.g. Beijing">
+            </label>
+            <label>
+                Tolerance (meters):
+                <input type="number" id="tolerance" value="50">
+            </label>
+
+            <button onclick="createTask2()">Submit simplify</button>
+            <h4>Result:</h4>
+            <pre id="createResult2"></pre>
+        </div>
+
+        <!-- Check task status by task_id -->
+        <div class="block">
+            <h3>Check task status by task_id</h3>
+            <label>
+                Task ID:
+                <input type="text" id="taskId2" placeholder="e.g. 1 or 42">
+            </label>
+            <button onclick="checkStatus2()">Check status</button>
+
+            <h4>Task status:</h4>
+            <pre id="statusResult2"></pre>
+            <button id="downloadBtn2" style="display:none;" onclick="downloadResult2()">Download result</button>
+        </div>
+    </div>
+    <div class="block">
+        <h2>Add landmarks to existing city</h2>
+        <label>
+            City name:
+            <input type="text" id="city_landmark2" placeholder="e.g. Beijing">
+        </label>
+        <!-- upload landmark file -->
+        <label>
+            Landmark file:
+            <input type="file" id="landmark_file" accept=".gpkg">
+        </label>
+        <button onclick="addLandmark()">Submit landmark</button>
+
+        <h4>Add status:</h4>
+        <pre id="landmarkResult2"></pre>
+    </div>
+
+    <div class="block">
+        <h2>Street Block Tasks</h2>
+        <!-- Create a new simplify task: city + tolerance -->
+        <div class="block">
+            <h3>Create a new Street Block task</h3>
+            <label>
+                City name:
+                <input type="text" id="cityStreetBlock" placeholder="e.g. Beijing">
+            </label>
+            <label>
+                Final road file
+                <input type="file" id="road_file" accept=".gpkg">
+            </label>
+            <button onclick="createTaskStreetBlock()">Submit simplify</button>
+            <h4>Result:</h4>
+            <pre id="createResultStreetBlock"></pre>
+        </div>
+
+        <!-- Check task status by task_id -->
+        <div class="block">
+            <h3>Check task status by task_id</h3>
+            <label>
+                Task ID:
+                <input type="text" id="taskIdStreetBlock" placeholder="e.g. 1 or 42">
+            </label>
+            <button onclick="checkStatusStreetBlock()">Check status</button>
+
+            <h4>Task status:</h4>
+            <pre id="statusResultStreetBlock"></pre>
+            <button id="downloadBtnStreetBlock" style="display:none;" onclick="downloadResultStreetBlock()">Download
+                result</button>
+        </div>
+    </div>
+
+    <div class="block">
+        <h2>Create City Mask</h2>
+        <label>
+            City name:
+            <input type="text" id="city_citymask" placeholder="e.g. Beijing">
+        </label>
+        <button onclick="createCityMask()">Create city mask</button>
+
+        <h4>City mask status:</h4>
+        <pre id="citymaskResult"></pre>
+    </div>
+
+    <div class="block">
+        <h2>Create City Terrain</h2>
+        <label>
+            City name:
+            <input type="text" id="city_cityterrain" placeholder="e.g. Beijing">
+        </label>
+        <button onclick="createCityTerrain()">Create city terrain</button>
+
+        <h4>City terrain status:</h4>
+        <pre id="cityterrainResult"></pre>
+    </div>
+
+    <script>
+        async function createTask() {
+            const city = document.getElementById("city").value.trim();
+            const radius = document.getElementById("radius").value.trim();
+            const resultEl = document.getElementById("createResult");
+            resultEl.textContent = "Requesting...";
+
+            if (!city) {
+                resultEl.textContent = "City name cannot be empty";
+                return;
+            }
+
+            try {
+                const resp = await fetch("/city_query", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ city: city, radius: Number(radius) || 25000 })
+                });
+                const data = await resp.json();
+                resultEl.textContent = JSON.stringify(data, null, 2);
+
+                // Fill task_id into the input box below, so that we can check status later
+                if (data.task_id !== undefined) {
+                    document.getElementById("taskId").value = data.task_id;
+                }
+            } catch (e) {
+                resultEl.textContent = "Request failed: " + e;
+            }
+        }
+
+        async function checkStatus() {
+            const taskId = document.getElementById("taskId").value.trim();
+            const resultEl = document.getElementById("statusResult");
+            resultEl.textContent = "Requesting...";
+
+            if (!taskId) {
+                resultEl.textContent = "Task ID cannot be empty";
+                return;
+            }
+
+            try {
+                const resp = await fetch(`/city_query/${encodeURIComponent(taskId)}`);
+                const data = await resp.json();
+                resultEl.textContent = JSON.stringify(data, null, 2);
+                if (data.status === "finished" && data.result_path) {
+                    document.getElementById("downloadBtn").style.display = "inline-block";
+                    window.currentTaskId = taskId;
+                } else {
+                    document.getElementById("downloadBtn").style.display = "none";
+                }
+            } catch (e) {
+                resultEl.textContent = "Request failed: " + e;
+            }
+        }
+
+        async function downloadResult() {
+            if (!window.currentTaskId) {
+                alert("no task id found");
+                return;
+            }
+            window.location.href = `/download_query/${window.currentTaskId}`;
+        }
+
+        async function createTask2() {
+            const city = document.getElementById("city2").value.trim();
+            const tolerance = document.getElementById("tolerance").value.trim();
+            const resultEl = document.getElementById("createResult2");
+            resultEl.textContent = "Requesting...";
+
+            if (!city) {
+                resultEl.textContent = "City name cannot be empty";
+                return;
+            }
+
+            try {
+                const resp = await fetch("/city_simplify", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ city: city, tolerance: Number(tolerance) || 50 })
+                });
+                const data = await resp.json();
+                resultEl.textContent = JSON.stringify(data, null, 2);
+
+                // Fill task_id into the input box below, so that we can check status later
+                if (data.task_id !== undefined) {
+                    document.getElementById("taskId2").value = data.task_id;
+                }
+            } catch (e) {
+                resultEl.textContent = "Request failed: " + e;
+            }
+        }
+
+        async function checkStatus2() {
+            const taskId = document.getElementById("taskId2").value.trim();
+            const resultEl = document.getElementById("statusResult2");
+            resultEl.textContent = "Requesting...";
+
+            if (!taskId) {
+                resultEl.textContent = "Task ID cannot be empty";
+                return;
+            }
+
+            try {
+                const resp = await fetch(`/city_simplify/${encodeURIComponent(taskId)}`);
+                const data = await resp.json();
+                resultEl.textContent = JSON.stringify(data, null, 2);
+                if (data.status === "finished" && data.result_path) {
+                    document.getElementById("downloadBtn2").style.display = "inline-block";
+                    window.currentTaskId2 = taskId;
+                } else {
+                    document.getElementById("downloadBtn2").style.display = "none";
+                }
+            } catch (e) {
+                resultEl.textContent = "Request failed: " + e;
+            }
+        }
+
+        async function downloadResult2() {
+            if (!window.currentTaskId2) {
+                alert("no task id found");
+                return;
+            }
+            window.location.href = `/download_simplify/${window.currentTaskId2}`;
+        }
+
+        async function querypoi() {
+            const city = document.getElementById("city_poi").value.trim();
+            const radius = document.getElementById("radius_poi").value.trim();
+            const resultEl = document.getElementById("poiResult");
+            resultEl.textContent = "Requesting...";
+            if (!city) {
+                resultEl.textContent = "City name cannot be empty";
+                return;
+            }
+            try {
+                const resp = await fetch("/city_poi", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ city: city, radius: Number(radius) || 25000 })
+                });
+                const blob = await resp.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${city}_poi.json`;
+                a.click();
+                resultEl.textContent = "Download successful";
+            } catch (e) {
+                resultEl.textContent = "Request failed: " + e;
+            }
+        }
+
+        async function queryLandmark() {
+            const resultEl = document.getElementById("landmarkResult");
+            resultEl.textContent = "Requesting...";
+            const city = document.getElementById("city_landmark").value.trim();
+            const landmarks_str = document.getElementById("landmarks").value.trim();
+            let landmarks_json = {};
+            try {
+
+                landmarks_json = JSON.parse(landmarks_str);
+            }
+            catch (e) {
+                resultEl.textContent = `JSON format error: ${e}`;
+                return;
+            }
+
+            if (!city) {
+                resultEl.textContent = "City name cannot be empty";
+                return;
+            }
+
+            if (!landmarks_json) {
+                resultEl.textContent = "Landmarks cannot be empty";
+                return;
+            }
+
+            try {
+                const resp = await fetch("/query_landmark", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ city: city, landmarks: landmarks_json })
+                });
+                blob = await resp.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${city}_landmarks_poly.gpkg`;
+                a.click();
+                resultEl.textContent = "Download successful";
+            } catch (e) {
+                resultEl.textContent = "Request failed: " + e;
+            }
+        }
+
+        async function addLandmark() {
+            const city = document.getElementById("city_landmark2").value.trim();
+            const file = document.getElementById("landmark_file").files[0];
+            const resultEl = document.getElementById("landmarkResult2");
+
+            if (!city) {
+                resultEl.textContent = "City name cannot be empty";
+            }
+
+            if (!file) {
+                resultEl.textContent = "Please select a file";
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append("city", city);
+                formData.append("file", file);
+                const resp = await fetch("/upload_landmark", {
+                    method: "POST",
+                    body: formData
+                });
+                const blob = await resp.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${city}_road_w_landmark_degree2.gpkg`;
+                a.click();
+                resultEl.textContent = "Download successful";
+            } catch (e) {
+
+            }
+        }
+
+        async function createTaskStreetBlock() {
+            const city = document.getElementById("cityStreetBlock").value.trim();
+            const road_file = document.getElementById("road_file").files[0];
+            const resultEl = document.getElementById("createResultStreetBlock");
+            resultEl.textContent = "Requesting...";
+
+            if (!city) {
+                resultEl.textContent = "City name cannot be empty";
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append("city", city);
+                if (road_file) {
+                    formData.append("file", road_file);
+                }
+                const resp = await fetch("/street_block", {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await resp.json();
+                resultEl.textContent = JSON.stringify(data, null, 2);
+            }
+            catch (e) {
+                resultEl.textContent = "Request failed: " + e;
+            }
+        }
+
+        async function checkStatusStreetBlock() {
+            const taskId = document.getElementById("taskIdStreetBlock").value.trim();
+            const resultEl = document.getElementById("statusResultStreetBlock");
+            resultEl.textContent = "Requesting...";
+
+            if (!taskId) {
+                resultEl.textContent = "Task ID cannot be empty";
+                return;
+            }
+
+            try {
+                const resp = await fetch(`/street_block/${encodeURIComponent(taskId)}`);
+                const data = await resp.json();
+                resultEl.textContent = JSON.stringify(data, null, 2);
+                if (data.status === "finished" && data.result_path) {
+                    document.getElementById("downloadBtnStreetBlock").style.display = "inline-block";
+                    window.currentTaskIdStreetBlock = taskId;
+                } else {
+                    document.getElementById("downloadBtnStreetBlock").style.display = "none";
+                }
+            } catch (e) {
+                resultEl.textContent = "Request failed: " + e;
+            }
+        }
+
+        async function downloadResultStreetBlock() {
+            if (!window.currentTaskIdStreetBlock) {
+                alert("no task id found");
+                return;
+            }
+            window.location.href = `/download_street_block/${window.currentTaskIdStreetBlock}`;
+        }
+
+        async function createCityMask() {
+            const city = document.getElementById("city_citymask").value.trim();
+            const resultEl = document.getElementById("citymaskResult");
+            resultEl.textContent = "Requesting...";
+
+            if (!city) {
+                resultEl.textContent = "City name cannot be empty";
+                return;
+            }
+
+            try {
+                const resp = await fetch("/get_citymask", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ city: city })
+                });
+                const blob = await resp.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${city}_city.mask`;
+                a.click();
+                resultEl.textContent = "Download successful";
+            }
+            catch (e) {
+                resultEl.textContent = "Request failed: " + e;
+            }
+        }
+
+        async function createCityTerrain() {
+            const city = document.getElementById("city_cityterrain").value.trim();
+            const resultEl = document.getElementById("cityterrainResult");
+            resultEl.textContent = "Requesting...";
+
+            if (!city) {
+                resultEl.textContent = "City name cannot be empty";
+                return;
+            }
+
+            try {
+                const resp = await fetch("/get_city_terrain", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ city: city })
+                });
+                const blob = await resp.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${city}_terrain.zip`;
+                a.click();
+                resultEl.textContent = "Download successful";
+            }
+            catch (e) {
+                resultEl.textContent = "Request failed: " + e;
+            }
+        }
+    </script>
+</body>
+
+</html>

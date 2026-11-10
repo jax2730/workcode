@@ -1,0 +1,72 @@
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+float4	U_WorldViewProjectMatrix[4];	
+float4  U_WorldMatrix[3];
+
+//
+// define InstanceCount 128
+// define UniformCount 4 
+
+#ifdef USEINSTANCE
+uniform float4 U_VSCustom0[InstanceCount * UniformCount]; // U_WorldMatrixInstanced
+#endif
+
+struct VS_INPUT
+{
+	float4 i_Pos		: POSITION0;
+#ifdef VERTEX_COLOR
+	float4 i_Color		: COLOR0;
+#endif
+};
+
+struct VS_OUTPUT
+{
+	float4	o_PosInClip			: SV_POSITION;
+	float4 	o_Color				: COLOR0;
+};
+
+VS_OUTPUT main(VS_INPUT IN, uint i_InstanceID : SV_InstanceID)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+
+	float4 local_vertex_pos =  float4(IN.i_Pos.xyz, 1.0f);
+
+	float4 WorldMatrix[3];
+	
+#ifdef USEINSTANCE
+		int uniform_index = i_InstanceID * UniformCount;
+		float3 object_pos = U_VSCustom0[uniform_index + 0].xyz;
+		float3 object_scale = U_VSCustom0[uniform_index + 1].xyz;
+		float4 object_orient = U_VSCustom0[uniform_index + 2];
+
+		float4x4 world_matrix = MakeTransform(object_pos - U_VS_CameraPosition.xyz, object_scale, object_orient);
+
+		// float4 world_vertex_pos = float4(1.f,1.f,1.f,1.f);
+		// ptWPos[0] = dot(U_VSCustom0[idxWorld + 0], i_Pos);
+		// ptWPos[1] = dot(U_VSCustom0[idxWorld + 1], i_Pos);
+		// ptWPos[2] = dot(U_VSCustom0[idxWorld + 2], i_Pos);
+        //
+		// vsOut.o_PosInClip.x = dot(U_ViewProjectMatrix[0], ptWPos);
+		// vsOut.o_PosInClip.y = dot(U_ViewProjectMatrix[1], ptWPos);
+		// vsOut.o_PosInClip.z = dot(U_ViewProjectMatrix[2], ptWPos);
+		// vsOut.o_PosInClip.w = dot(U_ViewProjectMatrix[3], ptWPos);
+
+		float4x4 wvp_matrix = mul(float4x4(U_ZeroViewProjectMatrix), world_matrix);
+		vsOut.o_PosInClip = mul(wvp_matrix, local_vertex_pos);
+
+		vsOut.o_Color = U_VSCustom0[uniform_index + 3];
+#else
+		vsOut.o_PosInClip.x = dot(U_WorldViewProjectMatrix[0], local_vertex_pos);
+		vsOut.o_PosInClip.y = dot(U_WorldViewProjectMatrix[1], local_vertex_pos);
+		vsOut.o_PosInClip.z = dot(U_WorldViewProjectMatrix[2], local_vertex_pos);
+		vsOut.o_PosInClip.w = dot(U_WorldViewProjectMatrix[3], local_vertex_pos);	
+		vsOut.o_Color = float4(1.0f, 1.0f, 1.0f, 1.0f);
+#endif
+
+	#ifdef VERTEX_COLOR
+		vsOut.o_Color *= IN.i_Color;
+	#endif
+
+ 	return vsOut;
+}

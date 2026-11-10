@@ -1,0 +1,402 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Light_Function_PS.inl>
+#include <Common_Function_PS.inl>
+
+Texture2D S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+
+#ifdef SOFTBORDER
+	uniform Texture2D	S_Depth; 
+	SamplerState S_DepthSamplerState;
+#endif
+
+float4	U_MaterialDiffuse;
+float4	U_MaterialSpecular;
+float4  U_MaterialFresnel;
+float4	U_LightPower;
+
+float4	U_MaterialCustomParam;
+float4	U_MaterialCustomParam1;
+
+float4	U_PSGeneralRegister0;
+float4	U_PSGeneralRegister1;
+float4	U_PSGeneralRegister2;
+float4	U_PSGeneralRegister3;
+float4	U_PSGeneralRegister4;
+float4	U_PSGeneralRegister5;
+float4	U_PSGeneralRegister6;
+#ifdef DISTORT
+	float4	U_PSGeneralRegister7;
+#endif
+float4	U_PSGeneralRegister8;
+#ifdef SOFTBORDER
+	float4	U_PSGeneralRegister9;
+	float4  U_PSGeneralRegister10; //x: fade distance
+#endif
+float4	U_PSGeneralRegister30; 	
+
+float4	U_PSGeneralRegister29; 	//x ---current mask percentage
+								// y--- if 1 on Lattice Cull Mask
+								//z ---alpha range
+								//w ---direction if w >= 0 Positive elseif w < 0 Reverse
+
+	#ifdef DISSOLVE
+			Texture2D S_Custom7;
+			SamplerState S_Custom7SamplerState;
+	#endif
+
+#ifdef TEXTURE_FLOW
+	#undef SEQUENCE_FRAME
+	Texture2D S_Custom;
+	SamplerState S_CustomSamplerState;
+#endif
+	
+#ifdef SEQUENCE_FRAME
+	#undef TEXTURE_FLOW
+	#ifndef SEQUENCE_FRAME_BASEMAP
+		Texture2D S_Custom;
+		SamplerState S_CustomSamplerState;
+	#endif
+#endif
+
+#ifdef TEXTURE_MASK
+	Texture2D S_Environment;
+	SamplerState S_EnvironmentSamplerState;
+#endif
+
+#ifdef CLUSTER_POINT_LIGHT
+	#ifdef USE_DPSM
+		#undef USE_DPSM
+	#endif
+	#include "Shadow_Light_Function_PS.inl"
+#endif
+
+#ifdef DISTORT
+ 
+float3 mod289(float3 x)
+{
+    return x - floor(x / 289.0) * 289.0;
+}
+
+float2 mod289(float2 x)
+{
+    return x - floor(x / 289.0) * 289.0;
+}
+
+float3 permute(float3 x)
+{
+    return mod289((x * 34.0 + 1.0) * x);
+}
+
+float3 taylorInvSqrt(float3 r)
+{
+    return 1.79284291400159 - 0.85373472095314 * r;
+}
+
+float snoise(float2 v)
+{
+    const float4 C = float4( 0.211324865405187,  // (3.0-sqrt(3.0))/6.0
+                             0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
+                            -0.577350269189626,  // -1.0 + 2.0 * C.x
+                             0.024390243902439); // 1.0 / 41.0
+    // First corner
+    float2 i  = floor(v + dot(v, C.yy));
+    float2 x0 = v -   i + dot(i, C.xx);
+
+    // Other corners
+    float2 i1;
+    i1.x = step(x0.y, x0.x);
+    i1.y = 1.0 - i1.x;
+
+    // x1 = x0 - i1  + 1.0 * C.xx;
+    // x2 = x0 - 1.0 + 2.0 * C.xx;
+    float2 x1 = x0 + C.xx - i1;
+    float2 x2 = x0 + C.zz;
+
+    // Permutations
+    i = mod289(i); // Avoid truncation effects in permutation
+    float3 p =
+      permute(permute(i.y + float3(0.0, i1.y, 1.0))
+                    + i.x + float3(0.0, i1.x, 1.0));
+
+    float3 m = max(0.5 - float3(dot(x0, x0), dot(x1, x1), dot(x2, x2)), 0.0);
+    m = m * m;
+    m = m * m;
+
+    // Gradients: 41 points uniformly over a line, mapped onto a diamond.
+    // The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
+    float3 x = 2.0 * frac(p * C.www) - 1.0;
+    float3 h = abs(x) - 0.5;
+    float3 ox = floor(x + 0.5);
+    float3 a0 = x - ox;
+
+    // Normalise gradients implicitly by scaling m
+    m *= taylorInvSqrt(a0 * a0 + h * h);
+
+    // Compute final noise value at P
+    float3 g;
+    g.x = a0.x * x0.x + h.x * x0.y;
+    g.y = a0.y * x1.x + h.y * x1.y;
+    g.z = a0.z * x2.x + h.z * x2.y;
+    return 130.0 * dot(m, g);
+}
+#endif
+
+struct PS_INPUT
+{
+	float4 i_PosInClip	: SV_POSITION;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float2 i_UV			: TEXCOORD0;
+	#endif
+#else
+	float3 i_Normal		: NORMAL0;
+#ifdef VERTEX_COLOR
+	float3 i_Diffuse	: COLOR0;
+#endif
+	float2 i_UV			: TEXCOORD0;
+	float4 i_WorldPos	: TEXCOORD1;
+	float4 i_FogColor	: TEXCOORD2;
+#ifdef SOFTBORDER
+		float4 i_ClipPos	: TEXCOORD3;
+#endif
+#endif
+
+#ifdef PARABOLOID_MAPPING
+	float	i_ClipDepth			: TEXCOORD12;
+#endif
+	float4  i_PosInModel	: TEXCOORD13;
+	float4  i_BoundBoxRange     : TEXCOORD14;
+};
+
+struct PS_OUTPUT
+{
+#ifndef SHADOWPASS
+	float4 oColor	: SV_TARGET;
+#endif
+};
+
+#ifdef SOFTBORDER
+	float getSceneDepth(in float4 clipPos, in float2 uv)
+	{
+		float4 tempPos = float4(uv, 0.0, 1.0);
+		tempPos.z = S_Depth.Sample(S_DepthSamplerState, uv).r;
+		
+		tempPos.x = clipPos.x;
+		tempPos.y = clipPos.y;
+		
+		float4 viewSpacePos;
+		viewSpacePos.x = dot(U_InvProjectMatrix[0], tempPos);
+		viewSpacePos.y = dot(U_InvProjectMatrix[1], tempPos);
+		viewSpacePos.z = dot(U_InvProjectMatrix[2], tempPos);
+		viewSpacePos.w = dot(U_InvProjectMatrix[3], tempPos);
+		float depth = viewSpacePos.z / viewSpacePos.w;
+
+		return depth;
+	}
+
+	//Dx only need to sample one times.
+	float calcSceneDepth(in float4 clipPos)
+	{	
+		float2 screenTC = clipPos.xy / clipPos.w;
+		screenTC.x = (screenTC.x + 1.0) * 0.5;
+		screenTC.y = 1.0 - (screenTC.y + 1.0) * 0.5; //+ U_ViewParam.w;
+		screenTC *= U_ViewParam.xy;
+		float depth = getSceneDepth(clipPos / clipPos.w, screenTC);
+		
+		return depth;
+	}
+#endif
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)1.f;
+
+#ifdef PARABOLOID_MAPPING
+	clip(IN.i_ClipDepth);
+#endif
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 oColor = S_Diffuse.Sample(S_DiffuseSamplerState, IN.i_UV);
+		clip(oColor.a - U_MaterialDiffuse.a);
+	#endif
+#else
+
+	float2 uv = IN.i_UV.xy;
+
+	{
+		//dither discard
+		if(ComputeDitherCullMask(IN.i_PosInClip.xy,U_MaterialCustomParam1.y,U_MaterialCustomParam1.z))
+			discard;
+			
+		bool needDiscard = ComputeBitmapCullMask(U_PSGeneralRegister29, IN.i_BoundBoxRange, 
+		U_MaterialCustomParam1.z, IN.i_PosInModel.xyz, IN.i_PosInClip.xyz);
+		if(needDiscard)
+			discard;	
+	}
+
+	#ifdef DISSOLVE
+		if(S_Custom7.Sample(S_Custom7SamplerState, uv).a < U_MaterialFresnel.y)
+		discard;	
+	#endif
+	#ifdef DISTORT
+		float2 vUVDistort = U_PSGeneralRegister7.xx * float2(U_PS_Time.z, -U_PS_Time.z);
+		float fNoise = snoise(IN.i_UV * U_PSGeneralRegister7.zz + vUVDistort);
+		IN.i_UV += fNoise * U_PSGeneralRegister7.yy * 0.01f;
+	#endif
+
+	#ifdef SEQUENCE_FRAME
+		#ifdef SEQUENCE_FRAME_BASEMAP
+			int index = floor(U_PS_Time.x * U_PSGeneralRegister1.y);
+			int indexY = index / U_PSGeneralRegister1.z;
+			int indexX = index - indexY * U_PSGeneralRegister1.z;
+			IN.i_UV = float2(IN.i_UV.x / U_PSGeneralRegister1.z, IN.i_UV.y / U_PSGeneralRegister1.z);
+			IN.i_UV.x += indexX / U_PSGeneralRegister1.z;
+			IN.i_UV.y += indexY / U_PSGeneralRegister1.z;
+		#endif
+	#endif
+	
+	float4 cDiffuseMapColor = S_Diffuse.Sample(S_DiffuseSamplerState, IN.i_UV);
+	#ifdef ALPHA_TEST
+		clip(cDiffuseMapColor.a - U_MaterialDiffuse.a);
+	#endif
+
+	cDiffuseMapColor.rgb = pow(cDiffuseMapColor.rgb, 2.2f);
+
+	#ifdef VERTEX_COLOR
+		cDiffuseMapColor.rgb *= IN.i_Diffuse.rgb;
+	#endif
+	
+	#ifdef TEXTURE_MASK
+		half4 cMask = S_Environment.Sample(S_EnvironmentSamplerState, IN.i_UV);
+		half3 cColorR = pow(U_PSGeneralRegister3.rgb, 2.2) * cMask.r;
+		half3 cColorG = pow(U_PSGeneralRegister4.rgb, 2.2) * cMask.g;
+		half3 cColorB = pow(U_PSGeneralRegister5.rgb, 2.2) * cMask.b;
+		half3 cColorA = pow(U_PSGeneralRegister6.rgb, 2.2) * cMask.a;
+		float f = min(cMask.r + cMask.g + cMask.b + cMask.a, 1.0);
+		half3 cColorF = cColorR + cColorG + cColorB + cColorA;
+		cDiffuseMapColor.rgb = lerp(cDiffuseMapColor.rgb, cDiffuseMapColor.rgb * cColorF, f);
+	#endif
+	
+	float3 vNormal = normalize(IN.i_Normal.xyz);
+	float fNDotL = dot(vNormal, -U_MainLightDirection.xyz);
+	#ifdef NORMAL_LEAF
+		fNDotL = abs(fNDotL);
+	#endif
+	fNDotL = clamp(fNDotL, U_PSGeneralRegister1.w, 1.0);
+	float3 cLightDiffuse = U_MainLightColor.rgb * fNDotL;
+	cLightDiffuse += lerp(U_GroundLightColor.rgb, U_SkyLightColor.rgb, vNormal.y * 0.5f + 0.5f);
+
+	float3 cPointLightDiffuse = 0.0;
+#ifdef CLUSTER_POINT_LIGHT
+		cPointLightDiffuse.rgb += calculateShadowPointLight(IN.i_WorldPos, vNormal.xyz);
+	
+        float3 clusterLightColor =
+            calculateClusterPointLight(IN.i_PosInClip.xy,
+                                       IN.i_WorldPos.xyz,
+                                       vNormal.xyz);
+        cPointLightDiffuse.rgb += clusterLightColor;
+#endif
+
+
+	float3 cEmissiveColor = (float3)0.0;
+	#ifdef EMISSIVE
+		cEmissiveColor = U_PSGeneralRegister0.xyz * cDiffuseMapColor.aaa;
+		
+		#ifdef DYNAMIC_EMISSIVE
+			float3 cMinEmissiveColor = cEmissiveColor * U_PSGeneralRegister0.w;
+			float3 cMaxEmissiveColor = cEmissiveColor * U_PSGeneralRegister1.x;
+			cEmissiveColor = lerp(cMinEmissiveColor, cMaxEmissiveColor, U_MaterialSpecular.w);
+		#else
+			cEmissiveColor = cEmissiveColor * U_PSGeneralRegister0.w;
+		#endif
+		
+		#ifdef TOD_EMISSIVE
+			cEmissiveColor *= U_LightPower.xxx;
+		#endif	
+	#endif
+
+	cDiffuseMapColor.rgb *= U_MaterialDiffuse.rgb;
+	
+	#ifdef COVER_WEATHER
+		#ifdef COVER_WEATHER_ALPHA
+			float fCoverLerp = cDiffuseMapColor.a;
+		#else
+			float fCoverLerp = dot(vNormal.xyz, U_PS_GravityDirection.xyz);
+		#endif
+		fCoverLerp = clamp(fCoverLerp + U_PSGeneralRegister8.x, 0.f, 1.f);
+		fCoverLerp *= fCoverLerp * (1.f - U_PSGeneralRegister30.x);
+		cDiffuseMapColor.rgb = lerp(cDiffuseMapColor.rgb, U_WeatherParam0.rgb, fCoverLerp * U_WeatherParam0.a);
+	#endif
+
+	psOut.oColor.rgb = cDiffuseMapColor.rgb * (cLightDiffuse + cPointLightDiffuse + cEmissiveColor);
+
+	#ifdef TEXTURE_FLOW
+		float2 vFlowUV = IN.i_UV.xy * U_PSGeneralRegister2.z;
+		vFlowUV += frac(U_PS_Time.z * U_PSGeneralRegister2.xy);
+		float3 cFlowMapColor = pow(S_Custom.Sample(S_CustomSamplerState, vFlowUV).rgb, 2.2);
+		#ifdef TEXTURE_FLOW_WITHOUT_CHANNEL
+			psOut.oColor.rgb += lerp(cFlowMapColor, cFlowMapColor * U_PSGeneralRegister2.w, U_LightPower.x);
+		#else
+			psOut.oColor.rgb += lerp(cFlowMapColor, cFlowMapColor * U_PSGeneralRegister2.w, U_LightPower.x) * cDiffuseMapColor.a;
+		#endif
+	#endif
+
+	#ifdef SEQUENCE_FRAME
+		#ifndef SEQUENCE_FRAME_BASEMAP
+			int iIndex = floor(U_PS_Time.x * U_PSGeneralRegister1.y);
+			int iIndexY = iIndex / U_PSGeneralRegister1.z;
+			int iIndexX = iIndex - iIndexY * U_PSGeneralRegister1.z;
+			float2 vFrameUV = float2(IN.i_UV.x / U_PSGeneralRegister1.z, IN.i_UV.y / U_PSGeneralRegister1.z);
+			vFrameUV.x += iIndexX / U_PSGeneralRegister1.z;
+			vFrameUV.y += iIndexY / U_PSGeneralRegister1.z;
+			float3 cFrameMapColor = pow(S_Custom.Sample(S_CustomSamplerState, vFrameUV).rgb, 2.2);
+			psOut.oColor.rgb += cFrameMapColor * cDiffuseMapColor.a;
+		#endif
+	#endif
+
+	psOut.oColor.rgb *= U_MaterialCustomParam1.x;	
+	psOut.oColor.rgb = psOut.oColor.rgb * IN.i_FogColor.a + IN.i_FogColor.rgb;
+	psOut.oColor.rgb = pow(psOut.oColor.rgb, 1.0 / 2.2);
+	psOut.oColor.a = cDiffuseMapColor.a;
+
+#ifdef SOFTBORDER
+	float sceneDepth = calcSceneDepth(IN.i_ClipPos);
+	float4 vp;
+	vp.x = dot(U_InvProjectMatrix[0], IN.i_ClipPos);
+	vp.y = dot(U_InvProjectMatrix[1], IN.i_ClipPos);
+	vp.z = dot(U_InvProjectMatrix[2], IN.i_ClipPos);
+	vp.w = dot(U_InvProjectMatrix[3], IN.i_ClipPos);
+	
+	float pixelDepth = vp.z / vp.w;
+
+	float soft = (pixelDepth - sceneDepth);
+	float borderSoft = U_PSGeneralRegister9.x;
+	borderSoft = max(borderSoft,0.01);
+	float alpha = saturate(soft / borderSoft);
+
+	psOut.oColor.a = alpha * cDiffuseMapColor.a;
+	// fade in out
+	float fSquaredFadeDis = max(U_PSGeneralRegister10.x * U_PSGeneralRegister10.x, 0.00001f);
+	float3 vWorldToCamera = U_PS_CameraPosition.xyz - IN.i_WorldPos.xyz;
+	float fSquaredDis = dot(vWorldToCamera, vWorldToCamera);
+	float fCameraFade = saturate(fSquaredDis / fSquaredFadeDis);
+	psOut.oColor.a *= fCameraFade;
+#endif
+
+#ifdef EDITOR_MODE
+	if(U_MaterialCustomParam.w > 0)
+		psOut.oColor.rgb = U_MaterialCustomParam.xyz;			
+#endif
+
+	#ifdef EditorHelp
+		psOut.oColor.rgb = psOut.oColor.rgb*0.001 + float3(1.0,0.0,0.0);
+	#endif
+	float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.oColor = psOut.oColor * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+#endif
+	return psOut;
+}
+

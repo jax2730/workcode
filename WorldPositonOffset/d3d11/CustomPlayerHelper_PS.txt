@@ -1,0 +1,144 @@
+
+#include <Common_Uniform_PS.inl> 
+
+float4	U_MaterialDiffuse;
+float4	U_MaterialSpecular;
+
+
+Texture2D S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+Texture2D S_Specular;
+SamplerState S_SpecularSamplerState;
+Texture2D S_Custom;
+SamplerState S_CustomSamplerState;
+
+float4	U_MaterialCustomParam;
+
+float4	U_PSGeneralRegister0;
+float4	U_PSGeneralRegister1;
+float4	U_PSGeneralRegister2;
+float4	U_PSGeneralRegister3;
+float4	U_PSGeneralRegister4;
+
+
+float4	U_LightPower;	//x for lightpower, y for specular offset
+
+struct PS_INPUT
+{
+    float4	i_PosInClip			: SV_POSITION;
+	float4 	i_UV				: TEXCOORD0;
+	float4 	i_Fog				: TEXCOORD1;
+	float4	i_Normal			: TEXCOORD2;
+	float4	i_WPos				: TEXCOORD3;
+	
+	float4	i_Tangent			: TEXCOORD4;
+	float4	i_Binormal			: TEXCOORD5;
+	float4	i_EyeDir			: TEXCOORD6;
+};
+
+struct PS_OUTPUT
+{
+	float4 color          : SV_TARGET;
+};
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+	float2 uv = IN.i_UV.xy;
+	float4 diffuse = S_Diffuse.Sample(S_DiffuseSamplerState, uv,0);
+	diffuse.a = diffuse.r;
+	diffuse.rgb =U_MaterialDiffuse.rgb;
+	
+	float2 center = float2(U_PSGeneralRegister1.r,U_PSGeneralRegister1.g);
+	float2 uvMin = float2(0,0);
+	float2 uvMax = float2(1,1);
+	
+	float r = distance(uv,center);
+	
+	float r1 = distance(uvMin,center);
+	float r2 = distance(uvMax,center);
+	
+	float radiusMax = r1>r2?r1:r2;
+		
+	half4 missive = half4(1.0f,1.0f,1.0f,1.0f);
+	missive.rgb = pow(diffuse.rgb, 2.2);
+	#ifdef EMISSIVE
+		half missiveAlpha = 1.0;
+		half minMissiveAlpha = missiveAlpha*0.0f;// missiveAlpha * U_PSGeneralRegister1.w
+			#ifdef DYNAMIC_EMISSIVE
+				half maxMissiveAlpha = missiveAlpha * 1.0f;//missiveAlpha * U_PSGeneralRegister0.w
+				half factor = U_MaterialSpecular.w;	
+				missive.a = lerp(maxMissiveAlpha,minMissiveAlpha,factor);
+			#else
+				missive.a = minMissiveAlpha;
+			#endif
+	#endif
+	
+	float flashAlpha = 0.0f;
+	
+	float allTime = U_PSGeneralRegister4.x+U_PSGeneralRegister4.y;
+	
+	
+	float runTime = U_PS_Time.x - U_PSGeneralRegister4.z;
+	float isInFlow = 0.0f;
+	if(runTime < U_PSGeneralRegister4.x)
+	{
+		float flashTime = U_PSGeneralRegister4.x + 0.00001f;
+		float flashVal = 1.0/flashTime;
+		flashAlpha = runTime*flashVal; 
+		flashAlpha = clamp(flashAlpha,0.0,1.0);
+	}
+	else if(runTime < allTime)
+	{
+		float time = runTime - U_PSGeneralRegister4.x;
+		
+		float flashTime = U_PSGeneralRegister4.y + 0.00001f;
+		float flashVal = 1.0/flashTime;
+		
+		flashAlpha = 1.0 - time*flashVal; 
+		flashAlpha = clamp(flashAlpha,0.0,1.0);	
+	}
+	else
+	{
+		float time = runTime - allTime;
+		float timeProgress = fmod(time,U_PSGeneralRegister3.x)/U_PSGeneralRegister3.x;
+		float flowProgress = (pow(timeProgress,U_PSGeneralRegister3.y)+timeProgress)/2.0f;
+
+		float flowRadiusMax = flowProgress*(radiusMax + U_PSGeneralRegister3.z); 
+		float flowRadiusMin = flowRadiusMax - U_PSGeneralRegister3.z;
+
+		isInFlow = step(flowRadiusMin, r) - step(flowRadiusMax, r); 
+		float2 flowTexUV = float2((r - flowRadiusMin) / (flowRadiusMax - flowRadiusMin), 0.5f);
+		float4 flowColor = float4(1.0f,0.0f,0.0f,1.0f);
+		isInFlow *= S_Custom.Sample(S_CustomSamplerState,flowTexUV).a;	
+	}
+	
+	half4 mask_tex = S_Specular.Sample(S_SpecularSamplerState, IN.i_UV.xy);
+	float mask = 0.0f;
+	mask += mask_tex.r * U_PSGeneralRegister0.r;
+	mask += mask_tex.g * U_PSGeneralRegister0.g;
+	mask += mask_tex.b * U_PSGeneralRegister0.b;
+	
+	
+	float alpha = diffuse.a*(mask*flashAlpha+(1.0f-mask)*isInFlow);
+	psOut.color.a = alpha;
+	
+	
+	
+	psOut.color.rgb = diffuse.rgb;//*(1.0f-mask)+mask*missive.rgb;
+	psOut.color.rgb *= U_PSGeneralRegister2.rgb*1.5f*U_PSGeneralRegister3.w;
+	
+	#ifdef EDITOR_MODE
+	if(U_MaterialCustomParam.w > 0)
+		psOut.color.rgb = U_MaterialCustomParam.xyz;			
+	#endif
+	
+	//psOut.color.a = isInFlow;
+	//psOut.color.rgb = float3(1,0,0);	
+	psOut.color.rgb = pow(psOut.color.rgb, 0.454545);
+	
+	
+	//float overdrawlerp = ceil(U_PS_Time.w);
+	//psOut.color = psOut.color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+	return psOut;
+}

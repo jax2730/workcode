@@ -1,0 +1,54 @@
+#include<Common_Uniform_VS.inl>
+
+float4	U_WorldMatrix[3];
+
+struct VS_INPUT
+{
+	float4 i_Pos		: POSITION0;
+	float4 i_Normal		: NORMAL0;
+	float4 i_UV			: TEXCOORD0;	
+	float4 i_Tangent	: TANGENT0;
+};
+
+struct VS_OUTPUT
+{
+	float4	o_PosInClip			: SV_POSITION;
+	float4  o_Normal			: TEXCOORD0;
+	float3  eyeVector			: TEXCOORD1;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	float4  pos =  float4(IN.i_Pos.xyz, 1.0f);	
+	
+	float4 vPosInWorld = pos;
+	vPosInWorld.x = dot( pos , U_WorldMatrix[0] );
+	vPosInWorld.y = dot( pos , U_WorldMatrix[1] );
+	vPosInWorld.z = dot( pos , U_WorldMatrix[2] );
+	vPosInWorld.w = 1.0;
+	
+	float4 viewPos;
+	viewPos.x = dot(U_ViewMatrix[0], vPosInWorld);
+	viewPos.y = dot(U_ViewMatrix[1], vPosInWorld);
+	viewPos.z = dot(U_ViewMatrix[2], vPosInWorld);
+	viewPos.w = dot(U_ViewMatrix[3], vPosInWorld);
+		
+	  
+	//vsOut.o_UV = normalize(IN.i_Pos.xyz);		
+	vsOut.o_Normal = IN.i_Normal;
+	
+	vsOut.o_PosInClip.x = dot(U_ProjectMatrix[0], viewPos);
+	vsOut.o_PosInClip.y = dot(U_ProjectMatrix[1], viewPos);
+	vsOut.o_PosInClip.z = dot(U_ProjectMatrix[2], viewPos);
+	vsOut.o_PosInClip.w = dot(U_ProjectMatrix[3], viewPos);
+	
+	vsOut.eyeVector = U_VS_CameraPosition.xyz - vPosInWorld.xyz; // eye position in world space
+	
+	#ifdef EDITOR_MODE
+		#ifdef HierarchicalLOD
+			vsOut.o_PosInClip = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+		#endif
+	#endif	
+	return vsOut;
+}

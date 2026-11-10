@@ -1,0 +1,133 @@
+#include<Common_Uniform_PS.inl>
+#define SCREEN_EFFECT 0
+#define NUM_LAYERS 4.0
+
+struct PS_INPUT
+{
+    float4 i_PosInClip	   : SV_POSITION;
+    float4 i_UV            : TEXCOORD0;
+    float4 i_ViewDir       : TEXCOORD1;
+    float4 i_PositionHCS   : TEXCOORD2;
+};
+
+float4 linear2sRGB(float4 linearColor)
+{
+    return float4(pow(linearColor.rgb, 1.0f / 2.2), linearColor.a);
+}
+
+
+float N21(float2 p) {
+	float3 a = frac(float3(p.xyx) * float3(213.897, 653.453, 253.098));
+    a += dot(a, a.yzx + 79.76);
+    return frac((a.x + a.y) * a.z);
+}
+
+float2 GetPos(float2 id, float2 offs, float t) {
+    float n = N21(id+offs);
+    float n1 = frac(n*10.0);
+    float n2 = frac(n*100.0);
+    float a = t+n;
+    return offs + float2(sin(a*n1), cos(a*n2))*0.4;
+}
+
+float GetT(float2 ro, float2 rd, float2 p) {
+	return dot(p-ro, rd); 
+}
+
+float LineDist(float3 a, float3 b, float3 p) {
+	return length(cross(b-a, p-a))/length(p-a);
+}
+
+float df_line( float2 a, float2 b, float2 p)
+{
+    float2 pa = p - a, ba = b - a;
+	float h = clamp(dot(pa,ba) / dot(ba,ba), 0.0, 1.0);	
+	return length(pa - ba * h);
+}
+
+float Simpleline(float2 a, float2 b, float2 uv) {
+    float r1 = 0.04;
+    float r2 = 0.01;
+    
+    float d = df_line(a, b, uv);
+    float d2 = length(a-b);
+    float fade = smoothstep(1.5, 0.5, d2);
+    
+    fade += smoothstep(0.05, 0.02, abs(d2-0.75));
+    return smoothstep(r1, r2, d)*fade;
+}
+
+float NetLayer(float2 st, float n, float t) {
+    float2 id = floor(st)+n;
+
+    st = frac(st)-0.5;
+   
+    float2 p[9];
+    int i=0;
+    for(float y=-1.; y<=1.; y++) {
+    	for(float x=-1.; x<=1.; x++) {
+            p[i++] = GetPos(id, float2(x,y), t);
+    	}
+    }
+    
+    float m = 0.0;
+    float sparkle = 0.0;
+    
+    for(int i=0; i<9; i++) {
+        m += Simpleline(p[4], p[i], st);
+
+        float d = length(st-p[i]);
+
+        float s = (0.005/(d*d));
+        s *= smoothstep(1.0, 0.7, d);
+        float pulse = sin((frac(p[i].x)+frac(p[i].y)+t)*5.0)*0.4+0.6;
+        pulse = pow(pulse, 20.0);
+
+        s *= pulse;
+        sparkle += s;
+    }
+    
+    m += Simpleline(p[1], p[3], st);
+	m += Simpleline(p[1], p[5], st);
+    m += Simpleline(p[7], p[5], st);
+    m += Simpleline(p[7], p[3], st);
+    
+    float sPhase = (sin(t+n)+sin(t*0.1))*0.25+0.5;
+    sPhase += pow(sin(t*0.1)*0.5+0.5, 50.0)*5.0;
+    m += sparkle*sPhase;
+    
+    return m;
+}
+
+float4 main(PS_INPUT IN): SV_TARGET{
+    
+    float t = U_PS_Time.x * 0.1;
+    float2 uv = float2(IN.i_UV.xy) * 2.0f - 1.0f;
+
+    float s = sin(t);
+    float c = cos(t);
+    float2x2 rot = float2x2(c, -s, s, c);
+    float2 st = mul(uv, rot);  
+	float2 M = mul(float2(2.0,2.0),rot);
+
+    
+    float m = 0.0;
+    for(float i=0.0; i<1.0; i+=1.0/NUM_LAYERS) {
+        float z = frac(t+i);
+        float size = lerp(15.0, 1.0, z);
+        float fade = smoothstep(0.0, 0.6, z)*smoothstep(1.0, 0.8, z);
+
+        m += fade * NetLayer(st*size-M*z, i, U_PS_Time.x) * 4.0;
+    }
+
+    float glow = -uv.y*2.0;
+    float3 baseCol = float3(s, cos(t*0.4), -sin(t*0.24))*0.4+0.6;
+    float3 col = baseCol*m;
+    col += baseCol*glow;
+    
+    col *= 1.0-dot(uv,uv);
+    t = fmod(U_PS_Time.x, 230.0);
+    col *= smoothstep(0.0, 20.0, t)*smoothstep(224.0, 200.0, t);
+    
+    return linear2sRGB(float4(col, 1.0f));
+}

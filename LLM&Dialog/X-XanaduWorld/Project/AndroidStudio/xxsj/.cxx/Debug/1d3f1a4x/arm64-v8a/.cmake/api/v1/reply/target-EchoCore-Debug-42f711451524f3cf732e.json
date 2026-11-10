@@ -1,0 +1,5753 @@
+{
+	"archive" : {},
+	"artifacts" : 
+	[
+		{
+			"path" : "G:/Echo_SU_Develop/EchoSDK/Lib/Android/ARM64/Debug/libEchoCore.a"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"add_definitions",
+			"include_directories"
+		],
+		"files" : 
+		[
+			"EchoCore/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 57,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 24,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 86,
+				"parent" : 0
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : " -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++20 -Wall -frtti -fexceptions -fsigned-char -Werror -Wno-unused-function -Wno-unused-but-set-variable -Wno-unused-const-variable  -fno-limit-debug-info  -fPIC"
+				}
+			],
+			"defines" : 
+			[
+				{
+					"backtrace" : 2,
+					"define" : "FREEIMAGE_LIB"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "TRACY_DELAYED_INIT"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "TRACY_ENABLE"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "TRACY_MANUAL_LIFETIME"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "TRACY_NO_BROADCAST"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "TRACY_NO_CALLSTACK"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "TRACY_NO_CODE_TRANSFER"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "TRACY_NO_CONTEXT_SWITCH"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "TRACY_NO_CRASH_HANDLER"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "TRACY_NO_SAMPLING"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "TRACY_NO_SYSTEM_TRACING"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "TRACY_ON_DEMAND"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "_DEBUG"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoEngine/Code/Core/Include"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoEngine/Code/Core/Include/Role"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoEngine/Code/Core/PrivateInclude"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoEngine/Code/Core/Source/FGUIParser"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoEngine/Code/Core/Source/FGUIParser/entt/src"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoEngine/Code/Core/Source/simde"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoEngine/SDKs/RcSDK/Include"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoCommon/Include"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoCommon/PrivateInclude"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoSDK/Include/ThirdParty/tinythread"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoSDK/Include/ThirdParty/freetype"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoSDK/Include/ThirdParty/cjson"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoSDK/Include/ThirdParty/md5"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoSDK/Include/ThirdParty/FreeImage"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoSDK/Include/ThirdParty/cpufeatures"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoSDK/Include/ThirdParty/zzip"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoSDK/Include/ThirdParty/sqlite"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoSDK/Include/ThirdParty/stb"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoSDK/Include/ThirdParty/ffmpeg"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoSDK/Include/ThirdParty/cpp-httplib"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoEngine/Code/Core/Source/Profiler/public/tracy"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "G:/Echo_SU_Develop/Samples/X-XanaduWorld/Project/AndroidStudio/xxsj/EchoCore/../../../../../../EchoEngine/Code/Core/Source/Profiler/vcpkg_installed/x64-windows-static/include/capstone"
+				}
+			],
+			"language" : "CXX",
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20,
+				21,
+				22,
+				23,
+				24,
+				25,
+				26,
+				27,
+				28,
+				29,
+				30,
+				31,
+				32,
+				33,
+				34,
+				35,
+				36,
+				37,
+				38,
+				39,
+				40,
+				41,
+				42,
+				43,
+				44,
+				45,
+				46,
+				47,
+				48,
+				49,
+				50,
+				51,
+				52,
+				53,
+				54,
+				55,
+				56,
+				57,
+				58,
+				59,
+				60,
+				61,
+				62,
+				63,
+				64,
+				65,
+				66,
+				67,
+				68,
+				69,
+				70,
+				71,
+				72,
+				73,
+				74,
+				75,
+				76,
+				77,
+				78,
+				79,
+				80,
+				81,
+				82,
+				83,
+				84,
+				85,
+				86,
+				87,
+				88,
+				89,
+				90,
+				91,
+				92,
+				93,
+				94,
+				95,
+				96,
+				97,
+				98,
+				99,
+				100,
+				101,
+				102,
+				103,
+				104,
+				105,
+				106,
+				107,
+				108,
+				109,
+				110,
+				111,
+				112,
+				113,
+				114,
+				115,
+				116,
+				117,
+				118,
+				119,
+				120,
+				121,
+				122,
+				123,
+				124,
+				125,
+				126,
+				127,
+				128,
+				129,
+				130,
+				131,
+				132,
+				133,
+				134,
+				135,
+				136,
+				137,
+				138,
+				139,
+				140,
+				141,
+				142,
+				143,
+				144,
+				145,
+				146,
+				147,
+				148,
+				149,
+				150,
+				151,
+				152,
+				153,
+				154,
+				155,
+				156,
+				157,
+				158,
+				159,
+				160,
+				161,
+				162,
+				163,
+				164,
+				165,
+				166,
+				167,
+				168,
+				169,
+				170,
+				171,
+				172,
+				173,
+				174,
+				175,
+				176,
+				177,
+				178,
+				179,
+				180,
+				181,
+				182,
+				183,
+				184,
+				185,
+				186,
+				187,
+				188,
+				189,
+				190,
+				191,
+				192,
+				193,
+				194,
+				195,
+				196,
+				197,
+				198,
+				199,
+				200,
+				201,
+				202,
+				203,
+				204,
+				205,
+				206,
+				207,
+				208,
+				209,
+				210,
+				211,
+				212,
+				213,
+				214,
+				215,
+				216,
+				217,
+				218,
+				219,
+				220,
+				221,
+				222,
+				223,
+				224,
+				225,
+				226,
+				227,
+				228,
+				229,
+				230,
+				231,
+				232,
+				233,
+				234,
+				235,
+				236,
+				237,
+				238,
+				239,
+				240,
+				241,
+				242,
+				243,
+				244,
+				245,
+				246,
+				247,
+				248,
+				249,
+				250,
+				251,
+				252,
+				253,
+				254,
+				255,
+				256,
+				257,
+				258,
+				259,
+				260,
+				261,
+				262,
+				263,
+				264,
+				265,
+				266,
+				267,
+				268,
+				269,
+				270,
+				271,
+				272,
+				273,
+				274,
+				275,
+				276,
+				277,
+				278,
+				279,
+				280,
+				281,
+				282,
+				283,
+				284,
+				285,
+				286,
+				287,
+				288,
+				289,
+				290,
+				291,
+				292,
+				293,
+				294,
+				295,
+				296,
+				297,
+				298,
+				299,
+				300,
+				301,
+				302,
+				303,
+				304,
+				305,
+				306,
+				307,
+				308,
+				309,
+				310,
+				311,
+				312,
+				313,
+				314,
+				315,
+				316,
+				317,
+				318,
+				319,
+				320,
+				321,
+				322,
+				323,
+				324,
+				325,
+				326,
+				327,
+				328,
+				329,
+				330,
+				331,
+				332,
+				333,
+				334,
+				335,
+				336,
+				337,
+				338,
+				339,
+				340,
+				341,
+				342,
+				343,
+				344,
+				345,
+				346,
+				347,
+				348,
+				349,
+				350,
+				351,
+				352,
+				353,
+				354,
+				355,
+				356,
+				357,
+				358,
+				359,
+				360,
+				361,
+				362,
+				363,
+				364,
+				365,
+				366,
+				367,
+				368,
+				369,
+				370,
+				371,
+				372,
+				373,
+				374,
+				375,
+				376,
+				377,
+				378,
+				379,
+				380,
+				381,
+				382,
+				383,
+				384,
+				385,
+				386,
+				387,
+				388,
+				389,
+				390,
+				391,
+				392,
+				393,
+				394,
+				395,
+				396,
+				397,
+				398,
+				399,
+				400,
+				401,
+				402,
+				403,
+				404,
+				405,
+				406,
+				407,
+				408,
+				409,
+				410,
+				411,
+				412,
+				413,
+				414,
+				415,
+				416,
+				417,
+				418,
+				419,
+				420,
+				421,
+				422,
+				423,
+				424,
+				425,
+				426,
+				427,
+				428,
+				429,
+				430,
+				431,
+				432,
+				433,
+				434,
+				435,
+				436,
+				437,
+				438,
+				439,
+				440,
+				441,
+				442,
+				443,
+				444,
+				445,
+				446,
+				447,
+				448,
+				449,
+				450,
+				451,
+				452,
+				453,
+				454,
+				455,
+				456,
+				457,
+				458,
+				459,
+				460,
+				461,
+				462,
+				463,
+				464,
+				465,
+				466,
+				467,
+				468,
+				469,
+				470,
+				471,
+				472,
+				473,
+				474,
+				475,
+				476,
+				477,
+				478,
+				479,
+				480,
+				481,
+				482,
+				483,
+				484,
+				485,
+				486,
+				487,
+				488,
+				489,
+				490,
+				491,
+				492,
+				493,
+				494,
+				495,
+				496,
+				497,
+				498,
+				499,
+				500,
+				501,
+				502,
+				503,
+				504,
+				505,
+				506,
+				507,
+				508,
+				509,
+				510,
+				511,
+				512,
+				513,
+				514,
+				515,
+				516,
+				517,
+				518,
+				519,
+				520,
+				521,
+				522,
+				523,
+				524,
+				525,
+				526,
+				527,
+				528,
+				529,
+				530,
+				531,
+				532,
+				533,
+				534,
+				535,
+				536,
+				537,
+				538,
+				539,
+				540,
+				541,
+				542,
+				543,
+				544,
+				545,
+				546,
+				547,
+				548,
+				549,
+				550,
+				551,
+				552,
+				553,
+				554,
+				555,
+				556,
+				557,
+				558,
+				559,
+				560,
+				561,
+				562,
+				563,
+				564,
+				565,
+				566,
+				567,
+				568,
+				569,
+				570,
+				571,
+				572,
+				573,
+				574,
+				575,
+				576,
+				577,
+				578,
+				579,
+				580,
+				581,
+				582,
+				583,
+				584,
+				585,
+				586,
+				587,
+				588,
+				589,
+				590,
+				591,
+				592,
+				593,
+				594,
+				595,
+				596,
+				597,
+				598,
+				599,
+				600,
+				601,
+				602,
+				603,
+				604,
+				605,
+				606,
+				607,
+				608,
+				609,
+				610,
+				611,
+				612,
+				613,
+				614,
+				615,
+				616,
+				617,
+				618,
+				619,
+				620,
+				621,
+				622,
+				623,
+				624,
+				625,
+				626,
+				627,
+				628,
+				629,
+				630,
+				631,
+				632,
+				633,
+				634,
+				635,
+				636,
+				637,
+				638,
+				639,
+				640,
+				641,
+				642,
+				643,
+				644,
+				645,
+				646,
+				647,
+				648,
+				649,
+				650,
+				651,
+				652,
+				653,
+				654,
+				655,
+				656,
+				657,
+				658,
+				659,
+				660,
+				661,
+				662,
+				663,
+				664,
+				665,
+				666,
+				667,
+				668,
+				669,
+				670,
+				671,
+				672,
+				673,
+				674,
+				675,
+				676,
+				677,
+				678,
+				679,
+				680,
+				681,
+				682,
+				683,
+				684,
+				685,
+				686,
+				687,
+				688,
+				689
+			],
+			"sysroot" : 
+			{
+				"path" : "D:/AndroidSDk/NDK/26.1.10909125/toolchains/llvm/prebuilt/windows-x86_64/sysroot"
+			}
+		}
+	],
+	"id" : "EchoCore::@678582e5671f465d3ded",
+	"name" : "EchoCore",
+	"nameOnDisk" : "libEchoCore.a",
+	"paths" : 
+	{
+		"build" : "EchoCore",
+		"source" : "EchoCore"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20,
+				21,
+				22,
+				23,
+				24,
+				25,
+				26,
+				27,
+				28,
+				29,
+				30,
+				31,
+				32,
+				33,
+				34,
+				35,
+				36,
+				37,
+				38,
+				39,
+				40,
+				41,
+				42,
+				43,
+				44,
+				45,
+				46,
+				47,
+				48,
+				49,
+				50,
+				51,
+				52,
+				53,
+				54,
+				55,
+				56,
+				57,
+				58,
+				59,
+				60,
+				61,
+				62,
+				63,
+				64,
+				65,
+				66,
+				67,
+				68,
+				69,
+				70,
+				71,
+				72,
+				73,
+				74,
+				75,
+				76,
+				77,
+				78,
+				79,
+				80,
+				81,
+				82,
+				83,
+				84,
+				85,
+				86,
+				87,
+				88,
+				89,
+				90,
+				91,
+				92,
+				93,
+				94,
+				95,
+				96,
+				97,
+				98,
+				99,
+				100,
+				101,
+				102,
+				103,
+				104,
+				105,
+				106,
+				107,
+				108,
+				109,
+				110,
+				111,
+				112,
+				113,
+				114,
+				115,
+				116,
+				117,
+				118,
+				119,
+				120,
+				121,
+				122,
+				123,
+				124,
+				125,
+				126,
+				127,
+				128,
+				129,
+				130,
+				131,
+				132,
+				133,
+				134,
+				135,
+				136,
+				137,
+				138,
+				139,
+				140,
+				141,
+				142,
+				143,
+				144,
+				145,
+				146,
+				147,
+				148,
+				149,
+				150,
+				151,
+				152,
+				153,
+				154,
+				155,
+				156,
+				157,
+				158,
+				159,
+				160,
+				161,
+				162,
+				163,
+				164,
+				165,
+				166,
+				167,
+				168,
+				169,
+				170,
+				171,
+				172,
+				173,
+				174,
+				175,
+				176,
+				177,
+				178,
+				179,
+				180,
+				181,
+				182,
+				183,
+				184,
+				185,
+				186,
+				187,
+				188,
+				189,
+				190,
+				191,
+				192,
+				193,
+				194,
+				195,
+				196,
+				197,
+				198,
+				199,
+				200,
+				201,
+				202,
+				203,
+				204,
+				205,
+				206,
+				207,
+				208,
+				209,
+				210,
+				211,
+				212,
+				213,
+				214,
+				215,
+				216,
+				217,
+				218,
+				219,
+				220,
+				221,
+				222,
+				223,
+				224,
+				225,
+				226,
+				227,
+				228,
+				229,
+				230,
+				231,
+				232,
+				233,
+				234,
+				235,
+				236,
+				237,
+				238,
+				239,
+				240,
+				241,
+				242,
+				243,
+				244,
+				245,
+				246,
+				247,
+				248,
+				249,
+				250,
+				251,
+				252,
+				253,
+				254,
+				255,
+				256,
+				257,
+				258,
+				259,
+				260,
+				261,
+				262,
+				263,
+				264,
+				265,
+				266,
+				267,
+				268,
+				269,
+				270,
+				271,
+				272,
+				273,
+				274,
+				275,
+				276,
+				277,
+				278,
+				279,
+				280,
+				281,
+				282,
+				283,
+				284,
+				285,
+				286,
+				287,
+				288,
+				289,
+				290,
+				291,
+				292,
+				293,
+				294,
+				295,
+				296,
+				297,
+				298,
+				299,
+				300,
+				301,
+				302,
+				303,
+				304,
+				305,
+				306,
+				307,
+				308,
+				309,
+				310,
+				311,
+				312,
+				313,
+				314,
+				315,
+				316,
+				317,
+				318,
+				319,
+				320,
+				321,
+				322,
+				323,
+				324,
+				325,
+				326,
+				327,
+				328,
+				329,
+				330,
+				331,
+				332,
+				333,
+				334,
+				335,
+				336,
+				337,
+				338,
+				339,
+				340,
+				341,
+				342,
+				343,
+				344,
+				345,
+				346,
+				347,
+				348,
+				349,
+				350,
+				351,
+				352,
+				353,
+				354,
+				355,
+				356,
+				357,
+				358,
+				359,
+				360,
+				361,
+				362,
+				363,
+				364,
+				365,
+				366,
+				367,
+				368,
+				369,
+				370,
+				371,
+				372,
+				373,
+				374,
+				375,
+				376,
+				377,
+				378,
+				379,
+				380,
+				381,
+				382,
+				383,
+				384,
+				385,
+				386,
+				387,
+				388,
+				389,
+				390,
+				391,
+				392,
+				393,
+				394,
+				395,
+				396,
+				397,
+				398,
+				399,
+				400,
+				401,
+				402,
+				403,
+				404,
+				405,
+				406,
+				407,
+				408,
+				409,
+				410,
+				411,
+				412,
+				413,
+				414,
+				415,
+				416,
+				417,
+				418,
+				419,
+				420,
+				421,
+				422,
+				423,
+				424,
+				425,
+				426,
+				427,
+				428,
+				429,
+				430,
+				431,
+				432,
+				433,
+				434,
+				435,
+				436,
+				437,
+				438,
+				439,
+				440,
+				441,
+				442,
+				443,
+				444,
+				445,
+				446,
+				447,
+				448,
+				449,
+				450,
+				451,
+				452,
+				453,
+				454,
+				455,
+				456,
+				457,
+				458,
+				459,
+				460,
+				461,
+				462,
+				463,
+				464,
+				465,
+				466,
+				467,
+				468,
+				469,
+				470,
+				471,
+				472,
+				473,
+				474,
+				475,
+				476,
+				477,
+				478,
+				479,
+				480,
+				481,
+				482,
+				483,
+				484,
+				485,
+				486,
+				487,
+				488,
+				489,
+				490,
+				491,
+				492,
+				493,
+				494,
+				495,
+				496,
+				497,
+				498,
+				499,
+				500,
+				501,
+				502,
+				503,
+				504,
+				505,
+				506,
+				507,
+				508,
+				509,
+				510,
+				511,
+				512,
+				513,
+				514,
+				515,
+				516,
+				517,
+				518,
+				519,
+				520,
+				521,
+				522,
+				523,
+				524,
+				525,
+				526,
+				527,
+				528,
+				529,
+				530,
+				531,
+				532,
+				533,
+				534,
+				535,
+				536,
+				537,
+				538,
+				539,
+				540,
+				541,
+				542,
+				543,
+				544,
+				545,
+				546,
+				547,
+				548,
+				549,
+				550,
+				551,
+				552,
+				553,
+				554,
+				555,
+				556,
+				557,
+				558,
+				559,
+				560,
+				561,
+				562,
+				563,
+				564,
+				565,
+				566,
+				567,
+				568,
+				569,
+				570,
+				571,
+				572,
+				573,
+				574,
+				575,
+				576,
+				577,
+				578,
+				579,
+				580,
+				581,
+				582,
+				583,
+				584,
+				585,
+				586,
+				587,
+				588,
+				589,
+				590,
+				591,
+				592,
+				593,
+				594,
+				595,
+				596,
+				597,
+				598,
+				599,
+				600,
+				601,
+				602,
+				603,
+				604,
+				605,
+				606,
+				607,
+				608,
+				609,
+				610,
+				611,
+				612,
+				613,
+				614,
+				615,
+				616,
+				617,
+				618,
+				619,
+				620,
+				621,
+				622,
+				623,
+				624,
+				625,
+				626,
+				627,
+				628,
+				629,
+				630,
+				631,
+				632,
+				633,
+				634,
+				635,
+				636,
+				637,
+				638,
+				639,
+				640,
+				641,
+				642,
+				643,
+				644,
+				645,
+				646,
+				647,
+				648,
+				649,
+				650,
+				651,
+				652,
+				653,
+				654,
+				655,
+				656,
+				657,
+				658,
+				659,
+				660,
+				661,
+				662,
+				663,
+				664,
+				665,
+				666,
+				667,
+				668,
+				669,
+				670,
+				671,
+				672,
+				673,
+				674,
+				675,
+				676,
+				677,
+				678,
+				679,
+				680,
+				681,
+				682,
+				683,
+				684,
+				685,
+				686,
+				687,
+				688,
+				689
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/DeformSnow.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoAIGCManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoASSAO.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoAllocator.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoAnimatorBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoAtlasInfoManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoAtmosphere.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoAttachNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoBase64.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoBatchManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoBendHorizon.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoBiomeGenObjectLibrary.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoBiomeTerrainBlock.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoBiomeVegGroup.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoBiomeVegLayerCluster.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoBiomeVegOpt.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoBiomeVegRandom.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoBiomeVegVirGroup.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoBiomeVegetation.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoBloom.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoBoundNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoBufferManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoBuildLodMeshManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoBuildLodRenderable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoBuildMergeRenderable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoBuildSimpleRenderable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoBuildingLodManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoCamera.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoCapsuleRenderable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoClearBackBufferAlpha.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoClearQuad.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoCloud.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoClusteForwardLighting.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoColorFilter.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoColorGrading.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoColor_t.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoCommon.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoComponentManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoComponentSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoComponentSerializerImpl.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoComputable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoConfigFile.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoControllerManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoConvertDepth.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoCopyRTColor.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDDSCodec.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDataAcqusition.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDataStreamManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDebugDraw.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDebugDrawManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDecal.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDecalBatch.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDecalManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDefaultArchive.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDefaultSceneQueries.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDeferredAOPass.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDeferredGammaPass.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDeferredHeightFogPass.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDeferredLightPass.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDeferredPointLight.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDeferredPostProcessChain.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDeferredRenderPass.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDeferredRenderStrategy.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDeformSnow.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDepthBuffer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDepthField.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDistantPlanetOceanManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDownSampleDepth.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDriftBatchManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDriftManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDriftSystem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDynamicDiffuseGlobalIlluminationPass.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDynamicSceneNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoDynamicVideoParamManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoEasuUpscale.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoEasyAsynHandler.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoEntity.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoEntityBatchGroup.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoEntityBatchOptions.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoEntityBatchPage.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoEntityBatchPageRes.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoEntityBatchPageResManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoEntityBatchPageResSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoEnvironmentLight.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoErrorMessage.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoException.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoFFTOcean.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoFarClipDistanceObjectManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoForwardPostProcessChain.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoForwardRenderStrategy.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoFrameListener.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoFreeImageCodec.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoFreeTypeResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoFreeTypeResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoGaussianBlur.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoGeometryOcclusionGroup.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoGlobalSignDistanceFieldPass.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoGlobalSurfaceAtlasPass.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoGlyphManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoGpuBatchManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoGpuDriven.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoGpuParamsManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoGpuPoolManagerImpl.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoHDR.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoHWMediaPlayer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoHeightMapStamp2D.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoHeightMapStamp3D.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoHermite.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoHermiteCurve.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoIOCP.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoImage.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoImageCodec.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoImageProcessing.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoImposter.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoImposterBatch.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoImposterHandler.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoImposterManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoImposterOperator.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoIndexPack.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoInstanceBatchBuilding.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoInstanceBatchBuildingArrTex.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoInstanceBatchDrift.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoInstanceBatchEntity.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoInstanceMaterialHelper_p.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoInstanceStaticBatchEntity.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoInteractionComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoKarstAttachment.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoKarstDataHelper.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoKarstExportUtil.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoKarstGroup.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoKarstHeightPage.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoKarstMaterials.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoKarstMesh.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoKarstPage.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoKarstQuadtreeNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoKarstRenderNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoKarstRenderResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoKarstResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoKarstResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoKarstSystem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoKarstVirtualTexture.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLRUCache.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLSystem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLandform.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLandformDataHandler.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLandformDetailChunk.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLandformGroup.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLandformHoleMap.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLandformLayer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLandformOptions.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLandformQuadtreeNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLandformResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLandformResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLandformResourcePool.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLandformResourceSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLensFlare.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLight.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLightRender.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLightning.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLinuxWin32Wrapper.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLocalQuadTreeNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLocalRadialBlur.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLodePng.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLog.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoLogManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMVDMotionBlur.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoManualMesh.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoManualMeshManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoManualObject.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMatConfigParseMan.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMaterial.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMaterialAnimManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMaterialAnimator.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMaterialBuildHelper.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMaterialCompileManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMaterialCompileRenderable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMaterialComponentInstanceBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMaterialImplV1.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMaterialImplV2.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMaterialInfo.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMaterialInfoV2.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMaterialManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMaterialNumericalInstance.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMaterialObjectManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMaterialSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMaterialSerializerImpl.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMaterialShaderPassManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMaterialV2.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMaterialV2Manager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMediaColor.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMediaManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMediaPlayer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMemory.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMemoryPoolResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMesh.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMeshMgr.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMeshSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMeshSerializerImpl.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMotionBlur.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMotionVectors.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMountainInfo.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMountainManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMountainMovable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMountainSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMountainSerializerImpl.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoMovableObject.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoOAESystem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoObjectMotionBlur.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoOcclusionCulling.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoOcclusionPlane.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoOcclusionPlaneManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoOcclusionTree.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoOcclusionTreeSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoOcean.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoOceanManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoOctree.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoOctreeNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoOverlappedOctree.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPCGReflect.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoParser.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoParserBin.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPass.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPassManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPerformanceMarker.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPetBatchMaterialManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPhysicsCore.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPixelFormat.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPlaneVegetation.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPlanetGenObjectScheduler.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPlanetManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPlanetRegionResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPlanetRoad.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPlanetRoadResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPlanetWarfogRenderable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPlatformInformation.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPointLightShadowManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPolygon.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPolyhedronGravity.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPortraitManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPostProcess.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPostProcessRenderable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPrecompiledHeaders.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPrecompiledShaderManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPredefinedControllers.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoPrimitiveDrawingUtils.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoProfiler.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoProfilerInfoManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoProfilerManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoProgressiveMesh.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoProtocolComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoQuadtree.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoQuadtreeNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoRadialBlur.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoRainMaskManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoReflectCoeResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoReflectProbe.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoReflectProbeManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoRenderOperation.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoRenderQueue.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoRenderStrategy.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoRenderSystem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoRenderTarget.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoRenderable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoResourceBackgroundQueue.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoResourceBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoResourceDataMemory.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoResourceDataMemoryManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoResourceFolderManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoResourceManagerBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoResourceManagerFactory.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoResourceWorkQueue.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoRichCurve.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoRichCurveKeyHandle.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoRoadEntity.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoRoadNetworkObject.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoRoadResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoRoadResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoRoadResourceSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoRoot.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSDFGlyphManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSDFResManagerFactory.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSDFResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSMAA.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSSAO.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSSPR.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSSSR.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoScene2DUIEntity.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSceneCommonResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSceneCommonResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSceneCommonResourceSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSceneCommonResourceSerializerImpl.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSceneManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSceneNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSceneQuery.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoScreen3DUIEntity.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoScreen3DUIEntityManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoScreenCopy.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoShader.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoShaderBin.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoShaderClient.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoShaderClientManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoShaderCommand.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoShaderContentManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoShaderMacrosUploader.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoShaderMan.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoShadowStaticBatch.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoShadowmapManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoShareRoleConfig.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSheetManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSimpleElementCollector.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSimpleRenderable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSimpleSpline.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSky.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSnowBlock.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSparseQuadtree.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSpatialNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSphericalOcean.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSphericalRegion.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSphericalTerrainAtmosphere.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSphericalTerrainFog.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSphericalTerrainManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSphericalTerrainResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSphericalTerrianQuadTreeNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSpringTracker.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSqlite.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSqliteMgr.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSqliteObject.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoStarfield.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoStars.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoStreamEntity.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoStreamResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoStreamResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoStreamResourceSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoStreamSerialiser.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoStringTable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSubComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSubEntity.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSubMesh.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSubMountain.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSubVegetation.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSubVegetationAreaResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSubVegetationResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSubWaterResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSun.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoSystemConfigFile.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTODManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTODParamTrace.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTODSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTODVariableInfo.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTabletMesh.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTangentSpaceCalc.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTemporalAA.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTerrain.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTerrainDataHandler.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTerrainDetailChunk.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTerrainDisplacementMap.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTerrainGroup.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTerrainHeightUtil.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTerrainHoleMap.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTerrainLayer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTerrainModify3D.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTerrainModify3DUtilities.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTerrainOptions.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTerrainQuadtreeNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTerrainRenderHelper.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTerrainResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTerrainResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTerrainResourcePool.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTerrainResourceSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTerrainStaticModify3D.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTerrainSystem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTerrainUtil.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTexture.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTextureBlend.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTextureHelper.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTextureManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTextureStreamingHelper.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoThreadPool.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTimer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoToneMapper.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTorusTerrainNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTunnel.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoTypeConverter.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUI2DBitmapFontRender.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUI2DCustomPicRender.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUI2DImageRender.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUI2DRenderBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUI2DRenderable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUI2DResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUI2DResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUI3DEnergyBarWidget.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUI3DFontWidget.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUI3DImageWidget.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUI3DMovable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUI3DRenderable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUI3DTypeDefine.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUI3DWidgetBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUI3DWidgetContainer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUIRenderManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUIRenderSystem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUberNoiseFBM2D.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUberNoiseFBM3D.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUnderWater.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoUniformUtil.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegAreaOptions.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegRuntimeMgr.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetation.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationArea.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationAreaBlock.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationAreaHandler.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationAreaHitCalculator.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationAreaMeshResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationAreaRender.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationAreaResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationAreaResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationAreaResourceSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationAreaSharedData.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationAreaTestHelper.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationGroup.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationLayer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationMeshTemplate.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationOptions.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationRender.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationRenderRes.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationResourceSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVegetationUVMask.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVertexIndexData.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoViewport.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVisibilityBufferRenderPass.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVisibilityGBufferRenderPass.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVisibilityRenderPrimitiveManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVolumeLight.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVolumetricCloud.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVolumetricLight.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVoxelSubtractionLibrary.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVoxelTerrainFractal.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoVoxelTerrainFractalDefinition.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoWaterEntity.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoWaterGlobalMaterialHelper.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoWaterGroup.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoWaterResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoWaterResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoWaterResourceSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoWaterSubEntity.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoWeatherManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoWeatherParamController.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoWeatherRequester.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoWindowEventUtilities.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoWireBoundingBox.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoWorkQueueBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoWorldNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoZipDataStream.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EchoZipPackageReader.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/EffectOverDrawStatistics.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/GraphicCommon.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/GraphicHook.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/ImgFormatConvert.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/RoadNetworkManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/SnowMaterial.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/SnowTerrain.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/SnowTerrainMgr.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/SphericalOceanNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/fsr.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/JobSystem/EchoCommonEvent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/JobSystem/EchoCommonJobManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/JobSystem/EchoJobBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/JobSystem/EchoJobManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/JobSystem/EchoJobState.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/JobSystem/EchoJobSystem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/JobSystem/EchoJobThread.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Effect/EchoEffectData.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Effect/EchoEffectFactoryManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Effect/EchoEffectManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Effect/EchoEffectParamTrace.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Effect/EchoEffectResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Effect/EchoEffectResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Effect/EchoEffectSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Effect/EchoEffectSerializerImpl.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Effect/EchoEffectSystem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Cloth/EchoClothAsset.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Cloth/EchoClothAssetResourceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Cloth/EchoClothAssetSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Cloth/EchoClothData.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/meshoptimizer/allocator.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/meshoptimizer/clusterizer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/meshoptimizer/indexcodec.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/meshoptimizer/indexgenerator.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/meshoptimizer/overdrawanalyzer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/meshoptimizer/overdrawoptimizer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/meshoptimizer/simplifier.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/meshoptimizer/spatialorder.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/meshoptimizer/stripifier.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/meshoptimizer/vcacheanalyzer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/meshoptimizer/vcacheoptimizer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/meshoptimizer/vertexcodec.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/meshoptimizer/vertexfilter.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/meshoptimizer/vfetchanalyzer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/meshoptimizer/vfetchoptimizer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/DisplayObject.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/HitTest/HitTest.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/Image.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/Mesh/EllipseMesh.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/Mesh/FillMesh.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/Mesh/PolygonMesh.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/Mesh/RectMesh.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/Mesh/RegularPolygonMesh.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/Mesh/RoundRectMesh.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/Mesh/SliceMesh.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/Mesh/TileMesh.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/MovieClip.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/NMaterial.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/NMaterialManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/NMesh.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/NRenderItem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/NTexture.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/NUIManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/ParticleWrapper.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/Shape.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/Text/BitmapFont.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/Text/BlockPacker.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/Text/Dialogue.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/Text/DynamicFont.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/Text/FontManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/Text/TextField.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Core/Text/TextFormat.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Event/EventContext.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Event/InputEvent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Event/InputProcessor.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Event/UIEventDispatcher.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/FairyGuiScriptRegister.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/FairyGuiWrapper.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Tween/EaseManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Tween/GPath.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Tween/GTween.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Tween/GTweener.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Tween/TweenManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Tween/TweenPropType.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Tween/TweenValue.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Action/ChangePageAction.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Action/ControllerAction.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Action/PlayTransitionAction.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Controller.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/DragDropManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GButton.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GComboBox.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GComponent.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GGraph.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GGroup.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GImage.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GLabel.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GList.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GLoader.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GLoader3D.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GMovieClip.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GObject.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GObjectPool.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GProgressBar.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GRichTextField.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GRoot.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GScrollBar.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GSlider.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GTextField.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GTextInput.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GTreeNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GTreeView.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/GWindow.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Gears/GearAnimation.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Gears/GearBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Gears/GearColor.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Gears/GearDisplay.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Gears/GearDisplay2.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Gears/GearFontSize.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Gears/GearIcon.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Gears/GearLook.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Gears/GearSize.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Gears/GearText.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Gears/GearXY.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Margin.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/PackageItem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/PopupMenu.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/RelationItem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Relations.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/ScrollPane.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Stage.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Transition.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/TransitionItem.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/TranslationHelper.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Tree/TreeNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/Tree/TreeView.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/UIConfig.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/UIContentScaler.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/UIObjectFactory.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/UI/UIPackage.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Utils/AutoReleasePool.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Utils/ByteBuffer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Utils/DeferredDeleter.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Utils/Emoji.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Utils/Html/HtmlElement.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Utils/Html/HtmlImage.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Utils/Html/HtmlLink.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Utils/Html/HtmlPageContext.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Utils/Html/HtmlParser.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Utils/Html/XMLIterator.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Utils/NMath.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Utils/NMatrix.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Utils/Ref.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Utils/SUParser.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Utils/Scheduler.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Utils/ToolSet.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Utils/UBBParser.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Utils/Value.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Utils/WeakPtr.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/Utils/uistring.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/FGUIParser/encoding/encoding.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoAnimation.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoAnimationManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoAnimationSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoAnimationSerializerImpl.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoAnimationState.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoAnimationTrack.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoBlendMask.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoBlendMaskManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoBone.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoBoneNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoCloth.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoCustomSkeleton.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoCustomSkeletonManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoCustomSkeletonSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoCustomSkeletonSerializerImpl.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoKeyFrame.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoLookAtCfg.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoRetargetingSkeleton.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoRetargetingSkeletonManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoRetargetingSkeletonSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoRetargetingSkeletonSerializerImpl.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoRole.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoRoleAnimationLoadManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoRoleBatchAnimationTexture.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoRoleBatchEntity.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoRoleBatchManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoRoleCollision.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoRoleCollisionManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoRoleCollisionObj.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoRoleLocator.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoRoleLocatorManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoRoleManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoRoleMeshLoadManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoRoleMovable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoRoleSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoRoleSerializerImpl.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoSkeleton.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoSkeletonBase.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoSkeletonInstance.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoSkeletonManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoSkeletonRenderable.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoSkeletonSerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoSkeletonSerializerImpl.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoSkeletonSyncData.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoSkeletonSyncInfo.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoSkeletonSyncManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoSoftbody.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoSoftbodyManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoSoftbodySerializer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoSoftbodySerializerImpl.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Role/EchoTagPoint.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Android/EchoAAssetDataStream.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Android/EchoAndroidJava.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Android/EchoAndroidJavaEnv.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Android/EchoAndroidJavaMediaPlayer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Android/EchoAndroidMediaPlayer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Profiler/public/EchoScopedZone.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Profiler/public/EchoTraceManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Profiler/public/TracyClient.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Profiler/capture/src/captureThread.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Profiler/public/common/tracy_lz4hc.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Profiler/public/common/TracyStackFrames.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Profiler/server/TracyMemory.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Profiler/server/TracyMmap.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Profiler/server/TracyPrint.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Profiler/server/TracyTaskDispatch.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Profiler/server/TracyTextureCompression.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Profiler/server/TracyThreadCompress.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Profiler/server/TracyWorker.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "G:/Echo_SU_Develop/EchoEngine/Code/Core/Source/Profiler/StatusGather/EchoCoreStatusData.cpp",
+			"sourceGroupIndex" : 0
+		}
+	],
+	"type" : "STATIC_LIBRARY"
+}

@@ -1,0 +1,246 @@
+
+#include <Common_Uniform_VS.inl>
+#include <Common_Function.inl>
+
+
+float4	U_WorldMatrix[3];
+float4	U_WorldViewProjectMatrix[4];
+
+float4  U_VSCustom0[3];
+
+uniform Texture2D S_2DExt0;
+SamplerState S_2DExt0SamplerState;
+//uniform Texture2D S_2DExt1;
+//SamplerState S_2DExt1SamplerState;
+
+struct VS_INPUT
+{
+	float3 i_Position	: POSITION0;
+	float3 i_Normal		: NORMAL0;	
+	float4 i_Tangent	: TANGENT0;	
+	float2 i_UV			: TEXCOORD0;
+};
+
+struct VS_OUTPUT
+{
+	float4 Position   : SV_POSITION;  // in clip space
+	float3 rotMatrix1 : TEXCOORD0; // first row of the 3x3 transform from tangent to obj space
+	float3 rotMatrix2 : TEXCOORD1; // second row of the 3x3 transform from tangent to obj space
+	float3 rotMatrix3 : TEXCOORD2; // third row of the 3x3 transform from tangent to obj space
+
+	float4 bumpCoord0 : TEXCOORD3;
+	float4 bumpCoord1 : TEXCOORD4;
+	
+	float3 eyeVector  : TEXCOORD5;
+	float4 viewPos    : TEXCOORD6;
+	float4 clipPos	  : TEXCOORD7;
+#ifdef SOFT_BORDER	
+	float4 customParam: TEXCOORD8;
+#endif
+	float4 fogColor   : COLOR0;
+	
+	float2 UV   	  : COLOR1;
+	float2 jacobian   : COLOR2;
+};
+
+// wave functions
+struct Wave {
+  float freq;  // 2*PI / wavelength
+  float amp;   // amplitude
+  float phase; // speed * 2*PI / wavelength
+  float2 dir;
+};
+
+VS_OUTPUT main(VS_INPUT IN)
+{
+	float BumpScale = U_VSCustom0[1].x;
+	float2 textureScale = U_VSCustom0[1].yz;
+	float windSpeed = U_VSCustom0[1].w;
+	
+	float waveFreq = U_VSCustom0[0].x;
+	float waveAmp  = U_VSCustom0[0].y;
+	//float wavePhase = U_VSCustom0[0].z;
+		
+	VS_OUTPUT vsOut = (VS_OUTPUT)0;
+	
+	#define NWAVES 2
+	Wave wave[NWAVES] = {
+		{ 1.0, 1.0, 0.5, float2(-1, 0) },
+		{ 2.0, 0.5, 1.7, float2(-0.7, 0.7) }
+	};
+
+	wave[0].freq = waveFreq;
+	wave[0].amp = waveAmp;
+	//wave[0].phase = wavePhase;
+
+	wave[1].freq = waveFreq * 3.0;
+	wave[1].amp = waveAmp * 0.33;
+	//wave[1].phase = wavePhase * 3.4;
+	
+	float4 Position = float4(IN.i_Position.x, 0.0f, IN.i_Position.z, 1.0f);
+	
+	float4 vPosInWorld2 = Position;	
+	vPosInWorld2.x = dot(Position, U_WorldMatrix[0]);
+	vPosInWorld2.y = dot(Position, U_WorldMatrix[1]);
+	vPosInWorld2.z = dot(Position, U_WorldMatrix[2]);
+	vPosInWorld2.w = 1.0;	
+	
+	float fDistCamera = length(vPosInWorld2 - U_VS_CameraPosition);// + 50.0f;	
+	float t = 1.0 - saturate(fDistCamera / U_CameraParam.x);
+	
+	float4 vPos = float4(Position.xyz,1.0);
+	vPos.y = 0;
+	
+	//float time = fmod(U_VS_Time.x, 100.0f);
+	float time = U_VS_Time.x;
+	
+	// sum waves
+	float ddx = 0.0, ddy = 0.0;
+	float deriv;
+	float angle;
+	
+	float wavesH = 0.0f;
+	// wave synthesis using two sine waves at different frequencies and phase shift
+	for(int i = 0; i<NWAVES; ++i)
+	{
+		angle = dot(wave[i].dir, vPos.xz) * wave[i].freq + time * wave[i].phase;
+		wavesH += wave[i].amp * sin( angle );
+		// calculate derivate of wave function
+		deriv = wave[i].freq * wave[i].amp * cos(angle);
+		ddx -= deriv * wave[i].dir.x;
+		ddy -= deriv * wave[i].dir.y;
+	}
+		
+	// compute the 3x3 transform from tangent space to object space
+	// first rows are the tangent and binormal scaled by the bump scale
+	vsOut.rotMatrix1.xyz = BumpScale * normalize(float3(1, ddy, 0)); // Binormal
+	vsOut.rotMatrix2.xyz = BumpScale * normalize(float3(0, ddx, 1)); // Tangent
+	vsOut.rotMatrix3.xyz = normalize(float3(ddx, 1, ddy)); // Normal
+	
+	float4 displace = float4(0.0f, 0.0f, 0.0f, 0.0f);	
+	float3 WNormal = float3(0.0f, 0.0f, 0.0f);
+	float uvScale = U_VSCustom0[0].w;
+	float N 				= U_VSCustom0[2].x;
+	float OceanLength 		= U_VSCustom0[2].y;
+	float BubblesScale 		= U_VSCustom0[2].z;
+	float BubblesThreshold 	= U_VSCustom0[2].w;
+
+	float2 uvTemp = vPosInWorld2.xz * 0.0001f * uvScale;
+	float2 uv = uvTemp;
+	uv.x = fmod(uvTemp.x, 1.0f);
+	uv.y = fmod(uvTemp.y, 1.0f);
+	uv.x = uv.x < 0.0f ? 1.0f + uv.x : uv.x;
+	uv.y = uv.y < 0.0f ? 1.0f + uv.y : uv.y;
+
+	float uintLength = 1.5625f;//OceanLength / (N - 1.0f)
+	float2 uvX1 = float2(uv.x - 1.0 / N, uv.y);
+	float2 uvX2 = float2(uv.x + 1.0 / N, uv.y);
+	float2 uvZ2 = float2(uv.x, uv.y - 1.0 / N);
+	float2 uvZ1 = float2(uv.x, uv.y + 1.0 / N);
+
+	float3 h0 = S_2DExt0.SampleLevel(S_2DExt0SamplerState, float3(uv.xy, 0.0f), 0.0f).xyz;
+	float3 x1D = S_2DExt0.SampleLevel(S_2DExt0SamplerState, float3(uvX1.xy, 0.0f), 0.0f).xyz;
+	float3 x2D = S_2DExt0.SampleLevel(S_2DExt0SamplerState, float3(uvX2.xy, 0.0f), 0.0f).xyz;
+	float3 z1D = S_2DExt0.SampleLevel(S_2DExt0SamplerState, float3(uvZ1.xy, 0.0f), 0.0f).xyz;
+	float3 z2D = S_2DExt0.SampleLevel(S_2DExt0SamplerState, float3(uvZ2.xy, 0.0f), 0.0f).xyz;
+
+	displace = float4(h0, 1.0f);
+
+	float3 x1 = float3(x1D.x - uintLength, x1D.y, x1D.z);
+	float3 x2 = float3(x2D.x + uintLength, x2D.y, x2D.z);
+	float3 z1 = float3(z1D.x, z1D.y, z1D.z - uintLength);
+	float3 z2 = float3(z2D.x, z2D.y, z2D.z + uintLength);
+
+	float3 tangentX = x2 - x1;
+	float3 tangentZ = z2 - z1;
+
+	tangentX = normalize(tangentX);
+	tangentZ = normalize(tangentZ);
+
+	float3 normal = cross(tangentZ, tangentX);
+	normal = normalize(normal);
+
+	float3 ddx2 = x2D - x1D;
+	float3 ddz2 = z2D - z1D;
+
+	float jacobian = (1.0f + ddx2.x) * (1.0f + ddz2.z) - ddx2.z * ddz2.x;
+	jacobian = saturate(max(0.0f, BubblesThreshold - saturate(jacobian)) * BubblesScale);
+
+	WNormal.x = normal.x;
+	WNormal.y = normal.y;
+	WNormal.z = normal.z;
+
+	vsOut.jacobian.x = jacobian;
+	vsOut.jacobian.y = jacobian;
+
+	WNormal = (mul((float3x4)U_WorldMatrix, float4(WNormal.xyz, 0.0f)));
+	tangentX = (mul((float3x4)U_WorldMatrix, float4(tangentX.xyz, 0.0f)));
+	vsOut.rotMatrix1.xyz += cross(tangentX.xyz, WNormal.xyz);// Binormal
+	vsOut.rotMatrix2.xyz += tangentX.xyz; // Tangent
+	vsOut.rotMatrix3.xyz += WNormal.xyz; // Normal
+
+	vPos.xyz = Position.xyz;
+	vPos.y = (displace.y + wavesH) * t;
+	vPos.xz += displace.xz;
+	vPos.w = 1.0f;
+	vsOut.UV = uvTemp;
+	
+	float4 vPosInWorld = vPos;	
+	vPosInWorld.x = dot(vPos , U_WorldMatrix[0]);
+	vPosInWorld.y = dot(vPos , U_WorldMatrix[1]);
+	vPosInWorld.z = dot(vPos , U_WorldMatrix[2]);
+	vPosInWorld.w = 1.0;
+								
+	vsOut.Position.x = dot(vPos , U_WorldViewProjectMatrix[0]);
+	vsOut.Position.y = dot(vPos , U_WorldViewProjectMatrix[1]);
+	vsOut.Position.z = dot(vPos , U_WorldViewProjectMatrix[2]);
+	vsOut.Position.w = dot(vPos , U_WorldViewProjectMatrix[3]);
+
+	// calculate texture coordinates for normal map lookup
+	float2 tex_coord 		= vPosInWorld.xz * 0.0001f;
+	float2 vDirection 		= float2(U_WindParams.x, U_WindParams.z);
+	float realWindSpeed = windSpeed * 0.5 * fmod(U_VS_Time.x, 100.0f);
+	
+	vsOut.bumpCoord0.xy = tex_coord * textureScale 		  - vDirection * realWindSpeed * 0.01;
+	vsOut.bumpCoord0.zw = tex_coord * textureScale * 2.0f - vDirection * realWindSpeed * 0.04;
+	vsOut.bumpCoord0.z *= -1.0f;
+	vsOut.bumpCoord1.xy = tex_coord * textureScale * 4.0f + vDirection * realWindSpeed * 0.08;
+	vsOut.bumpCoord1.x *= -1.0f;
+	
+	//float4x4 scalemat = float4x4(0.5,   0,   0, 0.5, 
+	//                               0,-0.5,   0, 0.5,
+	//							   0,   0, 0.5, 0.5,
+	//							   0,   0,   0,   1);
+	//vsOut.screenProj.x = dot( vsOut.Position , scalemat[0] );
+	//vsOut.screenProj.y = dot( vsOut.Position , scalemat[1] );
+	//vsOut.screenProj.z = dot( vsOut.Position , scalemat[2] );
+	//vsOut.screenProj.w = dot( vsOut.Position , scalemat[3] );
+
+	vsOut.eyeVector = vPosInWorld.xyz - U_VS_CameraPosition.xyz; // eye position in world space
+		
+	vsOut.viewPos = vsOut.Position;
+	vsOut.viewPos.z = saturate( 1 - 0.15 * sqrt( saturate(vsOut.viewPos.w) ) );
+		
+	float3 camToWorld =  U_VS_CameraPosition.xyz - vPosInWorld.xyz;	
+
+	float4x4 gravityRotatePosMatrix;
+	gravityRotatePosMatrix[0] = U_VS_GravityRotationMatrix[0];
+	gravityRotatePosMatrix[1] = U_VS_GravityRotationMatrix[1];
+	gravityRotatePosMatrix[2] = U_VS_GravityRotationMatrix[2];
+	gravityRotatePosMatrix[3] = U_VS_GravityRotationMatrix[3];
+	camToWorld = mul(gravityRotatePosMatrix,float4(camToWorld.xyz,0.0f)).xyz;
+
+	vsOut.fogColor = ComputeFogColor(camToWorld, U_FogParam.xy, U_FogParam.zw, U_FogRampParam, U_FogColorNear, U_FogColorFar);
+
+	vsOut.clipPos = vsOut.Position;
+#ifdef SOFT_BORDER	
+	vsOut.customParam.xy = vPosInWorld.xz * 0.025;
+#endif
+
+#ifdef EDITOR_MODE
+	#ifdef HierarchicalLOD
+		vsOut.Position = float4(2.0f * IN.i_UV.x - 1.0f, 1.0f - 2.0f * IN.i_UV.y, 1.0f, 1.0f);
+	#endif
+#endif
+	return vsOut;
+}

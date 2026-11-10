@@ -1,0 +1,864 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_Function.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+#include <Light_Function_PS.inl>
+#include <EnvironmentLight_Function.inl>
+#include <Common_Function_PS.inl>
+#include <SphericalFog_Function.inl>
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4	U_MaterialDiffuse;
+		Texture2D	S_Diffuse;
+		SamplerState S_DiffuseSamplerState;
+		
+		float4 texDiffuse(float2 vUV) 
+		{ 
+			return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+		}
+	#endif
+#else
+	
+	
+	//#ifdef ALONE_ROLE_LIGHT
+		//float4	U_RoleMainLightColor;
+		//float4	U_RoleSkyLightColor;
+		//float4	U_RoleGroundLightColor;
+	//#else
+		//float4	U_PBR_MainLightColor;
+		//float4	U_PBR_SkyLightColor;
+		//float4	U_PBR_GroundLightColor;
+	//#endif
+
+	float4	U_MaterialDiffuse;
+	float4	U_MaterialSpecular;
+	float4	U_MaterialFresnel;
+	float4	U_MaterialCustomParam;
+	float4	U_MaterialCustomParam1;
+
+	float4	U_LightPower;	//x for lightpower, y for specular offset
+	
+	//float4	U_WeatherParam0;
+	//float4	U_WeatherParam1;
+	
+	float4	U_PSGeneralRegister0;
+	float4	U_PSGeneralRegister1;
+	float4	U_PSGeneralRegister2;
+	float4	U_PSGeneralRegister3;
+	float4	U_PSGeneralRegister4;
+	float4	U_PSGeneralRegister5;
+	float4	U_PSGeneralRegister6;
+	float4	U_PSGeneralRegister7;
+	float4	U_PSGeneralRegister8;
+	float4	U_PSGeneralRegister9;
+	float4  U_PSGeneralRegister11;
+	float4  U_PSGeneralRegister12;
+	float4	U_PSGeneralRegister30;	
+	float4	U_PSGeneralRegister10;
+	float4	U_PSGeneralRegister29; 	//x ---current mask percentage
+									//y --- if 1 on Lattice Cull Mask
+									//z ---alpha range
+									//w ---direction if w >= 0 Positive elseif w < 0 Reverse
+
+	float4 U_PSGeneralRegister31;	//xyz ---dissolve_edge_color
+									//w ---dissolve_color_strength
+	float4 U_PSGeneralRegister32;	//x ---dissolve tilling U
+									//y ---dissolve tilling V
+ 									//z ---dissolve_edge_width
+									//w ---dissolve_soft_value
+
+	float4x4 U_PBR_RMatrix;
+	float4x4 U_PBR_GMatrix;
+	float4x4 U_PBR_BMatrix;
+
+	Texture2D	S_Diffuse;
+	SamplerState S_DiffuseSamplerState;
+	float4 texDiffuse(float2 vUV) 
+	{ 
+		return S_Diffuse.Sample(S_DiffuseSamplerState, vUV); 
+	}
+	#ifdef DISSOLVE
+		Texture2D S_Custom7;
+		SamplerState S_Custom7SamplerState;
+
+		float2 cal_uv(float2 uv, float tilling_u, float tilling_v, float offset_u, float offset_v, float angle)
+		{
+			float2 new_uv;
+
+			//uv平铺
+			new_uv.x = uv.x * tilling_u;
+			new_uv.y = uv.y * tilling_v;
+
+			//偏移
+			new_uv.x += offset_u;
+			new_uv.y += offset_v;
+
+			//让平铺后偏移的 UV 重新变回 [0,1] 范围，形成平铺循环
+			new_uv.x = fmod(new_uv.x, tilling_u) / tilling_u;
+			new_uv.y = fmod(new_uv.y, tilling_v) / tilling_v;
+
+			//平移到中心
+			float2 temp_uv = new_uv;
+			temp_uv.x = new_uv.x - 0.5;
+			temp_uv.y = new_uv.y - 0.5;
+
+			//旋转
+			float temp_u = temp_uv.x * cos(angle) - temp_uv.y * sin(angle);
+			float temp_v = temp_uv.x * sin(angle) + temp_uv.y * cos(angle);
+
+			//移回中心
+			new_uv.x = temp_u + 0.5;
+			new_uv.y = temp_v + 0.5;
+			//恢复tilling尺寸
+			new_uv.x *= tilling_u;
+			new_uv.y *= tilling_v;
+
+			return new_uv;
+		}
+	#endif		
+	#ifdef SPECULAR_MAP
+		Texture2D	S_Specular;
+		SamplerState S_SpecularSamplerState;
+	#endif
+	
+	Texture2D	S_Bump;
+	SamplerState S_BumpSamplerState;
+	
+	#ifdef TEXTURE_MASK
+		Texture2D	S_Environment;
+		SamplerState S_EnvironmentSamplerState;
+	#endif
+	
+	#ifdef ENVIRONMENT_REFLECT
+		TextureCube	S_EnvironmentCubeMap;
+		SamplerState S_EnvironmentCubeMapSamplerState;
+	#else
+		#ifdef ENVIRONMENT_REFLECT_MULT
+			TextureCube	S_EnvironmentCubeMap;
+		    SamplerState S_EnvironmentCubeMapSamplerState;;
+		#endif
+	#endif
+	
+	#ifdef CLUSTER_POINT_LIGHT
+		#include "Shadow_Light_Function_PS.inl"
+	#endif
+#endif
+
+#ifdef DISTORT
+ 
+float3 mod289(float3 x)
+{
+    return x - floor(x / 289.0) * 289.0;
+}
+
+float2 mod289(float2 x)
+{
+    return x - floor(x / 289.0) * 289.0;
+}
+
+float3 permute(float3 x)
+{
+    return mod289((x * 34.0 + 1.0) * x);
+}
+
+float3 taylorInvSqrt(float3 r)
+{
+    return 1.79284291400159 - 0.85373472095314 * r;
+}
+
+float snoise(float2 v)
+{
+    const float4 C = float4( 0.211324865405187,  // (3.0-sqrt(3.0))/6.0
+                             0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
+                            -0.577350269189626,  // -1.0 + 2.0 * C.x
+                             0.024390243902439); // 1.0 / 41.0
+    // First corner
+    float2 i  = floor(v + dot(v, C.yy));
+    float2 x0 = v -   i + dot(i, C.xx);
+
+    // Other corners
+    float2 i1;
+    i1.x = step(x0.y, x0.x);
+    i1.y = 1.0 - i1.x;
+
+    // x1 = x0 - i1  + 1.0 * C.xx;
+    // x2 = x0 - 1.0 + 2.0 * C.xx;
+    float2 x1 = x0 + C.xx - i1;
+    float2 x2 = x0 + C.zz;
+
+    // Permutations
+    i = mod289(i); // Avoid truncation effects in permutation
+    float3 p =
+      permute(permute(i.y + float3(0.0, i1.y, 1.0))
+                    + i.x + float3(0.0, i1.x, 1.0));
+
+    float3 m = max(0.5 - float3(dot(x0, x0), dot(x1, x1), dot(x2, x2)), 0.0);
+    m = m * m;
+    m = m * m;
+
+    // Gradients: 41 points uniformly over a line, mapped onto a diamond.
+    // The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
+    float3 x = 2.0 * frac(p * C.www) - 1.0;
+    float3 h = abs(x) - 0.5;
+    float3 ox = floor(x + 0.5);
+    float3 a0 = x - ox;
+
+    // Normalise gradients implicitly by scaling m
+    m *= taylorInvSqrt(a0 * a0 + h * h);
+
+    // Compute final noise value at P
+    float3 g;
+    g.x = a0.x * x0.x + h.x * x0.y;
+    g.y = a0.y * x1.x + h.y * x1.y;
+    g.z = a0.z * x2.x + h.z * x2.y;
+    return 130.0 * dot(m, g);
+}
+
+float3 snoise_grad(float2 v)
+{
+    const float4 C = float4( 0.211324865405187,  // (3.0-sqrt(3.0))/6.0
+                             0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
+                            -0.577350269189626,  // -1.0 + 2.0 * C.x
+                             0.024390243902439); // 1.0 / 41.0
+    // First corner
+    float2 i  = floor(v + dot(v, C.yy));
+    float2 x0 = v -   i + dot(i, C.xx);
+
+    // Other corners
+    float2 i1;
+    i1.x = step(x0.y, x0.x);
+    i1.y = 1.0 - i1.x;
+
+    // x1 = x0 - i1  + 1.0 * C.xx;
+    // x2 = x0 - 1.0 + 2.0 * C.xx;
+    float2 x1 = x0 + C.xx - i1;
+    float2 x2 = x0 + C.zz;
+
+    // Permutations
+    i = mod289(i); // Avoid truncation effects in permutation
+    float3 p =
+      permute(permute(i.y + float3(0.0, i1.y, 1.0))
+                    + i.x + float3(0.0, i1.x, 1.0));
+
+    float3 m = max(0.5 - float3(dot(x0, x0), dot(x1, x1), dot(x2, x2)), 0.0);
+    float3 m2 = m * m;
+    float3 m3 = m2 * m;
+    float3 m4 = m2 * m2;
+
+    // Gradients: 41 points uniformly over a line, mapped onto a diamond.
+    // The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
+    float3 x = 2.0 * frac(p * C.www) - 1.0;
+    float3 h = abs(x) - 0.5;
+    float3 ox = floor(x + 0.5);
+    float3 a0 = x - ox;
+
+    // Normalise gradients
+    float3 norm = taylorInvSqrt(a0 * a0 + h * h);
+    float2 g0 = float2(a0.x, h.x) * norm.x;
+    float2 g1 = float2(a0.y, h.y) * norm.y;
+    float2 g2 = float2(a0.z, h.z) * norm.z;
+
+    // Compute noise and gradient at P
+    float2 grad =
+      -6.0 * m3.x * x0 * dot(x0, g0) + m4.x * g0 +
+      -6.0 * m3.y * x1 * dot(x1, g1) + m4.y * g1 +
+      -6.0 * m3.z * x2 * dot(x2, g2) + m4.z * g2;
+    float3 px = float3(dot(x0, g0), dot(x1, g1), dot(x2, g2));
+    return 130.0 * float3(grad, dot(m4, px));
+}
+#endif
+
+void KajiyaKayPhyDirLighting(
+    //output
+    out half3 finalLighting, out half3 diffuseLighting, out half3 specLighting, out half3 adjustedDiffuse, out half ndl, out half ndh,
+    //input lighting property
+    half3 lightDir, half3 lightColor, 
+    //input
+    half3 normal, half3 tangent, half3 viewDir, half3 diffuseColor, half gloss, half3 specColor, half fresnelFactor, half shadow, 
+	half3 tangentSec, half glossSec, half3 specColorSec)
+{
+    //const preparation
+    half3 h = normalize(lightDir+viewDir);
+	ndh = clamp(dot(normal, h), 0.0001f, 1.0f);
+    ndl = clamp(dot(lightDir, normal), 0.0001f, 1.0f);
+	//lightColor *= ndl;
+
+    half3 spec = 0.0f;
+    spec = KajiyaKaySpec(tangent, h, gloss)*specColor;	
+	spec += KajiyaKaySpec(tangentSec, h, glossSec)*specColorSec;
+
+	float ndotv = max(dot(normalize(normal), normalize(viewDir)), 0.0f);
+    //diffuse calc
+    adjustedDiffuse = diffuseColor * 0.4f;
+    half3 dif = max(0.0f, 0.75f * ndl + 0.25f)*adjustedDiffuse;
+
+    //light calc
+    half3 lighting = shadow*lightColor;
+
+    //final
+    finalLighting = (dif+spec)*lighting;	
+
+    //this code will be optimized if not used
+    diffuseLighting = dif*lighting;
+    specLighting = spec*lighting * ndotv;	
+}
+
+//translate rotate and scale of uv
+//scale range [0, 1]
+//affine.xy : scale
+//affine.zw : translate
+float2 MapUV(in float2 currentUV, in float4 affine, in float rotation)
+{
+	rotation = (rotation - 0.5h) * 90.h;
+
+	float rotateRadians = radians(-rotation);
+	float2x2 rotateMatrix;
+	rotateMatrix[0] = float2(cos(rotateRadians),-sin(rotateRadians));
+	rotateMatrix[1] = float2(sin(rotateRadians),cos(rotateRadians));
+
+	// 平移到左上角
+	float2 result = currentUV - affine.zw;	
+	
+	// 旋转
+	result = mul(rotateMatrix,result);
+
+	// 缩放
+	result = result / affine.xy;
+	result += 0.5f;
+	return result;	
+}
+
+bool UVInRange(in half2 uv)
+{
+	return uv.x >= 0.0h && uv.x <= 1.0h && uv.y >= 0.0h && uv.y <=1.0h;
+}
+
+struct PS_INPUT
+{
+    float4	i_PosInClip			: SV_POSITION;
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 	i_UV				: TEXCOORD0;
+	#endif
+#else
+	float4 	i_UV				: TEXCOORD0;
+	float4 	i_Fog				: TEXCOORD1;
+	float4	i_Normal			: TEXCOORD2;
+	float4	i_WPos				: TEXCOORD3;
+	
+	float4	i_Tangent			: TEXCOORD4;
+	float4	i_Binormal			: TEXCOORD5;
+	float4	i_EyeDir			: TEXCOORD6;
+	#ifdef USESHADOWMAP
+		float	i_ViewSpaceZ	: TEXCOORD7;
+		float3  i_WPosViewBased : TEXCOORD8;
+	#endif
+	
+	#ifdef VERTEX_COLOR
+		float4	i_Diffuse		: COLOR0;
+	#endif
+	#ifdef MOTIONBLUR
+		float4  i_VelUV     : TEXCOORD15;
+	#endif
+#endif
+#ifdef PARABOLOID_MAPPING
+	float	i_ClipDepth			: TEXCOORD12;
+#endif
+	float4  i_PosInModel	: TEXCOORD13;
+	float4  i_BoundBoxRange     : TEXCOORD14;
+};
+
+struct PS_OUTPUT
+{
+#ifndef SHADOWPASS
+	float4 color : SV_TARGET;
+#endif
+};
+
+PS_OUTPUT main(PS_INPUT IN, bool isFrontFacing : SV_IsFrontFace)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+#ifdef PARABOLOID_MAPPING
+	clip(IN.i_ClipDepth);
+#endif
+	
+
+#ifdef SHADOWPASS
+	#ifdef ALPHA_TEST
+		float4 color = texDiffuse(IN.i_UV.xy);
+		clip(color.a - U_MaterialDiffuse.a);
+	#endif
+#else
+	#ifdef MOTIONBLUR
+		float2 vQX = IN.i_VelUV.xy;
+	
+		float fLenQX = length(vQX);
+		vQX /= (fLenQX+0.01f);
+		float fWeight = max(0.5f, min(fLenQX, 20.0f));
+		vQX *= fWeight;
+		psOut.color.xy = vQX;
+		return psOut;
+	#endif
+	float2 uv = IN.i_UV.xy;
+	
+
+	#ifdef DISTORT
+		float _distortAmtMin = U_PSGeneralRegister3.y;
+		float _distortAmtMax = U_PSGeneralRegister9.x;
+		float _distortAmtPre = U_PSGeneralRegister9.y;
+		float _distortAmt = lerp(_distortAmtMin, _distortAmtMax, _distortAmtPre);
+		float _distortScaleMin = U_PSGeneralRegister3.z;
+		float _distortScaleMax = U_PSGeneralRegister9.z;
+		float _distortScalePre = U_PSGeneralRegister9.w;
+		float _distortScale = lerp(_distortScaleMin, _distortScaleMax, _distortScalePre);
+		float _distortSpeed = U_PSGeneralRegister3.x;
+		float Time = U_PS_Time.z;
+ 
+		float noise = snoise(uv * _distortScale + float2(Time *_distortSpeed, - Time *_distortSpeed));
+		
+		uv += noise * _distortAmt;
+		uv.x = IN.i_UV.x;
+	#endif
+	#ifdef UV_TRANSFORM
+		//perform transform before sample
+		uv = MapUV(uv, U_PSGeneralRegister11, U_PSGeneralRegister12.x);
+	#endif
+	bool uvInRange = UVInRange(uv);
+	half4 diffuseColor = S_Diffuse.Sample(S_DiffuseSamplerState, uv);
+	diffuseColor = uvInRange ? diffuseColor : 0.0h;
+	
+	#ifdef VERTEX_COLOR
+		diffuseColor.xyz *= (IN.i_Diffuse.rgb * U_PSGeneralRegister10.z);
+	#endif
+
+	#ifdef ALPHA_TEST
+		clip(diffuseColor.a - U_MaterialDiffuse.a);
+		diffuseColor.a = 1.0;
+	#endif
+	
+	#ifdef EMISSIVE
+		half4 diffuseColor2 = diffuseColor;
+	#endif
+	
+	diffuseColor.a += U_PSGeneralRegister8.w;
+	diffuseColor.a = max(0.0, diffuseColor.a);
+
+	half3 normal = normalize(IN.i_Normal.xyz);
+	
+	normal *= sign(isFrontFacing ? 1.0 : -1.0);
+
+	#ifdef USESHADOWMAP
+		float4 shadowSpacePos[SHADOWSPLITE];
+		ProjectToLightSpaceCameraBase(shadowSpacePos, IN.i_WPosViewBased, normal, IN.i_ViewSpaceZ);
+	#endif
+
+	half3 nn = normal;
+	half3 tn = normalize(IN.i_Tangent.xyz);
+	half3 bn = normalize(IN.i_Binormal.xyz);
+    
+	tn = normalize(tn - nn * dot(tn, nn));
+	bn = normalize(bn - nn * dot(bn, nn));
+
+    float3 geometryNormal = normalize(IN.i_Normal.xyz);
+    geometryNormal *= sign(isFrontFacing ? 1.0 :-1.0);
+
+	half3x3 tbn = 
+	{
+		tn.x, bn.x, nn.x,
+		tn.y, bn.y, nn.y,
+		tn.z, bn.z, nn.z 
+	};
+	
+	half4 bumpColor = S_Bump.Sample(S_BumpSamplerState, uv);
+	bumpColor = uvInRange ? bumpColor : 0.0h;
+
+	half3 bump = half3(0.0, 0.0, 1.0);
+	bump.xy = bumpColor.xy * 2.0 - 1.0;
+	bump.z = 1.0h;
+
+	normal = normalize(mul(tbn, bump));
+
+	half shiftAmount = bumpColor.b;
+
+	half3 specularColor = U_MaterialSpecular.rgb;
+		
+	half glossiness = U_MaterialFresnel.z;
+	half reflectSpecular = 1.0f;
+	
+	#ifdef SPECULAR_MAP
+		half4 specularMap = S_Specular.Sample(S_SpecularSamplerState, uv);
+		float specularOffset = U_LightPower.y;
+		half3 specularColorOffset = half3(U_LightPower.y*0.3f, U_LightPower.y*0.3f, U_LightPower.y*0.3f);
+		
+		specularMap.rgb = pow(specularMap.rgb, 2.2);
+		
+		specularColorOffset += specularMap.rgb*U_PSGeneralRegister3.w;
+		specularOffset += specularMap.w;
+		specularOffset = clamp(specularOffset, 0, 1.0);
+		specularColorOffset = clamp(specularColorOffset, 0, 1.0);
+		
+		specularColor *= specularColorOffset;
+		glossiness *= specularOffset;
+		reflectSpecular = specularOffset;
+	#endif
+
+	glossiness += 1e-6;
+	
+    half3 T = lerp(bn, tn, U_PSGeneralRegister6.w);
+	float ndl, ndh;
+	half3 specTangent = normalize(T + normal * (shiftAmount - 0.5f + U_PSGeneralRegister1.y));
+	half3 specTangentSec = normalize(T + normal * (shiftAmount - 0.5f + U_PSGeneralRegister1.z));
+
+	float glossSec = U_PSGeneralRegister1.w;
+	
+
+	half3 viewDir = normalize(IN.i_EyeDir.xyz);
+	half3 mainLightDir = -U_MainLightDirection.xyz;
+	// half3 auxiliaryLightDir = -U_AuxiliaryLightDirection.xyz;
+	
+	half3 cDiffuse = 0.0f;
+	half3 cSpecular = 0.0f;
+	half3 cDiffuseMain = 0.0f;
+	half3 cSpecularMain = 0.0f;
+	half3 finalLighting = 0.0f;
+	half3 adjustDiffuse = 0.0f;
+	
+	diffuseColor.rgb = pow(diffuseColor.rgb, 2.2);
+	diffuseColor.rgb *= U_MaterialDiffuse.rgb;
+
+	#ifdef TEXTURE_MASK
+		half4 mask = S_Environment.Sample(S_EnvironmentSamplerState, uv);
+		half3 colorR = pow(U_PSGeneralRegister6.rgb, 2.2) * mask.r;
+		half3 colorG = pow(U_PSGeneralRegister4.rgb, 2.2) * mask.g;
+		half3 colorB = pow(U_PSGeneralRegister5.rgb, 2.2) * mask.b;
+		half3 colorA = pow(U_PSGeneralRegister7.rgb, 2.2) * mask.a;
+		float f = min(mask.r + mask.g + mask.b + mask.a, 1.0);
+		half3 colorF = colorR + colorG + colorB + colorA;
+		diffuseColor.rgb = lerp(diffuseColor.rgb, diffuseColor.rgb * colorF, f);
+		specularColor = specularColor.rgb + colorF * U_PSGeneralRegister7.w;
+	#endif
+	half3 specColorSec = specularColor* U_PSGeneralRegister2.xyz;
+	
+	#ifdef COVER_WEATHER
+		float coverLerp = dot(normal, U_PS_GravityDirection.xyz);
+		coverLerp += U_PSGeneralRegister8.x;
+		coverLerp = clamp(coverLerp, 0.0, 1.0);
+		
+		half3 coverMap = U_WeatherParam0.xyz;
+		coverLerp *= U_WeatherParam0.w * (1.0 - U_PSGeneralRegister30.x);
+		
+		float r = U_WeatherParam1.x;
+		glossiness = lerp(glossiness, r * 1024.0, coverLerp);
+		glossSec = lerp(glossSec, r * 1024.0, coverLerp);
+		diffuseColor.rgb = lerp(diffuseColor.rgb, coverMap, coverLerp);
+		float m = U_WeatherParam1.y;
+		//metallic = lerp(0.1, m, coverLerp);
+		half3 weatherspecular = coverMap * m;
+
+    float maskRes = 1.0;
+	// #define CUBE_RANGE
+	#ifndef CUBE_RANGE
+		float4 tsPos = U_CoverColorParams;
+		// float3 tsPos = float3(-30.04, 11.98, 123.71);
+		float dist = length(IN.i_WPos.xz - tsPos.xz);
+		maskRes = smoothstep(tsPos.w - 1.0f, tsPos.w, dist);
+		// maskRes = 1.0 - maskRes;
+	#else
+		float rectSize = 20.0f;
+		float2 halfSize = rectSize * 0.5;
+		float4 tsPos = U_CoverColorParams;
+		// Calculate the distance to the nearest edge of the rectangle
+		float2 distToEdge = abs(IN.i_WPos.xz - tsPos.xz) - halfSize;
+
+		// Use length function to determine if the point is within the rectangle boundaries
+		maskRes = length(max(distToEdge, 0.0));
+		maskRes = clamp(maskRes, 0.0, 1.0);
+		// maskRes = 1.0 - maskRes;
+	#endif
+		coverLerp *= maskRes;
+		specularColor = lerp(specularColor, weatherspecular, coverLerp);
+		specColorSec = lerp(specColorSec, weatherspecular, coverLerp);
+	#endif
+	
+	half3 grayColor = diffuseColor.rgb * half3(0.333, 0.333, 0.333);
+	grayColor.rgb = grayColor.r + grayColor.g + grayColor.b;
+	diffuseColor.rgb = lerp(diffuseColor.rgb,grayColor,U_MaterialCustomParam.x);	
+	
+	
+	half4 mainLightColor   = 0.0;
+	half4 skyLightColor    = 0.0;
+	half4 groundLightColor = 0.0;
+	half  blendThreshold   = 0.0;
+	half viewLightPercent  = 0.0;
+	#ifdef ALONE_ROLE_LIGHT
+		mainLightColor   = U_RoleMainLightColor;
+		skyLightColor    = U_RoleSkyLightColor;
+		groundLightColor = U_RoleGroundLightColor;
+		blendThreshold   = U_PS_AmbientBlendThreshold.z;
+		viewLightPercent = U_PS_ViewLightPercent.y;
+	#else
+		mainLightColor   = U_PBR_MainLightColor;
+		skyLightColor    = U_PBR_SkyLightColor;
+		groundLightColor = U_PBR_GroundLightColor;
+		blendThreshold   = U_PS_AmbientBlendThreshold.y;
+		viewLightPercent = U_PS_ViewLightPercent.x;
+	#endif
+    float NoL = clamp(dot(mainLightDir, normal), 0.0001f, 1.0f);
+
+	KajiyaKayPhyDirLighting(
+		//output
+		finalLighting, cDiffuseMain, cSpecularMain, adjustDiffuse, ndl, ndh,
+		//light property
+		mainLightDir, mainLightColor.xyz * (1.0 - viewLightPercent) * NoL,
+		//material property
+		normal, specTangent, viewDir.xyz, diffuseColor.xyz, glossiness, specularColor, 1.0f, 1.0f, 
+		specTangentSec, glossSec, specColorSec
+		);
+
+    half3 specLighting2 = 0.0;
+    
+	KajiyaKayPhyDirLighting(
+		//output
+		finalLighting, cDiffuseMain, specLighting2, adjustDiffuse, ndl, ndh,
+		//light property
+		-U_PS_ViewDirection.xyz, mainLightColor.xyz * viewLightPercent * (1.0 - NoL),
+		//material property
+		normal, specTangent, viewDir.xyz, diffuseColor.xyz, glossiness, specularColor, 1.0f, 1.0f, 
+		specTangentSec, glossSec, specColorSec
+		);
+
+	// cSpecularMain *= clamp(mainLightColor.a,0.0f,1.5f);
+	half3 colorMain = cDiffuseMain + cSpecularMain;
+    float rim1 = dot(viewDir, geometryNormal);
+    rim1 = max(rim1, 1e-3);
+    float rim2 = -log2(U_PSGeneralRegister10.x * rim1);
+    rim1 = rim2;
+    rim1 *= 1.0;
+    rim1 = max(rim1, 0.0);
+	
+    float u = dot(mainLightDir, normalize(viewDir + mainLightDir));
+    float fff = pow(1.0 - u, 5.0);
+    float f0_hair = 0.0;
+    float3 Fr = fff + f0_hair * (1.0 - fff);
+
+	float3 rimRes = rim1 * mainLightColor.xyz * float4(viewLightPercent, 0.0, 0.0, 0.0) * Fr * U_PSGeneralRegister10.y;
+    //colorMain = cDiffuseMain + rimRes;
+    colorMain += rimRes;
+	#ifdef USESHADOWMAP
+		float shadowFactor = calcShadowFactor(
+			shadowSpacePos, 
+			IN.i_ViewSpaceZ);
+
+		shadowFactor = min(shadowFactor, 1.0);
+		colorMain *= shadowFactor;
+	#endif
+	
+	colorMain += specLighting2;
+	
+	//half3 secondskyKajiyadiff = 0.0f;
+	//half3 secondskyKajiyaSpec = 0.0f;
+	//half3 secondskyResult = 0.0f;
+	//half3 secondViewDir =-U_PS_ViewDirection.xyz;
+	//float secondskyNdl,secondskyNdh;
+	//KajiyaKayPhyDirLighting(
+	//	secondskyResult, secondskyKajiyadiff, secondskyKajiyaSpec, adjustDiffuse, secondskyNdl, secondskyNdh,
+	//	secondViewDir, mainLightColor.xyz * 0.2, 
+	//	//material property
+	//	normal, specTangent, viewDir.xyz, diffuseColor.xyz, glossiness, specularColor, 1.0f, 1.0f, 
+	//	specTangentSec, glossSec, specColorSec
+	//	);
+	
+	//cDiffuse += secondskyKajiyadiff;
+	//cSpecular += secondskyKajiyaSpec;
+
+	//finalLighting += skyResult;
+	
+	half3 ambientColor = ComputeAmbientLight(skyLightColor.xyz, groundLightColor.xyz, normal, blendThreshold, U_PS_GravityDirection.xyz);
+	half3 cDiffuseAcc = 0;
+	half3 cSpecularAcc = 0;
+
+	half3 envColor =  CalculateDiffuseEnvColor(
+							normal, 
+							diffuseColor.xyz, 
+							0.0, 
+							1.0, // prebaked diffuse ao, 应美术要求该参数应用到整个光照里, 环境光不再计算该参数
+							U_PBR_RMatrix, 
+							U_PBR_GMatrix, 
+							U_PBR_BMatrix,
+	    	    		    0.0); // 环境光旋转，目前默认填0，将来有空配置到场景或者区域里
+
+#ifdef CLUSTER_POINT_LIGHT
+		PointLightAndSpecularOutput shadowLightResult = 
+			calculateShadowPointLightAndSpecularByHair(IN.i_WPos, normal, viewDir,
+				specTangent, specTangentSec, specularColor, specColorSec, glossiness);
+		cDiffuseAcc += shadowLightResult.color;
+		cSpecularAcc += shadowLightResult.specular;
+	
+        PointLightAndSpecularOutput lightResult = 
+            calculateClusterPointLightAndSpecularByHair(IN.i_PosInClip,
+                                                  IN.i_WPos,
+                                                  normal,
+												  specTangent,
+												  specTangentSec,
+												  specularColor,
+												  specColorSec,
+                                                  glossiness,
+                                                  viewDir);
+        cDiffuseAcc += lightResult.color;
+        cSpecularAcc += lightResult.specular;
+#endif
+ 
+	cDiffuse += (cDiffuseAcc + envColor * ambientColor) * diffuseColor.rgb;
+	
+	cSpecular +=  cSpecularAcc * U_MaterialFresnel.w* specularColor.rgb ; //U_PBR_MainLightColor.a is Global Specular Ratio 
+	
+	// cSpecular *= clamp(mainLightColor.a,0.0f,1.5f);
+	
+	//Rim Lighting
+	half rimPower = U_PSGeneralRegister2.w;
+	float rimLightIntensity = pow(max(dot(viewDir, geometryNormal), 1e-6), rimPower);
+	rimLightIntensity = pow(saturate(dot(viewDir, -mainLightDir)), rimPower) * (1.0 - rimLightIntensity) * (1.0 - rimLightIntensity);
+
+	float3 rimLight = rimLightIntensity * mainLightColor.rgb;
+
+	float NdotL = max(dot(-geometryNormal, mainLightDir), 1e-6);
+	rimLight *= NdotL;
+
+	psOut.color.rgb = cSpecular + cDiffuse + colorMain.rgb;
+	
+	// #ifdef VERTEX_COLOR
+	// 	psOut.color.rgb *= IN.i_Diffuse.rgb;
+	// #endif
+	
+	#ifdef ENVIRONMENT_REFLECT		
+		half4 refl;
+		refl.xyz = reflect(-viewDir, normal);
+		refl.z = -refl.z;
+		refl.w = U_PSGeneralRegister5.w;
+		half3 reflColor = U_PSGeneralRegister4.w * S_EnvironmentCubeMap.SampleLevel(S_EnvironmentCubeMapSamplerState, refl.xyz,refl.w).rgb;
+		psOut.color.rgb += reflColor * reflectSpecular;
+	#else
+		#ifdef ENVIRONMENT_REFLECT_MULT
+			half4 refl;
+			refl.xyz = reflect(-viewDir, normal);
+			refl.z = - refl.z;
+			refl.w = U_PSGeneralRegister5.w;
+			half3 reflColor = U_PSGeneralRegister4.w * S_EnvironmentCubeMap.SampleLevel(S_EnvironmentCubeMapSamplerState, refl.xyz,refl.w).rgb;
+			psOut.color.rgb *= reflColor * reflectSpecular;
+		#endif
+	#endif
+	
+	#ifdef EMISSIVE
+		half3 missiveColor = diffuseColor2.rgb * U_PSGeneralRegister0.xyz * diffuseColor.a;
+		half3 minMissiveColor = missiveColor * U_PSGeneralRegister0.w;
+
+		#ifdef TOD_EMISSIVE
+			half todFactor = U_LightPower.x;		
+			
+			#ifdef DYNAMIC_EMISSIVE
+				half3 maxMissiveColor = missiveColor * U_PSGeneralRegister1.x;
+				half factor = U_MaterialSpecular.w;	
+				psOut.color.rgb += lerp(minMissiveColor, maxMissiveColor, half3(factor, factor, factor)) * todFactor;
+			#else
+				psOut.color.rgb += minMissiveColor * todFactor;
+			#endif
+		#else
+		
+			#ifdef DYNAMIC_EMISSIVE
+				half3 maxMissiveColor = missiveColor * U_PSGeneralRegister1.x;
+				half factor = U_MaterialSpecular.w;	
+				psOut.color.rgb += lerp(minMissiveColor, maxMissiveColor, half3(factor, factor, factor));
+			#else
+				psOut.color.rgb += minMissiveColor;
+			#endif
+			
+		#endif
+		
+	#endif	
+	
+	psOut.color.rgb *= U_MaterialCustomParam1.x;
+
+	{
+		//dither discard
+		if(ComputeDitherCullMask(IN.i_PosInClip.xy,U_MaterialCustomParam1.y,U_MaterialCustomParam1.z))
+			discard;
+
+		bool needDiscard = ComputeBitmapCullMask(U_PSGeneralRegister29, IN.i_BoundBoxRange, 
+		U_MaterialCustomParam1.z, IN.i_PosInModel.xyz, IN.i_PosInClip.xyz);
+		if(needDiscard)
+			discard;
+	}
+
+	#ifdef DISSOLVE
+		float dissolve_val = U_MaterialFresnel.y;
+		float3 dissolve_edge_color = U_PSGeneralRegister31.xyz;     
+		float dissolve_color_strength = U_PSGeneralRegister31.w;    
+		float dissolve_tilling_u = U_PSGeneralRegister32.x;
+		float dissolve_tilling_v = U_PSGeneralRegister32.y;
+		float dissolve_edge_width = U_PSGeneralRegister32.z;
+		float dissolve_soft_value = U_PSGeneralRegister32.w;
+		//float dissolve_rolling_u = 0.0;
+		//float dissolve_rolling_v = 0.0;
+		float dissolve_rotate_angle = 0.0;
+
+		float dissolve_offset_u = 0.0f; //dissolve_rolling_u * U_PS_Time.x;
+		float dissolve_offset_v = 0.0f; //dissolve_rolling_v * U_PS_Time.x;
+		dissolve_rotate_angle   = 0.0f; //radians(dissolve_rotate_angle);
+
+		float2 dissolve_uv = cal_uv(uv,dissolve_tilling_u,dissolve_tilling_v,dissolve_offset_u,dissolve_offset_v,dissolve_rotate_angle);
+		float dissolve_noise = texSample2D(S_Custom7,dissolve_uv,S_Custom7SamplerState).a;
+		clip(dissolve_noise - dissolve_val);
+
+		//2 2 2 2 2 2 2
+		//2 1 1 1 1 1 2
+		//2 1 0 0 0 1 2
+		//2 1 0 0 0 1 2
+		//2 1 1 1 1 1 2
+		//2 2 2 2 2 2 2  
+
+		//0所在区域为溶解区域，1所在为接近溶解的临界边缘dissolve_val，2为远离溶解的临界边缘edge_max_val
+		
+		float edge_max_val =  dissolve_val + dissolve_edge_width;
+		float edge_val_01 = smoothstep(dissolve_val, edge_max_val, dissolve_noise);
+		float dissolve_switch =	step(0.00001f, dissolve_val);
+		float3 final_edge_color = dissolve_switch * dissolve_edge_color * dissolve_color_strength * (1.0 - edge_val_01);
+		
+		float dissolve_soft_max_val = dissolve_val + dissolve_soft_value;
+		float dissolve_soft_val_01 = smoothstep(dissolve_val, dissolve_soft_max_val, dissolve_noise);
+		diffuseColor.a = lerp(diffuseColor.a, diffuseColor.a * dissolve_soft_val_01, dissolve_switch);
+
+		psOut.color.rgb += final_edge_color;
+	#endif // DISSOLVE
+
+	psOut.color.rgb = psOut.color.rgb * IN.i_Fog.a + IN.i_Fog.rgb;
+	psOut.color.rgb = pow(psOut.color.rgb, 1.0 / 2.2);
+
+	// Note: our mainRT is marked as linear color space, but we are writting sRGB color into it. 
+	// and spherical fog post process uses alpha blend to blend fog color and scene color.
+	// So the final result is a linear interpolation of sRGB format scene color and sRGB format fog color. 
+	// So when it comes to transparent objects, we also transform scene color and fog color to sRGB space and do linear interpolation.
+	float4 sphFog = ComputeSphFogBlocked(
+		IN.i_WPos.xyz,
+		U_PS_CameraPosition.xyz,
+		-viewDir,
+		IN.i_PosInClip.xy
+	);
+	psOut.color.rgb = lerp(psOut.color.rgb, sphFog.rgb, sphFog.a);
+
+	psOut.color.a = diffuseColor.a*(1.0 - U_PSGeneralRegister12.y);
+
+	#ifdef EditorHelp
+		psOut.color.rgb = psOut.color.rgb * 0.00001 + float3(1.0,0.0,0.0);
+		psOut.color.a = 1.0;
+	#endif
+	#ifdef EDITOR_MODE
+		if(U_MaterialCustomParam.w > 0)
+			psOut.color.rgb = U_MaterialCustomParam.xyz;
+		
+	#endif
+	float overdrawlerp = ceil(U_PS_Time.w);
+	psOut.color = psOut.color * (1.0 - overdrawlerp) + float4(U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, U_PS_Time.w * overdrawlerp, overdrawlerp);
+#endif
+	return psOut;
+}

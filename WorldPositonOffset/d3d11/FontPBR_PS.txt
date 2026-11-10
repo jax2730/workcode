@@ -1,0 +1,284 @@
+#include <Common_Uniform_PS.inl>
+#include <Common_ShadowProjection.inl>
+#include <Common_ShadowFiltering.inl>
+#include <Light_Function_PS.inl>
+#ifdef CLUSTER_POINT_LIGHT
+	#include "Shadow_Light_Function_PS.inl"
+#endif
+
+#ifdef SHADOWPASS
+	void main(
+		float4	i_PosInClip			: SV_POSITION,
+	#ifdef PARABOLOID_MAPPING
+		float	i_ClipDepth			: TEXCOORD12,
+	#endif
+		bool isFrontFacing : SV_IsFrontFace)
+	{
+	#ifdef PARABOLOID_MAPPING
+		clip(i_ClipDepth);
+	#endif
+		return;
+	}
+	
+#else
+
+	#ifdef MIXED_MAP
+		#undef PBR_METAL
+		#undef PBR_ROUGHNESS
+	#endif
+
+	Texture2D S_Diffuse;
+	SamplerState S_DiffuseSamplerState;
+	Texture2D S_Custom7;
+	SamplerState S_Custom7SamplerState;
+	#ifdef MIXED_MAP
+		Texture2D S_Specular;
+		SamplerState S_SpecularSamplerState;
+	#endif
+
+	uniform float4	U_MaterialDiffuse;
+	uniform float4	U_MaterialFresnel;
+	uniform float4	U_MaterialSpecular;
+
+	uniform float4	U_PSGeneralRegister0;	// x: roughness base,  y: bump scale,  z: wet  w: view light precent
+	#if defined(COVER_CUSTOM) || defined(COVER_WEATHER)
+		uniform float4	U_PSGeneralRegister1;	// a: weather cover range
+	#endif
+	uniform float4	U_PSGeneralRegister4;	// texture mask r color
+	uniform float4  U_PSGeneralRegister15;	// x: aging factor, y: weather cover factor
+	//uniform float4	U_PSGeneralRegister16;	// paint color
+	
+	uniform float4	U_PSGeneralRegister5;
+	uniform float4	U_PSGeneralRegister6;
+
+	#ifdef COVER_CUSTOM
+		uniform Texture2D S_Custom3;
+		SamplerState S_Custom3SamplerState;
+	#endif
+	
+	uniform float4	U_LightPower;
+	uniform float4	U_PSGeneralRegister30;
+
+	float3 fresnelSchlick(float cosTheta, float3 F0)
+	{
+		return F0 + (1.0-F0) * pow(1.0-cosTheta, 5.0);
+	}
+
+	float distributionGGX(float3 N, float3 H, float roughness)
+	{
+		float a = roughness * roughness;
+		float a2 = a * a;
+		float NdotH = max(dot(N, H), 0.0);
+		float NdotH2 = NdotH * NdotH;
+		float nom = a2;
+		float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+		denom = 3.141592654 * denom * denom;
+		denom = max(denom, 0.00001);
+		return nom / denom;
+	}
+
+	float geometrySchlickGGX(float NdotV, float roughness)
+	{
+		float r = roughness + 1.0;
+		float k = (r * r) / 8.0;
+		
+		float nom = NdotV;
+		float denom = NdotV * (1.0 - k) + k;
+		
+		return nom / denom;
+	}
+
+	float geometrySmith(float3 N, float3 V, float3 L, float roughness)
+	{
+		float NdotV = max(dot(N, V), 0.0);
+		float NdotL = max(dot(N, L), 0.0);
+		float ggx2 = geometrySchlickGGX(NdotV, roughness);
+		float ggx1 = geometrySchlickGGX(NdotL, roughness);
+		
+		return ggx2 * ggx1;
+	}
+
+	float3 envBRDFApprox(float3 specularColor, float roughness, float NoV)
+	{
+		float4 c0 = float4(-1.0,	-0.0275,	-0.572,		0.022);
+		float4 c1 = float4(1.0,		0.0425,		1.04,		-0.04);
+		
+		float4 r = roughness * c0 + c1;
+		float a004 = min(r.x * r.x, exp2(-9.28 * NoV)) * r.x + r.y;
+		float2 AB = float2(-1.04, 1.04) * a004 + r.zw;
+		return specularColor * AB.x + AB.y;
+	}
+	
+	//float4 srcSizeBias				源结束UV和开始UV
+	//float4 destSizeBias			目标结束UV和开始UV
+
+	float2 GetOffsetUV( float2 uv, float4 srcSizeBias , float4 destSizeBias)
+	{
+		float2 srcBias = float2(srcSizeBias.z, srcSizeBias.w);
+		float2 srcScale = float2(srcSizeBias.x - srcSizeBias.z, srcSizeBias.y - srcSizeBias.w);
+		srcScale.x = max(0.0001, srcScale.x);
+		srcScale.y = max(0.0001, srcScale.y);
+		
+		float2 destScale = float2(destSizeBias.x - destSizeBias.z, destSizeBias.y - destSizeBias.w);
+		
+		srcScale = 1.0 / srcScale;
+		
+		float2 tUv = uv - srcBias;
+		tUv *= srcScale;
+		tUv = destSizeBias.zw + tUv * destScale;
+	
+		return tUv;
+	}
+
+    //float3 envBRDFApprox(float3 specularColor, float roughness, float NoV)
+    //{
+    //   return pow(1.0f-max(roughness,NoV),3.f)+specularColor;
+    //}
+    struct PS_INPUT
+	{
+	    float4	i_PosInClip			: SV_POSITION;
+		float4 	i_UV				: TEXCOORD0;	// w: View Space Z for USESHADOWMAP
+		float4 	i_Fog				: TEXCOORD1;
+		float4	i_WNormal			: TEXCOORD2;
+		float4	i_WPos				: TEXCOORD3;
+		float4	i_Tangent			: TEXCOORD4;
+		float4	i_Binormal			: TEXCOORD5;
+		float4	i_ViewDir			: TEXCOORD6;
+	#ifdef PARABOLOID_MAPPING
+		float	i_ClipDepth			: TEXCOORD12;
+	#endif
+};
+
+	struct PS_OUTPUT
+	{
+		float4 color : SV_TARGET;
+	};
+	
+	PS_OUTPUT main(PS_INPUT IN,bool isFrontFacing : SV_IsFrontFace)
+	{
+	    PS_OUTPUT psOut = (PS_OUTPUT)0;
+		
+	#ifdef PARABOLOID_MAPPING
+		clip(IN.i_ClipDepth);
+	#endif
+
+		psOut.color = float4(0.0f, 0.0f, 0.0f, 0.0f);
+		float4 cMatDiffuse = U_MaterialDiffuse;
+
+		float dissolveAlpha = S_Custom7.Sample(S_Custom7SamplerState, IN.i_UV.xy).a;
+        clip(dissolveAlpha-U_MaterialFresnel.y);
+
+		float fRoughnessBase = U_PSGeneralRegister0.x;
+
+		float4 cTexDiffuse = float4(0.0f, 0.0f, 0.0f, 1.0f);
+		//float2 tempUV = GetOffsetUV(IN.i_UV.xy, float4(1.0, 1.0, 0.0, 0.0), U_PSGeneralRegister16);
+		cTexDiffuse = S_Diffuse.Sample(S_DiffuseSamplerState, IN.i_UV.xy);
+
+		float3 cBaseDiffuse = pow(U_PSGeneralRegister4.rgb, float3(2.2f,2.2f,2.2f));
+
+		// Normal map
+		float3 N = normalize(IN.i_WNormal.xyz);
+
+	#ifdef USESHADOWMAP
+		float4 shadowSpacePos[SHADOWSPLITE];
+		ProjectToLightSpace(shadowSpacePos, IN.i_WPos.xyz, N, IN.i_UV.w);
+	#endif
+
+	#if defined(COVER_CUSTOM) || defined(COVER_WEATHER)
+		float fCoverLerp = dot(N, U_PS_GravityDirection.xyz);
+
+		fCoverLerp = clamp(fCoverLerp + U_PSGeneralRegister1.w, 0.0f, 1.0f);
+		fCoverLerp *= U_PSGeneralRegister15.y;
+	#endif
+
+	#ifdef COVER_CUSTOM
+		float4 cTexCover = S_Custom3.Sample(S_Custom3SamplerState, IN.i_UV.xy);
+		cTexCover.rgb = pow(cTexCover.rgb, float3(2.2f, 2.2f, 2.2f));
+		cBaseDiffuse = lerp(cBaseDiffuse, cTexCover.rgb, fCoverLerp);
+	#endif
+
+	#ifdef COVER_WEATHER
+		fCoverLerp *= U_WeatherParam0.w * (1.0 - U_PSGeneralRegister30.x);
+		cBaseDiffuse = lerp(cBaseDiffuse, U_WeatherParam0.rgb, fCoverLerp);
+	#endif
+
+		float metallic = 1.0f;
+		float roughness = 0.0001f;
+		float ao = 1.0f;
+
+	#ifdef MIXED_MAP
+		float4 cTexSpec = float4(0.0f, 0.0f, 0.0f, 0.0f);
+		cTexSpec = S_Specular.Sample(S_SpecularSamplerState, IN.i_UV.xy);
+		metallic = cTexSpec.r;
+		roughness = clamp(cTexSpec.g + fRoughnessBase, 0.0f, 1.0f);
+		ao = cTexSpec.b;
+	#else
+		#ifdef PBR_METAL
+			metallic = 1.0f;
+		#else
+			metallic = 0.0f;
+		#endif
+		#ifdef PBR_ROUGHNESS
+			ao = 1.0f;
+			roughness = fRoughnessBase;
+		#endif
+		roughness = clamp(roughness + fRoughnessBase, 0.0, 1.0);
+	#endif
+
+		float3 albedo = cBaseDiffuse.rgb * (1.0f - metallic);
+		float3 specularColor = lerp(float3(0.04f, 0.04f, 0.04f), cBaseDiffuse.rgb, metallic);
+
+		float3 L = -U_MainLightDirection.xyz;
+		float3 V = normalize(IN.i_ViewDir.xyz);
+		psOut.color.rgb += calculateLightPower(N, V, L, U_PBR_MainLightColor.rgb * float3(0.95f,0.95f,0.95f), cBaseDiffuse.rgb, roughness, metallic);
+		psOut.color.rgb *= cMatDiffuse.rgb;
+
+	#ifdef USESHADOWMAP
+		float shadowFactor = calcShadowFactor(
+			shadowSpacePos, 
+			IN.i_UV.w);
+			
+		shadowFactor = min(shadowFactor, 1.0);	
+		psOut.color.rgb *= shadowfactor;
+	#endif
+
+#ifdef CLUSTER_POINT_LIGHT
+		psOut.color.rgb += calculateShadowPBRPointLight(IN.i_WPos, N, V, cBaseDiffuse.rbg, roughness, metallic);
+
+        float3 clusterLightColor = 
+            calculateClusterPBRPointLight(IN.i_PosInClip.xy,
+                                          IN.i_WPos.xyz,
+                                          N,
+                                          V,
+                                          cBaseDiffuse.rgb,
+                                          roughness,
+                                          metallic);
+        psOut.color.rgb += clusterLightColor;        
+#endif
+
+	
+	#ifdef EMISSIVE
+		half3 misColor = U_PSGeneralRegister5.xyz;
+
+		half3 minMissiveColor = misColor * U_PSGeneralRegister5.w;
+		half todFactor = lerp(1.0, U_LightPower.x, U_PSGeneralRegister6.y);
+		half3 maxMissiveColor = misColor * U_PSGeneralRegister6.x;
+		half factor = U_MaterialSpecular.w;	
+		psOut.color.rgb += lerp(minMissiveColor, lerp(minMissiveColor, maxMissiveColor, half3(factor, factor, factor)), U_PSGeneralRegister6.z) * todFactor;
+	#endif
+
+		float3 envBRDF = envBRDFApprox(specularColor, roughness, max(dot(N, V), 0.0f));
+		
+		float fNY = clamp(N.y * 0.5f + 0.5f, 0.0001f, 1.0f);
+		float3 ambientColor = lerp(U_PBR_GroundLightColor.rgb, U_PBR_SkyLightColor.rgb, fNY);
+
+		psOut.color.rgb += (albedo + envBRDF) * ambientColor;
+		psOut.color.rgb *= ao;
+
+		psOut.color.rgb = psOut.color.rgb * IN.i_Fog.a + IN.i_Fog.rgb;
+		psOut.color.rgb = pow(psOut.color.rgb, 1.0 / 2.2);
+		psOut.color.a = cTexDiffuse.a;
+		
+		return psOut;
+	}
+#endif

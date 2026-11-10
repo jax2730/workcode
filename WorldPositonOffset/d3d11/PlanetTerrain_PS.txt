@@ -1,0 +1,170 @@
+#include <Common_Uniform_PS.inl>
+
+struct PS_INPUT
+{
+    float4 i_Position	: SV_POSITION;
+    float3 i_normal : NORMAL0;
+    float3 i_texcoord : TEXCOORD0;
+    float2 i_texcoord1 : TEXCOORD1;
+};
+
+struct PS_OUTPUT
+{
+	float4 color : SV_TARGET;
+};
+
+float4 U_PSCustom0;
+#define BiomeDisplayMode U_PSCustom0.x
+
+Texture2D	S_Diffuse;
+SamplerState S_DiffuseSamplerState;
+float4 texTemperature(float2 vUV)
+{
+    return S_Diffuse.Sample(S_DiffuseSamplerState, vUV);
+}
+
+Texture2D	S_Specular;
+SamplerState S_SpecularSamplerState;
+float4 texHumidity(float2 vUV)
+{
+    return S_Specular.Sample(S_SpecularSamplerState, vUV);
+}
+
+Texture2D	S_Bump;
+SamplerState S_BumpSamplerState;
+float4 texBump(float2 vUV)
+{
+    return S_Bump.Sample(S_BumpSamplerState, vUV);
+}
+
+Texture2DArray	S_Custom;
+SamplerState S_CustomSamplerState;
+
+float4 texDiffuseColor(float3 vUV)
+{
+    return S_Custom.Sample(S_CustomSamplerState, vUV);
+}
+
+Texture2D<uint>	S_Custom2;
+uint texBiomeLookup(int3 vUV)
+{
+    return S_Custom2.Load(vUV).r;
+}
+
+Texture2DArray	S_Custom3;
+SamplerState S_Custom3SamplerState;
+float4 texNormal(float3 vUV)
+{
+    return S_Custom3.Sample(S_Custom3SamplerState, vUV);
+}
+
+Texture2DArray	S_Custom4;
+SamplerState S_Custom4SamplerState;
+float4 texPBRParam(float3 vUV)
+{
+    return S_Custom4.Sample(S_Custom4SamplerState, vUV);
+}
+
+
+#define BiomeDisplayMode_Full  0//show all height distail.
+#define BiomeDisplayMode_Height  1//Show height mesh without nothing.
+#define BiomeDisplayMode_Temperature 2//Show temeprature as color in real height map.
+#define BiomeDisplayMode_Humidity 3//Show humidity as color in real height map.
+#define BiomeDisplayMode_MaterialIndex 4//Show material index as color in real height map.
+#define BiomeDisplayMode_Normal 5//Show normal as color in real height map.
+#define BiomeDisplayMode_PBRParam 6//Show PBR param as color in real height map.
+
+PS_OUTPUT main(PS_INPUT IN)
+{
+	PS_OUTPUT psOut = (PS_OUTPUT)0;
+
+    float temperature = texTemperature(IN.i_texcoord).r;
+    float humidity = texHumidity(IN.i_texcoord).r;
+
+    float3 diffuse_uv;
+    diffuse_uv.xy = IN.i_texcoord1;
+
+    int3 biomeLookupUV;
+    biomeLookupUV.x = (int)(temperature * 255);
+    biomeLookupUV.y = (int)(humidity * 255);
+    biomeLookupUV.z = 0;
+
+    diffuse_uv.z = (int)texBiomeLookup(biomeLookupUV);
+    
+    float3 diffuseColor = float3(1,1,1);
+
+    if(BiomeDisplayMode == BiomeDisplayMode_Full)
+    {
+        diffuseColor = texDiffuseColor(diffuse_uv);
+    }
+    else if(BiomeDisplayMode == BiomeDisplayMode_Height)
+    { 
+        diffuseColor = float3(1,1,1);
+    }
+    else if(BiomeDisplayMode == BiomeDisplayMode_Temperature)
+    { 
+        float3 hot_color = float3(1,0,0);
+        float3 cold_color = float3(0,0,1);
+        float gradient_temp = ((int)(temperature * 255))/255.0f;
+        float3 tempera_color = lerp(cold_color, hot_color, gradient_temp);
+        psOut.color.rgb = tempera_color;
+        return psOut;
+    }
+    else if(BiomeDisplayMode == BiomeDisplayMode_Humidity)
+    {
+        float3 dry_color = float3(0.1, 0.1, 0.1);
+        float3 ocean_color = float3(1, 1, 1);
+        float gradient_hum = ((int)(humidity * 255))/255.0f;
+        float3 humidity_color = lerp(dry_color, ocean_color, gradient_hum);
+        psOut.color.rgb = humidity_color;
+        return psOut;
+    }
+    else if(BiomeDisplayMode == BiomeDisplayMode_MaterialIndex)
+    {
+        float c = (1.0f/20.0f)*diffuse_uv.z;
+        psOut.color.rgb = float3(c,c,c);
+        return psOut;
+    }
+    else if(BiomeDisplayMode == BiomeDisplayMode_Normal)
+    {
+        psOut.color.rgb = texNormal(diffuse_uv).rgb;
+        return psOut;
+    }
+    else if(BiomeDisplayMode == BiomeDisplayMode_PBRParam)
+    {
+        psOut.color.rgb = texPBRParam(diffuse_uv).rgb;
+        return psOut;
+    }
+
+    float3 normal = normalize(IN.i_normal);
+    
+    float factor_ambient = normal.y;
+
+    float3 light_dir = normalize(float3(1,1,1));
+    float diffuse_light_power = dot(light_dir, normal);
+    diffuse_light_power = max(diffuse_light_power,0);
+    
+    float ambient = 0.125;
+
+    float3 light_color = lerp(U_GroundLightColor.rgb, U_SkyLightColor.rgb, 0.5f);
+    psOut.color.rgb = light_color * (diffuse_light_power + ambient) * diffuseColor;
+
+#if 0
+    //visual normal
+    psOut.color.rgb = (normalize(IN.i_normal) + 1) / 2;
+    psOut.color.a = 1;
+#endif
+
+#if 0
+    //Visual uv
+    psOut.color.rg = IN.i_texcoord.xy;
+    psOut.color.b = 0;
+#endif
+
+#if 0
+    psOut.color *= LOD_Color;
+#endif
+    
+    return psOut;
+
+}

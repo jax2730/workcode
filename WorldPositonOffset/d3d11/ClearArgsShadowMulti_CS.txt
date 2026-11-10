@@ -1,0 +1,18 @@
+#include <Common_GpuCull_CS.inl>
+
+#define thread_group_size_x 32u
+#define thread_group_size_y 1u
+
+RWByteAddressBuffer B_CSCustom0;
+
+[numthreads(thread_group_size_x, thread_group_size_y, 1)]
+void main(uint3 threadIDInGroup : SV_GroupThreadID,
+			uint3 groupID : SV_GroupID,
+			uint groupIndex : SV_GroupIndex,
+			uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+	uint index = dispatchThreadID.x;
+	RawBufferStoreUint(B_CSCustom0, index, 0u); //B_CSCustom0[index] = 0u;
+	RawBufferStoreUint(B_CSCustom0, MAX_SHADOW_PIPELINE + index * DISPATCH_OFFSET + 1u, 0u); //B_CSCustom0[MAX_SHADOW_PIPELINE + index * DISPATCH_OFFSET + 1u] = 0u;
+    
+}
