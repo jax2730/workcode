@@ -1,0 +1,1160 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Script">
+      <UniqueIdentifier>{3afd0a4b-0e4c-4d50-a800-1636f28b3771}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Script\eLua">
+      <UniqueIdentifier>{1a74e5ac-3085-4d46-bcb1-73cf05b06eec}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Script\eLuabridge">
+      <UniqueIdentifier>{cde2454b-efa3-4b8f-81a3-ea627f772715}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Script\eLuaFunction">
+      <UniqueIdentifier>{2d3159d3-6d30-46ec-aa9d-ed15e55b3b9c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Script\eLuabridge\detail">
+      <UniqueIdentifier>{f90242ec-b3ee-4afd-a04e-0bf7d785719f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Physics">
+      <UniqueIdentifier>{a3b1762b-5e97-42c8-8a96-b0d7c499ca1b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Physics">
+      <UniqueIdentifier>{d3a5b24a-c60d-4e3c-9aad-7beae9280d06}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\3DUI">
+      <UniqueIdentifier>{983f8d1a-fff8-4c31-9b25-6fab0e760398}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\3DUI">
+      <UniqueIdentifier>{2a2b9804-ef95-44f3-92f3-b6ff3a57f195}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\IK">
+      <UniqueIdentifier>{b1c75a48-58a8-42b0-a223-ef31affc1564}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\IK">
+      <UniqueIdentifier>{29d7a8e9-1d63-4cbf-afb0-229e7221db18}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Ragdoll">
+      <UniqueIdentifier>{a8a806ed-2141-4101-b65c-eded68b7ec04}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Ragdoll">
+      <UniqueIdentifier>{12e1e99f-6d5d-46cc-909b-7f82a815dded}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Physics\Collider">
+      <UniqueIdentifier>{89e860a9-fa67-45f7-86c6-50207da9ea48}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Physics\Joint">
+      <UniqueIdentifier>{09f72c25-23f5-476a-a33e-33dcf305ab86}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Physics\Collider">
+      <UniqueIdentifier>{e5e1810f-c59a-435a-a9e9-34e56be61dbc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Physics\Joint">
+      <UniqueIdentifier>{9fbaaf45-0955-4ed2-8341-ba6a82acd69f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\TOD">
+      <UniqueIdentifier>{0f87baf3-4035-4797-b14b-8a357e8e8079}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\TOD">
+      <UniqueIdentifier>{07db4a95-7676-40ba-b4e5-352aba656ec9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Interactor">
+      <UniqueIdentifier>{0bae2010-48dc-48d7-9a56-75857622b2f5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Interactor">
+      <UniqueIdentifier>{a567b9af-bb6e-48b0-a652-ddb1ed334e6c}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\Include\EchoScriptManager.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoComponentPrerequisites.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoScriptComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoComponentSystem.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRoleScriptComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoProtocolComponentImp.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoScriptReg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoEntityObjProFunctionImp.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoMaterialProFunctionImp.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoResBaseProFunctionImp.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCameraProFunctionImp.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRoleObjProFunctionImp.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoParticleProFunctionImp.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\eLuaFunction.h">
+      <Filter>Script\eLuaFunction</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\eLuaBridge.h">
+      <Filter>Script\eLuabridge</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\eLauxlib.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\eLua.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\eLualib.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\eLuaconf.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\detail\CFunctions.h">
+      <Filter>Script\eLuabridge\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\detail\ClassInfo.h">
+      <Filter>Script\eLuabridge\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\detail\Constructor.h">
+      <Filter>Script\eLuabridge\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\detail\dump.h">
+      <Filter>Script\eLuabridge\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\detail\FuncTraits.h">
+      <Filter>Script\eLuabridge\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\detail\Iterator.h">
+      <Filter>Script\eLuabridge\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\detail\LuaException.h">
+      <Filter>Script\eLuabridge\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\detail\LuaHelpers.h">
+      <Filter>Script\eLuabridge\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\detail\LuaRef.h">
+      <Filter>Script\eLuabridge\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\detail\Namespace.h">
+      <Filter>Script\eLuabridge\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\detail\Stack.h">
+      <Filter>Script\eLuabridge\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\detail\TypeList.h">
+      <Filter>Script\eLuabridge\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\detail\TypeTraits.h">
+      <Filter>Script\eLuabridge\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\detail\Userdata.h">
+      <Filter>Script\eLuabridge\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\lapi.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\lcode.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\lctype.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\ldebug.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\ldo.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\lfunc.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\lgc.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\ljumptab.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\llex.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\llimits.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\lmem.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\lobject.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\lopcodes.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\lopnames.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\lparser.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\lprefix.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\lstate.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\lstring.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\ltable.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\ltm.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\lundump.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\lvm.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Source\eLua\lzio.h">
+      <Filter>Script\eLua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\eRefCountedObject.h">
+      <Filter>Script\eLuabridge</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Script\Include\eRefCountedPtr.h">
+      <Filter>Script\eLuabridge</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoHelperObjProFuncImp.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoActorProFuncImp.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoActorScriptComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoTrajectoryComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoDebugScriptFunc.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoTimelineComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoBoxComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoLightComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoDecalComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoParticleSystemComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoActorEntityComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoUnknownComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoActorRoleComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoSoundComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoNodeProFuncImp.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoComDefineMacro.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoMaterialComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoShowTrajectoryComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPhysicsManager.h">
+      <Filter>头文件\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRigidBodyComponent.h">
+      <Filter>头文件\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCharactorControllerComponent.h">
+      <Filter>头文件\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoShowTrajectoryComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoConstantForceComponent.h">
+      <Filter>头文件\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoControllerComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoMusicControllerComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIButtonComponent.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIComboBoxComponent.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIComponent.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIGraphComponent.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIGroupComponent.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIImageComponent.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIInputTextComponent.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUILabelComponent.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIListComponent.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUILoaderComponent.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIMovieclipComponent.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIProgressBarComponent.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIRichTextComponent.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIScrollBarComponent.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUISliderComponent.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUISWFComponent.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUITextComponent.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUITreeViewComponent.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIBaseComponent.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKBaseComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoBoneRenderComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUINodeComponent.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRoleTagPointPosComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPiecewiseBezierComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKTargetFBBIKComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoColliderComponent.h">
+      <Filter>头文件\Physics\Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoBoxColliderComponent.h">
+      <Filter>头文件\Physics\Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCapsuleColliderComponent.h">
+      <Filter>头文件\Physics\Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoSphereColliderComponent.h">
+      <Filter>头文件\Physics\Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoFixedJointComponent.h">
+      <Filter>头文件\Physics\Joint</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoJointComponent.h">
+      <Filter>头文件\Physics\Joint</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoMeshColliderComponent.h">
+      <Filter>头文件\Physics\Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKGrounderFBBIKComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKComponentInclude.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPhysicsComponentInclude.h">
+      <Filter>头文件\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRagdollCreatorComponent.h">
+      <Filter>头文件\Ragdoll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRagdollMuscle.h">
+      <Filter>头文件\Ragdoll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRagdollTools.h">
+      <Filter>头文件\Ragdoll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRagdollComponent.h">
+      <Filter>头文件\Ragdoll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKGrounderIKComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKAimIKComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKFBBIKHeadEffectorComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKGrounderQuadrupedComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoOcclusionComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKLookAtIKComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKTargetPointComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKPointComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRagdollControllerComponent.h">
+      <Filter>头文件\Ragdoll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoConfigurableJointComponent.h">
+      <Filter>头文件\Physics\Joint</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIComponentManager.h">
+      <Filter>头文件\3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoSkyComponent.h">
+      <Filter>头文件\TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoSunComponent.h">
+      <Filter>头文件\TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoDirecLightComponent.h">
+      <Filter>头文件\TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoTodTimelineComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoTODComponentManager.h">
+      <Filter>头文件\TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\Interactor\EchoAutoMover.h">
+      <Filter>头文件\Interactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\Interactor\EchoInteractor.h">
+      <Filter>头文件\Interactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\Interactor\EchoInteractorIK.h">
+      <Filter>头文件\Interactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\Interactor\EchoInteractorManager.h">
+      <Filter>头文件\Interactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\Interactor\EchoInteractorObject.h">
+      <Filter>头文件\Interactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\Interactor\EchoInteractorTarget.h">
+      <Filter>头文件\Interactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\Interactor\EchoIRCommon.h">
+      <Filter>头文件\Interactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\Interactor\EchoAuto.h">
+      <Filter>头文件\Interactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCloudSphereComponent.h">
+      <Filter>头文件\TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCloudPlaneComponent.h">
+      <Filter>头文件\TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCloudMeshComponent.h">
+      <Filter>头文件\TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoFogComponent.h">
+      <Filter>头文件\TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPavementComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\Interactor\EchoPlayerState.h">
+      <Filter>头文件\Interactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoWheelColliderComponent.h">
+      <Filter>头文件\Physics\Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\Interactor\EchoPathMover.h">
+      <Filter>头文件\Interactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoInteractorComponent.h">
+      <Filter>头文件\Interactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoInteractorIKComponent.h">
+      <Filter>头文件\Interactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoInteractorObjectComponent.h">
+      <Filter>头文件\Interactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoInteractorTargetComponent.h">
+      <Filter>头文件\Interactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoTrafficObject.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoInteractorPathMoverComponent.h">
+      <Filter>头文件\Interactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoInteractorAutoMoverComponent.h">
+      <Filter>头文件\Interactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCurvedMeshComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRigidBodyGroupComponent.h">
+      <Filter>头文件\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoKeyBoard.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKSkeletonPostureComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoTimeLineInfo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKEffectorOffsetComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKRecoilComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKInertiaComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoSpotLightComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoSheetComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKCCDIKComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKHitReactionComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKLimbIKComponnet.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\ControlHelperRenderable.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPiecewiseBezierUtil.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPlanetConverterComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKRotationLimitAngleComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKRotationLimitHingeComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKAimControllerComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKBodyTiltComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKPenetrationAvoidanceComponent.h">
+      <Filter>头文件\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPavementUtil.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRagdollBehaviorComponentBase.h">
+      <Filter>头文件\Ragdoll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoInOutsideDivisionComponent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRagdollBehaviorManagerComponent.h">
+      <Filter>头文件\Ragdoll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoTerrainColliderComponent.h">
+      <Filter>头文件\Physics\Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoSceneComponentManager.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\Source\EchoScriptManager.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoScriptComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoComponentSystem.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRoleScriptComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoProtocolComponentImp.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoScriptReg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoEntityObjProFunctionImp.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoMaterialProFunctionImp.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoResBaseProFunctionImp.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCameraProFunctionImp.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRoleObjProFunctionImp.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLuaFunction\eLuaFunction.cpp">
+      <Filter>Script\eLuaFunction</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\eLua.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\eLauxlib.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\lapi.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\lbaselib.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\lcode.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\lcorolib.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\lctype.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\ldblib.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\ldebug.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\ldo.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\ldump.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\lfunc.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\lgc.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\linit.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\liolib.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\llex.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\lmathlib.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\lmem.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\loadlib.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\lobject.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\lopcodes.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\loslib.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\lparser.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\lstate.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\lstring.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\lstrlib.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\ltable.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\ltablib.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\ltm.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\lundump.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\lutf8lib.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\lvm.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Script\Source\eLua\lzio.c">
+      <Filter>Script\eLua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoHelperObjProFuncImp.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoActorProFuncImp.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoActorScriptComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoTrajectoryComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoParticleProFunctionImp.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoDebugScriptFunc.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoTimelineComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoBoxComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoLightComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoDecalComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoParticleSystemComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoActorEntityComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoUnknownComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoActorRoleComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoSoundComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoNodeProFuncImp.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoMaterialComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPhysicsManager.cpp">
+      <Filter>源文件\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRigidBodyComponent.cpp">
+      <Filter>源文件\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCharactorControllerComponent.cpp">
+      <Filter>源文件\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoShowTrajectoryComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoConstantForceComponent.cpp">
+      <Filter>源文件\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoControllerComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoMusicControllerComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIButtonComponent.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIComboBoxComponent.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIComponent.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIGraphComponent.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIGroupComponent.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIImageComponent.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIInputTextComponent.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUILabelComponent.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIListComponent.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUILoaderComponent.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIMovieclipComponent.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIProgressBarComponent.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIRichTextComponent.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIScrollBarComponent.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUISliderComponent.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUISWFComponent.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUITextComponent.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUITreeViewComponent.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIBaseComponent.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKBaseComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoBoneRenderComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUINodeComponent.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRoleTagPointPosComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPiecewiseBezierComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKTargetFBBIKComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoBoxColliderComponent.cpp">
+      <Filter>源文件\Physics\Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCapsuleColliderComponent.cpp">
+      <Filter>源文件\Physics\Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoColliderComponent.cpp">
+      <Filter>源文件\Physics\Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoConfigurableJointComponent.cpp">
+      <Filter>源文件\Physics\Joint</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoFixedJointComponent.cpp">
+      <Filter>源文件\Physics\Joint</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoJointComponent.cpp">
+      <Filter>源文件\Physics\Joint</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoMeshColliderComponent.cpp">
+      <Filter>源文件\Physics\Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoSphereColliderComponent.cpp">
+      <Filter>源文件\Physics\Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKGrounderFBBIKComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRagdollCreatorComponent.cpp">
+      <Filter>源文件\Ragdoll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRagdollMuscle.cpp">
+      <Filter>源文件\Ragdoll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRagdollTools.cpp">
+      <Filter>源文件\Ragdoll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRagdollComponent.cpp">
+      <Filter>源文件\Ragdoll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKAimIKComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKFBBIKHeadEffectorComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKGrounderIKComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKGrounderQuadrupedComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoOcclusionComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKLookAtIKComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKTargetPointComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKPointComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRagdollControllerComponent.cpp">
+      <Filter>源文件\Ragdoll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIComponentManager.cpp">
+      <Filter>源文件\3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoSkyComponent.cpp">
+      <Filter>源文件\TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoSunComponent.cpp">
+      <Filter>源文件\TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoDirecLightComponent.cpp">
+      <Filter>源文件\TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoTodTimelineComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoTODComponentManager.cpp">
+      <Filter>源文件\TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Interactor\EchoInteractor.cpp">
+      <Filter>源文件\Interactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Interactor\EchoInteractorIK.cpp">
+      <Filter>源文件\Interactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Interactor\EchoInteractorManager.cpp">
+      <Filter>源文件\Interactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Interactor\EchoInteractorObject.cpp">
+      <Filter>源文件\Interactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Interactor\EchoInteractorTarget.cpp">
+      <Filter>源文件\Interactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Interactor\EchoIRCommon.cpp">
+      <Filter>源文件\Interactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCloudSphereComponent.cpp">
+      <Filter>源文件\TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCloudPlaneComponent.cpp">
+      <Filter>源文件\TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCloudMeshComponent.cpp">
+      <Filter>源文件\TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Interactor\EchoAuto.cpp">
+      <Filter>源文件\Interactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoFogComponent.cpp">
+      <Filter>源文件\TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPavementComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Interactor\EchoPlayerState.cpp">
+      <Filter>源文件\Interactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Interactor\EchoAutoMover.cpp">
+      <Filter>源文件\Interactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoWheelColliderComponent.cpp">
+      <Filter>源文件\Physics\Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Interactor\EchoPathMover.cpp">
+      <Filter>源文件\Interactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoInteractorComponent.cpp">
+      <Filter>源文件\Interactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoInteractorIKComponent.cpp">
+      <Filter>源文件\Interactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoInteractorObjectComponent.cpp">
+      <Filter>源文件\Interactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoInteractorTargetComponent.cpp">
+      <Filter>源文件\Interactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoTrafficObject.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoInteractorPathMoverComponent.cpp">
+      <Filter>源文件\Interactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoInteractorAutoMoverComponent.cpp">
+      <Filter>源文件\Interactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCurvedMeshComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRigidBodyGroupComponent.cpp">
+      <Filter>源文件\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoKeyBoard.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKSkeletonPostureComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoTimeLineInfo.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKEffectorOffsetComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKRecoilComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKInertiaComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoSpotLightComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoSheetComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKCCDIKComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKHitReactionComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKLimbIKComponnet.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\ControlHelperRenderable.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPiecewiseBezierUtil.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPlanetConverterComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKRotationLimitAngleComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKRotationLimitHingeComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKAimControllerComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKBodyTiltComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPavementUtil.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKPenetrationAvoidanceComponent.cpp">
+      <Filter>源文件\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoInOutsideDivisionComponent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRagdollBehaviorComponentBase.cpp">
+      <Filter>源文件\Ragdoll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRagdollBehaviorManagerComponent.cpp">
+      <Filter>源文件\Ragdoll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoTerrainColliderComponent.cpp">
+      <Filter>源文件\Physics\Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoSceneComponentManager.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

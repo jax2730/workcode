@@ -1,0 +1,1546 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="3DUI">
+      <UniqueIdentifier>{983f8d1a-fff8-4c31-9b25-6fab0e760398}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Controller">
+      <UniqueIdentifier>{7d9890ed-5c1e-40a2-a267-ec6819d832d8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="IK">
+      <UniqueIdentifier>{b1c75a48-58a8-42b0-a223-ef31affc1564}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Physics">
+      <UniqueIdentifier>{a3b1762b-5e97-42c8-8a96-b0d7c499ca1b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Physics\Collider">
+      <UniqueIdentifier>{89e860a9-fa67-45f7-86c6-50207da9ea48}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Physics\Joint">
+      <UniqueIdentifier>{09f72c25-23f5-476a-a33e-33dcf305ab86}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Ragdoll">
+      <UniqueIdentifier>{a8a806ed-2141-4101-b65c-eded68b7ec04}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SUToEchoCom">
+      <UniqueIdentifier>{cfd0ae73-e723-491d-be73-9d8bba87614d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TOD">
+      <UniqueIdentifier>{0f87baf3-4035-4797-b14b-8a357e8e8079}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Component">
+      <UniqueIdentifier>{b4eb52e1-0e67-4466-81b5-7dddab5e8e34}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ComponentBase">
+      <UniqueIdentifier>{696d8abb-0495-45b0-ba31-002e70c88aa4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ProtocolFunction">
+      <UniqueIdentifier>{497853df-de4b-4564-a2b4-090d98b0f125}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Script">
+      <UniqueIdentifier>{8e5918b1-94b2-4a34-b3c1-d2222b19dee9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Timeline">
+      <UniqueIdentifier>{99db17fe-3efe-42ef-8a38-8f3e639ae4cd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Particle">
+      <UniqueIdentifier>{f0d0f682-3f8f-47f2-ac3f-f99f2f3b8dd0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Bezier">
+      <UniqueIdentifier>{ea85dd59-7602-4941-ba5e-112d881f82ca}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Road">
+      <UniqueIdentifier>{4bd84637-a565-4a0b-9add-8f48431fa0e5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Light">
+      <UniqueIdentifier>{df2673e7-3776-4289-af70-2c0e03e26ea2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Role">
+      <UniqueIdentifier>{fb5a4405-c0ee-4ec0-9e4c-9beb776d03a7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Sound">
+      <UniqueIdentifier>{b273b763-41ca-4d19-b8e9-27e4acc70028}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Emitter">
+      <UniqueIdentifier>{77fd8ba6-9f06-45f4-98d3-26be0dc7c06f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Camera">
+      <UniqueIdentifier>{2cdc7a6e-68b8-41f2-af2b-4320c1ead6c3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CurvedRole">
+      <UniqueIdentifier>{52349784-a861-4eb4-93d0-afe8097ab79a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="PCG">
+      <UniqueIdentifier>{049874ef-089b-4bb6-98c9-abd7dd40a627}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="PCGV2">
+      <UniqueIdentifier>{f44cde71-584f-43f0-b452-b406bda0c67f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="PCGV2\Data">
+      <UniqueIdentifier>{b680d91e-45f6-4645-a241-5bcc97056799}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="PCGV2\Elements">
+      <UniqueIdentifier>{a6183b17-e1f5-4a10-bab4-7259f6fe2b02}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="PCGV2\Graph">
+      <UniqueIdentifier>{a35c0e5d-7aac-4d86-9aaf-cc98a861263a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="PCGV2\Reflection">
+      <UniqueIdentifier>{f33ca58b-1d7e-48f7-a8a2-8c959795cac2}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\Include\EchoPhysicsManager.h">
+      <Filter>Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRigidBodyComponent.h">
+      <Filter>Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCharactorControllerComponent.h">
+      <Filter>Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoConstantForceComponent.h">
+      <Filter>Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIButtonComponent.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIComboBoxComponent.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIComponent.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIGraphComponent.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIGroupComponent.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIImageComponent.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIInputTextComponent.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUILabelComponent.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIListComponent.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUILoaderComponent.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIMovieclipComponent.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIProgressBarComponent.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIRichTextComponent.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIScrollBarComponent.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUISliderComponent.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUISWFComponent.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUITextComponent.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUITreeViewComponent.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIBaseComponent.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKBaseComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoBoneRenderComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUINodeComponent.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKTargetFBBIKComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoColliderComponent.h">
+      <Filter>Physics\Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoBoxColliderComponent.h">
+      <Filter>Physics\Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCapsuleColliderComponent.h">
+      <Filter>Physics\Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoSphereColliderComponent.h">
+      <Filter>Physics\Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoFixedJointComponent.h">
+      <Filter>Physics\Joint</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoJointComponent.h">
+      <Filter>Physics\Joint</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoMeshColliderComponent.h">
+      <Filter>Physics\Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKGrounderFBBIKComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKComponentInclude.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPhysicsComponentInclude.h">
+      <Filter>Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRagdollCreatorComponent.h">
+      <Filter>Ragdoll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRagdollMuscle.h">
+      <Filter>Ragdoll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRagdollTools.h">
+      <Filter>Ragdoll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRagdollComponent.h">
+      <Filter>Ragdoll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKGrounderIKComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKAimIKComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKFBBIKHeadEffectorComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKGrounderQuadrupedComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKLookAtIKComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKTargetPointComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKPointComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRagdollControllerComponent.h">
+      <Filter>Ragdoll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoConfigurableJointComponent.h">
+      <Filter>Physics\Joint</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIComponentManager.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoSkyComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoSunComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoDirecLightComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoTODComponentManager.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCloudSphereComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCloudPlaneComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCloudMeshComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoFogComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoWheelColliderComponent.h">
+      <Filter>Physics\Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRigidBodyGroupComponent.h">
+      <Filter>Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKSkeletonPostureComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKEffectorOffsetComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKRecoilComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKInertiaComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKLimbIKComponnet.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKCCDIKComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKHitReactionComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKRotationLimitAngleComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKRotationLimitHingeComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKBodyTiltComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKPenetrationAvoidanceComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoIKAimControllerComponent.h">
+      <Filter>IK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRagdollBehaviorComponentBase.h">
+      <Filter>Ragdoll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRagdollBehaviorManagerComponent.h">
+      <Filter>Ragdoll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoTerrainColliderComponent.h">
+      <Filter>Physics\Collider</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoControlTodChangeComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\SUToEchoCom\SUActorFactoryComponent.h">
+      <Filter>SUToEchoCom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\SUToEchoCom\EchoExcelDataHelper.h">
+      <Filter>SUToEchoCom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\SUToEchoCom\SUWrapEntityComponent.h">
+      <Filter>SUToEchoCom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoEnvironmentLightComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPhysicsPage.h">
+      <Filter>Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPhysicsPagedLayer.h">
+      <Filter>Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoWindPowerComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoUnderWaterCausticsComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoAggregateComponent.h">
+      <Filter>Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoFlyingController.h">
+      <Filter>Controller</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\SUToEchoCom\SUDynamicFactorySwitcherComponent.h">
+      <Filter>SUToEchoCom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\SUToEchoCom\SUDynamicLoadComponent.h">
+      <Filter>SUToEchoCom</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPointlightManagerComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoLightningComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoGlobalLightComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoHDRComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoActorEntityComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoActorProFuncImp.h">
+      <Filter>ProtocolFunction</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoActorScriptComponent.h">
+      <Filter>Script</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoBoxComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCameraProFunctionImp.h">
+      <Filter>ProtocolFunction</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoComDefineMacro.h">
+      <Filter>ComponentBase</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoComponentSystem.h">
+      <Filter>ComponentBase</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoComponentPrerequisites.h">
+      <Filter>ComponentBase</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoControllerComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoBendHorizonComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCurvedMeshComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoDebugScriptFunc.h">
+      <Filter>Script</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoEntityObjProFunctionImp.h">
+      <Filter>ProtocolFunction</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoHelperObjProFuncImp.h">
+      <Filter>ProtocolFunction</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoHLODComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoImposterComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoMaterialComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoNodeProFuncImp.h">
+      <Filter>ProtocolFunction</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoMaterialProFunctionImp.h">
+      <Filter>ProtocolFunction</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRoleScriptComponent.h">
+      <Filter>Script</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRoleObjProFunctionImp.h">
+      <Filter>ProtocolFunction</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoParticleProFunctionImp.h">
+      <Filter>ProtocolFunction</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoOcclusionComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPavementComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoProtocolComponentImp.h">
+      <Filter>ProtocolFunction</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoScriptReg.h">
+      <Filter>Script</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoScriptComponent.h">
+      <Filter>Script</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoScriptManager.h">
+      <Filter>Script</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPlanetConverterComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoResBaseProFunctionImp.h">
+      <Filter>ProtocolFunction</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoTimeLineInfo.h">
+      <Filter>Timeline</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoTimelineComponent.h">
+      <Filter>Timeline</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoSheetComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoSSAOComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoUnknownComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoTrajectoryComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoStarfieldComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoTodTimelineComponent.h">
+      <Filter>Timeline</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPiecewiseBezierUtil.h">
+      <Filter>Bezier</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPiecewiseBezierComponent.h">
+      <Filter>Bezier</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRoadManager.h">
+      <Filter>Road</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPavementUtil.h">
+      <Filter>Road</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoShowTrajectoryComponent.h" />
+    <ClInclude Include="..\..\Include\EchoTrafficObject.h">
+      <Filter>Road</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoKeyBoard.h">
+      <Filter>Controller</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\ControlHelperRenderable.h">
+      <Filter>Road</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoInstanceStaticBatchObject.h">
+      <Filter>Road</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoSceneComponentManager.h">
+      <Filter>ComponentBase</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCrossRoadComponent.h">
+      <Filter>Road</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoShowTrajectoryComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoDecalComponent.h">
+      <Filter>Particle</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoParticleSystemComponent.h">
+      <Filter>Particle</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoLightComponent.h">
+      <Filter>Light</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoSpotLightComponent.h">
+      <Filter>Light</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoActorRoleComponent.h">
+      <Filter>Role</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRoleTagPointPosComponent.h">
+      <Filter>Role</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoMusicControllerComponent.h">
+      <Filter>Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoSoundComponent.h">
+      <Filter>Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoLensFlareComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoEnvTriggerEventComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoLightFlareComponent.h">
+      <Filter>Light</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoLightFlareComponentManager.h">
+      <Filter>Light</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoDriftComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoEntityBatchComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoStarsComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoWeatherCoverColorComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoEmitterComponent.h">
+      <Filter>Emitter</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoOceanComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCameraBaseComponent.h">
+      <Filter>Camera</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoTODComponentSystem.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCameraComponentManager.h">
+      <Filter>Camera</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoVolumeLightComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoVegetationAreaComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCurvedRoleComponent.h">
+      <Filter>CurvedRole</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCurvedRoleUtil.h">
+      <Filter>CurvedRole</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCSGComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoCSGUtil.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoRagdollData.h">
+      <Filter>Ragdoll</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIObject.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\3DUI\Echo3DUIObjectBase.h">
+      <Filter>3DUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoVegetationAreaComponentTestHelper.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoComponentStableHeaders.h">
+      <Filter>ComponentBase</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoSphericalTerrainComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoTODShadowComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoTODDataUtil.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoMediaComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoAnimationTimelineComponent.h">
+      <Filter>Timeline</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoAnimationTimelineInfo.h">
+      <Filter>Timeline</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoNewDecalComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPavementObject.h">
+      <Filter>Road</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoHermiteMacro.h">
+      <Filter>Timeline</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoDestructibleComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoAtlasSphericalTerrainComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPlanetEntryControlComponent.h" />
+    <ClInclude Include="..\..\Include\EchoHDRAdaptiveComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoSphereFogComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoKarstTerrainComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoBuildingComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoDistantBuildingComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoFunctionalBuildingComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPCGGraphComponent.h">
+      <Filter>PCG</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPCGGraphComponent.h">
+      <Filter>PCG</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPCGGraphComponent.h">
+      <Filter>PCG</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoColorFilterComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoHerdComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPCGGraphComponentManager.h">
+      <Filter>PCG</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoSphericalTerrainPCGGenScheduler.h">
+      <Filter>PCG</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\EchoPCGCommon.h">
+      <Filter>PCGV2</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\EchoPCGContext.h">
+      <Filter>PCGV2</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\EchoPCGElement.h">
+      <Filter>PCGV2</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\EchoPCGGraph.h">
+      <Filter>PCGV2</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\EchoPCGHelper.h">
+      <Filter>PCGV2</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\EchoPCGSettings.h">
+      <Filter>PCGV2</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\EchoPCGTests.h">
+      <Filter>PCGV2</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Data\EchoPCGDataCommon.h">
+      <Filter>PCGV2\Data</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Data\EchoPCGLandscapeData.h">
+      <Filter>PCGV2\Data</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Data\EchoPCGPointData.h">
+      <Filter>PCGV2\Data</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Data\EchoPCGSpatialData.h">
+      <Filter>PCGV2\Data</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGLandscapeGetter.h">
+      <Filter>PCGV2\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGStaticMeshSpawner.h">
+      <Filter>PCGV2\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGSurfaceSampler.h">
+      <Filter>PCGV2\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Graph\EchoPCGGraphCompiler.h">
+      <Filter>PCGV2\Graph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Graph\EchoPCGGraphExecutor.h">
+      <Filter>PCGV2\Graph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Graph\EchoPCGGraphTask.h">
+      <Filter>PCGV2\Graph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\EchoPCGManagedResource.h">
+      <Filter>PCGV2</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\EchoInstancedStaticMeshComponent.h">
+      <Filter>PCGV2</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\EchoPCGComponent.h">
+      <Filter>PCGV2</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\EchoPCGPin.h">
+      <Filter>PCGV2</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\EchoPCGSystem.h">
+      <Filter>PCGV2</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGInputOutputSettings.h">
+      <Filter>PCGV2\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Reflection\EchoPCGProperty.h">
+      <Filter>PCGV2\Reflection</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoPolylineComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoKarstCityRoadComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoVoxelTerrainComponent.h" />
+    <ClInclude Include="..\..\Include\EchoGeneratedTerrainPhysics.h">
+      <Filter>Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGSubgraph.h">
+      <Filter>PCGV2\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoFractalComponent.h" />
+    <ClInclude Include="..\..\Include\PCG\Reflection\EchoPCGSerializer.h">
+      <Filter>PCGV2\Reflection</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Reflection\EchoPCGEnum.h">
+      <Filter>PCGV2\Reflection</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Reflection\EchoPCGReflectionMacros.h">
+      <Filter>PCGV2\Reflection</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Reflection\EchoPCGClass.h">
+      <Filter>PCGV2\Reflection</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Reflection\EchoPCGObjectV2.h">
+      <Filter>PCGV2\Reflection</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoAtmosphereComponent.h" />
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGTransformPoints.h">
+      <Filter>PCGV2\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGDensityFilter.h">
+      <Filter>PCGV2\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGBoundsModifier.h">
+      <Filter>PCGV2\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGDistance.h">
+      <Filter>PCGV2\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGGather.h">
+      <Filter>PCGV2\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Data\EchoPCGSurfaceData.h">
+      <Filter>PCGV2\Data</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Elements\EchoPCGDifference.h">
+      <Filter>PCGV2\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Data\EchoPCGDifferenceData.h">
+      <Filter>PCGV2\Data</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Data\EchoPCGUnionData.h">
+      <Filter>PCGV2\Data</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\PCG\Data\EchoPCGProjectionParams.h">
+      <Filter>PCGV2\Data</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoLocalRadialBlurComponent.h">
+      <Filter>Component</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Include\EchoSphericalOceanComponent.h">
+      <Filter>TOD</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIBaseComponent.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIButtonComponent.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIComboBoxComponent.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIComponent.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIComponentManager.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIGraphComponent.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIGroupComponent.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIImageComponent.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIInputTextComponent.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUILabelComponent.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIListComponent.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUILoaderComponent.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIMovieclipComponent.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUINodeComponent.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIProgressBarComponent.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIRichTextComponent.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIScrollBarComponent.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUISliderComponent.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUISWFComponent.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUITextComponent.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUITreeViewComponent.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoFlyingController.cpp">
+      <Filter>Controller</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoBoneRenderComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKAimControllerComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKAimIKComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKBaseComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKBodyTiltComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKCCDIKComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKEffectorOffsetComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKFBBIKHeadEffectorComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKGrounderFBBIKComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKGrounderIKComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKGrounderQuadrupedComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKHitReactionComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKInertiaComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKLimbIKComponnet.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKLookAtIKComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKPenetrationAvoidanceComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKPointComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKRecoilComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKRotationLimitAngleComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKRotationLimitHingeComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKSkeletonPostureComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKTargetFBBIKComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoIKTargetPointComponent.cpp">
+      <Filter>IK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoBoxColliderComponent.cpp">
+      <Filter>Physics\Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCapsuleColliderComponent.cpp">
+      <Filter>Physics\Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoColliderComponent.cpp">
+      <Filter>Physics\Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoMeshColliderComponent.cpp">
+      <Filter>Physics\Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoSphereColliderComponent.cpp">
+      <Filter>Physics\Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoTerrainColliderComponent.cpp">
+      <Filter>Physics\Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoWheelColliderComponent.cpp">
+      <Filter>Physics\Collider</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoConfigurableJointComponent.cpp">
+      <Filter>Physics\Joint</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoFixedJointComponent.cpp">
+      <Filter>Physics\Joint</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoJointComponent.cpp">
+      <Filter>Physics\Joint</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoAggregateComponent.cpp">
+      <Filter>Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCharactorControllerComponent.cpp">
+      <Filter>Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoConstantForceComponent.cpp">
+      <Filter>Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPhysicsManager.cpp">
+      <Filter>Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPhysicsPage.cpp">
+      <Filter>Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPhysicsPagedLayer.cpp">
+      <Filter>Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRigidBodyComponent.cpp">
+      <Filter>Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRigidBodyGroupComponent.cpp">
+      <Filter>Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRagdollBehaviorComponentBase.cpp">
+      <Filter>Ragdoll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRagdollBehaviorManagerComponent.cpp">
+      <Filter>Ragdoll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRagdollComponent.cpp">
+      <Filter>Ragdoll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRagdollControllerComponent.cpp">
+      <Filter>Ragdoll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRagdollCreatorComponent.cpp">
+      <Filter>Ragdoll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRagdollMuscle.cpp">
+      <Filter>Ragdoll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRagdollTools.cpp">
+      <Filter>Ragdoll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\SUToEchoCom\EchoExcelDataHelper.cpp">
+      <Filter>SUToEchoCom</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\SUToEchoCom\SUActorFactoryComponent.cpp">
+      <Filter>SUToEchoCom</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\SUToEchoCom\SUDynamicFactorySwitcherComponent.cpp">
+      <Filter>SUToEchoCom</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\SUToEchoCom\SUDynamicLoadComponent.cpp">
+      <Filter>SUToEchoCom</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\SUToEchoCom\SUWrapEntityComponent.cpp">
+      <Filter>SUToEchoCom</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCloudMeshComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCloudPlaneComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCloudSphereComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoControlTodChangeComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoDirecLightComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoEnvironmentLightComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoFogComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoGlobalLightComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoHDRComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoLightningComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPointlightManagerComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoSkyComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoSunComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoTODComponentManager.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoUnderWaterCausticsComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoWindPowerComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoActorProFuncImp.cpp">
+      <Filter>ProtocolFunction</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoActorEntityComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoActorScriptComponent.cpp">
+      <Filter>Script</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoBoxComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCameraProFunctionImp.cpp">
+      <Filter>ProtocolFunction</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoComponentSystem.cpp">
+      <Filter>ComponentBase</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoBendHorizonComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoControllerComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCurvedMeshComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoDebugScriptFunc.cpp">
+      <Filter>Script</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoEntityObjProFunctionImp.cpp">
+      <Filter>ProtocolFunction</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoHelperObjProFuncImp.cpp">
+      <Filter>ProtocolFunction</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoHLODComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoImposterComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoMaterialComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoNodeProFuncImp.cpp">
+      <Filter>ProtocolFunction</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoMaterialProFunctionImp.cpp">
+      <Filter>ProtocolFunction</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRoleScriptComponent.cpp">
+      <Filter>Script</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRoleObjProFunctionImp.cpp">
+      <Filter>ProtocolFunction</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoParticleProFunctionImp.cpp">
+      <Filter>ProtocolFunction</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoOcclusionComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPavementComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoProtocolComponentImp.cpp">
+      <Filter>ProtocolFunction</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoScriptComponent.cpp">
+      <Filter>Script</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoScriptManager.cpp">
+      <Filter>Script</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoScriptReg.cpp">
+      <Filter>Script</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPlanetConverterComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoResBaseProFunctionImp.cpp">
+      <Filter>ProtocolFunction</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoTimelineComponent.cpp">
+      <Filter>Timeline</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoTimeLineInfo.cpp">
+      <Filter>Timeline</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoShowTrajectoryComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoSheetComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoSSAOComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoTrajectoryComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoUnknownComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoStarfieldComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoTodTimelineComponent.cpp">
+      <Filter>Timeline</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPiecewiseBezierComponent.cpp">
+      <Filter>Bezier</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPiecewiseBezierUtil.cpp">
+      <Filter>Bezier</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPavementUtil.cpp">
+      <Filter>Road</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRoadManager.cpp">
+      <Filter>Road</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoTrafficObject.cpp">
+      <Filter>Road</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoKeyBoard.cpp">
+      <Filter>Controller</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\ControlHelperRenderable.cpp">
+      <Filter>Road</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoInstanceStaticBatchObject.cpp">
+      <Filter>Road</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoSceneComponentManager.cpp">
+      <Filter>ComponentBase</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCrossRoadComponent.cpp">
+      <Filter>Road</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoDecalComponent.cpp">
+      <Filter>Particle</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoParticleSystemComponent.cpp">
+      <Filter>Particle</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoLightComponent.cpp">
+      <Filter>Light</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoSpotLightComponent.cpp">
+      <Filter>Light</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoActorRoleComponent.cpp">
+      <Filter>Role</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRoleTagPointPosComponent.cpp">
+      <Filter>Role</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoMusicControllerComponent.cpp">
+      <Filter>Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoSoundComponent.cpp">
+      <Filter>Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoLensFlareComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoEnvTriggerEventComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoLightFlareComponent.cpp">
+      <Filter>Light</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoLightFlareComponentManager.cpp">
+      <Filter>Light</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoDriftComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoEntityBatchComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoStarsComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoWeatherCoverColorComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoEmitterComponent.cpp">
+      <Filter>Emitter</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoOceanComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCameraBaseComponent.cpp">
+      <Filter>Camera</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCameraComponentManager.cpp">
+      <Filter>Camera</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoTODComponentSystem.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoVolumeLightComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoVegetationAreaComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCurvedRoleComponent.cpp">
+      <Filter>CurvedRole</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCurvedRoleUtil.cpp">
+      <Filter>CurvedRole</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCSGComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoCSGUtil.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoRagdollData.cpp">
+      <Filter>Ragdoll</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\3DUI\Echo3DUIObject.cpp">
+      <Filter>3DUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoVegetationAreaComponentTestHelper.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoComponentStableHeaders.cpp">
+      <Filter>ComponentBase</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoSphericalTerrainComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoTODShadowComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoTODDataUtil.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoMediaComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoAnimationTimelineComponent.cpp">
+      <Filter>Timeline</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoAnimationTimelineInfo.cpp">
+      <Filter>Timeline</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoNewDecalComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPavementObject.cpp">
+      <Filter>Road</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoDestructibleComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoAtlasSphericalTerrainComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPlanetEntryControlComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoHDRAdaptiveComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoSphereFogComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoKarstTerrainComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoBuildingComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoDistantBuildingComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoFunctionalBuildingComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPCGGraphComponent.cpp">
+      <Filter>PCG</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPCGGraphComponent.cpp">
+      <Filter>PCG</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPCGGraphComponent.cpp">
+      <Filter>PCG</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoColorFilterComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoHerdComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPCGGraphComponentManager.cpp">
+      <Filter>PCG</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoSphericalTerrainPCGGenScheduler.cpp">
+      <Filter>PCG</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\EchoPCGCommon.cpp">
+      <Filter>PCGV2</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\EchoPCGContext.cpp">
+      <Filter>PCGV2</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\EchoPCGElement.cpp">
+      <Filter>PCGV2</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\EchoPCGGraph.cpp">
+      <Filter>PCGV2</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\EchoPCGHelper.cpp">
+      <Filter>PCGV2</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\EchoPCGSettings.cpp">
+      <Filter>PCGV2</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\EchoPCGTests.cpp">
+      <Filter>PCGV2</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Data\EchoPCGDataCommon.cpp">
+      <Filter>PCGV2\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Data\EchoPCGLandscapeData.cpp">
+      <Filter>PCGV2\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Data\EchoPCGPointData.cpp">
+      <Filter>PCGV2\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Data\EchoPCGSpatialData.cpp">
+      <Filter>PCGV2\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGLandscapeGetter.cpp">
+      <Filter>PCGV2\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGStaticMeshSpawner.cpp">
+      <Filter>PCGV2\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGSurfaceSampler.cpp">
+      <Filter>PCGV2\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Graph\EchoPCGGraphCompiler.cpp">
+      <Filter>PCGV2\Graph</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Graph\EchoPCGGraphExecutor.cpp">
+      <Filter>PCGV2\Graph</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Graph\EchoPCGGraphTask.cpp">
+      <Filter>PCGV2\Graph</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\EchoPCGManagedResource.cpp">
+      <Filter>PCGV2</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\EchoInstancedStaticMeshComponent.cpp">
+      <Filter>PCGV2</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\EchoPCGComponent.cpp">
+      <Filter>PCGV2</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\EchoPCGPin.cpp">
+      <Filter>PCGV2</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\EchoPCGSystem.cpp">
+      <Filter>PCGV2</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGInputOutputSettings.cpp">
+      <Filter>PCGV2\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Reflection\EchoPCGProperty.cpp">
+      <Filter>PCGV2\Reflection</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoPolylineComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoKarstCityRoadComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoVoxelTerrainComponent.cpp" />
+    <ClCompile Include="..\..\Source\EchoGeneratedTerrainPhysics.cpp">
+      <Filter>Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGSubgraph.cpp">
+      <Filter>PCGV2\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoFractalComponent.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Reflection\EchoPCGSerializer.cpp">
+      <Filter>PCGV2\Reflection</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Reflection\EchoPCGEnum.cpp">
+      <Filter>PCGV2\Reflection</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Reflection\EchoPCGObjectV2.cpp">
+      <Filter>PCGV2\Reflection</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Reflection\EchoPCGClass.cpp">
+      <Filter>PCGV2\Reflection</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoAtmosphereComponent.cpp" />
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGDensityFilter.cpp">
+      <Filter>PCGV2\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGTransformPoints.cpp">
+      <Filter>PCGV2\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGDistance.cpp">
+      <Filter>PCGV2\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGGather.cpp">
+      <Filter>PCGV2\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGBoundsModifier.cpp">
+      <Filter>PCGV2\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Data\EchoPCGSurfaceData.cpp">
+      <Filter>PCGV2\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Elements\EchoPCGDifference.cpp">
+      <Filter>PCGV2\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Data\EchoPCGDifferenceData.cpp">
+      <Filter>PCGV2\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Data\EchoPCGUnionData.cpp">
+      <Filter>PCGV2\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\PCG\Data\EchoPCGProjectionParams.cpp">
+      <Filter>PCGV2\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoLocalRadialBlurComponent.cpp">
+      <Filter>Component</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\EchoSphericalOceanComponent.cpp">
+      <Filter>TOD</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="cpp.hint" />
+    <None Include="..\..\..\.editorconfig" />
+  </ItemGroup>
+</Project>
